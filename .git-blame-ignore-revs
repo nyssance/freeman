@@ -5,3 +5,7 @@
 # chore: move the Rust crates to edition 2024 (#506)
 # rustfmt 2024 style edition, and nested if-lets collapsed into let chains.
 3fcabb95dc1a2e4fcb5ccd16eabd8498cfa09cb5
+
+# Apply the project formatting standard
+# ruff format and rustfmt with the settings of this project. Mechanical only.
+45b99e71e8e73cabc41bbd39a17ea2ccddee4a7c
