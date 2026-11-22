@@ -228,3 +228,79 @@ class TestFindBoltApiNames:
         """,
         )
         assert find_bolt_api_names(name) == []
+
+
+class TestSubclassDiscovery:
+    """A subclass of BoltAPI has a name that the source does not show. The module is imported to find it."""
+
+    @pytest.fixture
+    def importable(self, tmp_path, monkeypatch):
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        def write(module_name: str, source: str) -> str:
+            (tmp_path / f"{module_name}.py").write_text(textwrap.dedent(source))
+            return module_name
+
+        write(
+            "_sub_framework",
+            """
+            from freeman import BoltAPI
+
+            class API(BoltAPI):
+                pass
+
+            shared = API()
+            """,
+        )
+        return write
+
+    def test_an_instance_of_a_subclass_is_found(self, importable):
+        name = importable(
+            "_sub_project",
+            """
+            from _sub_framework import API
+
+            api = API()
+            """,
+        )
+        assert find_bolt_api_names(name) == ["api"]
+
+    def test_a_name_that_the_module_only_imports_is_not_found(self, importable):
+        name = importable(
+            "_sub_project_imports",
+            """
+            from _sub_framework import API, shared
+
+            first = API()
+            settings = dict()
+            second = API()
+            """,
+        )
+        # `shared` is an API, but another module made it. `settings` is not an API.
+        assert find_bolt_api_names(name) == ["first", "second"]
+
+    def test_a_module_that_names_boltapi_is_not_imported(self, importable):
+        name = importable(
+            "_sub_project_plain",
+            """
+            from freeman import BoltAPI
+            from _sub_framework import API
+
+            api = BoltAPI()
+            other = API()
+            raise RuntimeError("the source was enough")
+            """,
+        )
+        assert find_bolt_api_names(name) == ["api"]
+
+    def test_a_module_that_does_not_import_gives_nothing(self, importable):
+        name = importable(
+            "_sub_project_broken",
+            """
+            from _sub_framework import API
+
+            api = API()
+            raise RuntimeError("broken")
+            """,
+        )
+        assert find_bolt_api_names(name) == []

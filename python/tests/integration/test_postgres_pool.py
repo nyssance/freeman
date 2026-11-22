@@ -108,7 +108,7 @@ def test_queries_of_one_request_run_at_the_same_time(client):
     assert data["seconds"] < QUERIES * SLEEP / 4, data
 
 
-def test_a_block_that_ends_with_no_error_commits(client):
+def test_each_statement_is_committed(client):
     assert client.get("/write").json() == {"rows": 1}
 
 

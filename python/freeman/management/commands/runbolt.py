@@ -464,6 +464,11 @@ def find_bolt_api_names(module_name: str) -> list[str]:
     Handles ``BoltAPI()``, import aliases (``from freeman.api import BoltAPI as X``),
     and attribute-style calls (``freeman.api.BoltAPI()``).
     Only top-level assignments are considered.
+
+    A subclass of BoltAPI has a name of its own, which the source does not
+    show. So when the source names no BoltAPI, the module is imported, and each
+    top-level name that the module assigns from a call counts when it holds a
+    BoltAPI instance. A name that the module only imports does not count.
     """
     spec = importlib.util.find_spec(module_name)
     if spec is None or spec.origin is None:
@@ -504,6 +509,8 @@ def find_bolt_api_names(module_name: str) -> list[str]:
 
     # Find top-level assignments where RHS is a call to a BoltAPI alias
     names: list[str] = []
+    # Each top-level name that is assigned from a call, for the subclass case.
+    called: list[str] = []
 
     for node in ast.iter_child_nodes(tree):
         call_node = None
@@ -521,6 +528,7 @@ def find_bolt_api_names(module_name: str) -> list[str]:
 
         if call_node is None:
             continue
+        called.extend(targets)
 
         func = call_node.func
         is_bolt = (isinstance(func, ast.Name) and func.id in bolt_api_aliases) or (
@@ -536,7 +544,13 @@ def find_bolt_api_names(module_name: str) -> list[str]:
         if is_bolt:
             names.extend(targets)
 
-    return names
+    if names or not called:
+        return names
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:  # noqa: BLE001 - a module that does not import holds no API to find here
+        return []
+    return [name for name in called if isinstance(getattr(module, name, None), BoltAPI)]
 
 
 def _project_api_module_names(root_urlconf: str) -> list[str]:

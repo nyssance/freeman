@@ -16,8 +16,12 @@ The pool reads ``DATABASES`` of the Django settings, so the route uses the
 database of the models. Each worker thread runs its own event loop, and an
 async connection belongs to one loop, so each loop has its own pool.
 
-The size is in ``OPTIONS["async_pool"]`` of the database, for example
-``{"min_size": 2, "max_size": 16}``. Count these connections with the others:
+A connection is in autocommit mode: each statement is its own transaction.
+Use ``async with conn.transaction():`` for statements that belong together.
+
+The pool holds 16 connections and opens them all at the start. Change the
+size in ``OPTIONS["async_pool"]`` of the database, for example
+``{"min_size": 32, "max_size": 32}``. Count these connections with the others:
 the database serves ``processes * workers * max_size`` of them at most.
 
 Call ``close_pools()`` on shutdown, from the ``lifespan`` of the API. A test run calls
@@ -40,7 +44,9 @@ except ImportError as e:  # pragma: no cover - the message is the behaviour
 
 __all__ = ("close_all_pools", "close_pools", "connection", "pool")
 
-_DEFAULT_SIZE = {"min_size": 1, "max_size": 16}
+# The pool opens all of its connections at the start. A pool that grows on demand
+# adds them one at a time in the background, and a burst of requests waits for that.
+_DEFAULT_SIZE = {"min_size": 16, "max_size": 16}
 # One pool for each (event loop, database alias).
 _pools: dict[tuple[asyncio.AbstractEventLoop, str], AsyncConnectionPool] = {}
 _CONNINFO_KEYS = {"NAME": "dbname", "USER": "user", "PASSWORD": "password", "HOST": "host", "PORT": "port"}
@@ -70,7 +76,9 @@ async def pool(alias: str = "default") -> AsyncConnectionPool:
     if found is not None:
         return found
     size: dict[str, Any] = _DEFAULT_SIZE | settings.DATABASES.get(alias, {}).get("OPTIONS", {}).get("async_pool", {})
-    created = AsyncConnectionPool(_conninfo(alias), open=False, **size)
+    # autocommit: a statement is its own transaction, so a read costs one round
+    # trip and not three. A block that needs more uses ``conn.transaction()``.
+    created = AsyncConnectionPool(_conninfo(alias), open=False, kwargs={"autocommit": True}, **size)
     # A second task of this loop can get here while the first one opens the
     # pool. The first pool in the dict is the pool of the loop.
     found = _pools.setdefault(key, created)
@@ -94,7 +102,7 @@ class _Connection(AbstractAsyncContextManager[AsyncConnection]):
 
 
 def connection(alias: str = "default") -> AbstractAsyncContextManager[AsyncConnection]:
-    """A connection of the pool for one ``async with`` block. A block that ends with no error commits."""
+    """A connection of the pool for one ``async with`` block, in autocommit mode."""
     return _Connection(alias)
 
 
