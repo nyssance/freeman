@@ -17,6 +17,8 @@ import msgspec
 from django.db.models import QuerySet
 
 from .._field_marker import _FieldMarker
+from .._pydantic import build_body_extractor as build_pydantic_body_extractor
+from .._pydantic import names_pydantic_model
 from .._serializer_before import RAW_VALIDATED, before_plan, run_before_validators
 from .._serializer_input import ignore_read_only_input, read_only_input_extractor
 from ..concurrency import run_in_orm_executor
@@ -1117,6 +1119,8 @@ def _build_embedded_body_extractor(annotation: Any, key: str, default: Any) -> C
     """
     if default is inspect.Parameter.empty and is_optional(annotation):
         default = None
+    if names_pydantic_model(annotation):
+        raise TypeError("Body(embed=True) does not take a Pydantic model. Declare a model with that key as its field.")
     has_default = default is not inspect.Parameter.empty
     # The key is a field name on the wire only. It need not be a Python identifier.
     wire_field = msgspec.field(name=key, default_factory=lambda: default) if has_default else msgspec.field(name=key)
@@ -1158,6 +1162,9 @@ def _build_before_body_extractor(annotation: Any, plan: Callable) -> Callable:
 
 
 def _build_body_extractor(annotation: Any) -> Callable:
+    # Pydantic owns a type that names one of its models.
+    if names_pydantic_model(annotation):
+        return build_pydantic_body_extractor(annotation)
     # Only a type with a before validator leaves the direct msgspec decode.
     plan = before_plan(annotation)
     if plan is not None:

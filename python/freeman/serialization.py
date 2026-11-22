@@ -30,6 +30,8 @@ from django.template.response import SimpleTemplateResponse, TemplateResponse
 
 from . import _json
 from ._kwargs import compile_response_coercer, compile_struct_row_readers
+from ._pydantic import compile_response_coercer as compile_pydantic_response_coercer
+from ._pydantic import names_pydantic_model
 from ._response_dump import compile_serializer_dumper
 from ._template_response import render_template_response
 from .concurrency import run_in_orm_executor, run_orm_blocking
@@ -643,6 +645,11 @@ def _compile_type_validators(annotation: Any, validate: bool) -> tuple[Any, Any]
     at a position of the type gives its dump(), also when the route does not
     validate. Both validators are None when neither step applies.
     """
+    # Pydantic owns a type that names one of its models. It also runs when the
+    # route does not validate: the model decides which fields go out.
+    if names_pydantic_model(annotation):
+        return compile_pydantic_response_coercer(annotation)
+
     dump = compile_serializer_dumper(annotation)
     if not validate:
         if dump is None:

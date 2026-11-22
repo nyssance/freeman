@@ -31,6 +31,7 @@ import msgspec
 
 # Import Param and Depends at top level for use in from_parameter method
 # These imports must be at module top to comply with PLC0415
+from ._pydantic import names_pydantic_model
 from .datastructures import UploadFile
 from .params import Depends as DependsMarker
 from .params import Param
@@ -544,7 +545,7 @@ def infer_param_source(name: str, annotation: Any, path_params: set[str], http_m
     # later in the validation path, not here.
     # A sequence of them is a JSON array. A query string cannot hold it.
     item = get_args(unwrapped)[0] if is_sequence_type(unwrapped) and get_args(unwrapped) else unwrapped
-    if is_msgspec_struct(item) or is_dataclass_type(item):
+    if is_msgspec_struct(item) or is_dataclass_type(item) or names_pydantic_model(unwrapped):
         return "body"
 
     # 6. Default to query

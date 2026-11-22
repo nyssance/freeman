@@ -8,13 +8,16 @@ import inspect
 import re
 import uuid
 from collections.abc import Callable
-from dataclasses import is_dataclass, replace
+from dataclasses import dataclass, is_dataclass, replace
+from dataclasses import field as dataclass_field
 from types import UnionType
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union, get_args, get_origin, is_typeddict
 
 import msgspec
 from django.conf import settings as django_settings
+from pydantic import TypeAdapter
 
+from .._pydantic import adapter_for, is_pydantic_model
 from .._serializer_input import any_serializer
 from ..datastructures import UploadFile
 from ..pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, PaginationBase
@@ -130,6 +133,22 @@ class _InputComponent:
         display = _type_display_name(self.struct_type)
         self.__name__ = f"{display}{suffix}"
         self.__qualname__ = f"{display.replace(origin.__name__, origin.__qualname__, 1)}{suffix}"
+
+
+@dataclass
+class _PydanticSchema(Schema):
+    """The schema of a Pydantic model. Pydantic builds it after the generator has seen every route.
+
+    Pydantic names all of its models in one pass. Thus it gives two models
+    with the same class name different component names, and it gives a model
+    whose input and output differ one component for each. Until that pass the
+    use site holds this object, and ``resolved`` is empty.
+    """
+
+    resolved: dict[str, Any] = dataclass_field(default_factory=dict)
+
+    def to_schema(self) -> dict[str, Any]:
+        return self.resolved
 
 
 class ComponentNameCollisionError(ValueError):
@@ -359,6 +378,9 @@ class SchemaGenerator:
         # schema has no field that dump() leaves out.
         self._input_schema = False
         self._input_components: dict[type, _InputComponent] = {}
+        # Each use of a Pydantic model: the object at the use site, the model,
+        # and "validation" for a request body or "serialization" for a response.
+        self._pydantic_uses: list[tuple[_PydanticSchema, type, str]] = []
         # strict mode bookkeeping (see OpenAPIStrictError)
         self._opaque_operations: list[str] = []
         self._qualified_components: list[str] = []
@@ -778,6 +800,7 @@ class SchemaGenerator:
         # only as type-keyed placeholders, so this is what actually fills
         # self.schemas and stamps the shared `$ref`s.
         self._finalize_component_names()
+        self._finalize_pydantic_schemas()
         if self.schemas:
             openapi.components.schemas = self.schemas
 
@@ -1750,6 +1773,8 @@ class SchemaGenerator:
 
         if type_annotation is UploadFile:
             return Schema(type="string", format="binary")
+        if is_pydantic_model(type_annotation):
+            return self._pydantic_schema(type_annotation)
         # Bare or parametrized Struct (``Page[UserRead]`` is keyed per parametrization).
         if _struct_origin(type_annotation) is not None:
             if register_component:
@@ -1921,6 +1946,30 @@ class SchemaGenerator:
         if key is None:
             key = self._input_components[struct_type] = _InputComponent(struct_type)
         return key
+
+    def _pydantic_schema(self, model: type) -> _PydanticSchema:
+        """Note one use of a Pydantic model. ``_finalize_pydantic_schemas`` gives it its schema."""
+        placeholder = _PydanticSchema()
+        self._pydantic_uses.append((placeholder, model, "validation" if self._input_schema else "serialization"))
+        return placeholder
+
+    def _finalize_pydantic_schemas(self) -> None:
+        """Let Pydantic build the schema of each model that a route names, and add its components."""
+        if not self._pydantic_uses:
+            return
+        inputs = {(model, mode): (model, mode, adapter_for(model)) for _, model, mode in self._pydantic_uses}
+        schemas, definitions = TypeAdapter.json_schemas(
+            list(inputs.values()), ref_template="#/components/schemas/{model}"
+        )
+        for name, schema in definitions.get("$defs", {}).items():
+            if name in self.schemas:
+                raise ValueError(
+                    f"The OpenAPI component name {name!r} is the name of a Pydantic model and of another type. "
+                    "Rename one of them."
+                )
+            self.schemas[name] = schema
+        for placeholder, model, mode in self._pydantic_uses:
+            placeholder.resolved = schemas[model, mode]
 
     def _register_component(self, cls: type, build_schema: Callable[[], Schema]) -> Reference:
         """Register ``cls`` as a component (by type identity) and return its shared Reference.

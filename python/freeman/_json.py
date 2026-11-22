@@ -27,6 +27,7 @@ from typing import Any
 from uuid import UUID
 
 import msgspec
+from pydantic import BaseModel
 
 # Default type encoders for non-JSON-native types
 # Maps type -> encoder function
@@ -100,6 +101,9 @@ def default_serializer(value: Any) -> Any:
     Note: Serializer instances are handled in serialization.py before reaching
     this hook, since msgspec.Struct is natively supported by msgspec.
     """
+    # A Pydantic model encodes itself. The encoder passes the bytes through.
+    if isinstance(value, BaseModel):
+        return msgspec.Raw(type(value).__pydantic_serializer__.to_json(value))
     # Walk MRO to support polymorphic types
     for base in value.__class__.__mro__[:-1]:  # Skip 'object'
         encoder = DEFAULT_TYPE_ENCODERS.get(base)

@@ -36,6 +36,7 @@ dependencies = [
     "click>=8.1",
     "httpx>=0.28.1",
     "msgspec>=0.20",
+    "pydantic>=2.11",
     "pyjwt>=2.10.1",
     "typing-extensions>=4.5.0",  # required openapi docs
     "pyyaml>=6.0", # required openapi docs
