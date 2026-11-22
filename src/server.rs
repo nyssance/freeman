@@ -706,6 +706,8 @@ pub fn start_server(
             .chain(router.no_route().map(|route| route.handler_id))
             .map(|id| metadata.get(&id).map_or(0, |meta| meta.access_log_filter.logger)),
     );
+    // The native log writes each request, also when no Python logger writes a line.
+    let access_log_enabled = access_log_enabled || bolt_core::access_log::native_sink().is_some();
     let access_loggers = if access_log_enabled { access_loggers } else { Vec::new() };
     let route_metadata = Arc::new(RouteMetadataStore::from_map(metadata));
 

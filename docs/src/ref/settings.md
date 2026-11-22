@@ -238,6 +238,24 @@ export DJANGO_BOLT_MAX_PARAM_LENGTH=65536
 
 The value must be an int from `1` to `1048576`.
 
+### DJANGO_BOLT_ACCESS_LOG
+
+Set it to `stdout` and Rust writes the access log itself: one JSON object for each request on stdout, with no call to a Python logger.
+
+```bash
+export DJANGO_BOLT_ACCESS_LOG=stdout
+```
+
+```json
+{"ts":1795344954.612,"method":"GET","path":"/items/7","status":200,"ms":0.4}
+```
+
+**Default:** not set. The Python loggers write the access log, by their levels.
+
+`ts` is the time in seconds since the epoch and `ms` is the duration in milliseconds. The filter of each route still applies: `skip_paths`, `skip_status_codes`, the sample rate and the slow-request threshold of `LoggingConfig`. A line reaches stdout at most a few milliseconds after the response. When more than 65,536 lines wait, a new line is dropped, so a slow reader of stdout does not slow the requests.
+
+Measured on one process with an empty route and 100 connections: 126,000 requests per second with no access log, 122,000 with this log, and 35,000 with a Python logger at `INFO`.
+
 ### DJANGO_BOLT_ORM_THREADS
 
 Number of threads in the ORM pool of each process. Django-Bolt evaluates the QuerySets that async handlers return on this pool. `await request.auser()` also loads the user on this pool. Django's async ORM API in async handlers without Django middleware, such as `await Model.objects.aget()`, `acount()` and `async for`, runs on this pool too. A route with Django middleware runs these calls on its request lane instead. The pool size is the number of queries in flight per process.

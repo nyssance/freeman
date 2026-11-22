@@ -11,7 +11,10 @@ use pyo3::types::PyDict;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};
-use std::time::Instant;
+use std::io::Write;
+use std::sync::OnceLock;
+use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 /// Route metadata key of `LoggingConfig.sample_rate`.
 const SAMPLE_RATE_KEY: &str = "access_log_sample_rate";
@@ -70,6 +73,83 @@ pub fn read_access_loggers<'a>(
         };
     }
     Ok(loggers)
+}
+
+/// With this variable set to `stdout`, Rust writes the access log itself, one
+/// JSON object for each line, and no request calls a Python logger for it.
+pub const NATIVE_ENV: &str = "DJANGO_BOLT_ACCESS_LOG";
+/// Lines that wait for the writer thread. A line that finds the queue full is dropped.
+const NATIVE_QUEUE: usize = 65_536;
+/// One `write` holds at most this many bytes. A write to a pipe of at most
+/// `PIPE_BUF` bytes (4096 on Linux) is atomic, so the lines of two worker
+/// processes that share stdout do not mix.
+const NATIVE_CHUNK: usize = 4000;
+/// The writer rests this long after each batch. A line reaches stdout at most this much later.
+const NATIVE_PAUSE: std::time::Duration = std::time::Duration::from_millis(2);
+
+static NATIVE: OnceLock<Option<SyncSender<String>>> = OnceLock::new();
+
+/// The queue of the native access log, or `None` when the Python loggers write the log.
+/// The first call reads `DJANGO_BOLT_ACCESS_LOG` and starts the writer thread.
+pub fn native_sink() -> Option<&'static SyncSender<String>> {
+    NATIVE
+        .get_or_init(|| {
+            if std::env::var(NATIVE_ENV).as_deref() != Ok("stdout") {
+                return None;
+            }
+            let (sender, receiver) = sync_channel::<String>(NATIVE_QUEUE);
+            std::thread::Builder::new()
+                .name("bolt-access-log".to_string())
+                .spawn(move || write_native_lines(&receiver, &mut std::io::stdout()))
+                .ok()?;
+            Some(sender)
+        })
+        .as_ref()
+}
+
+/// Write the lines of `receiver` to `out` until every sender is gone.
+/// It blocks for the first line, then takes each line that already waits.
+pub fn write_native_lines(receiver: &Receiver<String>, out: &mut impl Write) {
+    let mut chunk = String::with_capacity(NATIVE_CHUNK);
+    while let Ok(first) = receiver.recv() {
+        let mut next = Some(first);
+        while let Some(line) = next {
+            if !chunk.is_empty() && chunk.len() + line.len() + 1 > NATIVE_CHUNK {
+                let _ = out.write_all(chunk.as_bytes());
+                chunk.clear();
+            }
+            chunk.push_str(&line);
+            chunk.push('\n');
+            next = receiver.try_recv().ok();
+        }
+        let _ = out.write_all(chunk.as_bytes());
+        let _ = out.flush();
+        chunk.clear();
+        // Let lines gather before the next batch. A sender wakes a writer that
+        // waits in `recv`, and under load that is one system call for each line.
+        std::thread::sleep(NATIVE_PAUSE);
+    }
+}
+
+/// One line of the native access log: the time as seconds since the epoch,
+/// the method, the path, the status and the duration in milliseconds.
+pub fn native_line(method: &str, path: &str, status: u16, dur_ms: f64) -> String {
+    use std::fmt::Write as _;
+
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0.0, |elapsed| elapsed.as_secs_f64());
+    // One allocation for the line. A method is a token of visible ASCII.
+    let mut line = String::with_capacity(72 + path.len());
+    let _ = write!(line, r#"{{"ts":{now:.3},"method":"{method}","path":"#);
+    // Most paths need no escape. serde_json escapes the others.
+    if path.bytes().all(|byte| byte >= 0x20 && byte != b'"' && byte != b'\\') {
+        line.push('"');
+        line.push_str(path);
+        line.push('"');
+    } else {
+        line.push_str(&serde_json::to_string(path).unwrap_or_else(|_| "\"\"".to_string()));
+    }
+    let _ = write!(line, r#","status":{status},"ms":{dur_ms:.1}}}"#);
+    line
 }
 
 /// `true` when a route writes to a logger that writes a line. `route_loggers`
@@ -261,11 +341,13 @@ pub fn rejection_line_at(logger: usize, now: Instant) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AccessLogFilter, AccessLogger, RejectionLineLimit, access_log_on, random_unit, read_access_loggers,
-        rejection_line_at,
+        AccessLogFilter, AccessLogger, NATIVE_CHUNK, RejectionLineLimit, access_log_on, native_line, random_unit,
+        read_access_loggers, rejection_line_at, write_native_lines,
     };
     use pyo3::prelude::*;
     use pyo3::types::PyDict;
+    use std::io::Write;
+    use std::sync::mpsc::sync_channel;
     use std::time::{Duration, Instant};
 
     fn no_random() -> f64 {
@@ -498,5 +580,65 @@ mod tests {
         })
         .join()
         .unwrap();
+    }
+
+    #[test]
+    fn a_native_line_is_one_json_object_with_the_five_keys() {
+        let line = native_line("GET", "/items/7", 200, 1.26);
+        let value: serde_json::Value = serde_json::from_str(&line).expect("valid JSON");
+        assert_eq!(value["method"], "GET");
+        assert_eq!(value["path"], "/items/7");
+        assert_eq!(value["status"], 200);
+        assert_eq!(value["ms"], 1.3);
+        assert!(value["ts"].as_f64().expect("a number") > 1_700_000_000.0);
+        assert!(!line.contains('\n'));
+    }
+
+    #[test]
+    fn a_native_line_escapes_the_path() {
+        let line = native_line("GET", "/a\"b\\c\nd", 404, 0.0);
+        let value: serde_json::Value = serde_json::from_str(&line).expect("valid JSON");
+        assert_eq!(value["path"], "/a\"b\\c\nd");
+    }
+
+    #[test]
+    fn the_writer_writes_each_line_and_ends_when_the_senders_are_gone() {
+        let (sender, receiver) = sync_channel::<String>(8);
+        for index in 0..3 {
+            sender.send(format!("line {index}")).expect("the queue has room");
+        }
+        drop(sender);
+        let mut out = Vec::new();
+        write_native_lines(&receiver, &mut out);
+        assert_eq!(String::from_utf8(out).expect("UTF-8"), "line 0\nline 1\nline 2\n");
+    }
+
+    /// Counts the writes, to check the size of each.
+    struct Chunks(Vec<usize>);
+
+    impl Write for Chunks {
+        fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+            self.0.push(buffer.len());
+            Ok(buffer.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn one_write_holds_whole_lines_and_stays_under_the_pipe_limit() {
+        let (sender, receiver) = sync_channel::<String>(256);
+        let line = "x".repeat(99);
+        for _ in 0..100 {
+            sender.send(line.clone()).expect("the queue has room");
+        }
+        drop(sender);
+        let mut out = Chunks(Vec::new());
+        write_native_lines(&receiver, &mut out);
+        assert_eq!(out.0.iter().sum::<usize>(), 100 * 100);
+        assert!(out.0.len() > 1);
+        assert!(out.0.iter().all(|size| *size <= NATIVE_CHUNK && size % 100 == 0), "{:?}", out.0);
     }
 }

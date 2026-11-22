@@ -720,10 +720,10 @@ fn write_access_log(state: &AppState, req: &HttpRequest, status: u16, start: std
     let (bit, level) = access_log_level(status);
     let meta = state.route_metadata.get(handler_id);
     let logger_index = meta.map_or(0, |meta| meta.access_log_filter.logger);
-    let Some(logger) = state.access_loggers.get(logger_index) else {
-        return;
-    };
-    if logger.levels & bit == 0 {
+    // The native log takes each status. A Python logger takes the levels that it writes.
+    let native = bolt_core::access_log::native_sink();
+    let logger = state.access_loggers.get(logger_index);
+    if native.is_none() && logger.is_none_or(|logger| logger.levels & bit == 0) {
         return;
     }
     let dur_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -742,6 +742,14 @@ fn write_access_log(state: &AppState, req: &HttpRequest, status: u16, start: std
         }
     } else {
         0
+    };
+    if let Some(sink) = native {
+        // A full queue drops the line. The request does not wait for the log.
+        let _ = sink.try_send(bolt_core::access_log::native_line(req.method().as_str(), req.path(), status, dur_ms));
+        return;
+    }
+    let Some(logger) = logger else {
+        return;
     };
     let msg = format!("{} {} {} {:.1}ms", req.method().as_str(), req.path(), status, dur_ms);
     // The line of a 429 counts the 429 responses before it that wrote no line.
