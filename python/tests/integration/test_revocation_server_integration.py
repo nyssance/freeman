@@ -78,10 +78,7 @@ def test_token_without_jti_rejected_by_real_server(make_server_project):
             algorithm="HS256",
         )
 
-        response = server.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {token_without_jti}"},
-        )
+        response = server.get("/protected", headers={"Authorization": f"Bearer {token_without_jti}"})
 
     assert response.status_code == 401, response.text
 

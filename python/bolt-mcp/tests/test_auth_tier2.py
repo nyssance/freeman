@@ -36,9 +36,7 @@ def _build():
         api,
         mcp,
         oauth=ProtectedResource(
-            resource_url=RESOURCE_URL,
-            authorization_servers=["https://idp.test"],
-            token_verifier=_verify,
+            resource_url=RESOURCE_URL, authorization_servers=["https://idp.test"], token_verifier=_verify
         ),
     )
     return api, mcp
@@ -99,18 +97,13 @@ def test_scope_claim_accepts_string_and_json_arrays():
 
 def test_malformed_scope_claim_is_rejected_without_raising():
     resource = ProtectedResource(
-        resource_url=RESOURCE_URL,
-        required_scopes=("read",),
-        token_verifier=lambda _token: {"scope": {"read": True}},
+        resource_url=RESOURCE_URL, required_scopes=("read",), token_verifier=lambda _token: {"scope": {"read": True}}
     )
     assert make_verify_token(resource)("token") is None
 
 
 def test_claim_encoding_failure_is_logged_and_keeps_empty_claims_json(monkeypatch, caplog):
-    resource = ProtectedResource(
-        resource_url=RESOURCE_URL,
-        token_verifier=lambda _token: {"sub": "user-1"},
-    )
+    resource = ProtectedResource(resource_url=RESOURCE_URL, token_verifier=lambda _token: {"sub": "user-1"})
 
     def fail_encode(_claims):
         raise TypeError("not serializable")

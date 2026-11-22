@@ -110,10 +110,7 @@ def api():
 
     @api.get("/ok-list", response_model=list[Item])
     async def ok_list():
-        return [
-            {"name": "a", "price": 1.0, "is_offer": True},
-            {"name": "b", "price": 2.0, "is_offer": False},
-        ]
+        return [{"name": "a", "price": 1.0, "is_offer": True}, {"name": "b", "price": 2.0, "is_offer": False}]
 
     @api.get("/bad-list", response_model=list[Item])
     async def bad_list():
@@ -1105,9 +1102,7 @@ def test_form_list_field_urlencoded_multiple_values(client):
     """Repeated urlencoded keys must bind to a list[T] struct field."""
     body = "name=alice&tags=red&tags=green&tags=blue&counts=1&counts=2"
     response = client.post(
-        "/form-with-list",
-        content=body,
-        headers={"content-type": "application/x-www-form-urlencoded"},
+        "/form-with-list", content=body, headers={"content-type": "application/x-www-form-urlencoded"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -1119,12 +1114,7 @@ def test_form_list_field_urlencoded_multiple_values(client):
 def test_form_list_field_multipart_multiple_values(client):
     """Repeated multipart keys must bind to a list[T] struct field."""
     response = client.post(
-        "/form-with-list",
-        files=[
-            ("name", (None, "bob")),
-            ("tags", (None, "x")),
-            ("tags", (None, "y")),
-        ],
+        "/form-with-list", files=[("name", (None, "bob")), ("tags", (None, "x")), ("tags", (None, "y"))]
     )
     assert response.status_code == 200
     data = response.json()
@@ -1135,10 +1125,7 @@ def test_form_list_field_multipart_multiple_values(client):
 
 def test_form_list_field_single_value_wraps_to_list(client):
     """A list[T] field receiving a single occurrence becomes a one-element list."""
-    response = client.post(
-        "/form-with-list",
-        data={"name": "carol", "tags": "solo"},
-    )
+    response = client.post("/form-with-list", data={"name": "carol", "tags": "solo"})
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "carol"

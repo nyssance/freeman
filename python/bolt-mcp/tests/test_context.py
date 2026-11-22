@@ -137,10 +137,7 @@ def test_sample_on_modern_peer_is_clear_in_band_error():
     api, _ = _build()
     with TestClient(api) as client:
         resp = post_rpc_modern(
-            client,
-            "tools/call",
-            {"name": "asks_llm", "arguments": {}},
-            capabilities={"sampling": {}},
+            client, "tools/call", {"name": "asks_llm", "arguments": {}}, capabilities={"sampling": {}}
         )
         result = parse_rpc(resp)["result"]
         assert result["isError"] is True

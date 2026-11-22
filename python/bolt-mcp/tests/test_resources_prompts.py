@@ -125,10 +125,7 @@ def test_prompts_list_and_get():
         assert "topic" in arg_names
 
         got = post_rpc(
-            client,
-            "prompts/get",
-            {"name": "summarize", "arguments": {"topic": "otters"}},
-            session_id=session_id,
+            client, "prompts/get", {"name": "summarize", "arguments": {"topic": "otters"}}, session_id=session_id
         )
         assert got.status_code == 200
         messages = parse_rpc(got)["result"]["messages"]

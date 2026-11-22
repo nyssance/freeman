@@ -26,15 +26,7 @@ def _clear_modules(monkeypatch, *module_names: str) -> None:
 
 def test_build_dev_worker_command_removes_dev_and_forces_single_process():
     command = runbolt_module._build_dev_worker_command(
-        [
-            "manage.py",
-            "--settings=testproject.settings",
-            "runbolt",
-            "--dev",
-            "--host",
-            "127.0.0.1",
-            "--processes=4",
-        ],
+        ["manage.py", "--settings=testproject.settings", "runbolt", "--dev", "--host", "127.0.0.1", "--processes=4"],
         executable="/usr/bin/python3",
     )
 
@@ -65,16 +57,7 @@ def test_build_dev_worker_command_preserves_module_invocation():
         main_module="src.manage",
     )
 
-    assert command == [
-        "/usr/bin/python3",
-        "-m",
-        "src.manage",
-        "runbolt",
-        "--host",
-        "127.0.0.1",
-        "--processes",
-        "1",
-    ]
+    assert command == ["/usr/bin/python3", "-m", "src.manage", "runbolt", "--host", "127.0.0.1", "--processes", "1"]
 
 
 def test_dev_worker_main_module_reports_dash_m_module():
@@ -181,21 +164,9 @@ def test_collect_dev_watch_paths_collapses_root_and_keeps_external_paths(setting
     urls_module.write_text("urlpatterns = []\n")
 
     monkeypatch.chdir(project_root)
-    monkeypatch.setattr(
-        runbolt_module,
-        "_collect_loaded_python_paths",
-        lambda: {settings_module, urls_module},
-    )
-    monkeypatch.setattr(
-        runbolt_module,
-        "_collect_autodiscovery_python_paths",
-        lambda: {external_app / "api.py"},
-    )
-    monkeypatch.setattr(
-        runbolt_module,
-        "get_template_directories",
-        lambda: {templates_root},
-    )
+    monkeypatch.setattr(runbolt_module, "_collect_loaded_python_paths", lambda: {settings_module, urls_module})
+    monkeypatch.setattr(runbolt_module, "_collect_autodiscovery_python_paths", lambda: {external_app / "api.py"})
+    monkeypatch.setattr(runbolt_module, "get_template_directories", lambda: {templates_root})
 
     settings.BASE_DIR = project_root
 
@@ -213,17 +184,7 @@ def test_collect_dev_watch_paths_collapses_root_and_keeps_external_paths(setting
 
 def test_execute_from_command_line_dev_calls_reloader_with_debounce(monkeypatch):
     recorded = {}
-    argv = [
-        "manage.py",
-        "runbolt",
-        "--dev",
-        "--host",
-        "127.0.0.1",
-        "--processes",
-        "4",
-        "--reload-dir",
-        "/tmp/plugins",
-    ]
+    argv = ["manage.py", "runbolt", "--dev", "--host", "127.0.0.1", "--processes", "4", "--reload-dir", "/tmp/plugins"]
 
     def fake_run_dev_reloader(command, watch_paths, ignore_dir_names, ignore_paths, debounce_ms, force_polling):
         recorded["command"] = command
@@ -245,11 +206,7 @@ def test_execute_from_command_line_dev_calls_reloader_with_debounce(monkeypatch)
 
     monkeypatch.setattr(runbolt_module, "_collect_dev_watch_paths", fake_collect_dev_watch_paths)
     monkeypatch.setattr(runbolt_module, "_collect_dev_ignore_paths", lambda: ["/tmp/venv"])
-    monkeypatch.setattr(
-        runbolt_module,
-        "_core",
-        SimpleNamespace(run_dev_reloader=fake_run_dev_reloader),
-    )
+    monkeypatch.setattr(runbolt_module, "_core", SimpleNamespace(run_dev_reloader=fake_run_dev_reloader))
 
     execute_from_command_line(argv)
 
@@ -541,10 +498,7 @@ def test_autodiscover_apis_finds_the_apis_of_installed_apps(settings, tmp_path, 
     try:
         apis = runbolt_module.Command().autodiscover_apis()
     finally:
-        _clear_modules(
-            monkeypatch,
-            *(name for name in list(sys.modules) if name.startswith("discover_")),
-        )
+        _clear_modules(monkeypatch, *(name for name in list(sys.modules) if name.startswith("discover_")))
 
     assert [api_path for api_path, _ in apis] == [
         "discover_project.api:api",
@@ -692,12 +646,10 @@ def _api_with_mcp(server_name: str, path: str) -> BoltAPI:
 
 
 def test_merge_apis_serves_the_mcp_mount_of_each_api():
-    merged = runbolt_module.Command().merge_apis(
-        [
-            ("first.api", _api_with_mcp("first-server", "/mcp")),
-            ("second.api", _api_with_mcp("second-server", "/tools/mcp")),
-        ]
-    )
+    merged = runbolt_module.Command().merge_apis([
+        ("first.api", _api_with_mcp("first-server", "/mcp")),
+        ("second.api", _api_with_mcp("second-server", "/tools/mcp")),
+    ])
 
     initialize = {
         "jsonrpc": "2.0",

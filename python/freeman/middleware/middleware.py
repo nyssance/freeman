@@ -24,13 +24,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from re import Pattern
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Protocol,
-    Union,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Any, Protocol, Union, runtime_checkable
 
 import msgspec
 
@@ -51,10 +45,7 @@ GetResponse = Callable[["Request"], Awaitable["Response"]]
 
 
 # Type alias for middleware class (Django-style: takes get_response in __init__)
-MiddlewareType = Union[
-    "MiddlewareProtocol",
-    type["BaseMiddleware"],
-]
+MiddlewareType = Union["MiddlewareProtocol", type["BaseMiddleware"]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,10 +176,7 @@ def _check_dict_middleware(spec: dict[str, Any], context: str) -> None:
 
 
 def normalize_middleware_specs(
-    middleware_specs: list[Any] | tuple[Any, ...] | None,
-    *,
-    context: str,
-    allow_function_middleware: bool = False,
+    middleware_specs: list[Any] | tuple[Any, ...] | None, *, context: str, allow_function_middleware: bool = False
 ) -> list[Any]:
     """
     Normalize and validate middleware specs.
@@ -976,10 +964,7 @@ class LoggingMiddleware(BaseMiddleware):
 
     async def process_request(self, request: Request) -> Response:
         # Log request
-        log_data = {
-            "method": request.method,
-            "path": request.path,
-        }
+        log_data = {"method": request.method, "path": request.path}
         if request.query:
             log_data["query"] = dict(request.query)
         if self.log_headers:

@@ -5,11 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.core.asgi import get_asgi_application
 
-from freeman.admin.admin_detection import (
-    admin_url_needs_path_parameter,
-    detect_admin_url_prefixes,
-    should_enable_admin,
-)
+from freeman.admin.admin_detection import admin_url_needs_path_parameter, detect_admin_url_prefixes, should_enable_admin
 
 if TYPE_CHECKING:
     from freeman.api import BoltAPI

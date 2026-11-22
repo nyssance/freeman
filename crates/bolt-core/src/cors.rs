@@ -6,8 +6,7 @@
 
 use actix_web::http::header::{
     ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS,
-    ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_EXPOSE_HEADERS, ACCESS_CONTROL_MAX_AGE, HeaderMap,
-    HeaderValue, VARY,
+    ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_EXPOSE_HEADERS, ACCESS_CONTROL_MAX_AGE, HeaderMap, HeaderValue, VARY,
 };
 
 use crate::metadata::CorsConfig;
@@ -16,9 +15,7 @@ use crate::metadata::CorsConfig;
 /// This is the core function used by CorsMiddleware
 /// Returns true if CORS headers were added (origin was allowed), false otherwise
 pub fn add_cors_headers_with_config(
-    headers: &mut HeaderMap,
-    request_origin: Option<&str>,
-    cors_config: &CorsConfig,
+    headers: &mut HeaderMap, request_origin: Option<&str>, cors_config: &CorsConfig,
     global_cors_config: Option<&CorsConfig>,
 ) -> bool {
     // Check if CORS_ALLOW_ALL_ORIGINS is True with credentials (invalid per spec)
@@ -29,10 +26,7 @@ pub fn add_cors_headers_with_config(
                 headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, val);
             }
             headers.append(VARY, HeaderValue::from_static("Origin"));
-            headers.insert(
-                ACCESS_CONTROL_ALLOW_CREDENTIALS,
-                HeaderValue::from_static("true"),
-            );
+            headers.insert(ACCESS_CONTROL_ALLOW_CREDENTIALS, HeaderValue::from_static("true"));
 
             if let Some(ref cached_val) = cors_config.expose_headers_header {
                 headers.insert(ACCESS_CONTROL_EXPOSE_HEADERS, cached_val.clone());
@@ -61,8 +55,7 @@ pub fn add_cors_headers_with_config(
     // A config with neither uses the origins and regexes of the global config.
     // Check the pattern strings: a pattern that does not compile must not widen
     // the route to the global list.
-    let allow_list = if !cors_config.origin_set.is_empty() || !cors_config.origin_regexes.is_empty()
-    {
+    let allow_list = if !cors_config.origin_set.is_empty() || !cors_config.origin_regexes.is_empty() {
         cors_config
     } else if let Some(global_config) = global_cors_config {
         global_config
@@ -72,10 +65,7 @@ pub fn add_cors_headers_with_config(
 
     // O(1) exact match, then the compiled regexes
     let allowed = allow_list.origin_set.contains(req_origin)
-        || allow_list
-            .compiled_origin_regexes
-            .iter()
-            .any(|re| re.is_match(req_origin));
+        || allow_list.compiled_origin_regexes.iter().any(|re| re.is_match(req_origin));
 
     if !allowed {
         return false;
@@ -88,10 +78,7 @@ pub fn add_cors_headers_with_config(
     headers.append(VARY, HeaderValue::from_static("Origin"));
 
     if cors_config.credentials {
-        headers.insert(
-            ACCESS_CONTROL_ALLOW_CREDENTIALS,
-            HeaderValue::from_static("true"),
-        );
+        headers.insert(ACCESS_CONTROL_ALLOW_CREDENTIALS, HeaderValue::from_static("true"));
     }
 
     if let Some(ref cached_val) = cors_config.expose_headers_header {
@@ -124,12 +111,7 @@ pub fn add_preflight_headers_with_config(headers: &mut HeaderMap, cors_config: &
         .unwrap_or(false);
 
     if !has_preflight_vary {
-        headers.append(
-            VARY,
-            HeaderValue::from_static(
-                "Access-Control-Request-Method, Access-Control-Request-Headers",
-            ),
-        );
+        headers.append(VARY, HeaderValue::from_static("Access-Control-Request-Method, Access-Control-Request-Headers"));
     }
 }
 
@@ -168,15 +150,9 @@ mod tests {
         let config = cors(&["https://a.example"], &[], false, false);
         let (allowed, headers) = check(&config, Some("https://a.example"));
         assert!(allowed);
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_ALLOW_ORIGIN),
-            Some("https://a.example")
-        );
+        assert_eq!(header(&headers, &ACCESS_CONTROL_ALLOW_ORIGIN), Some("https://a.example"));
         assert_eq!(header(&headers, &VARY), Some("Origin"));
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_EXPOSE_HEADERS),
-            Some("X-Total")
-        );
+        assert_eq!(header(&headers, &ACCESS_CONTROL_EXPOSE_HEADERS), Some("X-Total"));
         assert!(headers.get(ACCESS_CONTROL_ALLOW_CREDENTIALS).is_none());
     }
 
@@ -185,20 +161,13 @@ mod tests {
         let config = cors(&["https://a.example"], &[], false, true);
         let (allowed, headers) = check(&config, Some("https://a.example"));
         assert!(allowed);
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_ALLOW_CREDENTIALS),
-            Some("true")
-        );
+        assert_eq!(header(&headers, &ACCESS_CONTROL_ALLOW_CREDENTIALS), Some("true"));
     }
 
     #[test]
     fn other_origin_or_no_origin_gets_no_headers() {
         let config = cors(&["https://a.example"], &[], false, true);
-        for origin in [
-            Some("https://b.example"),
-            Some("https://a.example.evil"),
-            None,
-        ] {
+        for origin in [Some("https://b.example"), Some("https://a.example.evil"), None] {
             let (allowed, headers) = check(&config, origin);
             assert!(!allowed, "{origin:?}");
             assert!(headers.is_empty(), "{origin:?}");
@@ -212,10 +181,7 @@ mod tests {
             let (allowed, headers) = check(&config, origin);
             assert!(allowed);
             assert_eq!(header(&headers, &ACCESS_CONTROL_ALLOW_ORIGIN), Some("*"));
-            assert_eq!(
-                header(&headers, &ACCESS_CONTROL_EXPOSE_HEADERS),
-                Some("X-Total")
-            );
+            assert_eq!(header(&headers, &ACCESS_CONTROL_EXPOSE_HEADERS), Some("X-Total"));
             assert!(headers.get(ACCESS_CONTROL_ALLOW_CREDENTIALS).is_none());
             assert!(headers.get(VARY).is_none());
         }
@@ -227,19 +193,10 @@ mod tests {
         let config = cors(&[], &[], true, true);
         let (allowed, headers) = check(&config, Some("https://any.example"));
         assert!(allowed);
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_ALLOW_ORIGIN),
-            Some("https://any.example")
-        );
+        assert_eq!(header(&headers, &ACCESS_CONTROL_ALLOW_ORIGIN), Some("https://any.example"));
         assert_eq!(header(&headers, &VARY), Some("Origin"));
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_ALLOW_CREDENTIALS),
-            Some("true")
-        );
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_EXPOSE_HEADERS),
-            Some("X-Total")
-        );
+        assert_eq!(header(&headers, &ACCESS_CONTROL_ALLOW_CREDENTIALS), Some("true"));
+        assert_eq!(header(&headers, &ACCESS_CONTROL_EXPOSE_HEADERS), Some("X-Total"));
 
         let (allowed, headers) = check(&config, None);
         assert!(!allowed);
@@ -251,16 +208,8 @@ mod tests {
         let route = cors(&[], &[], false, false);
         let global = cors(&["https://g.example"], &[], false, false);
         let mut headers = HeaderMap::new();
-        assert!(add_cors_headers_with_config(
-            &mut headers,
-            Some("https://g.example"),
-            &route,
-            Some(&global),
-        ));
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_ALLOW_ORIGIN),
-            Some("https://g.example")
-        );
+        assert!(add_cors_headers_with_config(&mut headers, Some("https://g.example"), &route, Some(&global),));
+        assert_eq!(header(&headers, &ACCESS_CONTROL_ALLOW_ORIGIN), Some("https://g.example"));
 
         // With no global config, a route with no origins allows nothing.
         let (allowed, headers) = check(&route, Some("https://g.example"));
@@ -273,12 +222,7 @@ mod tests {
         let route = cors(&["https://r.example"], &[], false, false);
         let global = cors(&["https://g.example"], &[], false, false);
         let mut headers = HeaderMap::new();
-        assert!(!add_cors_headers_with_config(
-            &mut headers,
-            Some("https://g.example"),
-            &route,
-            Some(&global),
-        ));
+        assert!(!add_cors_headers_with_config(&mut headers, Some("https://g.example"), &route, Some(&global),));
         assert!(headers.is_empty());
     }
 
@@ -290,12 +234,7 @@ mod tests {
     #[test]
     fn route_regexes_replace_the_global_regexes() {
         let global = cors(&[], &[r"^https://[a-z]+\.global\.example$"], false, false);
-        let route = cors(
-            &["https://r.example"],
-            &[r"^https://[a-z]+\.route\.example$"],
-            false,
-            false,
-        );
+        let route = cors(&["https://r.example"], &[r"^https://[a-z]+\.route\.example$"], false, false);
         assert!(check_route(&route, &global, "https://app.route.example"));
         assert!(!check_route(&route, &global, "https://app.global.example"));
     }
@@ -303,12 +242,7 @@ mod tests {
     #[test]
     fn route_origins_replace_the_global_regexes() {
         // A route with its own origins is the complete allow list.
-        let global = cors(
-            &["https://g.example"],
-            &[r"^https://[a-z]+\.global\.example$"],
-            false,
-            false,
-        );
+        let global = cors(&["https://g.example"], &[r"^https://[a-z]+\.global\.example$"], false, false);
         let route = cors(&["https://r.example"], &[], false, true);
         assert!(check_route(&route, &global, "https://r.example"));
         assert!(!check_route(&route, &global, "https://app.global.example"));
@@ -331,12 +265,7 @@ mod tests {
             credentials: true,
             ..Default::default()
         };
-        let global = cors(
-            &["https://g.example"],
-            &[r"^https://[a-z]+\.global\.example$"],
-            false,
-            false,
-        );
+        let global = cors(&["https://g.example"], &[r"^https://[a-z]+\.global\.example$"], false, false);
         assert!(!check_route(&route, &global, "https://g.example"));
         assert!(!check_route(&route, &global, "https://app.global.example"));
     }
@@ -344,12 +273,7 @@ mod tests {
     #[test]
     fn route_with_no_origins_uses_the_global_regexes() {
         let route = cors(&[], &[], false, false);
-        let global = cors(
-            &["https://g.example"],
-            &[r"^https://[a-z]+\.global\.example$"],
-            false,
-            false,
-        );
+        let global = cors(&["https://g.example"], &[r"^https://[a-z]+\.global\.example$"], false, false);
         assert!(check_route(&route, &global, "https://app.global.example"));
         assert!(!check_route(&route, &global, "https://app.other.example"));
     }
@@ -369,19 +293,10 @@ mod tests {
         .unwrap();
         let mut headers = HeaderMap::new();
         add_preflight_headers_with_config(&mut headers, &config);
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_ALLOW_METHODS),
-            Some("GET, POST")
-        );
-        assert_eq!(
-            header(&headers, &ACCESS_CONTROL_ALLOW_HEADERS),
-            Some("X-Token")
-        );
+        assert_eq!(header(&headers, &ACCESS_CONTROL_ALLOW_METHODS), Some("GET, POST"));
+        assert_eq!(header(&headers, &ACCESS_CONTROL_ALLOW_HEADERS), Some("X-Token"));
         assert_eq!(header(&headers, &ACCESS_CONTROL_MAX_AGE), Some("600"));
-        assert_eq!(
-            header(&headers, &VARY),
-            Some("Access-Control-Request-Method, Access-Control-Request-Headers")
-        );
+        assert_eq!(header(&headers, &VARY), Some("Access-Control-Request-Method, Access-Control-Request-Headers"));
     }
 
     #[test]

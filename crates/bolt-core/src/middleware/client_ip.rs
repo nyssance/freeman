@@ -46,21 +46,17 @@ impl IpCidr {
             None => (entry, None),
         };
 
-        let network = address
-            .parse::<IpAddr>()
-            .map_err(|_| format!("{entry:?} is not an IP address or CIDR block"))?;
+        let network = address.parse::<IpAddr>().map_err(|_| format!("{entry:?} is not an IP address or CIDR block"))?;
         let max_prefix_len = if network.is_ipv4() { 32 } else { 128 };
 
         let prefix_len = match prefix {
-            Some(prefix) => prefix
-                .parse::<u8>()
-                .map_err(|_| format!("{entry:?} has a prefix length that is not a number"))?,
+            Some(prefix) => {
+                prefix.parse::<u8>().map_err(|_| format!("{entry:?} has a prefix length that is not a number"))?
+            }
             None => max_prefix_len,
         };
         if prefix_len > max_prefix_len {
-            return Err(format!(
-                "{entry:?} has prefix length {prefix_len}, above the maximum of {max_prefix_len}"
-            ));
+            return Err(format!("{entry:?} has prefix length {prefix_len}, above the maximum of {max_prefix_len}"));
         }
 
         // `::ffff:a.b.c.d/n` with n >= 96 is an IPv4 block. Peers are
@@ -84,17 +80,11 @@ impl IpCidr {
         let block = match network {
             IpAddr::V4(network) => {
                 let mask = !(u32::MAX.checked_shr(u32::from(prefix_len)).unwrap_or(0));
-                Block::V4 {
-                    network: u32::from(network) & mask,
-                    mask,
-                }
+                Block::V4 { network: u32::from(network) & mask, mask }
             }
             IpAddr::V6(network) => {
                 let mask = !(u128::MAX.checked_shr(u32::from(prefix_len)).unwrap_or(0));
-                Block::V6 {
-                    network: u128::from(network) & mask,
-                    mask,
-                }
+                Block::V6 { network: u128::from(network) & mask, mask }
             }
         };
         IpCidr { block }
@@ -126,24 +116,17 @@ pub struct TrustedProxies {
 
 impl TrustedProxies {
     pub fn parse(entries: &[String]) -> Result<Self, String> {
-        let blocks = entries
-            .iter()
-            .map(|entry| IpCidr::parse(entry))
-            .collect::<Result<Vec<_>, _>>()?;
+        let blocks = entries.iter().map(|entry| IpCidr::parse(entry)).collect::<Result<Vec<_>, _>>()?;
         Ok(Self { blocks })
     }
 
     /// Preserve Python's `ImproperlyConfigured` validation while building the
     /// Rust hot-path representation only once at application startup.
     pub fn from_django_settings(py: Python<'_>) -> PyResult<Self> {
-        let entries: Vec<String> = py
-            .import("freeman.middleware.compiler")?
-            .getattr("get_trusted_proxies")?
-            .call0()?
-            .extract()?;
-        Self::parse(&entries).map_err(|error| {
-            PyValueError::new_err(format!("Invalid BOLT_TRUSTED_PROXIES entry: {error}"))
-        })
+        let entries: Vec<String> =
+            py.import("freeman.middleware.compiler")?.getattr("get_trusted_proxies")?.call0()?.extract()?;
+        Self::parse(&entries)
+            .map_err(|error| PyValueError::new_err(format!("Invalid BOLT_TRUSTED_PROXIES entry: {error}")))
     }
 
     #[inline]
@@ -230,9 +213,7 @@ fn parse_forwarded_ip(value: &str) -> Option<IpAddr> {
 /// so a request that reaches rule 1 or 2 does no header lookup. It reads the
 /// values from the right.
 pub fn resolve<'a, I>(
-    forwarded_for: impl FnOnce() -> I,
-    real_ip: impl FnOnce() -> Option<Option<&'a str>>,
-    peer_addr: Option<IpAddr>,
+    forwarded_for: impl FnOnce() -> I, real_ip: impl FnOnce() -> Option<Option<&'a str>>, peer_addr: Option<IpAddr>,
     trusted_proxies: &TrustedProxies,
 ) -> Option<IpAddr>
 where
@@ -266,22 +247,11 @@ where
 /// read in order without a merge step.
 #[inline]
 pub fn resolve_from_headers(
-    headers: &HeaderMap,
-    peer_addr: Option<IpAddr>,
-    trusted_proxies: &TrustedProxies,
+    headers: &HeaderMap, peer_addr: Option<IpAddr>, trusted_proxies: &TrustedProxies,
 ) -> Option<IpAddr> {
     resolve(
-        || {
-            headers
-                .get_all(&X_FORWARDED_FOR)
-                .map(|value| value.to_str().ok())
-        },
-        || {
-            headers
-                .get_all(&X_REAL_IP)
-                .next_back()
-                .map(|value| value.to_str().ok())
-        },
+        || headers.get_all(&X_FORWARDED_FOR).map(|value| value.to_str().ok()),
+        || headers.get_all(&X_REAL_IP).next_back().map(|value| value.to_str().ok()),
         peer_addr,
         trusted_proxies,
     )
@@ -302,18 +272,10 @@ pub fn resolve_from_headers(
 /// `SECURE_PROXY_SSL_HEADER` still applies on top of it.
 #[inline]
 pub fn resolve_scheme(
-    headers: &HeaderMap,
-    peer_addr: Option<IpAddr>,
-    secure: bool,
-    trusted_proxies: &TrustedProxies,
+    headers: &HeaderMap, peer_addr: Option<IpAddr>, secure: bool, trusted_proxies: &TrustedProxies,
 ) -> &'static str {
     resolve_scheme_with(
-        || {
-            headers
-                .get_all(&X_FORWARDED_PROTO)
-                .next_back()
-                .and_then(|value| value.to_str().ok())
-        },
+        || headers.get_all(&X_FORWARDED_PROTO).next_back().and_then(|value| value.to_str().ok()),
         peer_addr,
         secure,
         trusted_proxies,
@@ -326,9 +288,7 @@ pub fn resolve_scheme(
 /// for a trusted peer.
 #[inline]
 pub fn resolve_scheme_with<'a>(
-    forwarded_proto: impl FnOnce() -> Option<&'a str>,
-    peer_addr: Option<IpAddr>,
-    secure: bool,
+    forwarded_proto: impl FnOnce() -> Option<&'a str>, peer_addr: Option<IpAddr>, secure: bool,
     trusted_proxies: &TrustedProxies,
 ) -> &'static str {
     let connection = if secure { "https" } else { "http" };
@@ -340,9 +300,7 @@ pub fn resolve_scheme_with<'a>(
         _ => return connection,
     }
 
-    let forwarded = forwarded_proto()
-        .and_then(|value| rsplit_commas(value).next())
-        .map(str::trim_ascii);
+    let forwarded = forwarded_proto().and_then(|value| rsplit_commas(value).next()).map(str::trim_ascii);
     match forwarded {
         Some(proto) if proto.eq_ignore_ascii_case("https") => "https",
         Some(proto) if proto.eq_ignore_ascii_case("http") => "http",
@@ -356,8 +314,7 @@ pub fn resolve_scheme_with<'a>(
 /// hop invalidates the chain; skipping it could expose a spoofed entry farther
 /// left when a proxy emits an unsupported representation of the real client.
 fn client_from_forwarded_for<'a>(
-    values: impl DoubleEndedIterator<Item = Option<&'a str>>,
-    trusted_proxies: &TrustedProxies,
+    values: impl DoubleEndedIterator<Item = Option<&'a str>>, trusted_proxies: &TrustedProxies,
 ) -> Result<Option<IpAddr>, ()> {
     let mut leftmost: Option<IpAddr> = None;
 
@@ -424,32 +381,18 @@ mod tests {
     }
 
     // Keep expectations readable while the production API stays allocation-free.
-    fn resolve(
-        headers: &HeaderMap,
-        peer_addr: Option<&str>,
-        trusted_proxies: &TrustedProxies,
-    ) -> Option<String> {
-        resolve_from_headers(headers, peer_addr.and_then(parse_ip), trusted_proxies)
-            .map(|address| address.to_string())
+    fn resolve(headers: &HeaderMap, peer_addr: Option<&str>, trusted_proxies: &TrustedProxies) -> Option<String> {
+        resolve_from_headers(headers, peer_addr.and_then(parse_ip), trusted_proxies).map(|address| address.to_string())
     }
 
     fn proxies(entries: &[&str]) -> TrustedProxies {
-        TrustedProxies::parse(
-            &entries
-                .iter()
-                .map(|entry| entry.to_string())
-                .collect::<Vec<_>>(),
-        )
-        .unwrap()
+        TrustedProxies::parse(&entries.iter().map(|entry| entry.to_string()).collect::<Vec<_>>()).unwrap()
     }
 
     fn headers(pairs: &[(&str, &str)]) -> HeaderMap {
         let mut map = HeaderMap::new();
         for (name, value) in pairs {
-            map.append(
-                HeaderName::from_bytes(name.as_bytes()).unwrap(),
-                HeaderValue::from_str(value).unwrap(),
-            );
+            map.append(HeaderName::from_bytes(name.as_bytes()).unwrap(), HeaderValue::from_str(value).unwrap());
         }
         map
     }
@@ -457,10 +400,7 @@ mod tests {
     #[test]
     fn reads_duplicate_forwarded_for_headers_in_order() {
         let resolved = resolve(
-            &headers(&[
-                ("x-forwarded-for", "1.1.1.1, 203.0.113.9"),
-                ("x-forwarded-for", "10.0.0.1"),
-            ]),
+            &headers(&[("x-forwarded-for", "1.1.1.1, 203.0.113.9"), ("x-forwarded-for", "10.0.0.1")]),
             Some("10.0.0.1"),
             &proxies(&["10.0.0.0/8"]),
         );
@@ -515,18 +455,10 @@ mod tests {
     fn an_ipv4_mapped_block_trusts_the_ipv4_peer() {
         // `::ffff:10.0.0.0/104` is `10.0.0.0/8`. The peer arrives as IPv4.
         let trusted = proxies(&["::ffff:10.0.0.0/104"]);
-        let resolved = resolve(
-            &headers(&[("x-forwarded-for", "203.0.113.9")]),
-            Some("10.0.0.1"),
-            &trusted,
-        );
+        let resolved = resolve(&headers(&[("x-forwarded-for", "203.0.113.9")]), Some("10.0.0.1"), &trusted);
         assert_eq!(resolved.as_deref(), Some("203.0.113.9"));
 
-        let outside = resolve(
-            &headers(&[("x-forwarded-for", "203.0.113.9")]),
-            Some("11.0.0.1"),
-            &trusted,
-        );
+        let outside = resolve(&headers(&[("x-forwarded-for", "203.0.113.9")]), Some("11.0.0.1"), &trusted);
         assert_eq!(outside.as_deref(), Some("11.0.0.1"));
     }
 
@@ -546,31 +478,22 @@ mod tests {
 
     #[test]
     fn ignores_forwarding_headers_with_no_trusted_proxy() {
-        let resolved = resolve(
-            &headers(&[("x-forwarded-for", "1.2.3.4")]),
-            Some("203.0.113.9"),
-            &TrustedProxies::default(),
-        );
+        let resolved =
+            resolve(&headers(&[("x-forwarded-for", "1.2.3.4")]), Some("203.0.113.9"), &TrustedProxies::default());
         assert_eq!(resolved.as_deref(), Some("203.0.113.9"));
     }
 
     #[test]
     fn ignores_forwarding_headers_from_an_untrusted_peer() {
-        let resolved = resolve(
-            &headers(&[("x-forwarded-for", "1.2.3.4")]),
-            Some("203.0.113.9"),
-            &proxies(&["10.0.0.0/8"]),
-        );
+        let resolved =
+            resolve(&headers(&[("x-forwarded-for", "1.2.3.4")]), Some("203.0.113.9"), &proxies(&["10.0.0.0/8"]));
         assert_eq!(resolved.as_deref(), Some("203.0.113.9"));
     }
 
     #[test]
     fn reads_the_client_through_a_trusted_peer() {
-        let resolved = resolve(
-            &headers(&[("x-forwarded-for", "203.0.113.9")]),
-            Some("10.0.0.1"),
-            &proxies(&["10.0.0.0/8"]),
-        );
+        let resolved =
+            resolve(&headers(&[("x-forwarded-for", "203.0.113.9")]), Some("10.0.0.1"), &proxies(&["10.0.0.0/8"]));
         assert_eq!(resolved.as_deref(), Some("203.0.113.9"));
     }
 
@@ -608,21 +531,14 @@ mod tests {
 
     #[test]
     fn falls_back_to_x_real_ip_behind_a_trusted_peer() {
-        let resolved = resolve(
-            &headers(&[("x-real-ip", "203.0.113.9")]),
-            Some("10.0.0.1"),
-            &proxies(&["10.0.0.0/8"]),
-        );
+        let resolved = resolve(&headers(&[("x-real-ip", "203.0.113.9")]), Some("10.0.0.1"), &proxies(&["10.0.0.0/8"]));
         assert_eq!(resolved.as_deref(), Some("203.0.113.9"));
     }
 
     #[test]
     fn falls_back_to_the_peer_when_headers_are_junk() {
-        let resolved = resolve(
-            &headers(&[("x-forwarded-for", "not-an-ip")]),
-            Some("10.0.0.1"),
-            &proxies(&["10.0.0.0/8"]),
-        );
+        let resolved =
+            resolve(&headers(&[("x-forwarded-for", "not-an-ip")]), Some("10.0.0.1"), &proxies(&["10.0.0.0/8"]));
         assert_eq!(resolved.as_deref(), Some("10.0.0.1"));
     }
 
@@ -639,16 +555,8 @@ mod tests {
     #[test]
     fn accepts_ipv4_and_bracketed_ipv6_hops_with_ports() {
         let trusted = proxies(&["10.0.0.0/8"]);
-        let ipv4 = resolve(
-            &headers(&[("x-forwarded-for", "203.0.113.9:54321")]),
-            Some("10.0.0.1"),
-            &trusted,
-        );
-        let ipv6 = resolve(
-            &headers(&[("x-forwarded-for", "[2001:db8::9]:54321")]),
-            Some("10.0.0.1"),
-            &trusted,
-        );
+        let ipv4 = resolve(&headers(&[("x-forwarded-for", "203.0.113.9:54321")]), Some("10.0.0.1"), &trusted);
+        let ipv6 = resolve(&headers(&[("x-forwarded-for", "[2001:db8::9]:54321")]), Some("10.0.0.1"), &trusted);
         assert_eq!(ipv4.as_deref(), Some("203.0.113.9"));
         assert_eq!(ipv6.as_deref(), Some("2001:db8::9"));
     }
@@ -676,11 +584,8 @@ mod tests {
 
     #[test]
     fn rejects_a_malformed_x_real_ip() {
-        let resolved = resolve(
-            &headers(&[("x-real-ip", "attacker-chosen-bucket")]),
-            Some("10.0.0.1"),
-            &proxies(&["10.0.0.0/8"]),
-        );
+        let resolved =
+            resolve(&headers(&[("x-real-ip", "attacker-chosen-bucket")]), Some("10.0.0.1"), &proxies(&["10.0.0.0/8"]));
         assert_eq!(resolved.as_deref(), Some("10.0.0.1"));
     }
 
@@ -694,19 +599,11 @@ mod tests {
 
     #[test]
     fn returns_none_without_a_peer_or_usable_header() {
-        assert_eq!(
-            resolve(&headers(&[]), None, &TrustedProxies::default()),
-            None
-        );
+        assert_eq!(resolve(&headers(&[]), None, &TrustedProxies::default()), None);
     }
 
     fn scheme(pairs: &[(&str, &str)], peer_addr: Option<&str>, trusted: &[&str]) -> &'static str {
-        resolve_scheme(
-            &headers(pairs),
-            peer_addr.and_then(parse_ip),
-            false,
-            &proxies(trusted),
-        )
+        resolve_scheme(&headers(pairs), peer_addr.and_then(parse_ip), false, &proxies(trusted))
     }
 
     #[test]
@@ -718,10 +615,7 @@ mod tests {
     #[test]
     fn scheme_ignores_forwarded_proto_from_an_untrusted_peer() {
         let forwarded = [("x-forwarded-proto", "https")];
-        assert_eq!(
-            scheme(&forwarded, Some("203.0.113.9"), &["10.0.0.0/8"]),
-            "http"
-        );
+        assert_eq!(scheme(&forwarded, Some("203.0.113.9"), &["10.0.0.0/8"]), "http");
         assert_eq!(scheme(&forwarded, None, &["10.0.0.0/8"]), "http");
     }
 
@@ -731,14 +625,7 @@ mod tests {
         let https = [("x-forwarded-proto", "https")];
         assert_eq!(scheme(&https, Some("10.0.0.1"), &trusted), "https");
         assert_eq!(scheme(&https, Some("::ffff:10.0.0.1"), &trusted), "https");
-        assert_eq!(
-            scheme(
-                &[("x-forwarded-proto", " HTTPS ")],
-                Some("10.0.0.1"),
-                &trusted
-            ),
-            "https"
-        );
+        assert_eq!(scheme(&[("x-forwarded-proto", " HTTPS ")], Some("10.0.0.1"), &trusted), "https");
     }
 
     #[test]
@@ -747,12 +634,7 @@ mod tests {
         let trusted = proxies(&["10.0.0.0/8"]);
         for value in ["http", " HTTP "] {
             assert_eq!(
-                resolve_scheme(
-                    &headers(&[("x-forwarded-proto", value)]),
-                    parse_ip("10.0.0.1"),
-                    true,
-                    &trusted,
-                ),
+                resolve_scheme(&headers(&[("x-forwarded-proto", value)]), parse_ip("10.0.0.1"), true, &trusted,),
                 "http",
                 "{value:?}"
             );
@@ -763,23 +645,9 @@ mod tests {
     fn scheme_reads_the_rightmost_forwarded_proto() {
         let trusted = ["10.0.0.0/8"];
         // A client sent `https`, and the proxy appended the real scheme.
+        assert_eq!(scheme(&[("x-forwarded-proto", "https, http")], Some("10.0.0.1"), &trusted), "http");
         assert_eq!(
-            scheme(
-                &[("x-forwarded-proto", "https, http")],
-                Some("10.0.0.1"),
-                &trusted
-            ),
-            "http"
-        );
-        assert_eq!(
-            scheme(
-                &[
-                    ("x-forwarded-proto", "https"),
-                    ("x-forwarded-proto", "http")
-                ],
-                Some("10.0.0.1"),
-                &trusted
-            ),
+            scheme(&[("x-forwarded-proto", "https"), ("x-forwarded-proto", "http")], Some("10.0.0.1"), &trusted),
             "http"
         );
     }
@@ -788,11 +656,7 @@ mod tests {
     fn scheme_falls_back_to_the_connection_for_an_unknown_value() {
         let trusted = ["10.0.0.0/8"];
         for value in ["", "ftp", "https;", "https http"] {
-            assert_eq!(
-                scheme(&[("x-forwarded-proto", value)], Some("10.0.0.1"), &trusted),
-                "http",
-                "{value:?}"
-            );
+            assert_eq!(scheme(&[("x-forwarded-proto", value)], Some("10.0.0.1"), &trusted), "http", "{value:?}");
             assert_eq!(
                 resolve_scheme(
                     &headers(&[("x-forwarded-proto", value)]),

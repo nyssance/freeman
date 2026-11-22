@@ -88,9 +88,7 @@ class Cookie:
 
         return cookie.output(header="").strip()
 
-    def to_raw_tuple(
-        self,
-    ) -> tuple[str, str, str, int | None, str | None, str | None, bool, bool, str | None]:
+    def to_raw_tuple(self) -> tuple[str, str, str, int | None, str | None, str | None, bool, bool, str | None]:
         """Return raw cookie data for Rust serialization.
 
         Returns a 9-tuple that Rust can extract directly without

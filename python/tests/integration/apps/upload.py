@@ -43,13 +43,7 @@ async def upload_multiple(files: Annotated[list[UploadFile], File(max_files=5)])
     digests = []
     for upload in files:
         data = await upload.read()
-        digests.append(
-            {
-                "filename": upload.filename,
-                "size": len(data),
-                "sha256": hashlib.sha256(data).hexdigest(),
-            }
-        )
+        digests.append({"filename": upload.filename, "size": len(data), "sha256": hashlib.sha256(data).hexdigest()})
     return {"count": len(digests), "files": digests}
 
 

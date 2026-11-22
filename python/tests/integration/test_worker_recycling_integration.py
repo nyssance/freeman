@@ -40,8 +40,7 @@ RECYCLE_TIMEOUT = 30.0
 
 # child_pids()/get_rss_bytes() rely on POSIX pgrep/ps (or /proc) and fork-based workers.
 _requires_posix = pytest.mark.skipif(
-    platform.system() == "Windows",
-    reason="worker recycling under load requires POSIX fork + /proc RSS reading",
+    platform.system() == "Windows", reason="worker recycling under load requires POSIX fork + /proc RSS reading"
 )
 
 
@@ -74,10 +73,7 @@ def _wait_for_pid_change(server, first_pid: int, timeout: float = RECYCLE_TIMEOU
 def test_sigterm_closes_websockets_with_service_restart_code(make_server_project):
     project = make_server_project(api_module=app_module("recycling_ws_echo"))
 
-    with (
-        project.start() as server,
-        SimpleWebSocketClient(server.host, server.port, "/ws/echo") as websocket,
-    ):
+    with project.start() as server, SimpleWebSocketClient(server.host, server.port, "/ws/echo") as websocket:
         websocket.send_text("hello")
         assert websocket.receive_text() == "echo:hello"
 
@@ -154,9 +150,7 @@ def test_workers_kill_timeout_limits_the_shutdown_of_one_process(make_server_pro
 def test_workers_lifetime_recycles_worker_without_downtime(make_server_project):
     project = make_server_project(api_module=app_module("recycling_pid"))
 
-    with project.start(
-        extra_args=["--workers-lifetime", "2", "--workers-kill-timeout", "5"],
-    ) as server:
+    with project.start(extra_args=["--workers-lifetime", "2", "--workers-kill-timeout", "5"]) as server:
         first_pid = server.get("/pid").json()["pid"]
         # The supervisor forks workers, so the worker is not the manage.py process.
         assert first_pid != server.process.pid
@@ -179,10 +173,7 @@ def test_workers_lifetime_recycles_under_load_without_dropping_requests(make_ser
     """
     project = make_server_project(api_module=app_module("recycling_pid"))
 
-    with project.start(
-        processes=2,
-        extra_args=["--workers-lifetime", "2", "--workers-kill-timeout", "5"],
-    ) as server:
+    with project.start(processes=2, extra_args=["--workers-lifetime", "2", "--workers-kill-timeout", "5"]) as server:
         seen_workers: set[int] = set()
         seen_workers.update(child_pids(server.process.pid))
 
@@ -238,10 +229,7 @@ def test_max_rss_recycles_leaking_app_under_load_with_bounded_memory(make_server
     limit_mib = int(baseline_mib + 40)
     duration = 14.0
 
-    with project.start(
-        processes=2,
-        extra_args=["--max-rss", str(limit_mib), "--workers-kill-timeout", "3"],
-    ) as server:
+    with project.start(processes=2, extra_args=["--max-rss", str(limit_mib), "--workers-kill-timeout", "3"]) as server:
         start = time.monotonic()
         seen_workers: set[int] = set()
         peak_rss = 0.0
@@ -259,12 +247,7 @@ def test_max_rss_recycles_leaking_app_under_load_with_bounded_memory(make_server
                 if time.monotonic() - start > duration / 2:
                     min_rss_late = min(min_rss_late, min(live))
 
-        result = generate_load(
-            server.url("/leak"),
-            duration_s=duration,
-            concurrency=16,
-            on_tick=sample,
-        )
+        result = generate_load(server.url("/leak"), duration_s=duration, concurrency=16, on_tick=sample)
 
         recycles = len(seen_workers) - 2
         assert recycles >= 2, (
@@ -291,9 +274,7 @@ def test_max_rss_recycles_worker(make_server_project):
     # 1 MiB is far below any real worker's baseline RSS, so the very first
     # RSS check trips the limit — exercising the full CLI → supervisor →
     # /proc RSS read → graceful recycle path against a real worker.
-    with project.start(
-        extra_args=["--max-rss", "1", "--workers-kill-timeout", "5"],
-    ) as server:
+    with project.start(extra_args=["--max-rss", "1", "--workers-kill-timeout", "5"]) as server:
         first_pid = server.get("/pid").json()["pid"]
         new_pid = _wait_for_pid_change(server, first_pid)
         assert new_pid != first_pid
@@ -311,9 +292,7 @@ def test_workers_kill_timeout_is_the_sigkill_deadline_of_the_supervisor(make_ser
 
     with (
         project.start(
-            processes=2,
-            extra_args=["--workers-kill-timeout", "2"],
-            env={"DJANGO_BOLT_SHUTDOWN_TIMEOUT": "60"},
+            processes=2, extra_args=["--workers-kill-timeout", "2"], env={"DJANGO_BOLT_SHUTDOWN_TIMEOUT": "60"}
         ) as server,
         socket.create_connection((server.host, server.port), timeout=5) as in_flight,
     ):

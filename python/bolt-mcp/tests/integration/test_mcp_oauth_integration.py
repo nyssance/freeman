@@ -100,8 +100,7 @@ def _login_for_tokens(server, client_id: str, *, scope: str = "mcp") -> dict:
 
 def test_oauth_authorization_code_flow_end_to_end(make_server_project):
     project = make_server_project(
-        api_source=mcp_app_source("oauth"),
-        installed_apps=["django.contrib.sessions", "bolt_mcp.oauth"],
+        api_source=mcp_app_source("oauth"), installed_apps=["django.contrib.sessions", "bolt_mcp.oauth"]
     )
     _manage(project, "migrate", "--noinput")
     _manage(project, "shell", "-c", _CREATE_USER)
@@ -212,8 +211,7 @@ def test_oauth_client_and_refresh_token_survive_server_restart(make_server_proje
     the dynamically registered client and the pre-restart refresh token are still honored.
     """
     project = make_server_project(
-        api_source=mcp_app_source("oauth"),
-        installed_apps=["django.contrib.sessions", "bolt_mcp.oauth"],
+        api_source=mcp_app_source("oauth"), installed_apps=["django.contrib.sessions", "bolt_mcp.oauth"]
     )
     _manage(project, "migrate", "--noinput")
     _manage(project, "shell", "-c", _CREATE_USER)
@@ -227,8 +225,7 @@ def test_oauth_client_and_refresh_token_survive_server_restart(make_server_proje
         # The refresh token minted before the restart still rotates → it was persisted in
         # the DB, not held in the now-dead process's memory.
         rotated = server2.client.post(
-            server2.url("/oauth/token"),
-            data={"grant_type": "refresh_token", "refresh_token": refresh},
+            server2.url("/oauth/token"), data={"grant_type": "refresh_token", "refresh_token": refresh}
         )
         assert rotated.status_code == 200, rotated.text
         assert rotated.json()["refresh_token"] != refresh

@@ -137,11 +137,7 @@ class YamlRenderPlugin(OpenAPIRenderPlugin):
     """Render the OpenAPI schema as YAML."""
 
     def __init__(
-        self,
-        *,
-        path: str | list[str] = None,
-        media_type: str = "text/yaml; charset=utf-8",
-        **kwargs: Any,
+        self, *, path: str | list[str] = None, media_type: str = "text/yaml; charset=utf-8", **kwargs: Any
     ) -> None:
         if path is None:
             path = ["/openapi.yaml", "/openapi.yml"]
@@ -358,12 +354,7 @@ class RapidocRenderPlugin(OpenAPIRenderPlugin):
     """Render the OpenAPI schema using Rapidoc."""
 
     def __init__(
-        self,
-        *,
-        version: str = "9.3.4",
-        js_url: str | None = None,
-        path: str | list[str] = "/rapidoc",
-        **kwargs: Any,
+        self, *, version: str = "9.3.4", js_url: str | None = None, path: str | list[str] = "/rapidoc", **kwargs: Any
     ) -> None:
         """Initialize Rapidoc plugin.
 

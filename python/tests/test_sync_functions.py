@@ -118,10 +118,7 @@ def api():
 
     # Sync handler with multiple dependencies
     @api.get("/sync/with-multiple-dependencies")
-    def sync_with_multiple_deps(
-        user: dict = Depends(get_current_user),
-        db: dict = Depends(get_db_connection),
-    ):
+    def sync_with_multiple_deps(user: dict = Depends(get_current_user), db: dict = Depends(get_db_connection)):
         return {"user": user, "db": db}
 
     # ========================
@@ -276,10 +273,7 @@ class TestSyncInlineHandlerExecution:
         response = client.get("/sync-inline")
         assert response.status_code == 200, "Sync inline handler should return 200"
         data = response.json()
-        assert data == {
-            "type": "sync",
-            "mode": "inline",
-        }, "Sync inline handler should return correct data"
+        assert data == {"type": "sync", "mode": "inline"}, "Sync inline handler should return correct data"
 
     def test_sync_inline_handler_response_type(self, client):
         """Sync inline handler response should be proper JSON."""
@@ -299,10 +293,7 @@ class TestSyncBlockingHandlerExecution:
         response = client.get("/sync-blocking")
         assert response.status_code == 200, "Sync blocking handler should return 200"
         data = response.json()
-        assert data == {
-            "type": "sync",
-            "mode": "blocking",
-        }, "Sync blocking handler should return correct data"
+        assert data == {"type": "sync", "mode": "blocking"}, "Sync blocking handler should return correct data"
 
     def test_sync_blocking_handler_response_type(self, client):
         """Sync blocking handler response should be proper JSON."""
@@ -457,10 +448,7 @@ class TestSyncRequestBodyValidation:
 
     def test_sync_post_with_valid_body(self, client):
         """Sync handler should accept valid request body."""
-        response = client.post(
-            "/sync/users",
-            json={"name": "John", "email": "john@example.com"},
-        )
+        response = client.post("/sync/users", json={"name": "John", "email": "john@example.com"})
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "John"
@@ -523,10 +511,7 @@ class TestSyncMiddlewareCORS:
             return {"cors": "enabled"}
 
         with TestClient(test_api, use_http_layer=True) as client:
-            response = client.get(
-                "/sync/cors-test",
-                headers={"Origin": "http://localhost:3000"},
-            )
+            response = client.get("/sync/cors-test", headers={"Origin": "http://localhost:3000"})
             assert response.status_code == 200
             assert "access-control-allow-origin" in response.headers
 
@@ -577,15 +562,8 @@ class TestSyncAuthentication:
 
     def test_sync_protected_endpoint_with_valid_token(self, client):
         """Sync protected handler should accept valid token."""
-        token = jwt.encode(
-            {"sub": "user123", "exp": int(time.time()) + 3600},
-            TEST_JWT_SECRET,
-            algorithm="HS256",
-        )
-        response = client.get(
-            "/sync/protected",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        token = jwt.encode({"sub": "user123", "exp": int(time.time()) + 3600}, TEST_JWT_SECRET, algorithm="HS256")
+        response = client.get("/sync/protected", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         data = response.json()
         assert data["message"] == "Protected sync handler"
@@ -665,11 +643,7 @@ class TestAsyncSyncParityAuthentication:
 
     def test_async_vs_sync_protected_with_token(self, client):
         """Async and sync protected handlers should both accept valid token."""
-        token = jwt.encode(
-            {"sub": "user123", "exp": int(time.time()) + 3600},
-            TEST_JWT_SECRET,
-            algorithm="HS256",
-        )
+        token = jwt.encode({"sub": "user123", "exp": int(time.time()) + 3600}, TEST_JWT_SECRET, algorithm="HS256")
         headers = {"Authorization": f"Bearer {token}"}
 
         async_response = client.get("/async/protected", headers=headers)
@@ -764,10 +738,7 @@ def orm_api():
     def sync_create_article(article: ArticleCreate):
         """Sync handler to create a new article."""
         new_article = Article.objects.create(
-            title=article.title,
-            content=article.content,
-            author=article.author,
-            status=article.status,
+            title=article.title, content=article.content, author=article.author, status=article.status
         )
         return {
             "id": new_article.id,
@@ -863,10 +834,7 @@ def orm_api():
     async def async_create_article(article: ArticleCreate):
         """Async handler to create a new article."""
         new_article = await Article.objects.acreate(
-            title=article.title,
-            content=article.content,
-            author=article.author,
-            status=article.status,
+            title=article.title, content=article.content, author=article.author, status=article.status
         )
         return {
             "id": new_article.id,
@@ -954,11 +922,7 @@ def orm_api():
         total = queryset.count()
         published = queryset.filter(is_published=True).count()
 
-        return {
-            "total": total,
-            "published": published,
-            "draft": total - published,
-        }
+        return {"total": total, "published": published, "draft": total - published}
 
     @api.get("/async/articles/count")
     async def async_count_articles(status: str | None = None):
@@ -970,12 +934,7 @@ def orm_api():
         total = await queryset.acount()
         published = await queryset.filter(is_published=True).acount()
 
-        return {
-            "total": total,
-            "published": published,
-            "draft": total - published,
-            "is_async": True,
-        }
+        return {"total": total, "published": published, "draft": total - published, "is_async": True}
 
     return api
 
@@ -1025,11 +984,7 @@ class TestSyncORMOperations:
         # Create an article first
         create_response = orm_client.post(
             "/sync/articles",
-            json={
-                "title": "Get Test Article",
-                "content": "Content for get test",
-                "author": "Jane Doe",
-            },
+            json={"title": "Get Test Article", "content": "Content for get test", "author": "Jane Doe"},
         )
         created_id = create_response.json()["id"]
 
@@ -1051,22 +1006,12 @@ class TestSyncORMOperations:
         # Create an article
         create_response = orm_client.post(
             "/sync/articles",
-            json={
-                "title": "Original Title",
-                "content": "Original content",
-                "author": "Original Author",
-            },
+            json={"title": "Original Title", "content": "Original content", "author": "Original Author"},
         )
         article_id = create_response.json()["id"]
 
         # Update the article
-        response = orm_client.put(
-            f"/sync/articles/{article_id}",
-            json={
-                "title": "Updated Title",
-                "is_published": True,
-            },
-        )
+        response = orm_client.put(f"/sync/articles/{article_id}", json={"title": "Updated Title", "is_published": True})
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == "Updated Title"
@@ -1076,22 +1021,14 @@ class TestSyncORMOperations:
 
     def test_sync_update_article_not_found(self, orm_client):
         """Sync handler should return 404 when updating non-existent article."""
-        response = orm_client.put(
-            "/sync/articles/99999",
-            json={"title": "Updated Title"},
-        )
+        response = orm_client.put("/sync/articles/99999", json={"title": "Updated Title"})
         assert response.status_code == 404
 
     def test_sync_delete_article(self, orm_client):
         """Sync handler should delete an article."""
         # Create an article
         create_response = orm_client.post(
-            "/sync/articles",
-            json={
-                "title": "Delete Me",
-                "content": "This will be deleted",
-                "author": "Test Author",
-            },
+            "/sync/articles", json={"title": "Delete Me", "content": "This will be deleted", "author": "Test Author"}
         )
         article_id = create_response.json()["id"]
 
@@ -1114,8 +1051,7 @@ class TestSyncORMOperations:
         """Sync handler should filter articles by status."""
         # Create draft and published articles
         orm_client.post(
-            "/sync/articles",
-            json={"title": "Draft 1", "content": "Content", "author": "Author", "status": "draft"},
+            "/sync/articles", json={"title": "Draft 1", "content": "Content", "author": "Author", "status": "draft"}
         )
         orm_client.post(
             "/sync/articles",
@@ -1133,10 +1069,7 @@ class TestSyncORMOperations:
         """Sync handler should respect limit parameter."""
         # Create multiple articles
         for i in range(5):
-            orm_client.post(
-                "/sync/articles",
-                json={"title": f"Article {i}", "content": "Content", "author": "Author"},
-            )
+            orm_client.post("/sync/articles", json={"title": f"Article {i}", "content": "Content", "author": "Author"})
 
         # Request with limit
         response = orm_client.get("/sync/articles?limit=3")
@@ -1198,12 +1131,7 @@ class TestAsyncORMOperations:
         """Async handler should retrieve article by ID."""
         # Create an article
         create_response = orm_client.post(
-            "/async/articles",
-            json={
-                "title": "Async Get Test",
-                "content": "Content",
-                "author": "Author",
-            },
+            "/async/articles", json={"title": "Async Get Test", "content": "Content", "author": "Author"}
         )
         created_id = create_response.json()["id"]
 
@@ -1224,22 +1152,13 @@ class TestAsyncORMOperations:
         """Async handler should update article fields."""
         # Create an article
         create_response = orm_client.post(
-            "/async/articles",
-            json={
-                "title": "Async Original",
-                "content": "Original content",
-                "author": "Author",
-            },
+            "/async/articles", json={"title": "Async Original", "content": "Original content", "author": "Author"}
         )
         article_id = create_response.json()["id"]
 
         # Update the article
         response = orm_client.put(
-            f"/async/articles/{article_id}",
-            json={
-                "title": "Async Updated",
-                "status": "published",
-            },
+            f"/async/articles/{article_id}", json={"title": "Async Updated", "status": "published"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -1251,12 +1170,7 @@ class TestAsyncORMOperations:
         """Async handler should delete an article."""
         # Create an article
         create_response = orm_client.post(
-            "/async/articles",
-            json={
-                "title": "Async Delete Me",
-                "content": "Content",
-                "author": "Author",
-            },
+            "/async/articles", json={"title": "Async Delete Me", "content": "Content", "author": "Author"}
         )
         article_id = create_response.json()["id"]
 
@@ -1278,18 +1192,9 @@ class TestSyncComplexQueries:
     def test_sync_search_articles(self, orm_client):
         """Sync handler should search articles by title."""
         # Create articles
-        orm_client.post(
-            "/sync/articles",
-            json={"title": "Python Tutorial", "content": "Content", "author": "John"},
-        )
-        orm_client.post(
-            "/sync/articles",
-            json={"title": "Django Guide", "content": "Content", "author": "Jane"},
-        )
-        orm_client.post(
-            "/sync/articles",
-            json={"title": "Python Advanced", "content": "Content", "author": "John"},
-        )
+        orm_client.post("/sync/articles", json={"title": "Python Tutorial", "content": "Content", "author": "John"})
+        orm_client.post("/sync/articles", json={"title": "Django Guide", "content": "Content", "author": "Jane"})
+        orm_client.post("/sync/articles", json={"title": "Python Advanced", "content": "Content", "author": "John"})
 
         # Search for Python
         response = orm_client.get("/sync/articles/search?q=Python")
@@ -1301,14 +1206,8 @@ class TestSyncComplexQueries:
     def test_sync_search_with_author_filter(self, orm_client):
         """Sync handler should filter search results by author."""
         # Create articles
-        orm_client.post(
-            "/sync/articles",
-            json={"title": "Python Tutorial", "content": "Content", "author": "John"},
-        )
-        orm_client.post(
-            "/sync/articles",
-            json={"title": "Python Advanced", "content": "Content", "author": "Jane"},
-        )
+        orm_client.post("/sync/articles", json={"title": "Python Tutorial", "content": "Content", "author": "John"})
+        orm_client.post("/sync/articles", json={"title": "Python Advanced", "content": "Content", "author": "Jane"})
 
         # Search for Python by John
         response = orm_client.get("/sync/articles/search?q=Python&author=John")
@@ -1320,21 +1219,14 @@ class TestSyncComplexQueries:
     def test_sync_count_articles(self, orm_client):
         """Sync handler should count articles correctly."""
         # Create articles
-        orm_client.post(
-            "/sync/articles",
-            json={"title": "Article 1", "content": "Content", "author": "Author"},
-        )
+        orm_client.post("/sync/articles", json={"title": "Article 1", "content": "Content", "author": "Author"})
         create_response = orm_client.post(
-            "/sync/articles",
-            json={"title": "Article 2", "content": "Content", "author": "Author"},
+            "/sync/articles", json={"title": "Article 2", "content": "Content", "author": "Author"}
         )
 
         # Mark one as published
         article_id = create_response.json()["id"]
-        orm_client.put(
-            f"/sync/articles/{article_id}",
-            json={"is_published": True},
-        )
+        orm_client.put(f"/sync/articles/{article_id}", json={"is_published": True})
 
         # Count articles
         response = orm_client.get("/sync/articles/count")
@@ -1352,14 +1244,8 @@ class TestAsyncComplexQueries:
     def test_async_search_articles(self, orm_client):
         """Async handler should search articles by title."""
         # Create articles
-        orm_client.post(
-            "/async/articles",
-            json={"title": "Rust Tutorial", "content": "Content", "author": "Alice"},
-        )
-        orm_client.post(
-            "/async/articles",
-            json={"title": "Go Guide", "content": "Content", "author": "Bob"},
-        )
+        orm_client.post("/async/articles", json={"title": "Rust Tutorial", "content": "Content", "author": "Alice"})
+        orm_client.post("/async/articles", json={"title": "Go Guide", "content": "Content", "author": "Bob"})
 
         # Search
         response = orm_client.get("/async/articles/search?q=Rust")
@@ -1372,14 +1258,8 @@ class TestAsyncComplexQueries:
     def test_async_count_articles(self, orm_client):
         """Async handler should count articles correctly."""
         # Create articles
-        orm_client.post(
-            "/async/articles",
-            json={"title": "Article 1", "content": "Content", "author": "Author"},
-        )
-        orm_client.post(
-            "/async/articles",
-            json={"title": "Article 2", "content": "Content", "author": "Author"},
-        )
+        orm_client.post("/async/articles", json={"title": "Article 1", "content": "Content", "author": "Author"})
+        orm_client.post("/async/articles", json={"title": "Article 2", "content": "Content", "author": "Author"})
 
         # Count
         response = orm_client.get("/async/articles/count")
@@ -1396,12 +1276,10 @@ class TestSyncAsyncORMParity:
     def test_create_parity(self, orm_client):
         """Both sync and async create should produce same results."""
         sync_response = orm_client.post(
-            "/sync/articles",
-            json={"title": "Sync Article", "content": "Content", "author": "Author"},
+            "/sync/articles", json={"title": "Sync Article", "content": "Content", "author": "Author"}
         )
         async_response = orm_client.post(
-            "/async/articles",
-            json={"title": "Async Article", "content": "Content", "author": "Author"},
+            "/async/articles", json={"title": "Async Article", "content": "Content", "author": "Author"}
         )
 
         assert sync_response.status_code == 200
@@ -1417,10 +1295,7 @@ class TestSyncAsyncORMParity:
     def test_search_parity(self, orm_client):
         """Both sync and async search should return same results."""
         # Create test data
-        orm_client.post(
-            "/sync/articles",
-            json={"title": "Search Test", "content": "Content", "author": "Author"},
-        )
+        orm_client.post("/sync/articles", json={"title": "Search Test", "content": "Content", "author": "Author"})
 
         sync_response = orm_client.get("/sync/articles/search?q=Search")
         async_response = orm_client.get("/async/articles/search?q=Search")
@@ -1436,10 +1311,7 @@ class TestSyncAsyncORMParity:
     def test_count_parity(self, orm_client):
         """Both sync and async count should return same results."""
         # Create test data
-        orm_client.post(
-            "/sync/articles",
-            json={"title": "Count Test", "content": "Content", "author": "Author"},
-        )
+        orm_client.post("/sync/articles", json={"title": "Count Test", "content": "Content", "author": "Author"})
 
         sync_response = orm_client.get("/sync/articles/count")
         async_response = orm_client.get("/async/articles/count")

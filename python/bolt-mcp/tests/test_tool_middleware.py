@@ -137,10 +137,7 @@ def test_input_request_passes_through_middleware():
     mount_mcp(api, mcp)
     with TestClient(api) as client:
         resp = post_rpc_modern(
-            client,
-            "tools/call",
-            {"name": "confirm", "arguments": {"item": "db"}},
-            capabilities={"elicitation": {}},
+            client, "tools/call", {"name": "confirm", "arguments": {"item": "db"}}, capabilities={"elicitation": {}}
         )
         result = parse_rpc(resp)["result"]
     assert result["resultType"] == "input_required"

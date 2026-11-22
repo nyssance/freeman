@@ -44,19 +44,17 @@ ROUTES = ("/sync/me", "/sync/current", "/async/me", "/async/current", "/async/sy
 
 
 def _tenant_settings(params: dict[str, Any]) -> str:
-    return "\n".join(
-        [
-            postgres_settings(params, engine="django_tenants.postgresql_backend"),
-            'DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)',
-            f"SHARED_APPS = {_SHARED_APPS!r}",
-            f"TENANT_APPS = {_TENANT_APPS!r}",
-            "INSTALLED_APPS = SHARED_APPS + [app for app in TENANT_APPS if app not in SHARED_APPS]",
-            'TENANT_MODEL = "bolt_tenants.Client"',
-            'TENANT_DOMAIN_MODEL = "bolt_tenants.Domain"',
-            # The readiness probe has no tenant host. It then uses the public schema.
-            "SHOW_PUBLIC_IF_NO_TENANT_FOUND = True",
-        ]
-    )
+    return "\n".join([
+        postgres_settings(params, engine="django_tenants.postgresql_backend"),
+        'DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)',
+        f"SHARED_APPS = {_SHARED_APPS!r}",
+        f"TENANT_APPS = {_TENANT_APPS!r}",
+        "INSTALLED_APPS = SHARED_APPS + [app for app in TENANT_APPS if app not in SHARED_APPS]",
+        'TENANT_MODEL = "bolt_tenants.Client"',
+        'TENANT_DOMAIN_MODEL = "bolt_tenants.Domain"',
+        # The readiness probe has no tenant host. It then uses the public schema.
+        "SHOW_PUBLIC_IF_NO_TENANT_FOUND = True",
+    ])
 
 
 def _start_tenant_server(make_server_project, params: dict[str, Any]):

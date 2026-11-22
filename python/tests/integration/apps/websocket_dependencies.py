@@ -21,17 +21,11 @@ async def health():
     return {"status": "ok"}
 
 
-def room_settings(
-    limit: Annotated[int, Query()] = 10,
-    x_team: Annotated[str, Header()] = "none",
-) -> dict:
+def room_settings(limit: Annotated[int, Query()] = 10, x_team: Annotated[str, Header()] = "none") -> dict:
     return {"limit": limit, "limit_type": type(limit).__name__, "team": x_team}
 
 
-async def room_settings_async(
-    limit: Annotated[int, Query()] = 10,
-    x_team: Annotated[str, Header()] = "none",
-) -> dict:
+async def room_settings_async(limit: Annotated[int, Query()] = 10, x_team: Annotated[str, Header()] = "none") -> dict:
     await asyncio.sleep(0)
     return room_settings(limit, x_team)
 

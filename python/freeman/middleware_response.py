@@ -131,9 +131,7 @@ _META_TAG_HEADERS = {
 }
 
 
-def _split_content_type_headers(
-    headers: dict[str, str] | None,
-) -> tuple[str | None, list[tuple[str, str]] | None]:
+def _split_content_type_headers(headers: dict[str, str] | None) -> tuple[str | None, list[tuple[str, str]] | None]:
     """Split a headers dict into content-type and remaining headers.
 
     Header names are treated case-insensitively. A plain dict can hold two

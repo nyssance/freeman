@@ -27,16 +27,13 @@ use bolt_core::middleware::compression::CompressionMiddleware;
 use bolt_core::middleware::cors::CorsMiddleware;
 use bolt_core::middleware::rate_limit::RateLimiters;
 use bolt_core::router::{Router, normalize_request_path};
-use bolt_core::state::{
-    AppState, AsgiMount, ScopeConfig, ServeMode, TASK_LOCALS, find_websocket_mount_in_slice,
-};
+use bolt_core::state::{AppState, AsgiMount, ScopeConfig, ServeMode, TASK_LOCALS, find_websocket_mount_in_slice};
 use bolt_websocket::WebSocketRouter;
 use bolt_websocket::handler::build_asgi_scope_from_parts;
 
 use crate::server::{ServerConfig, configure_file_scopes, inject_global_cors, static_scope_prefix};
 use bolt_core::request_pipeline::{
-    EMPTY_TYPES, insert_header_line, query_sequences, set_declared_item, set_param_item,
-    set_query_sequences,
+    EMPTY_TYPES, insert_header_line, query_sequences, set_declared_item, set_param_item, set_query_sequences,
 };
 use bolt_core::type_coercion::TypeHints;
 
@@ -118,10 +115,7 @@ static NEXT_TEST_WORKER: std::sync::atomic::AtomicUsize = std::sync::atomic::Ato
 /// There are at least four, so concurrent test requests can run in parallel.
 fn test_workers() -> &'static [tokio::sync::mpsc::UnboundedSender<TestJob>] {
     TEST_WORKERS.get_or_init(|| {
-        let count = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4)
-            .max(4);
+        let count = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).max(4);
         (0..count)
             .map(|index| {
                 let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<TestJob>();
@@ -135,9 +129,8 @@ fn test_workers() -> &'static [tokio::sync::mpsc::UnboundedSender<TestJob>] {
                             .expect("failed to build a test worker runtime");
                         let local = tokio::task::LocalSet::new();
                         local.block_on(&runtime, async move {
-                            Python::attach(bolt_loop::bind_thread_loop).unwrap_or_else(|e| {
-                                panic!("failed to create the test worker asyncio loop: {e}")
-                            });
+                            Python::attach(bolt_loop::bind_thread_loop)
+                                .unwrap_or_else(|e| panic!("failed to create the test worker asyncio loop: {e}"));
                             while let Some(job) = receiver.recv().await {
                                 tokio::task::spawn_local(job());
                             }
@@ -170,9 +163,7 @@ fn submit_test_job(job: TestJob) -> PyResult<()> {
             index
         }
     });
-    workers[index]
-        .send(job)
-        .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("the test worker stopped"))
+    workers[index].send(job).map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("the test worker stopped"))
 }
 
 /// Close the Django connections of each test worker, and wait until they are
@@ -200,9 +191,7 @@ pub fn close_test_worker_connections(py: Python<'_>) -> PyResult<()> {
             })
         });
         if worker.send(job).is_err() {
-            return Err(pyo3::exceptions::PyRuntimeError::new_err(
-                "the test worker stopped",
-            ));
+            return Err(pyo3::exceptions::PyRuntimeError::new_err("the test worker stopped"));
         }
     }
     drop(done_tx);
@@ -217,13 +206,8 @@ pub fn close_test_worker_connections(py: Python<'_>) -> PyResult<()> {
 /// and shut it down later, so the loop must not keep the pool of an earlier
 /// test. `runbolt` never replaces the pool, so its loops keep their first pool.
 fn refresh_default_executor(py: Python<'_>) -> PyResult<()> {
-    let pool = py
-        .import("freeman.concurrency")?
-        .call_method0("_get_default_executor")?;
-    bolt_loop::current_loop(py)?
-        .loop_obj()
-        .bind(py)
-        .setattr("_default_executor", pool)
+    let pool = py.import("freeman.concurrency")?.call_method0("_get_default_executor")?;
+    bolt_loop::current_loop(py)?.loop_obj().bind(py).setattr("_default_executor", pool)
 }
 
 /// The peer address of each test request: a client on the loopback interface.
@@ -309,19 +293,11 @@ fn test_app(app_id: u64) -> PyResult<Arc<RwLock<TestAppState>>> {
 /// one API share their buckets, as on a server.
 #[pyfunction]
 #[pyo3(signature = (dispatch, read_django_settings=true, cors_allowed_origins=None, static_files_config=None, compression_config=None, rate_limiters=None, error_renderer=None))]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "each argument is an optional keyword of the Python test clients"
-)]
+#[expect(clippy::too_many_arguments, reason = "each argument is an optional keyword of the Python test clients")]
 pub fn create_test_app(
-    py: Python<'_>,
-    dispatch: Py<PyAny>,
-    read_django_settings: bool,
-    cors_allowed_origins: Option<Vec<String>>,
-    static_files_config: Option<&Bound<'_, PyDict>>,
-    compression_config: Option<&Bound<'_, PyDict>>,
-    rate_limiters: Option<&Bound<'_, TestRateLimiters>>,
-    error_renderer: Option<Py<PyAny>>,
+    py: Python<'_>, dispatch: Py<PyAny>, read_django_settings: bool, cors_allowed_origins: Option<Vec<String>>,
+    static_files_config: Option<&Bound<'_, PyDict>>, compression_config: Option<&Bound<'_, PyDict>>,
+    rate_limiters: Option<&Bound<'_, TestRateLimiters>>, error_renderer: Option<Py<PyAny>>,
 ) -> PyResult<u64> {
     if error_renderer.is_some() {
         bolt_core::error::enable_error_info();
@@ -338,9 +314,7 @@ pub fn create_test_app(
     }
 
     let global_compression_config = match compression_config {
-        Some(d) => Some(Arc::new(
-            bolt_core::metadata::CompressionConfig::from_python_dict(d.as_any())?,
-        )),
+        Some(d) => Some(Arc::new(bolt_core::metadata::CompressionConfig::from_python_dict(d.as_any())?)),
         None => None,
     };
 
@@ -368,10 +342,7 @@ pub fn create_test_app(
 
 /// Build a static scope from an explicit `static_files_config` dict with the
 /// keys `url_prefix`, `directories`, `csp_header` and `cache_control`.
-fn static_scope_from_dict(
-    static_dict: &Bound<'_, PyDict>,
-    debug: bool,
-) -> PyResult<Option<Arc<ScopeConfig>>> {
+fn static_scope_from_dict(static_dict: &Bound<'_, PyDict>, debug: bool) -> PyResult<Option<Arc<ScopeConfig>>> {
     let url_prefix: String = static_dict
         .get_item("url_prefix")?
         .map(|v| v.extract().unwrap_or_default())
@@ -381,18 +352,13 @@ fn static_scope_from_dict(
         return Ok(None);
     };
 
-    let directories: Vec<String> = static_dict
-        .get_item("directories")?
-        .map(|v| v.extract().unwrap_or_default())
-        .unwrap_or_default();
+    let directories: Vec<String> =
+        static_dict.get_item("directories")?.map(|v| v.extract().unwrap_or_default()).unwrap_or_default();
 
     // Mirror the production hot-path contract: store pre-canonicalized
     // absolute roots so `find_in_directories` never canonicalizes the dir.
-    let directories: Vec<PathBuf> = directories
-        .iter()
-        .filter_map(|dir| Path::new(dir).canonicalize().ok())
-        .filter(|p| p.is_dir())
-        .collect();
+    let directories: Vec<PathBuf> =
+        directories.iter().filter_map(|dir| Path::new(dir).canonicalize().ok()).filter(|p| p.is_dir()).collect();
 
     let csp_header: Option<HeaderValue> = static_dict
         .get_item("csp_header")?
@@ -429,16 +395,10 @@ pub fn destroy_test_app(app_id: u64) -> PyResult<()> {
 /// Register HTTP routes for a test app
 #[pyfunction]
 #[pyo3(signature = (app_id, routes, native_routes, no_route=None))]
-#[expect(
-    clippy::type_complexity,
-    reason = "PyO3 wire format: Python passes each route as one tuple"
-)]
+#[expect(clippy::type_complexity, reason = "PyO3 wire format: Python passes each route as one tuple")]
 pub fn register_test_routes(
-    py: Python<'_>,
-    app_id: u64,
-    routes: Vec<(String, String, usize, Py<PyAny>, Py<PyAny>, Py<PyAny>)>,
-    native_routes: Vec<crate::native::NativeRouteSpec>,
-    no_route: Option<crate::native::NoRouteSpec>,
+    py: Python<'_>, app_id: u64, routes: Vec<(String, String, usize, Py<PyAny>, Py<PyAny>, Py<PyAny>)>,
+    native_routes: Vec<crate::native::NativeRouteSpec>, no_route: Option<crate::native::NoRouteSpec>,
 ) -> PyResult<()> {
     let router = crate::native::build_router(py, routes, native_routes, no_route)?;
     let entry = test_app(app_id)?;
@@ -448,14 +408,9 @@ pub fn register_test_routes(
 
 /// Register WebSocket routes for a test app
 #[pyfunction]
-#[expect(
-    clippy::type_complexity,
-    reason = "PyO3 wire format: Python passes each WebSocket route as one tuple"
-)]
+#[expect(clippy::type_complexity, reason = "PyO3 wire format: Python passes each WebSocket route as one tuple")]
 pub fn register_test_websocket_routes(
-    _py: Python<'_>,
-    app_id: u64,
-    routes: Vec<(String, usize, Py<PyAny>, Option<Py<PyAny>>)>,
+    _py: Python<'_>, app_id: u64, routes: Vec<(String, usize, Py<PyAny>, Option<Py<PyAny>>)>,
 ) -> PyResult<()> {
     let entry = test_app(app_id)?;
 
@@ -471,11 +426,7 @@ pub fn register_test_websocket_routes(
 
 /// Register HTTP ASGI mounts for a test app.
 #[pyfunction]
-pub fn register_test_asgi_mounts(
-    py: Python<'_>,
-    app_id: u64,
-    mounts: Vec<(String, Py<PyAny>)>,
-) -> PyResult<()> {
+pub fn register_test_asgi_mounts(py: Python<'_>, app_id: u64, mounts: Vec<(String, Py<PyAny>)>) -> PyResult<()> {
     let entry = test_app(app_id)?;
 
     let mut app = entry.write();
@@ -487,17 +438,13 @@ pub fn register_test_asgi_mounts(
 /// Register MCP mounts for a test app. Same mount-definition dicts as the
 /// production `register_mcp_mounts`.
 #[pyfunction]
-pub fn register_test_mcp_mounts(
-    py: Python<'_>,
-    app_id: u64,
-    mounts: Vec<Py<PyAny>>,
-) -> PyResult<()> {
+pub fn register_test_mcp_mounts(py: Python<'_>, app_id: u64, mounts: Vec<Py<PyAny>>) -> PyResult<()> {
     let mut parsed = Vec::with_capacity(mounts.len());
     for mount in &mounts {
         let dict = mount.bind(py);
-        let dict = dict.cast::<PyDict>().map_err(|_| {
-            pyo3::exceptions::PyValueError::new_err("MCP mount definition must be a dict")
-        })?;
+        let dict = dict
+            .cast::<PyDict>()
+            .map_err(|_| pyo3::exceptions::PyValueError::new_err("MCP mount definition must be a dict"))?;
         parsed.push(bolt_mcp::parse_mount(py, dict)?);
     }
 
@@ -510,9 +457,7 @@ pub fn register_test_mcp_mounts(
 /// Register middleware metadata for a test app
 #[pyfunction]
 pub fn register_test_middleware_metadata(
-    py: Python<'_>,
-    app_id: u64,
-    metadata: Vec<(usize, Py<PyAny>)>,
+    py: Python<'_>, app_id: u64, metadata: Vec<(usize, Py<PyAny>)>,
 ) -> PyResult<()> {
     let entry = test_app(app_id)?;
 
@@ -533,11 +478,7 @@ pub fn register_test_middleware_metadata(
             // Keep the error type: a wrong value type stays a TypeError.
             PyErr::from_type(
                 e.get_type(py),
-                format!(
-                    "Failed to parse route metadata for handler {}: {}",
-                    handler_id,
-                    e.value(py)
-                ),
+                format!("Failed to parse route metadata for handler {}: {}", handler_id, e.value(py)),
             )
         })?;
         parsed_metadata.insert(handler_id, route_meta);
@@ -561,17 +502,9 @@ pub fn register_test_middleware_metadata(
 /// The calling thread releases the GIL and waits for the response. The
 /// result is `(status_code, headers, body)`. Each header value is bytes.
 #[pyfunction]
-#[expect(
-    clippy::type_complexity,
-    reason = "PyO3 wire format: TestClient reads (status, headers, body) as one tuple"
-)]
+#[expect(clippy::type_complexity, reason = "PyO3 wire format: TestClient reads (status, headers, body) as one tuple")]
 pub fn test_request(
-    py: Python<'_>,
-    app_id: u64,
-    method: String,
-    path: String,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
+    py: Python<'_>, app_id: u64, method: String, path: String, headers: Vec<(String, String)>, body: Vec<u8>,
     query_string: Option<String>,
 ) -> PyResult<(u16, Vec<(String, Vec<u8>)>, Vec<u8>)> {
     py.detach(move || {
@@ -603,10 +536,7 @@ pub fn test_request(
                     ) = {
                         let state = app_state.read();
                         let (dispatch, error_renderer) = Python::attach(|py| {
-                            (
-                                state.dispatch.clone_ref(py),
-                                state.error_renderer.as_ref().map(|r| r.clone_ref(py)),
-                            )
+                            (state.dispatch.clone_ref(py), state.error_renderer.as_ref().map(|r| r.clone_ref(py)))
                         });
                         (
                             state.router.clone(),
@@ -669,11 +599,7 @@ pub fn test_request(
                     .await;
 
                     // Build full URI
-                    let uri = if let Some(qs) = query_string {
-                        format!("{}?{}", path, qs)
-                    } else {
-                        path.clone()
-                    };
+                    let uri = if let Some(qs) = query_string { format!("{}?{}", path, qs) } else { path.clone() };
 
                     // `TestRequest::with_uri` panics on an invalid URI. Check it first.
                     if let Err(e) = actix_web::http::Uri::try_from(uri.as_str()) {
@@ -697,8 +623,7 @@ pub fn test_request(
                         "HEAD" => req.method(actix_web::http::Method::HEAD),
                         // QUERY is a supported method but has no actix constant.
                         "QUERY" => req.method(
-                            actix_web::http::Method::from_bytes(b"QUERY")
-                                .expect("QUERY is a valid HTTP method token"),
+                            actix_web::http::Method::from_bytes(b"QUERY").expect("QUERY is a valid HTTP method token"),
                         ),
                         // Reject anything that isn't a supported method instead of
                         // silently defaulting to GET, which would hide typos in tests.
@@ -722,10 +647,7 @@ pub fn test_request(
                     // Execute request
                     let request = req.to_request();
                     let response = app.call(request).await.map_err(|e| {
-                        pyo3::exceptions::PyRuntimeError::new_err(format!(
-                            "Service call failed: {}",
-                            e
-                        ))
+                        pyo3::exceptions::PyRuntimeError::new_err(format!("Service call failed: {}", e))
                     })?;
 
                     // Extract response
@@ -749,9 +671,7 @@ pub fn test_request(
             })
         });
         submit_test_job(job)?;
-        done_rx.recv().map_err(|_| {
-            pyo3::exceptions::PyRuntimeError::new_err("the test worker dropped the request")
-        })?
+        done_rx.recv().map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("the test worker dropped the request"))?
     })
 }
 
@@ -761,16 +681,9 @@ pub fn test_request(
 /// When `is_asgi_mount` is true, `handler` is a raw ASGI application and the
 /// caller must drive it with the scope, receive, and send triple.
 #[pyfunction]
-#[expect(
-    clippy::type_complexity,
-    reason = "PyO3 wire format: the Python TestClient unpacks this tuple"
-)]
+#[expect(clippy::type_complexity, reason = "PyO3 wire format: the Python TestClient unpacks this tuple")]
 pub fn handle_test_websocket(
-    py: Python<'_>,
-    app_id: u64,
-    path: String,
-    headers: Vec<(String, String)>,
-    query_string: Option<String>,
+    py: Python<'_>, app_id: u64, path: String, headers: Vec<(String, String)>, query_string: Option<String>,
 ) -> PyResult<(bool, bool, usize, Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
     use bolt_core::middleware::auth::authenticate;
     use bolt_core::permissions::{GuardResult, evaluate_guards};
@@ -791,26 +704,16 @@ pub fn handle_test_websocket(
     if let Some(origin_value) = origin {
         // The production check. A value that no header can hold is denied too.
         let origin_allowed = HeaderValue::from_str(origin_value).is_ok_and(|origin_header| {
-            bolt_websocket::origin::validate_origin(
-                Some(&origin_header),
-                app.config.global_cors_config.as_ref(),
-            )
+            bolt_websocket::origin::validate_origin(Some(&origin_header), app.config.global_cors_config.as_ref())
         });
 
         if !origin_allowed {
-            return Err(pyo3::exceptions::PyPermissionError::new_err(format!(
-                "Origin not allowed: {}",
-                origin_value
-            )));
+            return Err(pyo3::exceptions::PyPermissionError::new_err(format!("Origin not allowed: {}", origin_value)));
         }
     }
 
     // Normalize path
-    let normalized_path = if path.len() > 1 && path.ends_with('/') {
-        &path[..path.len() - 1]
-    } else {
-        &path
-    };
+    let normalized_path = if path.len() > 1 && path.ends_with('/') { &path[..path.len() - 1] } else { &path };
 
     // Find WebSocket route. Each form of a `%XX` escape matches, as on the server.
     let route_path = normalize_request_path(normalized_path);
@@ -833,20 +736,11 @@ pub fn handle_test_websocket(
                         &mount.prefix,
                         &path,
                         query_string.as_deref().unwrap_or_default().as_bytes(),
-                        header_map
-                            .iter()
-                            .map(|(name, value)| (name.as_str(), value.as_bytes())),
+                        header_map.iter().map(|(name, value)| (name.as_str(), value.as_bytes())),
                         secure,
                         Some(("127.0.0.1".to_string(), 0)),
                     )?;
-                    Ok((
-                        true,
-                        true,
-                        0,
-                        mount.app.clone_ref(py),
-                        pyo3::types::PyDict::new(py).into(),
-                        scope,
-                    ))
+                    Ok((true, true, 0, mount.app.clone_ref(py), pyo3::types::PyDict::new(py).into(), scope))
                 }
                 None => Ok((false, false, 0, py.None(), py.None(), py.None())),
             };
@@ -864,17 +758,8 @@ pub fn handle_test_websocket(
         client_ip = (!matches!(rate_config.key, RateLimitKey::Header(_)))
             .then(|| {
                 bolt_core::middleware::client_ip::resolve(
-                    || {
-                        header_map
-                            .get("x-forwarded-for")
-                            .into_iter()
-                            .map(|value| Some(value.as_str()))
-                    },
-                    || {
-                        header_map
-                            .get("x-real-ip")
-                            .map(|value| Some(value.as_str()))
-                    },
+                    || header_map.get("x-forwarded-for").into_iter().map(|value| Some(value.as_str())),
+                    || header_map.get("x-real-ip").map(|value| Some(value.as_str())),
                     Some(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)),
                     &app.config.trusted_proxies,
                 )
@@ -891,9 +776,7 @@ pub fn handle_test_websocket(
         )
         .is_some()
         {
-            return Err(pyo3::exceptions::PyPermissionError::new_err(
-                "Rate limit exceeded",
-            ));
+            return Err(pyo3::exceptions::PyPermissionError::new_err("Rate limit exceeded"));
         }
     }
 
@@ -907,10 +790,7 @@ pub fn handle_test_websocket(
         } else {
             None
         };
-        if let (Some(_), Some(ctx)) = (
-            route_meta.websocket_revocation_check.as_ref(),
-            auth_ctx.as_ref(),
-        ) {
+        if let (Some(_), Some(ctx)) = (route_meta.websocket_revocation_check.as_ref(), auth_ctx.as_ref()) {
             let context = PyDict::new(py).unbind();
             bolt_core::middleware::auth::populate_auth_context(&context, ctx, py);
             revocation_auth = Some(context);
@@ -920,16 +800,11 @@ pub fn handle_test_websocket(
             match evaluate_guards(&route_meta.guards, auth_ctx.as_ref()) {
                 GuardResult::Allow => {}
                 GuardResult::Unauthorized => {
-                    return Err(pyo3::exceptions::PyPermissionError::new_err(
-                        "Authentication required",
-                    ));
+                    return Err(pyo3::exceptions::PyPermissionError::new_err("Authentication required"));
                 }
                 GuardResult::Forbidden(denial) => {
                     return Err(pyo3::exceptions::PyPermissionError::new_err(
-                        denial.map_or_else(
-                            || "Permission denied".to_string(),
-                            |denial| denial.text.clone(),
-                        ),
+                        denial.map_or_else(|| "Permission denied".to_string(), |denial| denial.text.clone()),
                     ));
                 }
             }
@@ -950,9 +825,7 @@ pub fn handle_test_websocket(
             )
             .is_some()
         {
-            return Err(pyo3::exceptions::PyPermissionError::new_err(
-                "Rate limit exceeded",
-            ));
+            return Err(pyo3::exceptions::PyPermissionError::new_err("Rate limit exceeded"));
         }
     }
 
@@ -969,15 +842,7 @@ pub fn handle_test_websocket(
     let path_params_dict = pyo3::types::PyDict::new(py);
     // A value that is too long or a bad typed value rejects the upgrade, as in production.
     for (k, v) in path_params.iter() {
-        set_param_item(
-            py,
-            &path_params_dict,
-            k,
-            v,
-            path_types,
-            max_param_length,
-            "Path parameter",
-        )?;
+        set_param_item(py, &path_params_dict, k, v, path_types, max_param_length, "Path parameter")?;
     }
 
     // Build scope dict
@@ -992,25 +857,13 @@ pub fn handle_test_websocket(
     let query_dict = pyo3::types::PyDict::new(py);
     if let Some(ref qs) = query_string {
         for (key, value) in &parse_query_string(qs) {
-            set_param_item(
-                py,
-                &query_dict,
-                key,
-                value,
-                query_types,
-                max_param_length,
-                "Query parameter",
-            )?;
+            set_param_item(py, &query_dict, key, value, query_types, max_param_length, "Query parameter")?;
         }
     }
     // A sequence parameter takes each value of its repeated key, as in production.
     // Each value gets the length check, as the loop above checks only the last one.
     if let Some(ws_route_meta) = ws_route_meta {
-        let sequences = query_sequences(
-            query_string.as_deref(),
-            &ws_route_meta.query_seq_fields,
-            max_param_length,
-        )?;
+        let sequences = query_sequences(query_string.as_deref(), &ws_route_meta.query_seq_fields, max_param_length)?;
         set_query_sequences(py, &query_dict, &sequences)?;
     }
     scope_dict.set_item("query_params", query_dict)?;
@@ -1021,23 +874,12 @@ pub fn handle_test_websocket(
     // A typed header with a bad value rejects the upgrade, as in production.
     let headers_dict = pyo3::types::PyDict::new(py);
     for (k, v) in header_map.iter() {
-        set_declared_item(
-            py,
-            &headers_dict,
-            k,
-            v,
-            header_types,
-            max_param_length,
-            "Header",
-        )?;
+        set_declared_item(py, &headers_dict, k, v, header_types, max_param_length, "Header")?;
     }
     scope_dict.set_item("headers", headers_dict)?;
     scope_dict.set_item("path_params", &path_params_dict)?;
     let subprotocols = bolt_websocket::requested_subprotocols(
-        headers
-            .iter()
-            .filter(|(k, _)| k.eq_ignore_ascii_case("sec-websocket-protocol"))
-            .map(|(_, v)| v.as_str()),
+        headers.iter().filter(|(k, _)| k.eq_ignore_ascii_case("sec-websocket-protocol")).map(|(_, v)| v.as_str()),
     );
     scope_dict.set_item("subprotocols", subprotocols)?;
 
@@ -1045,15 +887,7 @@ pub fn handle_test_websocket(
     let cookies_dict = pyo3::types::PyDict::new(py);
     if let Some(cookie_str) = header_map.get("cookie") {
         for (key, value) in cookie_pairs(cookie_str) {
-            set_declared_item(
-                py,
-                &cookies_dict,
-                key,
-                &value,
-                cookie_types,
-                max_param_length,
-                "Cookie",
-            )?;
+            set_declared_item(py, &cookies_dict, key, &value, cookie_types, max_param_length, "Cookie")?;
         }
     }
     scope_dict.set_item("cookies", cookies_dict)?;
@@ -1061,21 +895,14 @@ pub fn handle_test_websocket(
     let client_tuple = pyo3::types::PyTuple::new(py, ["127.0.0.1", "12345"])?;
     scope_dict.set_item("client", client_tuple)?;
 
-    Ok((
-        true,
-        false,
-        handler_id,
-        handler,
-        path_params_dict.into(),
-        scope_dict.into(),
-    ))
+    Ok((true, false, handler_id, handler, path_params_dict.into(), scope_dict.into()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        RouteMetadataStore, Router, ServerConfig, TEST_ID_GEN, TestAppState, WebSocketRouter,
-        destroy_test_app, register_test_middleware_metadata, registry,
+        RouteMetadataStore, Router, ServerConfig, TEST_ID_GEN, TestAppState, WebSocketRouter, destroy_test_app,
+        register_test_middleware_metadata, registry,
     };
     use bolt_core::middleware::client_ip::TrustedProxies;
     use bolt_core::streaming::StreamConfig;
@@ -1105,11 +932,7 @@ mod tests {
                 max_param_length: 1024,
                 asgi_mount_timeout: Duration::from_secs(30),
                 native_route_timeout: Duration::from_secs(30),
-                stream_config: StreamConfig {
-                    sync_batch_size: 5,
-                    channel_capacity: 32,
-                    max_sync_threads: 1000,
-                },
+                stream_config: StreamConfig { sync_batch_size: 5, channel_capacity: 32, max_sync_threads: 1000 },
                 ws_config: Arc::new(WsConfig {
                     max_connections: 10000,
                     channel_buffer_size: 100,
@@ -1148,9 +971,7 @@ mod tests {
                     c"finalizer_during_registration",
                 )?;
                 // `release` does what the finalizer of an unclosed TestClient does.
-                let release = PyCFunction::new_closure(py, None, None, move |_args, _kwargs| {
-                    destroy_test_app(app_id)
-                })?;
+                let release = PyCFunction::new_closure(py, None, None, move |_args, _kwargs| destroy_test_app(app_id))?;
                 let rate_limit = PyDict::new(py);
                 rate_limit.set_item("type", "rate_limit")?;
                 rate_limit.set_item("rps", module.getattr("Rps")?.call1((release,))?)?;
@@ -1219,9 +1040,7 @@ mod native_test_handler {
             Some(id) => format!("{{\"id\": {}}}", json(&text(id))),
             None => "{}".to_owned(),
         };
-        let x_test = req
-            .header(b"x-test")
-            .map_or_else(|| "null".to_owned(), |v| json(&text(v)));
+        let x_test = req.header(b"x-test").map_or_else(|| "null".to_owned(), |v| json(&text(v)));
         format!(
             "{{\"method\": {}, \"path\": {}, \"query\": {}, \"params\": {}, \"x_test\": {}, \"client\": {}, \"body\": {}}}",
             json(&text(req.method())),
@@ -1263,10 +1082,7 @@ mod native_test_handler {
 
     /// Completes with a null response, which the contract answers with 500.
     unsafe extern "C" fn null_response(
-        _ctx: *mut c_void,
-        _req: *const abi::Request,
-        complete: abi::CompleteFn,
-        token: *mut c_void,
+        _ctx: *mut c_void, _req: *const abi::Request, complete: abi::CompleteFn, token: *mut c_void,
     ) {
         // SAFETY: the token of this `call`, given back once.
         unsafe { complete(token, std::ptr::null()) };
@@ -1274,18 +1090,10 @@ mod native_test_handler {
 
     /// Completes with a response whose `size` is smaller than v1.
     unsafe extern "C" fn small_response(
-        _ctx: *mut c_void,
-        _req: *const abi::Request,
-        complete: abi::CompleteFn,
-        token: *mut c_void,
+        _ctx: *mut c_void, _req: *const abi::Request, complete: abi::CompleteFn, token: *mut c_void,
     ) {
-        let resp = abi::Response {
-            size: 0,
-            status: 200,
-            headers: std::ptr::null(),
-            n_headers: 0,
-            body: abi::Slice::EMPTY,
-        };
+        let resp =
+            abi::Response { size: 0, status: 200, headers: std::ptr::null(), n_headers: 0, body: abi::Slice::EMPTY };
         // SAFETY: the token of this `call`, given back once.
         unsafe { complete(token, &resp) };
     }
@@ -1294,14 +1102,10 @@ mod native_test_handler {
         abi::HandlerV1::new(c"bolt-test-null", std::ptr::null_mut(), null_response);
     pub static SMALL_RESPONSE: abi::HandlerV1 =
         abi::HandlerV1::new(c"bolt-test-small", std::ptr::null_mut(), small_response);
-    pub static TOO_SMALL: abi::HandlerV1 = abi::HandlerV1 {
-        size: 0,
-        ..abi::HandlerV1::new(c"bolt-test-too-small", std::ptr::null_mut(), null_response)
-    };
-    pub static NO_CALL: abi::HandlerV1 = abi::HandlerV1 {
-        call: None,
-        ..abi::HandlerV1::new(c"bolt-test-no-call", std::ptr::null_mut(), null_response)
-    };
+    pub static TOO_SMALL: abi::HandlerV1 =
+        abi::HandlerV1 { size: 0, ..abi::HandlerV1::new(c"bolt-test-too-small", std::ptr::null_mut(), null_response) };
+    pub static NO_CALL: abi::HandlerV1 =
+        abi::HandlerV1 { call: None, ..abi::HandlerV1::new(c"bolt-test-no-call", std::ptr::null_mut(), null_response) };
 }
 
 /// A `freeman.native_handler.v1` capsule for bolt's own tests. `kind` is
@@ -1316,9 +1120,7 @@ pub fn native_test_capsule(py: Python<'_>, kind: &str) -> PyResult<Py<PyAny>> {
         "no_call" => &native_test_handler::NO_CALL,
         "too_small" => &native_test_handler::TOO_SMALL,
         _ => {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "unknown kind {kind}"
-            )));
+            return Err(pyo3::exceptions::PyValueError::new_err(format!("unknown kind {kind}")));
         }
     };
     // SAFETY: the pointer is to a static, and the name is a static C string.

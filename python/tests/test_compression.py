@@ -104,11 +104,7 @@ def test_compression_disabled():
 
 @pytest.mark.parametrize(
     ("setting", "api_compression", "expected"),
-    [
-        (None, None, None),
-        (False, None, None),
-        (CompressionConfig(backend="gzip"), False, "gzip"),
-    ],
+    [(None, None, None), (False, None, None), (CompressionConfig(backend="gzip"), False, "gzip")],
     ids=["none-disables", "false-disables", "config-wins"],
 )
 def test_bolt_compression_setting_wins_over_the_api_argument(settings, setting, api_compression, expected):
@@ -480,12 +476,7 @@ def test_compression_config_rust_form_keeps_each_custom_value():
 
 @pytest.mark.parametrize(
     ("field", "low", "high"),
-    [
-        ("brotli_level", 0, 11),
-        ("brotli_lgwin", 10, 24),
-        ("gzip_level", 0, 9),
-        ("zstd_level", 1, 22),
-    ],
+    [("brotli_level", 0, 11), ("brotli_lgwin", 10, 24), ("gzip_level", 0, 9), ("zstd_level", 1, 22)],
 )
 def test_compression_config_accepts_the_edges_of_a_level_range(field, low, high):
     """A level at the lowest or the highest edge of its range is valid."""

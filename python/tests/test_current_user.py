@@ -68,6 +68,7 @@ def test_current_user_loads_with_the_backend_on_the_lane(handler_is_async):
         @api.get("/tenant/{tenant}", auth=[auth])
         async def endpoint(tenant: str, request: Request, user: CurrentUser):
             return {"tenant": user.tenant, "cached": request.user.tenant}
+
     else:
 
         @api.get("/tenant/{tenant}", auth=[auth])
@@ -163,6 +164,7 @@ def test_current_user_rejects_a_request_with_no_user(handler_is_async):
         @api.get("/optional")
         async def optional(user: OptionalCurrentUser):
             return {"user": None if user is None else user.username}
+
     else:
 
         @api.get("/required")
@@ -206,6 +208,7 @@ def test_the_401_of_current_user_names_the_scheme_of_the_route_backends(backends
         @api.get("/required", auth=backends)
         async def required(user: CurrentUser):
             return {"username": user.username}
+
     else:
 
         @api.get("/required", auth=backends)

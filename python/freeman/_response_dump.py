@@ -33,28 +33,24 @@ _WRAPPER_ORIGINS = frozenset(
     origin for origin in (Annotated, Required, NotRequired, getattr(typing, "ReadOnly", None)) if origin is not None
 )
 _UNION_ORIGINS = frozenset({Union, types.UnionType})
-_ITEM_ORIGINS = frozenset(
-    {
-        list,
-        set,
-        frozenset,
-        collections.deque,
-        collections.abc.Collection,
-        collections.abc.Sequence,
-        collections.abc.MutableSequence,
-        collections.abc.Set,
-        collections.abc.MutableSet,
-    }
-)
-_MAPPING_ORIGINS = frozenset(
-    {
-        dict,
-        collections.OrderedDict,
-        collections.defaultdict,
-        collections.abc.Mapping,
-        collections.abc.MutableMapping,
-    }
-)
+_ITEM_ORIGINS = frozenset({
+    list,
+    set,
+    frozenset,
+    collections.deque,
+    collections.abc.Collection,
+    collections.abc.Sequence,
+    collections.abc.MutableSequence,
+    collections.abc.Set,
+    collections.abc.MutableSet,
+})
+_MAPPING_ORIGINS = frozenset({
+    dict,
+    collections.OrderedDict,
+    collections.defaultdict,
+    collections.abc.Mapping,
+    collections.abc.MutableMapping,
+})
 # The values that msgspec encodes as a JSON array.
 _ARRAY_VALUES = (list, tuple, set, frozenset)
 

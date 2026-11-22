@@ -33,11 +33,7 @@ const MAX_HEADERS: usize = 100;
 /// formatter fails, Python logs the failure and the default response goes out.
 #[cold]
 #[inline(never)]
-pub fn format_error_response(
-    mut response: HttpResponse,
-    req: &HttpRequest,
-    state: &Arc<AppState>,
-) -> HttpResponse {
+pub fn format_error_response(mut response: HttpResponse, req: &HttpRequest, state: &Arc<AppState>) -> HttpResponse {
     let Some(renderer) = state.error_renderer.as_ref() else {
         return response;
     };
@@ -50,22 +46,12 @@ pub fn format_error_response(
         let headers: Vec<(&str, &str)> = response
             .headers()
             .iter()
-            .filter(|(name, _)| {
-                **name != CONTENT_TYPE
-                    && **name != CONTENT_LENGTH
-                    && **name != SKIP_CORS_HEADER_NAME
-            })
+            .filter(|(name, _)| **name != CONTENT_TYPE && **name != CONTENT_LENGTH && **name != SKIP_CORS_HEADER_NAME)
             .filter_map(|(name, value)| Some((name.as_str(), value.to_str().ok()?)))
             .collect();
         let status = response.status().as_u16();
         let result = match &info {
-            ErrorInfo::Core {
-                kind,
-                detail,
-                errors,
-                extra,
-                reason,
-            } => renderer.call1(
+            ErrorInfo::Core { kind, detail, errors, extra, reason } => renderer.call1(
                 py,
                 (
                     status,
@@ -79,20 +65,8 @@ pub fn format_error_response(
                     reason.as_deref(),
                 ),
             )?,
-            ErrorInfo::Exception(exc) => renderer.call1(
-                py,
-                (
-                    status,
-                    "",
-                    "",
-                    py.None(),
-                    py.None(),
-                    headers,
-                    request,
-                    exc.clone_ref(py),
-                    py.None(),
-                ),
-            )?,
+            ErrorInfo::Exception(exc) => renderer
+                .call1(py, (status, "", "", py.None(), py.None(), headers, request, exc.clone_ref(py), py.None()))?,
         };
         if result.is_none(py) {
             return Ok(None);
@@ -105,10 +79,8 @@ pub fn format_error_response(
             .ok_or_else(|| PyValueError::new_err(format!("status {status} is not an error")))?;
         let mut builder = HttpResponse::build(status);
         for (name, value) in headers {
-            let name =
-                HeaderName::try_from(name).map_err(|err| PyValueError::new_err(err.to_string()))?;
-            let value = HeaderValue::try_from(value)
-                .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            let name = HeaderName::try_from(name).map_err(|err| PyValueError::new_err(err.to_string()))?;
+            let value = HeaderValue::try_from(value).map_err(|err| PyValueError::new_err(err.to_string()))?;
             builder.append_header((name, value));
         }
         Ok(Some(builder.body(body)))
@@ -125,16 +97,8 @@ pub fn format_error_response(
     }
 }
 
-fn json_bytes<'py>(
-    py: Python<'py>,
-    value: Option<&serde_json::Value>,
-) -> Option<Bound<'py, PyBytes>> {
-    value.map(|value| {
-        PyBytes::new(
-            py,
-            &serde_json::to_vec(value).expect("a JSON value always serializes"),
-        )
-    })
+fn json_bytes<'py>(py: Python<'py>, value: Option<&serde_json::Value>) -> Option<Bound<'py, PyBytes>> {
+    value.map(|value| PyBytes::new(py, &serde_json::to_vec(value).expect("a JSON value always serializes")))
 }
 
 /// The request for the formatter: method, path, query string and headers.
@@ -154,14 +118,9 @@ fn error_request(py: Python<'_>, req: &HttpRequest, state: &AppState) -> PyResul
     let peer_ip = req.peer_addr().map(|address| address.ip());
     // Same trust rule as a handler request: only a trusted proxy sets the
     // scheme with `X-Forwarded-Proto`.
-    let conn_scheme = client_ip::resolve_scheme(
-        req.headers(),
-        peer_ip,
-        req.app_config().secure(),
-        &state.trusted_proxies,
-    );
-    let conn_remote_addr =
-        client_ip::resolve_from_headers(req.headers(), peer_ip, &state.trusted_proxies);
+    let conn_scheme =
+        client_ip::resolve_scheme(req.headers(), peer_ip, req.app_config().secure(), &state.trusted_proxies);
+    let conn_remote_addr = client_ip::resolve_from_headers(req.headers(), peer_ip, &state.trusted_proxies);
     let headers_py = string_map_to_py_dict(py, &headers, &[])?.unbind();
     Ok(PyRequest {
         method: req.method().as_str().to_owned().into(),

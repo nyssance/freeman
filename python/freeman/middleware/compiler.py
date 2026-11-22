@@ -390,16 +390,14 @@ def _compile_rust_arg_bindings(handler_meta: dict[str, Any]) -> list[dict[str, A
         # None explicitly (omitting the kwarg would raise a TypeError).
         inject_none = field.is_optional and field.default is inspect.Parameter.empty
 
-        bindings.append(
-            {
-                "source": field.source,
-                "lookup_key": lookup_key,
-                "arg_name": field.name,
-                "arg_kind": arg_kind,
-                "required": not field.is_optional,
-                "inject_none": inject_none,
-            }
-        )
+        bindings.append({
+            "source": field.source,
+            "lookup_key": lookup_key,
+            "arg_name": field.name,
+            "arg_kind": arg_kind,
+            "required": not field.is_optional,
+            "inject_none": inject_none,
+        })
 
     return bindings
 

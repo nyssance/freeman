@@ -158,30 +158,28 @@ _REBUILT_BODY_HEADER_NAMES = frozenset(("content-length", "transfer-encoding"))
 # All other public attributes come from middleware and go to request.state.
 # This is a literal set: HttpRequest() needs configured settings, and
 # nanodjango imports this module before it configures them.
-_STANDARD_REQUEST_ATTRS = frozenset(
-    (
-        "GET",
-        "POST",
-        "COOKIES",
-        "META",
-        "FILES",
-        "path",
-        "path_info",
-        "method",
-        "resolver_match",
-        "content_type",
-        "content_params",
-        # cached_property values land in __dict__ after the first read.
-        "headers",
-        "accepted_types",
-        "accepted_types_by_precedence",
-        "user",
-        "auser",
-        "session",
-        "csrf_processing_done",
-        "csrf_cookie_needs_reset",
-    )
-)
+_STANDARD_REQUEST_ATTRS = frozenset((
+    "GET",
+    "POST",
+    "COOKIES",
+    "META",
+    "FILES",
+    "path",
+    "path_info",
+    "method",
+    "resolver_match",
+    "content_type",
+    "content_params",
+    # cached_property values land in __dict__ after the first read.
+    "headers",
+    "accepted_types",
+    "accepted_types_by_precedence",
+    "user",
+    "auser",
+    "session",
+    "csrf_processing_done",
+    "csrf_cookie_needs_reset",
+))
 
 
 async def _run_request_affine(call: Callable, request: Request) -> Response:
@@ -431,8 +429,7 @@ class DjangoMiddleware:
             self._lane_instance = self.middleware_class(lane_get_response, **self.init_kwargs)
             lane_view_hook = getattr(self._lane_instance, "process_view", None)
             self._lane_hooks = _pack_hooks(
-                _exception_hook_pairs(self._lane_instance, self.middleware_class),
-                _template_hooks(self._lane_instance),
+                _exception_hook_pairs(self._lane_instance, self.middleware_class), _template_hooks(self._lane_instance)
             )
 
     @property
@@ -479,10 +476,7 @@ class DjangoMiddleware:
             django_request = _to_django_request(request)
 
             # Set up per-request context for the get_response bridge
-            ctx = {
-                "bolt_request": request,
-                "django_request": django_request,
-            }
+            ctx = {"bolt_request": request, "django_request": django_request}
             token = _request_context.set(ctx)
 
         # An inner Django middleware and the render of a TemplateResponse call
@@ -648,15 +642,13 @@ _EMPTY_DICT: dict = {}
 # NOTE: django.contrib.sessions, django.contrib.auth, and django.contrib.messages
 # are NOT included here because they can perform blocking database I/O
 # (e.g., SessionMiddleware.process_response saves session to DB)
-_DJANGO_SAFE_MIDDLEWARE_PREFIXES = frozenset(
-    [
-        "django.middleware.",  # security, common, csrf, clickjacking, gzip, locale, http
-        "django.contrib.flatpages.",  # FlatpageFallbackMiddleware
-        "django.contrib.redirects.",  # RedirectFallbackMiddleware
-        "django.contrib.sites.",  # CurrentSiteMiddleware
-        "django.contrib.admindocs.",  # XViewMiddleware
-    ]
-)
+_DJANGO_SAFE_MIDDLEWARE_PREFIXES = frozenset([
+    "django.middleware.",  # security, common, csrf, clickjacking, gzip, locale, http
+    "django.contrib.flatpages.",  # FlatpageFallbackMiddleware
+    "django.contrib.redirects.",  # RedirectFallbackMiddleware
+    "django.contrib.sites.",  # CurrentSiteMiddleware
+    "django.contrib.admindocs.",  # XViewMiddleware
+])
 
 
 def _is_django_builtin_middleware(middleware_class: type) -> bool:
@@ -1016,9 +1008,7 @@ class DjangoMiddlewareStack:
                         response = None
                         if _entry["process_request"] is not None:
                             response = await self._invoke_hook(
-                                _entry["raw_process_request"],
-                                _entry["process_request"],
-                                django_request,
+                                _entry["raw_process_request"], _entry["process_request"], django_request
                             )
                         if response is None:
                             response = await _next(django_request)
@@ -1027,10 +1017,7 @@ class DjangoMiddlewareStack:
 
                     if _entry["process_response"] is not None:
                         response = await self._invoke_hook(
-                            _entry["raw_process_response"],
-                            _entry["process_response"],
-                            django_request,
-                            response,
+                            _entry["raw_process_response"], _entry["process_response"], django_request, response
                         )
                     return response
 
@@ -1106,11 +1093,7 @@ class DjangoMiddlewareStack:
         try:
             # Mixed hook + call-only path: strict-order compatibility mode.
             if self._compatibility_chain is not None:
-                ctx = {
-                    "bolt_request": request,
-                    "django_request": django_request,
-                    "entered_hook_entries": [],
-                }
+                ctx = {"bolt_request": request, "django_request": django_request, "entered_hook_entries": []}
                 token = _request_context.set(ctx)
                 try:
                     django_response = await self._compatibility_chain(django_request)
@@ -1145,10 +1128,7 @@ class DjangoMiddlewareStack:
 
             # __call__-only path (no hook middleware).
             if self._call_middleware_chain_async is not None:
-                ctx = {
-                    "bolt_request": request,
-                    "django_request": django_request,
-                }
+                ctx = {"bolt_request": request, "django_request": django_request}
                 token = _request_context.set(ctx)
                 try:
                     if in_lane_mode():

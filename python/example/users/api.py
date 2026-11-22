@@ -5,12 +5,7 @@ from typing import Annotated
 import msgspec
 
 from freeman import BoltAPI
-from freeman.pagination import (
-    CursorPagination,
-    LimitOffsetPagination,
-    PageNumberPagination,
-    paginate,
-)
+from freeman.pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, paginate
 from freeman.params import Depends
 from freeman.serializers import Serializer
 from freeman.views import ModelViewSet, ViewSet
@@ -159,9 +154,7 @@ class SmallPagePagination(PageNumberPagination):
 # ----------------------------------------------------------------------------
 
 
-@api.get(
-    "/paginated",
-)
+@api.get("/paginated")
 @paginate(SmallPagePagination)
 async def list_users_paginated(request):
     """
@@ -423,10 +416,7 @@ class QueryFilterBackend:
 
 @api.get("/filtered")
 async def list_users_filtered(
-    filters: Annotated[
-        dict,
-        Depends(QueryFilterBackend(fields=("username", "is_active", "email"))),
-    ],
+    filters: Annotated[dict, Depends(QueryFilterBackend(fields=("username", "is_active", "email")))],
 ) -> list[UserMini]:
     """List users with filters derived from ?username=... &is_active=... &email=..."""
     return User.objects.filter(**filters).only("id", "username")[:20]

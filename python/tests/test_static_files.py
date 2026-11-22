@@ -68,78 +68,76 @@ IMG_DIR = os.path.join(TEST_STATIC_DIR, "img")
 os.makedirs(IMG_DIR, exist_ok=True)
 IMG_FILE = os.path.join(IMG_DIR, "logo.png")
 # Minimal valid 1x1 transparent PNG
-PNG_BYTES = bytes(
-    [
-        0x89,
-        0x50,
-        0x4E,
-        0x47,
-        0x0D,
-        0x0A,
-        0x1A,
-        0x0A,  # PNG signature
-        0x00,
-        0x00,
-        0x00,
-        0x0D,
-        0x49,
-        0x48,
-        0x44,
-        0x52,  # IHDR chunk
-        0x00,
-        0x00,
-        0x00,
-        0x01,
-        0x00,
-        0x00,
-        0x00,
-        0x01,  # 1x1 dimensions
-        0x08,
-        0x06,
-        0x00,
-        0x00,
-        0x00,
-        0x1F,
-        0x15,
-        0xC4,  # RGBA, 8-bit
-        0x89,
-        0x00,
-        0x00,
-        0x00,
-        0x0A,
-        0x49,
-        0x44,
-        0x41,  # IDAT chunk
-        0x54,
-        0x78,
-        0x9C,
-        0x63,
-        0x00,
-        0x01,
-        0x00,
-        0x00,  # Compressed data
-        0x05,
-        0x00,
-        0x01,
-        0x0D,
-        0x0A,
-        0x2D,
-        0xB4,
-        0x00,  # Adler32 checksum
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x49,
-        0x45,
-        0x4E,
-        0x44,  # IEND chunk
-        0xAE,
-        0x42,
-        0x60,
-        0x82,  # CRC
-    ]
-)
+PNG_BYTES = bytes([
+    0x89,
+    0x50,
+    0x4E,
+    0x47,
+    0x0D,
+    0x0A,
+    0x1A,
+    0x0A,  # PNG signature
+    0x00,
+    0x00,
+    0x00,
+    0x0D,
+    0x49,
+    0x48,
+    0x44,
+    0x52,  # IHDR chunk
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x01,  # 1x1 dimensions
+    0x08,
+    0x06,
+    0x00,
+    0x00,
+    0x00,
+    0x1F,
+    0x15,
+    0xC4,  # RGBA, 8-bit
+    0x89,
+    0x00,
+    0x00,
+    0x00,
+    0x0A,
+    0x49,
+    0x44,
+    0x41,  # IDAT chunk
+    0x54,
+    0x78,
+    0x9C,
+    0x63,
+    0x00,
+    0x01,
+    0x00,
+    0x00,  # Compressed data
+    0x05,
+    0x00,
+    0x01,
+    0x0D,
+    0x0A,
+    0x2D,
+    0xB4,
+    0x00,  # Adler32 checksum
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x49,
+    0x45,
+    0x4E,
+    0x44,  # IEND chunk
+    0xAE,
+    0x42,
+    0x60,
+    0x82,  # CRC
+])
 with open(IMG_FILE, "wb") as f:
     f.write(PNG_BYTES)
 
@@ -204,11 +202,7 @@ class TestStaticFileServing:
     @classmethod
     def client(cls, api_with_static):
         """Test client whose native /static scope serves from TEST_STATIC_DIR."""
-        static_config = {
-            "url_prefix": "/static",
-            "directories": [TEST_STATIC_DIR],
-            "csp_header": None,
-        }
+        static_config = {"url_prefix": "/static", "directories": [TEST_STATIC_DIR], "csp_header": None}
         return TestClient(api_with_static, static_files_config=static_config)
 
     def test_serve_css_file(self, settings, client, monkeypatch):
@@ -400,11 +394,7 @@ class TestCachingHeaders:
     @classmethod
     def client(cls, api):
         """Create test client with HTTP layer and explicit static files config."""
-        static_config = {
-            "url_prefix": "/static",
-            "directories": [TEST_STATIC_DIR],
-            "csp_header": None,
-        }
+        static_config = {"url_prefix": "/static", "directories": [TEST_STATIC_DIR], "csp_header": None}
         return TestClient(api, static_files_config=static_config)
 
     def test_etag_header_present(self, client, monkeypatch):
@@ -443,11 +433,7 @@ class TestDirectoryTraversalSecurity:
     @classmethod
     def client(cls, api_with_static):
         """Create test client with explicit static files config."""
-        static_config = {
-            "url_prefix": "/static",
-            "directories": [TEST_STATIC_DIR],
-            "csp_header": None,
-        }
+        static_config = {"url_prefix": "/static", "directories": [TEST_STATIC_DIR], "csp_header": None}
         return TestClient(api_with_static, static_files_config=static_config)
 
     def test_basic_traversal_blocked(self, client):
@@ -632,10 +618,7 @@ class TestContentSecurityPolicy:
     def _get_css(**csp_settings):
         with (
             override_settings(
-                STATIC_ROOT=TEST_STATIC_DIR,
-                STATICFILES_DIRS=[TEST_STATIC_DIR],
-                STATIC_URL="/static/",
-                **csp_settings,
+                STATIC_ROOT=TEST_STATIC_DIR, STATICFILES_DIRS=[TEST_STATIC_DIR], STATIC_URL="/static/", **csp_settings
             ),
             TestClient(BoltAPI()) as client,
         ):
@@ -903,11 +886,7 @@ class TestDebugModeFinders:
         settings.STATIC_URL = "/static/"
 
         # Configure static files for testing
-        static_config = {
-            "url_prefix": "/static",
-            "directories": [empty_static_root],
-            "csp_header": None,
-        }
+        static_config = {"url_prefix": "/static", "directories": [empty_static_root], "csp_header": None}
 
         # Test with DEBUG=True (finders fallback should work)
         settings.DEBUG = True

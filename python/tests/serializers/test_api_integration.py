@@ -27,15 +27,7 @@ from msgspec import Meta
 from freeman.api import BoltAPI
 from freeman.exceptions import BadRequest
 from freeman.responses import JSON
-from freeman.serializers import (
-    Email,
-    NonEmptyStr,
-    Serializer,
-    computed_field,
-    field,
-    field_validator,
-    model_validator,
-)
+from freeman.serializers import Email, NonEmptyStr, Serializer, computed_field, field, field_validator, model_validator
 from freeman.testing import TestClient
 from tests.test_models import Author, BlogPost, Comment, Tag, User
 
@@ -162,10 +154,7 @@ async def create_post_simple(data: BlogPostInputSerializer):
     """
     author_id = data.author.id
     created_post = await BlogPost.objects.acreate(
-        title=data.title,
-        content=data.content,
-        author_id=author_id,
-        published=data.published,
+        title=data.title, content=data.content, author_id=author_id, published=data.published
     )
 
     # Refetch with relationships for serialization
@@ -202,10 +191,7 @@ def create_post_with_tags(data: BlogPostInputSerializer):
     author_id = data.author.id
 
     post = BlogPost.objects.create(
-        title=data.title,
-        content=data.content,
-        author_id=author_id,
-        published=data.published,
+        title=data.title, content=data.content, author_id=author_id, published=data.published
     )
 
     # Add tags
@@ -249,10 +235,7 @@ def create_post_full(data: BlogPostDetailedInputSerializer):
 
     # Create post
     post = BlogPost.objects.create(
-        title=data.title,
-        content=data.content,
-        author_id=author_id,
-        published=data.published,
+        title=data.title, content=data.content, author_id=author_id, published=data.published
     )
 
     # Add tags
@@ -266,11 +249,7 @@ def create_post_full(data: BlogPostDetailedInputSerializer):
             comment_data.author.id if isinstance(comment_data.author, AuthorSerializer) else comment_data.author
         )
 
-        Comment.objects.create(
-            post=post,
-            author_id=comment_author_id,
-            text=comment_data.text,
-        )
+        Comment.objects.create(post=post, author_id=comment_author_id, text=comment_data.text)
 
     post = BlogPost.objects.select_related("author").prefetch_related("tags", "comments__author").get(id=post.id)
     return BlogPostDetailedSerializer.from_model(post)
@@ -323,10 +302,7 @@ def create_post_strict(data: BlogPostCreateSerializer):
 
     # Create post
     post = BlogPost.objects.create(
-        title=data.title,
-        content=data.content,
-        author_id=data.author.id,
-        published=data.published,
+        title=data.title, content=data.content, author_id=data.author.id, published=data.published
     )
 
     # Add tags
@@ -509,10 +485,7 @@ class TestAPI2NestedM2M:
             "title": "Post with Tags",
             "content": "Content with tags",
             "author": {"id": author.id, "name": "Eve", "email": "eve@example.com"},
-            "tags": [
-                {"id": tag1.id, "name": "testing"},
-                {"id": tag2.id, "name": "integration"},
-            ],
+            "tags": [{"id": tag1.id, "name": "testing"}, {"id": tag2.id, "name": "integration"}],
             "published": True,
         }
         response = client_api_2.post("/posts/with-tags", json=payload)
@@ -540,10 +513,7 @@ class TestAPI2NestedM2M:
             "title": "Post with Tag IDs",
             "content": "Content with tag IDs",
             "author": {"id": author.id, "name": "Frank", "email": "frank@example.com"},
-            "tags": [
-                {"id": tag1.id, "name": "tag1"},
-                {"id": tag2.id, "name": "tag2"},
-            ],
+            "tags": [{"id": tag1.id, "name": "tag1"}, {"id": tag2.id, "name": "tag2"}],
             "published": False,
         }
         response = client_api_2.post("/posts/with-tags", json=payload)
@@ -1203,10 +1173,7 @@ async def get_post_full_unfiltered(post_id: int):
 async def create_post_advanced(data: AdvancedBlogPostInputSerializer):
     """Create a post with validation."""
     created_post = await BlogPost.objects.acreate(
-        title=data.title,
-        content=data.content,
-        author_id=data.author.id,
-        published=data.published,
+        title=data.title, content=data.content, author_id=data.author.id, published=data.published
     )
 
     # Add tags
@@ -1320,10 +1287,7 @@ class TestAPI6AdvancedSerializerFeatures:
         author = Author.objects.create(name="Alice", email="alice@example.com")
         tag = Tag.objects.create(name="Testing")
         post = BlogPost.objects.create(
-            title="List View Post",
-            content="Some content here for the list view test",
-            author=author,
-            published=True,
+            title="List View Post", content="Some content here for the list view test", author=author, published=True
         )
         post.tags.add(tag)
 
@@ -1557,10 +1521,7 @@ class TestAPI6AdvancedSerializerFeatures:
         )
         tag = Tag.objects.create(name="Nested Tag")  # slug: "nested-tag"
         post = BlogPost.objects.create(
-            title="Nested Test",
-            content="Content for nested test with computed fields",
-            author=author,
-            published=True,
+            title="Nested Test", content="Content for nested test with computed fields", author=author, published=True
         )
         post.tags.add(tag)
         Comment.objects.create(
@@ -1621,10 +1582,7 @@ class TestAPI6AdvancedSerializerFeatures:
         """Test that empty nested collections are handled correctly."""
         author = Author.objects.create(name="Solo Author", email="solo@example.com")
         post = BlogPost.objects.create(
-            title="Solo Post",
-            content="A post with no tags and no comments",
-            author=author,
-            published=False,
+            title="Solo Post", content="A post with no tags and no comments", author=author, published=False
         )
 
         response = client_api_6.get(f"/posts/{post.id}/full")

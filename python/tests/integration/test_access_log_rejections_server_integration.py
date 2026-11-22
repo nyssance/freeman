@@ -13,10 +13,7 @@ from .helpers import access_log_settings
 
 @pytest.mark.server_integration
 def test_access_log_writes_one_429_line_for_each_second_of_a_flood(make_server_project):
-    project = make_server_project(
-        api_module=app_module("access_log_rejections"),
-        settings_extra=access_log_settings(),
-    )
+    project = make_server_project(api_module=app_module("access_log_rejections"), settings_extra=access_log_settings())
     with project.start(startup_path="/health") as server:
         # The route takes one request for each second. The server has one worker.
         statuses = [server.request("GET", "/limited").status_code for _ in range(40)]
@@ -37,10 +34,7 @@ def test_access_log_writes_one_429_line_for_each_second_of_a_flood(make_server_p
 
 @pytest.mark.server_integration
 def test_access_log_has_a_line_for_each_response_of_a_route(make_server_project):
-    project = make_server_project(
-        api_module=app_module("access_log_rejections"),
-        settings_extra=access_log_settings(),
-    )
+    project = make_server_project(api_module=app_module("access_log_rejections"), settings_extra=access_log_settings())
     with project.start(startup_path="/health") as server:
         assert server.request("GET", "/open").status_code == 200
         assert server.request("GET", "/private").status_code == 401

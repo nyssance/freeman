@@ -99,9 +99,7 @@ def session_middleware(specs: Sequence[Any], route: str) -> list[DjangoMiddlewar
 
 
 def build_session_guard_check(
-    guards_metadata: list[dict[str, Any]] | None,
-    backends: Sequence[Any],
-    route: str,
+    guards_metadata: list[dict[str, Any]] | None, backends: Sequence[Any], route: str
 ) -> SessionGuardCheck | None:
     """Build the guard check for the session requests of a route.
 

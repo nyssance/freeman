@@ -47,9 +47,8 @@ thread_local! {
 }
 
 #[cfg(unix)]
-static SIGNAL_WATCHERS: std::sync::LazyLock<
-    std::sync::Mutex<HashMap<i32, tokio::sync::oneshot::Sender<()>>>,
-> = std::sync::LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
+static SIGNAL_WATCHERS: std::sync::LazyLock<std::sync::Mutex<HashMap<i32, tokio::sync::oneshot::Sender<()>>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 
 pub enum WorkerLoopCommand {
     Soon(Py<PyAny>),
@@ -88,9 +87,7 @@ impl WorkerLoop {
     /// runtime for every other entry point.
     fn new(py: Python<'_>) -> PyResult<Arc<Self>> {
         let runtime = tokio::runtime::Handle::try_current().map_err(|_| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "a WorkerLoop can only be created from a Tokio runtime thread",
-            )
+            pyo3::exceptions::PyRuntimeError::new_err("a WorkerLoop can only be created from a Tokio runtime thread")
         })?;
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         #[cfg(unix)]
@@ -133,14 +130,11 @@ impl WorkerLoop {
     /// that streams first, and keep its contextvars for the process lifetime.
     pub fn task_locals(&self, py: Python<'_>) -> PyResult<&pyo3_async_runtimes::TaskLocals> {
         self.task_locals.get_or_try_init(py, || {
-            let startup = TASK_LOCALS.get().ok_or_else(|| {
-                pyo3::exceptions::PyRuntimeError::new_err("Asyncio loop not initialized")
-            })?;
+            let startup = TASK_LOCALS
+                .get()
+                .ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("Asyncio loop not initialized"))?;
             let context = startup.context(py).call_method0("copy")?;
-            Ok(
-                pyo3_async_runtimes::TaskLocals::new(self.loop_obj.bind(py).clone())
-                    .with_context(context),
-            )
+            Ok(pyo3_async_runtimes::TaskLocals::new(self.loop_obj.bind(py).clone()).with_context(context))
         })
     }
 }
@@ -164,19 +158,13 @@ pub fn current_loop(py: Python<'_>) -> PyResult<Arc<WorkerLoop>> {
     if let Some(worker_loop) = THREAD_LOOP.with(|slot| slot.get().cloned()) {
         return Ok(worker_loop);
     }
-    SHARED_LOOP
-        .get_or_try_init(py, || WorkerLoop::new(py))
-        .map(Arc::clone)
+    SHARED_LOOP.get_or_try_init(py, || WorkerLoop::new(py)).map(Arc::clone)
 }
 
 fn get_worker_fn<'py>(
-    py: Python<'py>,
-    slot: &'static PyOnceLock<Py<PyAny>>,
-    name: &str,
+    py: Python<'py>, slot: &'static PyOnceLock<Py<PyAny>>, name: &str,
 ) -> PyResult<&'static Py<PyAny>> {
-    slot.get_or_try_init(py, || {
-        Ok(py.import("freeman._worker_loop")?.getattr(name)?.unbind())
-    })
+    slot.get_or_try_init(py, || Ok(py.import("freeman._worker_loop")?.getattr(name)?.unbind()))
 }
 
 /// TaskLocals of the calling thread's WorkerLoop (see `WorkerLoop::task_locals`).
@@ -214,9 +202,7 @@ fn run_handle(py: Python<'_>, loop_obj: &Py<PyAny>, handle: &Py<PyAny>) -> bool 
 }
 
 fn run_command(
-    py: Python<'_>,
-    loop_obj: &Py<PyAny>,
-    tx: &tokio::sync::mpsc::UnboundedSender<WorkerLoopCommand>,
+    py: Python<'_>, loop_obj: &Py<PyAny>, tx: &tokio::sync::mpsc::UnboundedSender<WorkerLoopCommand>,
     command: WorkerLoopCommand,
 ) {
     match command {
@@ -239,19 +225,12 @@ fn run_command(
 static GET_RUNNING_LOOP: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static SET_RUNNING_LOOP: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
-fn running_loop_fn(
-    py: Python<'_>,
-    slot: &'static PyOnceLock<Py<PyAny>>,
-    name: &str,
-) -> PyResult<&'static Py<PyAny>> {
-    slot.get_or_try_init(py, || {
-        Ok(py.import("asyncio.events")?.getattr(name)?.unbind())
-    })
+fn running_loop_fn(py: Python<'_>, slot: &'static PyOnceLock<Py<PyAny>>, name: &str) -> PyResult<&'static Py<PyAny>> {
+    slot.get_or_try_init(py, || Ok(py.import("asyncio.events")?.getattr(name)?.unbind()))
 }
 
 async fn run_ready_queue(
-    worker_loop: Arc<WorkerLoop>,
-    mut rx: tokio::sync::mpsc::UnboundedReceiver<WorkerLoopCommand>,
+    worker_loop: Arc<WorkerLoop>, mut rx: tokio::sync::mpsc::UnboundedReceiver<WorkerLoopCommand>,
 ) {
     let loop_obj = &worker_loop.loop_obj;
     let tx = &worker_loop.tx;
@@ -326,10 +305,7 @@ impl PartialOrd for WorkerTimer {
 impl Ord for WorkerTimer {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // BinaryHeap is a max-heap; reverse the deadline ordering.
-        other
-            .deadline
-            .cmp(&self.deadline)
-            .then_with(|| other.sequence.cmp(&self.sequence))
+        other.deadline.cmp(&self.deadline).then_with(|| other.sequence.cmp(&self.sequence))
     }
 }
 
@@ -338,8 +314,7 @@ enum TimerCommand {
     Cancelled,
 }
 
-static WORKER_TIMER_TX: std::sync::OnceLock<std::sync::mpsc::Sender<TimerCommand>> =
-    std::sync::OnceLock::new();
+static WORKER_TIMER_TX: std::sync::OnceLock<std::sync::mpsc::Sender<TimerCommand>> = std::sync::OnceLock::new();
 static WORKER_TIMER_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 static WORKER_TIMER_LIVE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
@@ -393,11 +368,7 @@ fn compact_cancelled_timers(timers: &mut std::collections::BinaryHeap<WorkerTime
             .filter(|timer| {
                 // On any error reading the bit, keep the timer: firing a
                 // cancelled handle is safe (the pump re-checks `_cancelled`).
-                !timer
-                    .handle
-                    .call_method0(py, "cancelled")
-                    .and_then(|value| value.extract::<bool>(py))
-                    .unwrap_or(false)
+                !timer.handle.call_method0(py, "cancelled").and_then(|value| value.extract::<bool>(py)).unwrap_or(false)
             })
             .collect();
         *timers = retained.into();
@@ -416,20 +387,14 @@ fn run_worker_timers(rx: std::sync::mpsc::Receiver<TimerCommand>) {
             let _ = timer.tx.send(WorkerLoopCommand::Soon(timer.handle));
         }
 
-        if cancelled_notices >= TIMER_COMPACTION_MIN_CANCELLED
-            && cancelled_notices * 2 >= timers.len()
-        {
+        if cancelled_notices >= TIMER_COMPACTION_MIN_CANCELLED && cancelled_notices * 2 >= timers.len() {
             compact_cancelled_timers(&mut timers);
             cancelled_notices = 0;
         }
         WORKER_TIMER_LIVE.store(timers.len(), std::sync::atomic::Ordering::Relaxed);
 
         let command = match timers.peek() {
-            Some(timer) => match rx.recv_timeout(
-                timer
-                    .deadline
-                    .saturating_duration_since(std::time::Instant::now()),
-            ) {
+            Some(timer) => match rx.recv_timeout(timer.deadline.saturating_duration_since(std::time::Instant::now())) {
                 Ok(command) => Some(command),
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => None,
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return,
@@ -460,16 +425,14 @@ pub struct WorkerLoopScheduler {
 #[pymethods]
 impl WorkerLoopScheduler {
     fn call_soon(&self, handle: Py<PyAny>) -> PyResult<()> {
-        self.tx.send(WorkerLoopCommand::Soon(handle)).map_err(|_| {
-            pyo3::exceptions::PyRuntimeError::new_err("worker asyncio loop is unavailable")
-        })
+        self.tx
+            .send(WorkerLoopCommand::Soon(handle))
+            .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("worker asyncio loop is unavailable"))
     }
 
     fn call_later(&self, delay: f64, handle: Py<PyAny>) -> PyResult<()> {
         if !delay.is_finite() || delay < 0.0 {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "timer delay must be a finite non-negative number",
-            ));
+            return Err(pyo3::exceptions::PyValueError::new_err("timer delay must be a finite non-negative number"));
         }
         // try_from_secs_f64: from_secs_f64 PANICS on Duration overflow (e.g.
         // 1e300), which aborts the process in release wheels (panic = "abort").
@@ -477,9 +440,7 @@ impl WorkerLoopScheduler {
             .map_err(|_| pyo3::exceptions::PyOverflowError::new_err("timer delay is too large"))?;
         let deadline = std::time::Instant::now()
             .checked_add(duration)
-            .ok_or_else(|| {
-                pyo3::exceptions::PyOverflowError::new_err("timer delay is too large")
-            })?;
+            .ok_or_else(|| pyo3::exceptions::PyOverflowError::new_err("timer delay is too large"))?;
         worker_timer_tx()
             .send(TimerCommand::Schedule(WorkerTimer {
                 deadline,
@@ -487,57 +448,37 @@ impl WorkerLoopScheduler {
                 tx: self.tx.clone(),
                 handle,
             }))
-            .map_err(|_| {
-                pyo3::exceptions::PyRuntimeError::new_err("worker timer thread is unavailable")
-            })
+            .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("worker timer thread is unavailable"))
     }
 
     #[cfg(unix)]
     fn add_reader(&self, fd: i32, handle: Py<PyAny>) -> PyResult<()> {
-        self.fd_watchers.add(
-            &self.runtime,
-            &self.tx,
-            fd,
-            crate::worker_fd::Direction::Read,
-            handle,
-        )
+        self.fd_watchers.add(&self.runtime, &self.tx, fd, crate::worker_fd::Direction::Read, handle)
     }
 
     #[cfg(unix)]
     fn add_writer(&self, fd: i32, handle: Py<PyAny>) -> PyResult<()> {
-        self.fd_watchers.add(
-            &self.runtime,
-            &self.tx,
-            fd,
-            crate::worker_fd::Direction::Write,
-            handle,
-        )
+        self.fd_watchers.add(&self.runtime, &self.tx, fd, crate::worker_fd::Direction::Write, handle)
     }
 
     #[cfg(unix)]
     fn remove_reader(&self, fd: i32) -> bool {
-        self.fd_watchers
-            .remove(fd, crate::worker_fd::Direction::Read)
+        self.fd_watchers.remove(fd, crate::worker_fd::Direction::Read)
     }
 
     #[cfg(unix)]
     fn remove_writer(&self, fd: i32) -> bool {
-        self.fd_watchers
-            .remove(fd, crate::worker_fd::Direction::Write)
+        self.fd_watchers.remove(fd, crate::worker_fd::Direction::Write)
     }
 
     #[cfg(not(unix))]
     fn add_reader(&self, _fd: i32, _handle: Py<PyAny>) -> PyResult<()> {
-        Err(pyo3::exceptions::PyNotImplementedError::new_err(
-            "WorkerLoop file-descriptor watching requires Unix",
-        ))
+        Err(pyo3::exceptions::PyNotImplementedError::new_err("WorkerLoop file-descriptor watching requires Unix"))
     }
 
     #[cfg(not(unix))]
     fn add_writer(&self, _fd: i32, _handle: Py<PyAny>) -> PyResult<()> {
-        Err(pyo3::exceptions::PyNotImplementedError::new_err(
-            "WorkerLoop file-descriptor watching requires Unix",
-        ))
+        Err(pyo3::exceptions::PyNotImplementedError::new_err("WorkerLoop file-descriptor watching requires Unix"))
     }
 
     #[cfg(not(unix))]
@@ -560,14 +501,10 @@ impl WorkerLoopScheduler {
 
     #[cfg(unix)]
     fn add_signal_handler(&self, sig: i32, schedule: Py<PyAny>) -> PyResult<()> {
-        let mut stream = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::from_raw(
-            sig,
-        ))
-        .map_err(|error| {
-            pyo3::exceptions::PyValueError::new_err(format!(
-                "invalid or unsupported signal {sig}: {error}"
-            ))
-        })?;
+        let mut stream =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::from_raw(sig)).map_err(|error| {
+                pyo3::exceptions::PyValueError::new_err(format!("invalid or unsupported signal {sig}: {error}"))
+            })?;
         let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel();
         if let Some(previous) = SIGNAL_WATCHERS.lock().unwrap().insert(sig, cancel_tx) {
             let _ = previous.send(());
@@ -595,9 +532,7 @@ impl WorkerLoopScheduler {
 
     #[cfg(not(unix))]
     fn add_signal_handler(&self, _sig: i32, _schedule: Py<PyAny>) -> PyResult<()> {
-        Err(pyo3::exceptions::PyNotImplementedError::new_err(
-            "WorkerLoop signal handlers require Unix",
-        ))
+        Err(pyo3::exceptions::PyNotImplementedError::new_err("WorkerLoop signal handlers require Unix"))
     }
 
     #[cfg(unix)]
@@ -605,12 +540,7 @@ impl WorkerLoopScheduler {
         // Cancels delivery to Python only. Tokio's process-level signal
         // handler cannot be uninstalled, so unlike stdlib loops this does not
         // restore SIG_DFL — the signal is ignored from here on.
-        SIGNAL_WATCHERS
-            .lock()
-            .unwrap()
-            .remove(&sig)
-            .map(|cancel| cancel.send(()).is_ok())
-            .unwrap_or(false)
+        SIGNAL_WATCHERS.lock().unwrap().remove(&sig).map(|cancel| cancel.send(()).is_ok()).unwrap_or(false)
     }
 
     #[cfg(not(unix))]
@@ -645,12 +575,7 @@ impl WorkerDispatchResolver {
 pub async fn dispatch(dispatch: Py<PyAny>, request: Py<PyAny>) -> PyResult<Py<PyAny>> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     Python::attach(|py| {
-        let resolver = Py::new(
-            py,
-            WorkerDispatchResolver {
-                tx: std::sync::Mutex::new(Some(tx)),
-            },
-        )?;
+        let resolver = Py::new(py, WorkerDispatchResolver { tx: std::sync::Mutex::new(Some(tx)) })?;
         let start = get_worker_fn(py, &WORKER_DISPATCH_START, "worker_dispatch_start")?;
         let worker_loop = current_loop(py)?;
         start.call1(py, (dispatch, request, worker_loop.loop_obj(), resolver))?;
@@ -659,9 +584,7 @@ pub async fn dispatch(dispatch: Py<PyAny>, request: Py<PyAny>) -> PyResult<Py<Py
 
     match rx.await {
         Ok(result) => result,
-        Err(_) => Err(pyo3::exceptions::PyRuntimeError::new_err(
-            "worker dispatch resolver dropped without a result",
-        )),
+        Err(_) => Err(pyo3::exceptions::PyRuntimeError::new_err("worker dispatch resolver dropped without a result")),
     }
 }
 
@@ -693,18 +616,11 @@ impl WorkerTaskHandle {
 /// non-cancelling `dispatch` semantics deliberately (tasks may outlive
 /// responses); MCP semantics require the tool to actually stop.
 pub async fn dispatch_cancellable(
-    dispatch: Py<PyAny>,
-    payload: Py<PyAny>,
-    ct: tokio_util::sync::CancellationToken,
+    dispatch: Py<PyAny>, payload: Py<PyAny>, ct: tokio_util::sync::CancellationToken,
 ) -> PyResult<Py<PyAny>> {
     let (tx, mut rx) = tokio::sync::oneshot::channel();
     let handle = Python::attach(|py| {
-        let resolver = Py::new(
-            py,
-            WorkerDispatchResolver {
-                tx: std::sync::Mutex::new(Some(tx)),
-            },
-        )?;
+        let resolver = Py::new(py, WorkerDispatchResolver { tx: std::sync::Mutex::new(Some(tx)) })?;
         let handle = Py::new(
             py,
             WorkerTaskHandle {
@@ -712,22 +628,9 @@ pub async fn dispatch_cancellable(
                 cancelled: std::sync::atomic::AtomicBool::new(false),
             },
         )?;
-        let start = get_worker_fn(
-            py,
-            &WORKER_DISPATCH_START_CANCELLABLE,
-            "worker_dispatch_start_cancellable",
-        )?;
+        let start = get_worker_fn(py, &WORKER_DISPATCH_START_CANCELLABLE, "worker_dispatch_start_cancellable")?;
         let worker_loop = current_loop(py)?;
-        start.call1(
-            py,
-            (
-                dispatch,
-                payload,
-                worker_loop.loop_obj(),
-                resolver,
-                handle.clone_ref(py),
-            ),
-        )?;
+        start.call1(py, (dispatch, payload, worker_loop.loop_obj(), resolver, handle.clone_ref(py)))?;
         Ok::<_, PyErr>(handle)
     })?;
 
@@ -760,11 +663,7 @@ pub async fn dispatch_cancellable(
     }
 }
 
-pub fn dispatch_sync(
-    py: Python<'_>,
-    dispatch: &Py<PyAny>,
-    request: &Py<PyAny>,
-) -> PyResult<Py<PyAny>> {
+pub fn dispatch_sync(py: Python<'_>, dispatch: &Py<PyAny>, request: &Py<PyAny>) -> PyResult<Py<PyAny>> {
     let call = get_worker_fn(py, &WORKER_SYNC_DISPATCH, "worker_sync_dispatch")?;
     let worker_loop = current_loop(py)?;
     call.call1(py, (dispatch, request, worker_loop.loop_obj()))

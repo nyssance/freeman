@@ -121,13 +121,11 @@ async def negotiating_app(scope, receive, send):
         await send({"type": "websocket.accept", "subprotocol": "not-requested"})
         return
     subprotocols = scope["subprotocols"]
-    await send(
-        {
-            "type": "websocket.accept",
-            "subprotocol": subprotocols[0] if subprotocols else None,
-            "headers": [(b"x-mounted", b"yes")],
-        }
-    )
+    await send({
+        "type": "websocket.accept",
+        "subprotocol": subprotocols[0] if subprotocols else None,
+        "headers": [(b"x-mounted", b"yes")],
+    })
     await send({"type": "websocket.send", "text": ",".join(subprotocols)})
     while (await receive())["type"] != "websocket.disconnect":
         pass

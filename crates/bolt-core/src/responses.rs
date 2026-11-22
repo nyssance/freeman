@@ -21,8 +21,7 @@ pub static ERROR_BODY_400_HEADERS: &[u8] = br#"{"detail":"Too many headers"}"#;
 pub static ERROR_BODY_413: &[u8] = br#"{"detail":"Payload too large"}"#;
 
 /// The rate limit error body for a `retry_after` of one second.
-static RATE_LIMIT_BODY_1: &[u8] =
-    br#"{"detail":"Rate limit exceeded. Try again in 1 seconds.","retry_after":1}"#;
+static RATE_LIMIT_BODY_1: &[u8] = br#"{"detail":"Rate limit exceeded. Try again in 1 seconds.","retry_after":1}"#;
 
 /// The rate limit error body for `retry_after` seconds.
 ///
@@ -45,11 +44,7 @@ pub fn get_rate_limit_body(retry_after: u64) -> Bytes {
 /// interim, and no status from 600 has a meaning.
 #[inline]
 pub fn final_status(code: u16) -> Option<StatusCode> {
-    if (200..600).contains(&code) {
-        StatusCode::from_u16(code).ok()
-    } else {
-        None
-    }
+    if (200..600).contains(&code) { StatusCode::from_u16(code).ok() } else { None }
 }
 
 /// Create error responses using static bodies
@@ -73,14 +68,9 @@ pub fn error_401() -> HttpResponse {
 pub fn error_401_challenge(challenge: Option<&HeaderValue>) -> HttpResponse {
     let response = HttpResponse::Unauthorized()
         .content_type("application/json")
-        .insert_header((
-            WWW_AUTHENTICATE,
-            challenge.unwrap_or(&DEFAULT_CHALLENGE).clone(),
-        ))
+        .insert_header((WWW_AUTHENTICATE, challenge.unwrap_or(&DEFAULT_CHALLENGE).clone()))
         .body(ERROR_BODY_401);
-    with_error_info(response, || {
-        ErrorInfo::core("not_authenticated", "Authentication required")
-    })
+    with_error_info(response, || ErrorInfo::core("not_authenticated", "Authentication required"))
 }
 
 /// Give a 401 from Python the `WWW-Authenticate` value of the route.
@@ -92,20 +82,14 @@ pub fn add_challenge(response: &mut HttpResponse, challenge: Option<&HeaderValue
         && let Some(challenge) = challenge
         && !response.headers().contains_key(WWW_AUTHENTICATE)
     {
-        response
-            .headers_mut()
-            .insert(WWW_AUTHENTICATE, challenge.clone());
+        response.headers_mut().insert(WWW_AUTHENTICATE, challenge.clone());
     }
 }
 
 #[inline]
 pub fn error_403() -> HttpResponse {
-    let response = HttpResponse::Forbidden()
-        .content_type("application/json")
-        .body(ERROR_BODY_403);
-    with_error_info(response, || {
-        ErrorInfo::core("forbidden", "Permission denied")
-    })
+    let response = HttpResponse::Forbidden().content_type("application/json").body(ERROR_BODY_403);
+    with_error_info(response, || ErrorInfo::core("forbidden", "Permission denied"))
 }
 
 /// A 403 carrying a guard's custom `detail`, falling back to the static body.
@@ -117,21 +101,15 @@ pub fn error_403_denial(denial: Option<&GuardDenial>) -> HttpResponse {
     match denial {
         None => error_403(),
         Some(denial) => {
-            let response = HttpResponse::Forbidden()
-                .content_type("application/json")
-                .body(denial.body.clone());
-            with_error_info(response, || {
-                ErrorInfo::core("forbidden", denial.text.clone())
-            })
+            let response = HttpResponse::Forbidden().content_type("application/json").body(denial.body.clone());
+            with_error_info(response, || ErrorInfo::core("forbidden", denial.text.clone()))
         }
     }
 }
 
 #[inline]
 pub fn error_404() -> HttpResponse {
-    let response = HttpResponse::NotFound()
-        .content_type("application/json")
-        .body(ERROR_BODY_404);
+    let response = HttpResponse::NotFound().content_type("application/json").body(ERROR_BODY_404);
     with_error_info(response, || ErrorInfo::core("not_found", "Not Found"))
 }
 
@@ -143,30 +121,20 @@ pub fn error_405(allowed_methods: &[String]) -> HttpResponse {
         .content_type("application/json")
         .insert_header(("Allow", allowed_methods.join(", ")))
         .body(ERROR_BODY_405);
-    with_error_info(response, || {
-        ErrorInfo::core("method_not_allowed", "Method Not Allowed")
-    })
+    with_error_info(response, || ErrorInfo::core("method_not_allowed", "Method Not Allowed"))
 }
 
 #[inline]
 pub fn error_400_too_many_headers() -> HttpResponse {
-    let response = HttpResponse::BadRequest()
-        .content_type("application/json")
-        .body(ERROR_BODY_400_HEADERS);
-    with_error_info(response, || {
-        ErrorInfo::core("bad_request", "Too many headers")
-    })
+    let response = HttpResponse::BadRequest().content_type("application/json").body(ERROR_BODY_400_HEADERS);
+    with_error_info(response, || ErrorInfo::core("bad_request", "Too many headers"))
 }
 
 /// 413 Payload Too Large with static body
 #[inline]
 pub fn error_413() -> HttpResponse {
-    let response = HttpResponse::PayloadTooLarge()
-        .content_type("application/json")
-        .body(ERROR_BODY_413);
-    with_error_info(response, || {
-        ErrorInfo::core("payload_too_large", "Payload too large")
-    })
+    let response = HttpResponse::PayloadTooLarge().content_type("application/json").body(ERROR_BODY_413);
+    with_error_info(response, || ErrorInfo::core("payload_too_large", "Payload too large"))
 }
 
 /// For errors that need dynamic content, we provide a fast formatter
@@ -178,9 +146,7 @@ pub fn error_400_header_too_large(max_size: usize) -> HttpResponse {
     body.extend_from_slice(detail.as_bytes());
     body.extend_from_slice(br#""}"#);
 
-    let response = HttpResponse::BadRequest()
-        .content_type("application/json")
-        .body(body);
+    let response = HttpResponse::BadRequest().content_type("application/json").body(body);
     with_error_info(response, || ErrorInfo::core("bad_request", detail))
 }
 
@@ -211,9 +177,7 @@ pub fn error_422_param(label: &str, name: &str, msg: &str) -> HttpResponse {
     serde_json::to_writer(&mut body, &detail).expect("a write to a Vec cannot fail");
     body.push(b'}');
 
-    let response = HttpResponse::UnprocessableEntity()
-        .content_type("application/json")
-        .body(body);
+    let response = HttpResponse::UnprocessableEntity().content_type("application/json").body(body);
     with_error_info(response, || {
         validation_info(serde_json::json!([{
             "loc": [loc_source(label), name],
@@ -261,10 +225,7 @@ mod tests {
     #[test]
     fn test_error_413_static() {
         let response = error_413();
-        assert_eq!(
-            response.status(),
-            actix_web::http::StatusCode::PAYLOAD_TOO_LARGE
-        );
+        assert_eq!(response.status(), actix_web::http::StatusCode::PAYLOAD_TOO_LARGE);
     }
 
     #[test]
@@ -273,15 +234,9 @@ mod tests {
 
         crate::error::enable_error_info();
         let response = error_405(&["GET".to_string(), "OPTIONS".to_string()]);
-        assert_eq!(
-            response.status(),
-            actix_web::http::StatusCode::METHOD_NOT_ALLOWED
-        );
+        assert_eq!(response.status(), actix_web::http::StatusCode::METHOD_NOT_ALLOWED);
         assert_eq!(response.headers().get("Allow").unwrap(), "GET, OPTIONS");
-        assert_eq!(
-            core_info(&response),
-            ("method_not_allowed", "Method Not Allowed".to_string(), None)
-        );
+        assert_eq!(core_info(&response), ("method_not_allowed", "Method Not Allowed".to_string(), None));
         let body = response.into_body().try_into_bytes().unwrap();
         assert_eq!(&body[..], ERROR_BODY_405);
         assert!(serde_json::from_slice::<serde_json::Value>(ERROR_BODY_405).is_ok());
@@ -296,16 +251,9 @@ mod tests {
         detail.push_str("\"\\ caf\u{e9} \u{1f600}");
 
         let response = error_422_param("Query parameter", "q", &detail);
-        assert_eq!(
-            response.status(),
-            actix_web::http::StatusCode::UNPROCESSABLE_ENTITY
-        );
-        let body = response
-            .into_body()
-            .try_into_bytes()
-            .expect("body is bytes");
-        let json: serde_json::Value =
-            serde_json::from_slice(&body).expect("422 body is valid JSON");
+        assert_eq!(response.status(), actix_web::http::StatusCode::UNPROCESSABLE_ENTITY);
+        let body = response.into_body().try_into_bytes().expect("body is bytes");
+        let json: serde_json::Value = serde_json::from_slice(&body).expect("422 body is valid JSON");
         assert_eq!(json["detail"], format!("Query parameter 'q': {detail}"));
         assert!(body.starts_with(br#"{"detail":"Query parameter 'q': \u0000\u0001"#));
         let short_forms = br#"\t\n\u000b\f\r"#;
@@ -319,21 +267,13 @@ mod tests {
             let body = get_rate_limit_body(retry_after);
             let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
             assert_eq!(json["retry_after"], retry_after);
-            assert_eq!(
-                json["detail"],
-                format!("Rate limit exceeded. Try again in {retry_after} seconds.")
-            );
+            assert_eq!(json["detail"], format!("Rate limit exceeded. Try again in {retry_after} seconds."));
         }
     }
 
     fn core_info(response: &HttpResponse) -> (&'static str, String, Option<serde_json::Value>) {
         match response.extensions().get::<ErrorInfo>() {
-            Some(ErrorInfo::Core {
-                kind,
-                detail,
-                errors,
-                ..
-            }) => (kind, detail.to_string(), errors.clone()),
+            Some(ErrorInfo::Core { kind, detail, errors, .. }) => (kind, detail.to_string(), errors.clone()),
             _ => panic!("the response has no core error info"),
         }
     }
@@ -346,16 +286,8 @@ mod tests {
             (error_403(), "forbidden", "Permission denied"),
             (error_404(), "not_found", "Not Found"),
             (error_413(), "payload_too_large", "Payload too large"),
-            (
-                error_400_too_many_headers(),
-                "bad_request",
-                "Too many headers",
-            ),
-            (
-                error_400_header_too_large(8192),
-                "bad_request",
-                "Header value too large (max 8192 bytes)",
-            ),
+            (error_400_too_many_headers(), "bad_request", "Too many headers"),
+            (error_400_header_too_large(8192), "bad_request", "Header value too large (max 8192 bytes)"),
         ];
         for (response, kind, detail) in cases {
             assert_eq!(core_info(&response), (kind, detail.to_string(), None));
@@ -384,9 +316,7 @@ mod tests {
 
         // The challenge of the handler stays.
         let own = HeaderValue::from_static("Bearer realm=\"api\"");
-        let mut with_own = HttpResponse::Unauthorized()
-            .insert_header((WWW_AUTHENTICATE, own.clone()))
-            .finish();
+        let mut with_own = HttpResponse::Unauthorized().insert_header((WWW_AUTHENTICATE, own.clone())).finish();
         add_challenge(&mut with_own, Some(&route));
         assert_eq!(of(&with_own), Some(own));
 
@@ -395,11 +325,7 @@ mod tests {
         add_challenge(&mut no_backend, None);
         assert_eq!(of(&no_backend), None);
 
-        for status in [
-            StatusCode::OK,
-            StatusCode::FORBIDDEN,
-            StatusCode::PROXY_AUTHENTICATION_REQUIRED,
-        ] {
+        for status in [StatusCode::OK, StatusCode::FORBIDDEN, StatusCode::PROXY_AUTHENTICATION_REQUIRED] {
             let mut other = HttpResponse::new(status);
             add_challenge(&mut other, Some(&route));
             assert_eq!(of(&other), None, "{status}");
@@ -419,10 +345,7 @@ mod tests {
         crate::error::enable_error_info();
         let response = error_422_param("Header", "x-count", "Invalid integer 'a'");
         let (kind, detail, errors) = core_info(&response);
-        assert_eq!(
-            (kind, detail.as_str()),
-            ("validation", "Request validation failed")
-        );
+        assert_eq!((kind, detail.as_str()), ("validation", "Request validation failed"));
         assert_eq!(
             errors,
             Some(serde_json::json!([{

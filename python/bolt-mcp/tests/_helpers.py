@@ -101,10 +101,7 @@ INITIALIZE_PARAMS = {
 
 # ── modern era (2026-07-28): stateless, per-request _meta + routing headers ──
 def modern_meta(
-    *,
-    capabilities: dict | None = None,
-    log_level: str | None = None,
-    progress_token: str | int | None = None,
+    *, capabilities: dict | None = None, log_level: str | None = None, progress_token: str | int | None = None
 ) -> dict[str, Any]:
     meta: dict[str, Any] = {
         "io.modelcontextprotocol/protocolVersion": PROTOCOL_MODERN,

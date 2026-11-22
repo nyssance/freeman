@@ -50,10 +50,7 @@ def test_websocket_normal_path_param_completes_handshake(make_server_project):
     """Positive control: a normal-sized path param still upgrades and runs the handler."""
     project = _make_ws_project(make_server_project)
 
-    with (
-        project.start() as server,
-        SimpleWebSocketClient(server.host, server.port, "/ws/path/hello") as websocket,
-    ):
+    with project.start() as server, SimpleWebSocketClient(server.host, server.port, "/ws/path/hello") as websocket:
         assert websocket.receive_text() == "connected"
 
 

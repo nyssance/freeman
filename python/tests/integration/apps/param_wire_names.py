@@ -31,10 +31,6 @@ def aliased_path(item_id: Annotated[int, Path(alias="id")]):
 
 
 @api.websocket("/ws/rooms/{id}")
-async def room(
-    websocket: WebSocket,
-    room_id: Annotated[int, Path(alias="id")],
-    page: Annotated[int, Query(alias="p")],
-):
+async def room(websocket: WebSocket, room_id: Annotated[int, Path(alias="id")], page: Annotated[int, Query(alias="p")]):
     await websocket.accept()
     await websocket.send_text(json.dumps({"room_id": type(room_id).__name__, "page": type(page).__name__}))

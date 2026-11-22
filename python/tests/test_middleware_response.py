@@ -10,12 +10,7 @@ def test_middleware_response_does_not_promote_content_attribute_objects_to_strea
         def __init__(self):
             self.content = b"not-a-stream"
 
-    response = MiddlewareResponse(
-        status_code=200,
-        headers={},
-        body=ContentObject(),
-        body_kind=_BODY_BYTES,
-    )
+    response = MiddlewareResponse(status_code=200, headers={}, body=ContentObject(), body_kind=_BODY_BYTES)
 
     _status, _meta, body_kind, _payload = response.to_tuple()
     assert body_kind == _BODY_BYTES  # 0
@@ -26,10 +21,7 @@ def test_middleware_response_marks_streaming_response_body_as_stream():
         yield b"chunk"
 
     response = MiddlewareResponse(
-        status_code=200,
-        headers={},
-        body=StreamingResponse(gen(), media_type="text/plain"),
-        body_kind=_BODY_BYTES,
+        status_code=200, headers={}, body=StreamingResponse(gen(), media_type="text/plain"), body_kind=_BODY_BYTES
     )
 
     _status, _meta, body_kind, _payload = response.to_tuple()

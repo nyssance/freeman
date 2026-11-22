@@ -46,10 +46,7 @@ def server(make_server_project):
 
 def test_accept_puts_selected_subprotocol_in_101_response(server):
     with SimpleWebSocketClient(
-        server.host,
-        server.port,
-        "/ws/chat",
-        headers={"Sec-WebSocket-Protocol": "chat.v1, chat.v2"},
+        server.host, server.port, "/ws/chat", headers={"Sec-WebSocket-Protocol": "chat.v1, chat.v2"}
     ) as websocket:
         assert websocket.response_headers["sec-websocket-protocol"] == "chat.v2"
         assert websocket.receive_text() == "chat.v1,chat.v2"
@@ -87,10 +84,7 @@ def test_error_before_accept_refuses_handshake_with_500(server):
 
 def test_unrequested_subprotocol_fails_handshake(server):
     status_line, _body = attempt_ws_upgrade(
-        server.host,
-        server.port,
-        "/ws/unrequested",
-        headers={"Sec-WebSocket-Protocol": "chat.v1"},
+        server.host, server.port, "/ws/unrequested", headers={"Sec-WebSocket-Protocol": "chat.v1"}
     )
     assert " 500 " in status_line
 
@@ -143,10 +137,7 @@ def test_mounted_asgi_app_close_before_accept_refuses_with_403(server):
 
 def test_accept_header_owned_by_the_handshake_fails_handshake(server):
     status_line, _body = attempt_ws_upgrade(
-        server.host,
-        server.port,
-        "/ws/owned-header",
-        headers={"Sec-WebSocket-Protocol": "chat.v1"},
+        server.host, server.port, "/ws/owned-header", headers={"Sec-WebSocket-Protocol": "chat.v1"}
     )
     assert " 500 " in status_line
 
@@ -158,10 +149,7 @@ def test_mounted_asgi_app_error_before_accept_fails_with_500(server):
 
 def test_mounted_asgi_app_unrequested_subprotocol_fails_with_500(server):
     status_line, _body = attempt_ws_upgrade(
-        server.host,
-        server.port,
-        "/mounted/unrequested",
-        headers={"Sec-WebSocket-Protocol": "chat.v1"},
+        server.host, server.port, "/mounted/unrequested", headers={"Sec-WebSocket-Protocol": "chat.v1"}
     )
     assert " 500 " in status_line
 
@@ -180,8 +168,7 @@ def test_bad_handshake_is_rejected_before_the_handler_runs(server):
 
 def test_refused_and_abandoned_handshakes_release_connection_slots(make_server_project):
     project = make_server_project(
-        api_module=app_module("websocket_subprotocol"),
-        settings_extra="BOLT_WS_MAX_CONNECTIONS = 2\n",
+        api_module=app_module("websocket_subprotocol"), settings_extra="BOLT_WS_MAX_CONNECTIONS = 2\n"
     )
     with project.start() as server:
         # Refusals and errors before accept hold no slot after the response.

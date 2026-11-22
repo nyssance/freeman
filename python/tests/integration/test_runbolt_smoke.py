@@ -50,8 +50,7 @@ def test_runbolt_dev_reloads_after_file_change(make_server_project):
 
 def test_runbolt_dev_ignores_non_python_and_non_html_changes(make_server_project):
     project = make_server_project(
-        api_source=app_source("reload_state"),
-        extra_files={"testproj/runtime.log": "initial\n"},
+        api_source=app_source("reload_state"), extra_files={"testproj/runtime.log": "initial\n"}
     )
 
     with project.start(dev=True) as server:

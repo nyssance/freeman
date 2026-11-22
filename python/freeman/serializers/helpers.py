@@ -88,11 +88,7 @@ def create_serializer(
     }
 
     # Add Config class with model reference
-    config_attrs = {
-        "model": model,
-        "write_only": write_only,
-        "read_only": read_only,
-    }
+    config_attrs = {"model": model, "write_only": write_only, "read_only": read_only}
     attrs["Config"] = type("Config", (), config_attrs)
 
     # Create and return the Serializer class
@@ -148,24 +144,15 @@ def create_serializer_set(
 
     # Create serializers (use different variable names to avoid shadowing the function)
     create_class = create_serializer(
-        model,
-        fields=create_fields,
-        write_only=write_only,
-        serializer_name=f"{model.__name__}Create",
+        model, fields=create_fields, write_only=write_only, serializer_name=f"{model.__name__}Create"
     )
 
     update_class = create_serializer(
-        model,
-        fields=update_fields,
-        write_only=write_only,
-        serializer_name=f"{model.__name__}Update",
+        model, fields=update_fields, write_only=write_only, serializer_name=f"{model.__name__}Update"
     )
 
     public_class = create_serializer(
-        model,
-        fields=public_fields,
-        read_only=read_only,
-        serializer_name=f"{model.__name__}Public",
+        model, fields=public_fields, read_only=read_only, serializer_name=f"{model.__name__}Public"
     )
 
     return create_class, update_class, public_class

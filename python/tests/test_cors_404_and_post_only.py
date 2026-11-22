@@ -50,10 +50,7 @@ class TestCorsPreflightOn404Routes:
         with TestClient(api, use_http_layer=True, cors_allowed_origins=global_origins) as client:
             response = client.options(
                 "/api/nonexistent-route",
-                headers={
-                    "Origin": "https://example.com",
-                    "Access-Control-Request-Method": "GET",
-                },
+                headers={"Origin": "https://example.com", "Access-Control-Request-Method": "GET"},
             )
 
             # CRITICAL: Must be 204, not 404
@@ -78,11 +75,7 @@ class TestCorsPreflightOn404Routes:
 
         global_origins = ["https://example.com"]
 
-        with TestClient(
-            api,
-            use_http_layer=True,
-            cors_allowed_origins=global_origins,
-        ) as client:
+        with TestClient(api, use_http_layer=True, cors_allowed_origins=global_origins) as client:
             response = client.options(
                 "/does/not/exist",
                 headers={
@@ -115,10 +108,7 @@ class TestCorsPreflightOn404Routes:
         global_origins = ["https://example.com"]
 
         with TestClient(api, use_http_layer=True, cors_allowed_origins=global_origins) as client:
-            response = client.get(
-                "/api/nonexistent",
-                headers={"Origin": "https://example.com"},
-            )
+            response = client.get("/api/nonexistent", headers={"Origin": "https://example.com"})
 
             # Should be 404
             assert response.status_code == 404
@@ -194,11 +184,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
 
         with TestClient(api, use_http_layer=True, cors_allowed_origins=global_origins) as client:
             response = client.options(
-                "/post-global-cors",
-                headers={
-                    "Origin": "https://example.com",
-                    "Access-Control-Request-Method": "POST",
-                },
+                "/post-global-cors", headers={"Origin": "https://example.com", "Access-Control-Request-Method": "POST"}
             )
 
             # Should be 204
@@ -220,11 +206,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
 
         with TestClient(api, use_http_layer=True) as client:
             response = client.options(
-                "/put-only",
-                headers={
-                    "Origin": "https://example.com",
-                    "Access-Control-Request-Method": "PUT",
-                },
+                "/put-only", headers={"Origin": "https://example.com", "Access-Control-Request-Method": "PUT"}
             )
 
             assert response.status_code == 204
@@ -243,11 +225,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
 
         with TestClient(api, use_http_layer=True) as client:
             response = client.options(
-                "/delete-only",
-                headers={
-                    "Origin": "https://example.com",
-                    "Access-Control-Request-Method": "DELETE",
-                },
+                "/delete-only", headers={"Origin": "https://example.com", "Access-Control-Request-Method": "DELETE"}
             )
 
             assert response.status_code == 204
@@ -266,11 +244,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
 
         with TestClient(api, use_http_layer=True) as client:
             response = client.options(
-                "/patch-only",
-                headers={
-                    "Origin": "https://example.com",
-                    "Access-Control-Request-Method": "PATCH",
-                },
+                "/patch-only", headers={"Origin": "https://example.com", "Access-Control-Request-Method": "PATCH"}
             )
 
             assert response.status_code == 204
@@ -302,10 +276,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
             # Then, actual POST
             response = client.post(
                 "/post-only",
-                headers={
-                    "Origin": "https://example.com",
-                    "Content-Type": "application/json",
-                },
+                headers={"Origin": "https://example.com", "Content-Type": "application/json"},
                 json={"test": "data"},
             )
 
@@ -324,8 +295,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
 
         with TestClient(api, cors_allowed_origins=["https://global.example"]) as client:
             response = client.options(
-                "/items",
-                headers={"Origin": "https://route.example", "Access-Control-Request-Method": method.upper()},
+                "/items", headers={"Origin": "https://route.example", "Access-Control-Request-Method": method.upper()}
             )
 
         assert response.status_code == 204
@@ -347,8 +317,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
 
         with TestClient(api) as client:
             response = client.options(
-                "/items",
-                headers={"Origin": "https://post.example", "Access-Control-Request-Method": "POST"},
+                "/items", headers={"Origin": "https://post.example", "Access-Control-Request-Method": "POST"}
             )
 
         assert response.status_code == 204
@@ -368,8 +337,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
 
         with TestClient(api) as client:
             response = client.options(
-                "/items",
-                headers={"Origin": "https://get.example", "Access-Control-Request-Method": "DELETE"},
+                "/items", headers={"Origin": "https://get.example", "Access-Control-Request-Method": "DELETE"}
             )
 
         assert "access-control-allow-origin" not in response.headers
@@ -389,8 +357,7 @@ class TestCorsPreflightOnPostOnlyRoutes:
 
         with TestClient(api, cors_allowed_origins=["https://global.example"]) as client:
             response = client.options(
-                "/items",
-                headers={"Origin": "https://global.example", "Access-Control-Request-Method": "POST"},
+                "/items", headers={"Origin": "https://global.example", "Access-Control-Request-Method": "POST"}
             )
 
         assert response.status_code == 204
@@ -420,10 +387,7 @@ class TestCorsOriginSchemeRequired:
             return {"message": "test"}
 
         with TestClient(api, use_http_layer=True) as client:
-            response = client.get(
-                "/test",
-                headers={"Origin": "https://example.com"},
-            )
+            response = client.get("/test", headers={"Origin": "https://example.com"})
 
             assert response.status_code == 200
             assert response.headers.get("Access-Control-Allow-Origin") == "https://example.com"
@@ -440,10 +404,7 @@ class TestCorsOriginSchemeRequired:
             return {"message": "test"}
 
         with TestClient(api, use_http_layer=True) as client:
-            response = client.get(
-                "/test",
-                headers={"Origin": "https://evil.com"},
-            )
+            response = client.get("/test", headers={"Origin": "https://evil.com"})
 
             assert response.status_code == 200
             # Should NOT have CORS header for disallowed origin
@@ -474,11 +435,7 @@ class TestCorsOnErrorResponses:
         """
         api = BoltAPI()
 
-        @api.get(
-            "/protected",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/protected", auth=[JWTAuthentication(secret="test-secret")], guards=[IsAuthenticated()])
         async def protected_endpoint():
             return {"message": "protected"}
 
@@ -486,10 +443,7 @@ class TestCorsOnErrorResponses:
 
         with TestClient(api, use_http_layer=True, cors_allowed_origins=global_origins) as client:
             # Request without auth token
-            response = client.get(
-                "/protected",
-                headers={"Origin": "https://example.com"},
-            )
+            response = client.get("/protected", headers={"Origin": "https://example.com"})
 
             # Should be 401
             assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -509,11 +463,7 @@ class TestCorsOnErrorResponses:
         """
         api = BoltAPI()
 
-        @api.get(
-            "/admin-only",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[Requires("is_superuser", True)],
-        )
+        @api.get("/admin-only", auth=[JWTAuthentication(secret="test-secret")], guards=[Requires("is_superuser", True)])
         async def admin_endpoint():
             return {"message": "admin only"}
 
@@ -521,22 +471,14 @@ class TestCorsOnErrorResponses:
 
         # Create a valid token but NOT an admin
         token = jwt.encode(
-            {
-                "sub": "regular-user",
-                "exp": int(time.time()) + 3600,
-                "is_superuser": False,
-            },
+            {"sub": "regular-user", "exp": int(time.time()) + 3600, "is_superuser": False},
             "test-secret",
             algorithm="HS256",
         )
 
         with TestClient(api, use_http_layer=True, cors_allowed_origins=global_origins) as client:
             response = client.get(
-                "/admin-only",
-                headers={
-                    "Origin": "https://example.com",
-                    "Authorization": f"Bearer {token}",
-                },
+                "/admin-only", headers={"Origin": "https://example.com", "Authorization": f"Bearer {token}"}
             )
 
             # Should be 403 (authenticated but not admin)
@@ -553,20 +495,13 @@ class TestCorsOnErrorResponses:
         """
         api = BoltAPI()
 
-        @api.get(
-            "/protected-with-cors",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/protected-with-cors", auth=[JWTAuthentication(secret="test-secret")], guards=[IsAuthenticated()])
         @cors(origins=["https://route-level.com"])
         async def protected_with_cors():
             return {"message": "protected"}
 
         with TestClient(api, use_http_layer=True) as client:
-            response = client.get(
-                "/protected-with-cors",
-                headers={"Origin": "https://route-level.com"},
-            )
+            response = client.get("/protected-with-cors", headers={"Origin": "https://route-level.com"})
 
             assert response.status_code == 401
 
@@ -582,31 +517,21 @@ class TestCorsOnErrorResponses:
         api = BoltAPI()
 
         @api.get(
-            "/admin-with-cors",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[Requires("is_superuser", True)],
+            "/admin-with-cors", auth=[JWTAuthentication(secret="test-secret")], guards=[Requires("is_superuser", True)]
         )
         @cors(origins=["https://route-level.com"])
         async def admin_with_cors():
             return {"message": "admin"}
 
         token = jwt.encode(
-            {
-                "sub": "regular-user",
-                "exp": int(time.time()) + 3600,
-                "is_superuser": False,
-            },
+            {"sub": "regular-user", "exp": int(time.time()) + 3600, "is_superuser": False},
             "test-secret",
             algorithm="HS256",
         )
 
         with TestClient(api, use_http_layer=True) as client:
             response = client.get(
-                "/admin-with-cors",
-                headers={
-                    "Origin": "https://route-level.com",
-                    "Authorization": f"Bearer {token}",
-                },
+                "/admin-with-cors", headers={"Origin": "https://route-level.com", "Authorization": f"Bearer {token}"}
             )
 
             assert response.status_code == 403
@@ -622,21 +547,14 @@ class TestCorsOnErrorResponses:
         """
         api = BoltAPI()
 
-        @api.get(
-            "/protected",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/protected", auth=[JWTAuthentication(secret="test-secret")], guards=[IsAuthenticated()])
         async def protected():
             return {"message": "protected"}
 
         global_origins = ["https://allowed.com"]
 
         with TestClient(api, use_http_layer=True, cors_allowed_origins=global_origins) as client:
-            response = client.get(
-                "/protected",
-                headers={"Origin": "https://evil.com"},
-            )
+            response = client.get("/protected", headers={"Origin": "https://evil.com"})
 
             assert response.status_code == 401
 

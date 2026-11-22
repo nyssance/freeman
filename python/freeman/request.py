@@ -6,12 +6,7 @@ PyRequest from Rust (src/request.rs). This Protocol provides type hints
 and IDE autocomplete.
 """
 
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Protocol,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from ._core import PyRequest
 
@@ -120,7 +115,4 @@ def is_request(request: Any):
     return isinstance(request, PyRequest)
 
 
-__all__ = [
-    "Request",
-    "is_request",
-]
+__all__ = ["Request", "is_request"]

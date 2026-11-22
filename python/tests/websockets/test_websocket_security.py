@@ -195,11 +195,7 @@ async def test_websocket_oversized_query_param_rejected():
 
     with pytest.raises(ValueError, match=r"Parameter too long"):
         async with WebSocketTestClient(
-            api,
-            "/ws/echo",
-            query_string=f"value={oversized}",
-            cors_allowed_origins=["*"],
-            read_django_settings=False,
+            api, "/ws/echo", query_string=f"value={oversized}", cors_allowed_origins=["*"], read_django_settings=False
         ):
             pass
 
@@ -217,12 +213,7 @@ async def test_websocket_oversized_path_param_rejected():
     oversized = "a" * 9000  # exceeds the default 8192-byte limit
 
     with pytest.raises(ValueError, match=r"Parameter too long"):
-        async with WebSocketTestClient(
-            api,
-            f"/ws/{oversized}",
-            cors_allowed_origins=["*"],
-            read_django_settings=False,
-        ):
+        async with WebSocketTestClient(api, f"/ws/{oversized}", cors_allowed_origins=["*"], read_django_settings=False):
             pass
 
 
@@ -242,32 +233,21 @@ async def test_websocket_rate_limit_exceeded():
 
     # First connection should succeed (burst allows 2)
     async with WebSocketTestClient(
-        api,
-        "/ws/rate-limited",
-        cors_allowed_origins=["*"],
-        read_django_settings=False,
+        api, "/ws/rate-limited", cors_allowed_origins=["*"], read_django_settings=False
     ) as ws:
         msg = await ws.receive_text()
         assert msg == "connected"
 
     # Second connection should succeed (burst allows 2)
     async with WebSocketTestClient(
-        api,
-        "/ws/rate-limited",
-        cors_allowed_origins=["*"],
-        read_django_settings=False,
+        api, "/ws/rate-limited", cors_allowed_origins=["*"], read_django_settings=False
     ) as ws:
         msg = await ws.receive_text()
         assert msg == "connected"
 
     # Third connection should fail (burst of 2 exceeded, no time for refill)
     with pytest.raises(PermissionError) as exc_info:
-        async with WebSocketTestClient(
-            api,
-            "/ws/rate-limited",
-            cors_allowed_origins=["*"],
-            read_django_settings=False,
-        ):
+        async with WebSocketTestClient(api, "/ws/rate-limited", cors_allowed_origins=["*"], read_django_settings=False):
             pass
 
     assert "Rate limit exceeded" in str(exc_info.value)
@@ -342,10 +322,7 @@ async def test_websocket_no_rate_limit():
     # Multiple connections should all succeed
     for _i in range(5):
         async with WebSocketTestClient(
-            api,
-            "/ws/unlimited",
-            cors_allowed_origins=["*"],
-            read_django_settings=False,
+            api, "/ws/unlimited", cors_allowed_origins=["*"], read_django_settings=False
         ) as ws:
             msg = await ws.receive_text()
             assert msg == "connected"

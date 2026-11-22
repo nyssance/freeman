@@ -109,8 +109,7 @@ def test_idle_lane_closes_its_connections_and_stops(make_server_project):
 @pytest.mark.server_integration
 def test_async_request_does_not_reuse_an_expired_lane_connection(make_server_project):
     project = make_server_project(
-        api_module=app_module("request_lanes"),
-        settings_extra='DATABASES["default"]["CONN_MAX_AGE"] = 60',
+        api_module=app_module("request_lanes"), settings_extra='DATABASES["default"]["CONN_MAX_AGE"] = 60'
     )
 
     with project.start() as server:

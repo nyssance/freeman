@@ -165,9 +165,7 @@ def test_a_redis_that_does_not_answer_refuses_each_request():
         JWTAuthViews(store=store, secret=SECRET, secure_cookies=False, credential_validator=validate).register(api)
 
         @api.get(
-            "/protected",
-            auth=[JWTAuthentication(secret=SECRET, revocation_store=store)],
-            guards=[IsAuthenticated()],
+            "/protected", auth=[JWTAuthentication(secret=SECRET, revocation_store=store)], guards=[IsAuthenticated()]
         )
         async def protected():
             return {"ok": True}

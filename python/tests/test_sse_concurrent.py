@@ -522,12 +522,7 @@ def test_rapid_sequential_requests(client):
     print("TEST: Rapid Sequential Requests (2 rounds)")
     print("=" * 80)
 
-    urls = [
-        "/sse-async-basic",
-        "/sse-sync-basic",
-        "/sse-async-sse-format",
-        "/sse-sync-sse-format",
-    ]
+    urls = ["/sse-async-basic", "/sse-sync-basic", "/sse-async-sse-format", "/sse-sync-sse-format"]
 
     for round_num in range(2):
         print(f"\nRound {round_num + 1}:")

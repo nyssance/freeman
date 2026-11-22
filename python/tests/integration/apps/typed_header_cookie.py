@@ -31,10 +31,6 @@ def typed_sync(x_count: Annotated[int, Header()], page: Annotated[int, Cookie()]
 
 
 @api.websocket("/ws/typed")
-async def typed_ws(
-    websocket: WebSocket,
-    x_count: Annotated[int, Header()],
-    page: Annotated[int, Cookie()] = 1,
-):
+async def typed_ws(websocket: WebSocket, x_count: Annotated[int, Header()], page: Annotated[int, Cookie()] = 1):
     await websocket.accept()
     await websocket.send_text(f"{type(x_count).__name__}:{x_count} {type(page).__name__}:{page}")

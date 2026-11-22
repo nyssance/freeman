@@ -18,10 +18,7 @@ from freeman.auth.backends import JWTAuthentication
 from freeman.auth.guards import IsAuthenticated  # noqa: PLC0415
 from freeman.params import Depends
 from freeman.serializers import Serializer
-from freeman.views import (
-    APIView,
-    ViewSet,
-)
+from freeman.views import APIView, ViewSet
 
 # --- Test Fixtures ---
 

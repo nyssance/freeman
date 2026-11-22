@@ -72,10 +72,7 @@ def test_regular_list_still_works():
     @api.get("/users")
     async def list_users() -> list[UserSchema]:
         # Return a regular list, not a QuerySet
-        return [
-            UserSchema(id=1, username="alice"),
-            UserSchema(id=2, username="bob"),
-        ]
+        return [UserSchema(id=1, username="alice"), UserSchema(id=2, username="bob")]
 
     client = TestClient(api)
     response = client.get("/users")

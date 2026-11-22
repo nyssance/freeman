@@ -77,10 +77,7 @@ class TestRenderShortcut:
         assert client.get("/dashboard").headers["content-type"] == "text/html; charset=utf-8"
 
     def test_render_passes_request_engine_and_status(self, client):
-        engines = [
-            _engine("first", "first {{ title }}"),
-            _engine("second", "second {{ title }} at {{ request.path }}"),
-        ]
+        engines = [_engine("first", "first {{ title }}"), _engine("second", "second {{ title }} at {{ request.path }}")]
         with override_settings(TEMPLATES=engines):
             response = client.get("/missing")
         assert response.status_code == 404

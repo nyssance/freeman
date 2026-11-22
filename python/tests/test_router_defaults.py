@@ -17,11 +17,7 @@ def _token(secret: str) -> dict[str, str]:
 
 
 def test_router_defaults_apply_and_a_route_setting_wins():
-    router = Router(
-        prefix="/r",
-        auth=[JWTAuthentication(secret="router-secret")],
-        guards=[IsAuthenticated()],
-    )
+    router = Router(prefix="/r", auth=[JWTAuthentication(secret="router-secret")], guards=[IsAuthenticated()])
 
     @router.get("/default")
     async def default():

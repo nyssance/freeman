@@ -8,8 +8,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name="oauthclient",
-            name="application_type",
-            field=models.CharField(default="web", max_length=16),
-        ),
+            model_name="oauthclient", name="application_type", field=models.CharField(default="web", max_length=16)
+        )
     ]

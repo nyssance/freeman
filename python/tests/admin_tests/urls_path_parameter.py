@@ -16,10 +16,7 @@ class TenantAdminSite(AdminSite):
     """An admin site that serves one tenant for each first path segment."""
 
     def get_urls(self):
-        return [
-            path("", self.tenant_index, name="index"),
-            path("login/", self.tenant_login, name="login"),
-        ]
+        return [path("", self.tenant_index, name="index"), path("login/", self.tenant_login, name="login")]
 
     def tenant_index(self, request, tenant):
         return HttpResponse(f"admin index of {tenant}")
@@ -30,6 +27,4 @@ class TenantAdminSite(AdminSite):
 
 site = TenantAdminSite()
 
-urlpatterns = [
-    path("<slug:tenant>/admin/", site.urls),
-]
+urlpatterns = [path("<slug:tenant>/admin/", site.urls)]

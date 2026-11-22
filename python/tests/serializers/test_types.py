@@ -30,13 +30,7 @@ from freeman.serializers import (
     Slug,
     Username,
 )
-from freeman.serializers.types import (
-    UUID,
-    HexColor,
-    Latitude,
-    Longitude,
-    Port,
-)
+from freeman.serializers.types import UUID, HexColor, Latitude, Longitude, Port
 
 
 def to_json(data: dict) -> bytes:

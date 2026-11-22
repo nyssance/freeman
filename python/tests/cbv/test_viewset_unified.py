@@ -30,13 +30,7 @@ class ArticleFullSchema(msgspec.Struct):
 
     @classmethod
     def from_model(cls, obj):
-        return cls(
-            id=obj.id,
-            title=obj.title,
-            content=obj.content,
-            author=obj.author,
-            is_published=obj.is_published,
-        )
+        return cls(id=obj.id, title=obj.title, content=obj.content, author=obj.author, is_published=obj.is_published)
 
 
 class ArticleMiniSchema(msgspec.Struct):
@@ -74,18 +68,8 @@ def test_unified_viewset_with_custom_actions(api):
     """Test unified ViewSet with custom actions."""
 
     # Create test data
-    Article.objects.create(
-        title="Published Article",
-        content="Content",
-        author="Author",
-        is_published=True,
-    )
-    Article.objects.create(
-        title="Draft Article",
-        content="Content",
-        author="Author",
-        is_published=False,
-    )
+    Article.objects.create(title="Published Article", content="Content", author="Author", is_published=True)
+    Article.objects.create(title="Draft Article", content="Content", author="Author", is_published=False)
 
     @api.viewset("/articles")
     class ArticleViewSet(ViewSet):

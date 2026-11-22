@@ -61,11 +61,7 @@ def test_mcp_name_header_mismatch_rejected_with_32020():
 def test_mcp_method_header_mismatch_rejected_with_32020():
     api, _ = make_server()
     with TestClient(api) as client:
-        resp = post_rpc_modern(
-            client,
-            "tools/list",
-            headers_override={"Mcp-Method": "tools/call"},
-        )
+        resp = post_rpc_modern(client, "tools/list", headers_override={"Mcp-Method": "tools/call"})
         assert resp.status_code == 400
         assert parse_rpc(resp)["error"]["code"] == HEADER_MISMATCH
 

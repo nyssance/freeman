@@ -3,6 +3,4 @@
 from django.contrib import admin
 from django.urls import include, path
 
-urlpatterns = [
-    path("portal/", include([path("internal/", include([path("staff/", admin.site.urls)]))])),
-]
+urlpatterns = [path("portal/", include([path("internal/", include([path("staff/", admin.site.urls)]))]))]

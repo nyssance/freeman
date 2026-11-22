@@ -16,9 +16,7 @@ import pytest
 
 from freeman import BoltAPI
 from freeman.testing import TestClient
-from freeman.views import (
-    APIView,
-)
+from freeman.views import APIView
 from tests.test_models import Article
 
 # --- Fixtures ---
@@ -36,10 +34,7 @@ def sample_articles(db):
     articles = []
     for i in range(1, 4):
         article = Article.objects.create(
-            title=f"Article {i}",
-            content=f"Content {i}",
-            author="Test Author",
-            is_published=(i % 2 == 0),
+            title=f"Article {i}", content=f"Content {i}", author="Test Author", is_published=(i % 2 == 0)
         )
         articles.append(article)
     return articles
@@ -60,13 +55,7 @@ class ArticleSchema(msgspec.Struct):
     @classmethod
     def from_model(cls, obj):
         """Convert Django model instance to schema."""
-        return cls(
-            id=obj.id,
-            title=obj.title,
-            content=obj.content,
-            author=obj.author,
-            is_published=obj.is_published,
-        )
+        return cls(id=obj.id, title=obj.title, content=obj.content, author=obj.author, is_published=obj.is_published)
 
 
 class ArticleCreateSchema(msgspec.Struct):
@@ -108,12 +97,7 @@ def test_async_queryset_iteration(api, sample_articles):
             articles = []
             # Test async iteration like ListMixin does
             async for article in Article.objects.all():
-                articles.append(
-                    {
-                        "id": article.id,
-                        "title": article.title,
-                    }
-                )
+                articles.append({"id": article.id, "title": article.title})
             return articles
 
     with TestClient(api) as client:

@@ -12,15 +12,7 @@ Includes:
 
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    NotRequired,
-    Protocol,
-    TypedDict,
-    overload,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Any, NotRequired, Protocol, TypedDict, overload, runtime_checkable
 
 if TYPE_CHECKING:
     from django.contrib.sessions.backends.base import SessionBase

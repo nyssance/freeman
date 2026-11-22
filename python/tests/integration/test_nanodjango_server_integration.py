@@ -93,13 +93,7 @@ def test_single_file_app_serves_bolt_and_django_routes(single_file_app: Path):
         cwd=single_file_app.parent,
         env=env,
     )
-    server = RunningServer(
-        project=None,
-        process=process,
-        host=DEFAULT_HOST,
-        port=port,
-        startup_path="/api/hello",
-    )
+    server = RunningServer(project=None, process=process, host=DEFAULT_HOST, port=port, startup_path="/api/hello")
     try:
         # Bolt JSON route
         r = server.get("/api/hello")
@@ -154,12 +148,7 @@ def test_plugin_module_imports_without_django_configured(tmp_path: Path):
         )
     )
 
-    result = subprocess.run(
-        ["python", str(script)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
+    result = subprocess.run(["python", str(script)], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, (
         f"importing freeman.nanodjango required Django settings to be configured. "
         f"stdout={result.stdout!r} stderr={result.stderr!r}"

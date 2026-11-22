@@ -35,19 +35,15 @@ async def scope_app(scope, receive, send):
     await receive()
     await send({"type": "websocket.accept"})
     headers = {name.decode(): value.decode() for name, value in scope["headers"]}
-    await send(
-        {
-            "type": "websocket.send",
-            "text": "|".join(
-                [
-                    scope["path"],
-                    scope["root_path"],
-                    scope["query_string"].decode(),
-                    headers.get("authorization", ""),
-                ]
-            ),
-        }
-    )
+    await send({
+        "type": "websocket.send",
+        "text": "|".join([
+            scope["path"],
+            scope["root_path"],
+            scope["query_string"].decode(),
+            headers.get("authorization", ""),
+        ]),
+    })
 
 
 async def scheme_app(scope, receive, send):
@@ -114,10 +110,7 @@ async def test_mounted_app_echoes_bytes(api):
 @pytest.mark.asyncio
 async def test_mounted_app_gets_asgi_scope(api):
     async with WebSocketTestClient(
-        api,
-        "/scope/inner/path",
-        query_string="token=abc",
-        headers={"Authorization": "Bearer secret"},
+        api, "/scope/inner/path", query_string="token=abc", headers={"Authorization": "Bearer secret"}
     ) as ws:
         path, root_path, query_string, authorization = (await ws.receive_text()).split("|")
 

@@ -8,11 +8,7 @@ that are properly handled by the serialization layer.
 from __future__ import annotations
 
 import pytest
-from django.http import (
-    HttpResponse,
-    HttpResponseForbidden,
-    HttpResponseRedirect,
-)
+from django.http import HttpResponse, HttpResponseForbidden, HttpResponseRedirect
 
 from freeman import BoltAPI
 from freeman.testing import TestClient

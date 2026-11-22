@@ -27,20 +27,18 @@ async def sse(request):
 def accounts_index(request):
     """Mounted Django accounts testing index."""
     base = reverse("accounts-index").rstrip("/")
-    return JsonResponse(
-        {
-            "source": "django_mount",
-            "message": "Mounted Django accounts test endpoints",
-            "endpoints": {
-                "login": reverse("accounts-login"),
-                "logout": reverse("accounts-logout"),
-                "profile": reverse("accounts-profile"),
-                "provider_callback": f"{reverse('accounts-provider-callback')}?code=demo&state=xyz",
-                "django_auth_urls": f"{base}/auth/",
-                "allauth_if_installed": f"{base}/allauth/",
-            },
-        }
-    )
+    return JsonResponse({
+        "source": "django_mount",
+        "message": "Mounted Django accounts test endpoints",
+        "endpoints": {
+            "login": reverse("accounts-login"),
+            "logout": reverse("accounts-logout"),
+            "profile": reverse("accounts-profile"),
+            "provider_callback": f"{reverse('accounts-provider-callback')}?code=demo&state=xyz",
+            "django_auth_urls": f"{base}/auth/",
+            "allauth_if_installed": f"{base}/allauth/",
+        },
+    })
 
 
 def accounts_login(request):
@@ -53,25 +51,20 @@ def accounts_login(request):
     - next (optional, default: /accounts/profile/)
     """
     if request.method == "GET":
-        return JsonResponse(
-            {
-                "source": "django_mount",
-                "action": "login",
-                "method": "POST",
-                "required_fields": ["username", "password"],
-                "optional_fields": ["next"],
-            }
-        )
+        return JsonResponse({
+            "source": "django_mount",
+            "action": "login",
+            "method": "POST",
+            "required_fields": ["username", "password"],
+            "optional_fields": ["next"],
+        })
 
     username = request.POST.get("username") or request.GET.get("username")
     password = request.POST.get("password") or request.GET.get("password")
     next_url = request.POST.get("next") or request.GET.get("next") or reverse("accounts-profile")
 
     if not username or not password:
-        return JsonResponse(
-            {"ok": False, "error": "username and password are required"},
-            status=400,
-        )
+        return JsonResponse({"ok": False, "error": "username and password are required"}, status=400)
 
     user = authenticate(request, username=username, password=password)
     if user is None:
@@ -91,13 +84,11 @@ def accounts_profile(request):
     """Simple auth state endpoint for mounted-Django testing."""
     user = request.user
     is_authenticated = bool(getattr(user, "is_authenticated", False))
-    return JsonResponse(
-        {
-            "source": "django_mount",
-            "authenticated": is_authenticated,
-            "username": user.get_username() if is_authenticated else None,
-        }
-    )
+    return JsonResponse({
+        "source": "django_mount",
+        "authenticated": is_authenticated,
+        "username": user.get_username() if is_authenticated else None,
+    })
 
 
 def accounts_provider_callback(request):
@@ -107,13 +98,7 @@ def accounts_provider_callback(request):
     Example:
     /accounts/provider/callback/?code=demo-code&state=demo-state
     """
-    return JsonResponse(
-        {
-            "source": "django_mount",
-            "action": "provider_callback",
-            "query": dict(request.GET.items()),
-        }
-    )
+    return JsonResponse({"source": "django_mount", "action": "provider_callback", "query": dict(request.GET.items())})
 
 
 async def missions_page(request):

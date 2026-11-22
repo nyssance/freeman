@@ -18,5 +18,5 @@ class Migration(migrations.Migration):
                 ("expires_at", models.DateTimeField(db_index=True)),
                 ("version", models.PositiveIntegerField(default=0)),
             ],
-        ),
+        )
     ]

@@ -415,9 +415,11 @@ def test_request_validation_error_of_a_handler_gives_each_error_a_location_under
 
     @api.get("/invalid")
     async def invalid() -> dict:
-        raise RequestValidationError(
-            [{"loc": ["body", "a"], "msg": "m", "type": "t"}, "plain text", msgspec.ValidationError("Bad - at `$.x`")]
-        )
+        raise RequestValidationError([
+            {"loc": ["body", "a"], "msg": "m", "type": "t"},
+            "plain text",
+            msgspec.ValidationError("Bad - at `$.x`"),
+        ])
 
     with TestClient(api) as client:
         response = client.get("/invalid")
@@ -1161,9 +1163,7 @@ def test_mount_accepts_an_equal_formatter():
 
 def test_merge_rejects_two_different_formatters():
     with pytest.raises(CommandError, match="error_formatter"):
-        Command().merge_apis(
-            [
-                ("a.api", _api_with_route("/a", problem_details)),
-                ("b.api", _api_with_route("/b", _record)),
-            ]
-        )
+        Command().merge_apis([
+            ("a.api", _api_with_route("/a", problem_details)),
+            ("b.api", _api_with_route("/b", _record)),
+        ])

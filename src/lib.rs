@@ -18,8 +18,8 @@ mod testing;
 pub mod bench_support {
     pub use bolt_core::router::{convert_path, parse_query_string};
     pub use bolt_core::type_coercion::{
-        CoercedValue, DEFAULT_MAX_PARAM_LENGTH, TYPE_BOOL, TYPE_DATETIME, TYPE_DECIMAL, TYPE_INT,
-        TYPE_STRING, TYPE_UUID, coerce_param,
+        CoercedValue, DEFAULT_MAX_PARAM_LENGTH, TYPE_BOOL, TYPE_DATETIME, TYPE_DECIMAL, TYPE_INT, TYPE_STRING,
+        TYPE_UUID, coerce_param,
     };
     pub use bolt_core::validation::parse_cookies_inline;
 }
@@ -48,23 +48,17 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[pymodule(gil_used = false)]
 fn _core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(response_helpers::format_cookie_date, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        response_helpers::resolve_response_file,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(
-        response_helpers::populate_response_cookies,
-        m
-    )?)?;
+    m.add_function(wrap_pyfunction!(response_helpers::resolve_response_file, m)?)?;
+    m.add_function(wrap_pyfunction!(response_helpers::populate_response_cookies, m)?)?;
     use crate::dev_reload::run_dev_reloader;
     use crate::server::{
-        register_asgi_mounts, register_middleware_metadata, register_routes,
-        register_websocket_routes, server_listening, start_server,
+        register_asgi_mounts, register_middleware_metadata, register_routes, register_websocket_routes,
+        server_listening, start_server,
     };
     use crate::testing::{
-        TestRateLimiters, close_test_worker_connections, create_test_app, destroy_test_app,
-        handle_test_websocket, register_test_asgi_mounts, register_test_middleware_metadata,
-        register_test_routes, register_test_websocket_routes, test_request,
+        TestRateLimiters, close_test_worker_connections, create_test_app, destroy_test_app, handle_test_websocket,
+        register_test_asgi_mounts, register_test_middleware_metadata, register_test_routes,
+        register_test_websocket_routes, test_request,
     };
 
     // Class
@@ -95,10 +89,7 @@ fn _core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(register_test_routes, m)?)?;
     m.add_function(wrap_pyfunction!(register_test_websocket_routes, m)?)?;
     m.add_function(wrap_pyfunction!(register_test_asgi_mounts, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        crate::testing::register_test_mcp_mounts,
-        m
-    )?)?;
+    m.add_function(wrap_pyfunction!(crate::testing::register_test_mcp_mounts, m)?)?;
     m.add_function(wrap_pyfunction!(crate::testing::native_test_capsule, m)?)?;
     m.add_function(wrap_pyfunction!(register_test_middleware_metadata, m)?)?;
     m.add_function(wrap_pyfunction!(test_request, m)?)?;

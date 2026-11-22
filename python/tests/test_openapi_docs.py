@@ -39,15 +39,7 @@ from freeman.openapi import (
     StoplightRenderPlugin,
     SwaggerRenderPlugin,
 )
-from freeman.openapi.spec import (
-    Components,
-    Contact,
-    ExternalDocumentation,
-    License,
-    SecurityScheme,
-    Server,
-    Tag,
-)
+from freeman.openapi.spec import Components, Contact, ExternalDocumentation, License, SecurityScheme, Server, Tag
 from freeman.params import File, Form
 from freeman.serializers import Serializer, field
 from freeman.testing import TestClient
@@ -109,11 +101,7 @@ def test_openapi_json_endpoint():
 
 @pytest.mark.parametrize(
     ("names", "title"),
-    [
-        ({"PROJECT_NAME": "Shop", "SITE_NAME": "Site"}, "Shop"),
-        ({"SITE_NAME": "Site"}, "Site"),
-        ({}, "API"),
-    ],
+    [({"PROJECT_NAME": "Shop", "SITE_NAME": "Site"}, "Shop"), ({"SITE_NAME": "Site"}, "Site"), ({}, "API")],
     ids=["project-name", "site-name", "no-name"],
 )
 def test_default_openapi_config_takes_the_title_from_the_settings(settings, names, title):
@@ -429,11 +417,7 @@ def test_swagger_ui_supports_openapi_3_2_query_specs():
     even though the generated document itself is valid.
     """
     api = BoltAPI(
-        openapi_config=OpenAPIConfig(
-            title="Query API",
-            version="1.0.0",
-            render_plugins=[SwaggerRenderPlugin(path="/")],
-        )
+        openapi_config=OpenAPIConfig(title="Query API", version="1.0.0", render_plugins=[SwaggerRenderPlugin(path="/")])
     )
 
     @api.query("/search")
@@ -532,17 +516,13 @@ def test_default_api_serves_each_docs_page_at_its_documented_path(path, marker):
 
 
 @pytest.mark.parametrize(
-    ("config_path", "plugin_path"),
-    [("docs", "scalar"), ("/docs/", "scalar/"), ("/docs", "/scalar")],
+    ("config_path", "plugin_path"), [("docs", "scalar"), ("/docs/", "scalar/"), ("/docs", "/scalar")]
 )
 def test_docs_paths_with_no_leading_slash_serve_a_page_that_loads_its_schema(config_path, plugin_path):
     """The docs path and the path of a UI get a leading slash. The page gives a schema URL that answers."""
     api = BoltAPI(
         openapi_config=OpenAPIConfig(
-            title="Test API",
-            version="1.0.0",
-            path=config_path,
-            render_plugins=[ScalarRenderPlugin(path=plugin_path)],
+            title="Test API", version="1.0.0", path=config_path, render_plugins=[ScalarRenderPlugin(path=plugin_path)]
         )
     )
 
@@ -868,8 +848,7 @@ def test_openapi_session_auth_ignores_global_jwt_default():
         BOLT_DEFAULT_PERMISSION_CLASSES=[IsAuthenticated()],
     ):
         api = _docs_api_with_login(
-            auth=[SessionAuthentication(login_url="/admin/login/")],
-            guards=[Requires("is_staff", True)],
+            auth=[SessionAuthentication(login_url="/admin/login/")], guards=[Requires("is_staff", True)]
         )
         with TestClient(api) as member, TestClient(api) as staff:
             assert member.get("/docs", follow_redirects=False).status_code == 302
@@ -962,19 +941,14 @@ def test_openapi_security_requirements_for_authenticated_routes():
 def test_openapi_security_schemes_preserve_user_defined():
     """Test that user-defined security schemes are preserved and not overwritten."""
     custom_scheme = SecurityScheme(
-        type="http",
-        scheme="bearer",
-        bearer_format="CustomJWT",
-        description="My custom JWT scheme",
+        type="http", scheme="bearer", bearer_format="CustomJWT", description="My custom JWT scheme"
     )
 
     api = BoltAPI(
         openapi_config=OpenAPIConfig(
             title="Custom Auth API",
             version="1.0.0",
-            components=Components(
-                security_schemes={"BearerAuth": custom_scheme},
-            ),
+            components=Components(security_schemes={"BearerAuth": custom_scheme}),
         )
     )
 
@@ -1301,10 +1275,7 @@ def test_openapi_form_serializer_flattens_struct_fields():
     api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
 
     @api.post("/register")
-    async def register(
-        payload: Annotated[RegisterForm, Form()],
-        profile_picture: Annotated[UploadFile, File()],
-    ):
+    async def register(payload: Annotated[RegisterForm, Form()], profile_picture: Annotated[UploadFile, File()]):
         return {"ok": True}
 
     api._register_openapi_routes()

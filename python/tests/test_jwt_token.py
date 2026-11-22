@@ -21,10 +21,7 @@ class TestTokenCreation:
     def test_create_basic_token(self):
         """Test creating a basic token"""
         exp = datetime.now(UTC) + timedelta(hours=1)
-        token = Token(
-            sub="user123",
-            exp=exp,
-        )
+        token = Token(sub="user123", exp=exp)
 
         assert token.sub == "user123"
         assert token.exp == exp.replace(microsecond=0)  # Microseconds stripped
@@ -33,12 +30,7 @@ class TestTokenCreation:
     def test_create_token_with_staff_flags(self):
         """Test creating token with staff/admin flags"""
         exp = datetime.now(UTC) + timedelta(hours=1)
-        token = Token(
-            sub="admin123",
-            exp=exp,
-            is_staff=True,
-            is_admin=True,
-        )
+        token = Token(sub="admin123", exp=exp, is_staff=True, is_admin=True)
 
         assert token.is_staff is True
         assert token.is_admin is True
@@ -46,11 +38,7 @@ class TestTokenCreation:
     def test_create_token_with_permissions(self):
         """Test creating token with permissions list"""
         exp = datetime.now(UTC) + timedelta(hours=1)
-        token = Token(
-            sub="user123",
-            exp=exp,
-            permissions=["users.view", "users.create", "posts.edit"],
-        )
+        token = Token(sub="user123", exp=exp, permissions=["users.view", "users.create", "posts.edit"])
 
         assert len(token.permissions) == 3
         assert "users.view" in token.permissions
@@ -58,12 +46,7 @@ class TestTokenCreation:
     def test_create_token_with_audience_issuer(self):
         """Test creating token with aud and iss claims"""
         exp = datetime.now(UTC) + timedelta(hours=1)
-        token = Token(
-            sub="user123",
-            exp=exp,
-            aud="my-api",
-            iss="auth-service",
-        )
+        token = Token(sub="user123", exp=exp, aud="my-api", iss="auth-service")
 
         assert token.aud == "my-api"
         assert token.iss == "auth-service"
@@ -72,13 +55,7 @@ class TestTokenCreation:
         """Test creating token with custom extra claims"""
         exp = datetime.now(UTC) + timedelta(hours=1)
         token = Token(
-            sub="user123",
-            exp=exp,
-            extras={
-                "tenant_id": "acme-corp",
-                "role": "manager",
-                "department": "engineering",
-            },
+            sub="user123", exp=exp, extras={"tenant_id": "acme-corp", "role": "manager", "department": "engineering"}
         )
 
         assert token.extras["tenant_id"] == "acme-corp"
@@ -347,14 +324,7 @@ class TestTokenToDictConversion:
     def test_to_dict_with_optional_fields(self):
         """Test to_dict with optional fields"""
         exp = datetime.now(UTC) + timedelta(hours=1)
-        token = Token(
-            sub="user123",
-            exp=exp,
-            aud="my-api",
-            iss="auth",
-            jti="unique",
-            is_staff=True,
-        )
+        token = Token(sub="user123", exp=exp, aud="my-api", iss="auth", jti="unique", is_staff=True)
 
         d = token.to_dict()
 
@@ -366,12 +336,7 @@ class TestTokenToDictConversion:
     def test_to_dict_excludes_none_values(self):
         """Test that None values are excluded from dict"""
         exp = datetime.now(UTC) + timedelta(hours=1)
-        token = Token(
-            sub="user123",
-            exp=exp,
-            aud=None,
-            iss=None,
-        )
+        token = Token(sub="user123", exp=exp, aud=None, iss=None)
 
         d = token.to_dict()
 
@@ -506,8 +471,7 @@ class TestTokenClaimValidation:
         assert str(raised.value) == f"{field} must be a datetime object, not int"
 
     @pytest.mark.parametrize(
-        "name",
-        ["exp", "sub", "iat", "iss", "aud", "jti", "nbf", "is_staff", "is_superuser", "is_admin", "permissions"],
+        "name", ["exp", "sub", "iat", "iss", "aud", "jti", "nbf", "is_staff", "is_superuser", "is_admin", "permissions"]
     )
     def test_extra_claim_with_the_name_of_a_standard_claim_raises_value_error(self, name):
         """``extras`` cannot replace the value of a Token field in the encoded token."""
@@ -530,11 +494,7 @@ class TestTokenClaimValidation:
 
     def test_future_iat_message(self):
         with pytest.raises(ValueError, match=r"^iat \(issued at\) must be current or past time$"):
-            Token(
-                sub="user123",
-                exp=datetime.now(UTC) + timedelta(hours=2),
-                iat=datetime.now(UTC) + timedelta(hours=1),
-            )
+            Token(sub="user123", exp=datetime.now(UTC) + timedelta(hours=2), iat=datetime.now(UTC) + timedelta(hours=1))
 
     def test_nbf_is_normalized_to_utc_without_microseconds(self):
         """``nbf`` follows the same rules as ``exp``: UTC, with no microseconds."""

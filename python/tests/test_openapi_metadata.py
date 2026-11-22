@@ -205,11 +205,7 @@ def test_tag_collection_with_config_tags():
         return []
 
     # Pre-define a tag in config with description
-    config = OpenAPIConfig(
-        title="Test API",
-        version="1.0.0",
-        tags=[Tag(name="Items", description="Inventory items")],
-    )
+    config = OpenAPIConfig(title="Test API", version="1.0.0", tags=[Tag(name="Items", description="Inventory items")])
     generator = SchemaGenerator(api, config)
     schema = generator.generate()
 

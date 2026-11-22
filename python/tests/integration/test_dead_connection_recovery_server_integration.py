@@ -93,8 +93,7 @@ def start_server(
     base = module.split(":", 1)[0]
     both_apis = f"\nBOLT_API = [{module!r}, {base + ':lane_api'!r}]\n"
     project = make_server_project(
-        api_module=module,
-        settings_extra=postgres_settings(params, **database_options) + both_apis + settings_extra,
+        api_module=module, settings_extra=postgres_settings(params, **database_options) + both_apis + settings_extra
     )
     server = project.start(
         processes=processes, env={"PGAPPNAME": application_name, "DJANGO_BOLT_ORM_THREADS": str(orm_threads)}
@@ -197,13 +196,7 @@ def query_each_orm_thread(server, count: int) -> list[str]:
     return response.json()["results"]
 
 
-@pytest.mark.parametrize(
-    "settings_extra",
-    [
-        pytest.param("", id="persistent"),
-        pytest.param(POOL, id="pool"),
-    ],
-)
+@pytest.mark.parametrize("settings_extra", [pytest.param("", id="persistent"), pytest.param(POOL, id="pool")])
 def test_one_dead_connection_retires_the_connections_of_every_thread(
     make_server_project, postgres_database, settings_extra
 ):
@@ -597,8 +590,7 @@ def test_a_failed_return_to_the_pool_keeps_the_response_of_a_sync_lane(make_serv
     and the lane serves its next request with a new connection.
     """
     project = make_server_project(
-        api_module=app_module("request_lanes_async"),
-        settings_extra=postgres_settings(postgres_database) + POOL,
+        api_module=app_module("request_lanes_async"), settings_extra=postgres_settings(postgres_database) + POOL
     )
     server = project.start()
     with server:
@@ -629,8 +621,7 @@ def test_a_failed_close_on_a_lane_still_gives_back_its_other_pooled_connections(
     lane. An idle lane would hold that pool slot until it stops.
     """
     project = make_server_project(
-        api_module=app_module("request_lanes_async"),
-        settings_extra=postgres_settings(postgres_database) + TWO_POOLS,
+        api_module=app_module("request_lanes_async"), settings_extra=postgres_settings(postgres_database) + TWO_POOLS
     )
     server = project.start()
     with server:
@@ -797,10 +788,7 @@ def test_a_dead_connection_reconnects_the_connections_of_its_own_database_only(m
     """
     other_application_name = f"bolt-other-{secrets.token_hex(4)}"
     server, application_name = start_server(
-        make_server_project,
-        postgres_database,
-        orm_threads=2,
-        settings_extra=two_databases(other_application_name),
+        make_server_project, postgres_database, orm_threads=2, settings_extra=two_databases(other_application_name)
     )
     with server:
         assert server.get("/orm-threads-both-databases?count=2").json()["results"] == ["ok", "ok"]

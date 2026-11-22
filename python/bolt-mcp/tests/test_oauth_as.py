@@ -549,12 +549,7 @@ def _interstitial_script_target(page: str) -> str:
 
 
 @pytest.mark.parametrize(
-    "redirect_uri",
-    [
-        "http://localhost:9876/callback",
-        "http://127.0.0.1:9876/callback",
-        "http://[::1]:9876/callback",
-    ],
+    "redirect_uri", ["http://localhost:9876/callback", "http://127.0.0.1:9876/callback", "http://[::1]:9876/callback"]
 )
 def test_loopback_redirect_renders_interstitial_with_working_code(redirect_uri):
     api, _, _ = _build()
@@ -668,8 +663,7 @@ def test_registration_accepts_native_private_use_redirect_uri():
     api, _, _ = _build()
     with TestClient(api) as client:
         r = client.post(
-            "/oauth/register",
-            json={"redirect_uris": ["com.example.app:/oauth2redirect"], "application_type": "native"},
+            "/oauth/register", json={"redirect_uris": ["com.example.app:/oauth2redirect"], "application_type": "native"}
         )
     assert r.status_code == 201
 
@@ -685,10 +679,7 @@ def test_registration_defaults_application_type_web():
 def test_registration_rejects_invalid_application_type():
     api, _, _ = _build()
     with TestClient(api) as client:
-        r = client.post(
-            "/oauth/register",
-            json={"redirect_uris": [REDIRECT_URI], "application_type": "desktop"},
-        )
+        r = client.post("/oauth/register", json={"redirect_uris": [REDIRECT_URI], "application_type": "desktop"})
     assert r.status_code == 400
     assert r.json()["error"] == "invalid_client_metadata"
 

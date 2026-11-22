@@ -125,12 +125,7 @@ def create_token_pair(
     now = int(time.time())
     user_id = _resolve_user_id(user)
     fam = str(uuid.uuid4())
-    base: dict[str, Any] = {
-        "sub": user_id,
-        "iat": now,
-        "oat": now if oat is None else int(oat),
-        "ver": version,
-    }
+    base: dict[str, Any] = {"sub": user_id, "iat": now, "oat": now if oat is None else int(oat), "ver": version}
     if claims:
         base.update(claims)
     if method is not None:
@@ -139,13 +134,7 @@ def create_token_pair(
     # Both tokens get a jti. A revocation store sets ``require_jti`` on the
     # backend, and it rejects access tokens without one (issue #304).
     access_claims = {**base, "typ": "access", "exp": now + access_ttl, "jti": str(uuid.uuid4())}
-    refresh_claims = {
-        **base,
-        "typ": "refresh",
-        "exp": now + refresh_ttl,
-        "jti": str(uuid.uuid4()),
-        "fam": fam,
-    }
+    refresh_claims = {**base, "typ": "refresh", "exp": now + refresh_ttl, "jti": str(uuid.uuid4()), "fam": fam}
 
     key = _secret(secret)
     headers = {"kid": kid} if kid is not None else None

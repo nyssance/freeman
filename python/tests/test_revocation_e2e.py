@@ -29,11 +29,7 @@ SECRET = "revocation-integration-secret"
 
 
 def _create_user():
-    return User.objects.create_user(
-        username="revoke-test",
-        email="revoke@test.com",
-        password="x",
-    )
+    return User.objects.create_user(username="revoke-test", email="revoke@test.com", password="x")
 
 
 def _issue_token(user, *, expires_in: int = 3600, jti: str | None = None) -> tuple[str, dict]:
@@ -44,12 +40,7 @@ def _issue_token(user, *, expires_in: int = 3600, jti: str | None = None) -> tup
     """
     if jti is None:
         jti = uuid.uuid4().hex
-    token = create_jwt_for_user(
-        user,
-        secret=SECRET,
-        expires_in=expires_in,
-        extra_claims={"jti": jti},
-    )
+    token = create_jwt_for_user(user, secret=SECRET, expires_in=expires_in, extra_claims={"jti": jti})
     claims = jwt.decode(token, SECRET, algorithms=["HS256"])
     return token, claims
 
@@ -194,11 +185,7 @@ def test_revoked_token_stays_rejected_inside_the_leeway():
         return {"ok": True}
 
     # The token is 10 seconds after its ``exp``. The default leeway of 60 seconds still accepts it.
-    token = jwt.encode(
-        {"sub": "1", "jti": uuid.uuid4().hex, "exp": int(time.time()) - 10},
-        SECRET,
-        algorithm="HS256",
-    )
+    token = jwt.encode({"sub": "1", "jti": uuid.uuid4().hex, "exp": int(time.time()) - 10}, SECRET, algorithm="HS256")
     headers = {"Authorization": f"Bearer {token}"}
 
     with TestClient(api) as client:

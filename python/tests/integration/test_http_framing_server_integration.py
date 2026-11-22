@@ -53,11 +53,7 @@ def test_content_length_with_chunked_gets_400(make_server_project):
     assert _status_line(ambiguous) == b"HTTP/1.1 400 Bad Request", ambiguous[:200]
 
 
-@pytest.mark.parametrize(
-    "host_lines",
-    [b"", b"Host: a.example\r\nHost: b.example\r\n"],
-    ids=["missing", "duplicate"],
-)
+@pytest.mark.parametrize("host_lines", [b"", b"Host: a.example\r\nHost: b.example\r\n"], ids=["missing", "duplicate"])
 def test_http11_request_needs_one_host_header(make_server_project, host_lines):
     """HTTP/1.1 needs exactly one Host header. HTTP/1.0 needs none."""
     project = make_server_project(api_module=app_module("payload_sink"))

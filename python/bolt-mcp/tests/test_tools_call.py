@@ -13,13 +13,7 @@ from freeman.testing import TestClient
 
 
 def _call(client, session_id, name, arguments, *, id=1):
-    return post_rpc(
-        client,
-        "tools/call",
-        {"name": name, "arguments": arguments},
-        id=id,
-        session_id=session_id,
-    )
+    return post_rpc(client, "tools/call", {"name": name, "arguments": arguments}, id=id, session_id=session_id)
 
 
 def test_dict_result_maps_to_text_and_structured_content():

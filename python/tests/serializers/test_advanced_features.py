@@ -11,14 +11,7 @@ from django.core.exceptions import ImproperlyConfigured
 from freeman import BoltAPI
 from freeman.exceptions import RequestValidationError
 from freeman.param_functions import Body, Cookie, Form, Header, Query
-from freeman.serializers import (
-    Serializer,
-    SerializerView,
-    computed_field,
-    field,
-    field_validator,
-    model_validator,
-)
+from freeman.serializers import Serializer, SerializerView, computed_field, field, field_validator, model_validator
 from freeman.testing import TestClient
 
 from .read_only_bases import Author, AuthoredChild, TaggedBase
@@ -810,16 +803,8 @@ class TestDumpMethods:
     @pytest.mark.parametrize(
         ("option", "expected_tag", "expected_post"),
         [
-            (
-                {"exclude_none": True},
-                {"name": "a", "w": 1},
-                {"t": "untitled", "size": 1},
-            ),
-            (
-                {"exclude_defaults": True},
-                {"name": "a"},
-                {"parent": None, "subtitle": None, "size": 1},
-            ),
+            ({"exclude_none": True}, {"name": "a", "w": 1}, {"t": "untitled", "size": 1}),
+            ({"exclude_defaults": True}, {"name": "a"}, {"parent": None, "subtitle": None, "size": 1}),
             (
                 {"by_alias": True},
                 {"name": "a", "note": None, "w": 1},
@@ -883,10 +868,7 @@ class TestDumpMethods:
             id: int
             name: str
 
-        users = [
-            UserSerializer(id=1, name="John"),
-            UserSerializer(id=2, name="Jane"),
-        ]
+        users = [UserSerializer(id=1, name="John"), UserSerializer(id=2, name="Jane")]
 
         json_bytes = UserSerializer.dump_many_json(users)
 
@@ -1050,11 +1032,7 @@ class TestComplexScenarios:
 
         assert result["id"] == 1
         assert result["name"] == "John"
-        assert result["address"] == {
-            "street": "123 Main St",
-            "city": "NYC",
-            "zip_code": "10001",
-        }
+        assert result["address"] == {"street": "123 Main St", "city": "NYC", "zip_code": "10001"}
 
     def test_list_of_nested_serializers_dump(self):
         """Test dumping list of nested serializers."""
@@ -1068,10 +1046,7 @@ class TestComplexScenarios:
             title: str
             tags: list[TagSerializer]
 
-        tags = [
-            TagSerializer(id=1, name="python"),
-            TagSerializer(id=2, name="django"),
-        ]
+        tags = [TagSerializer(id=1, name="python"), TagSerializer(id=2, name="django")]
         post = PostSerializer(id=1, title="Hello World", tags=tags)
 
         result = post.dump()
@@ -1339,10 +1314,7 @@ class TestFieldsMethod:
             created_at: str
 
             class Config:
-                field_sets = {
-                    "list": ["id", "name"],
-                    "detail": ["id", "name", "email", "created_at"],
-                }
+                field_sets = {"list": ["id", "name"], "detail": ["id", "name", "email", "created_at"]}
 
         # Create serializer from field set
         UserListSerializer = UserSerializer.fields("list")
@@ -1365,10 +1337,7 @@ class TestFieldsMethod:
             email: str
 
             class Config:
-                field_sets = {
-                    "list": ["id", "name"],
-                    "detail": ["id", "name", "email"],
-                }
+                field_sets = {"list": ["id", "name"], "detail": ["id", "name", "email"]}
 
         UserList = UserSerializer.fields("list")
         UserDetail = UserSerializer.fields("detail")
@@ -1439,10 +1408,7 @@ class TestSubsetResponseModel:
         UserMini = UserSerializer.subset("id", "name")
 
         def list_users() -> list[UserMini]:  # type: ignore
-            return [
-                UserMini(id=1, name="John"),
-                UserMini(id=2, name="Jane"),
-            ]
+            return [UserMini(id=1, name="John"), UserMini(id=2, name="Jane")]
 
         result = list_users()
         assert len(result) == 2

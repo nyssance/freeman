@@ -848,11 +848,7 @@ class DestroyMixin(_ViewSet):
 # Convenience ViewSet classes (like Django REST Framework)
 
 
-class ReadOnlyModelViewSet(
-    ListMixin,
-    RetrieveMixin,
-    ViewSet,
-):
+class ReadOnlyModelViewSet(ListMixin, RetrieveMixin, ViewSet):
     """
     A viewset base class for read-only operations.
 
@@ -870,15 +866,7 @@ class ReadOnlyModelViewSet(
     pass
 
 
-class ModelViewSet(
-    ListMixin,
-    RetrieveMixin,
-    CreateMixin,
-    UpdateMixin,
-    PartialUpdateMixin,
-    DestroyMixin,
-    ViewSet,
-):
+class ModelViewSet(ListMixin, RetrieveMixin, CreateMixin, UpdateMixin, PartialUpdateMixin, DestroyMixin, ViewSet):
     """
     A viewset base class that provides helpers for full CRUD operations.
 

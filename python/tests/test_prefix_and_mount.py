@@ -293,13 +293,7 @@ class TestOpenAPIDocsWithPrefix:
         When BoltAPI(prefix="/api") is used, the docs should still be
         accessible at /docs/openapi.json, NOT at /api/docs/openapi.json.
         """
-        api = BoltAPI(
-            prefix="/api",
-            openapi_config=OpenAPIConfig(
-                title="Test API",
-                version="1.0.0",
-            ),
-        )
+        api = BoltAPI(prefix="/api", openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
 
         @api.get("/items")
         async def get_items():
@@ -330,13 +324,7 @@ class TestOpenAPIDocsWithPrefix:
 
         This verifies that docs routes bypass the prefix.
         """
-        api = BoltAPI(
-            prefix="/api",
-            openapi_config=OpenAPIConfig(
-                title="Test API",
-                version="1.0.0",
-            ),
-        )
+        api = BoltAPI(prefix="/api", openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
 
         @api.get("/items")
         async def get_items():
@@ -356,11 +344,7 @@ class TestOpenAPIDocsWithPrefix:
         """Swagger UI should be at /docs/* regardless of API prefix."""
         api = BoltAPI(
             prefix="/api",
-            openapi_config=OpenAPIConfig(
-                title="Test API",
-                version="1.0.0",
-                render_plugins=[SwaggerRenderPlugin()],
-            ),
+            openapi_config=OpenAPIConfig(title="Test API", version="1.0.0", render_plugins=[SwaggerRenderPlugin()]),
         )
 
         @api.get("/items")
@@ -385,13 +369,7 @@ class TestOpenAPIDocsWithPrefix:
 
     def test_api_routes_correctly_prefixed(self):
         """API routes should still be correctly prefixed."""
-        api = BoltAPI(
-            prefix="/api",
-            openapi_config=OpenAPIConfig(
-                title="Test API",
-                version="1.0.0",
-            ),
-        )
+        api = BoltAPI(prefix="/api", openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
 
         @api.get("/items")
         async def get_items():
@@ -452,13 +430,7 @@ class TestOpenAPIDocsWithPrefix:
 
     def test_openapi_schema_excludes_docs_routes(self):
         """OpenAPI schema should exclude docs routes from the API paths."""
-        api = BoltAPI(
-            prefix="/api",
-            openapi_config=OpenAPIConfig(
-                title="Test API",
-                version="1.0.0",
-            ),
-        )
+        api = BoltAPI(prefix="/api", openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
 
         @api.get("/items")
         async def get_items():

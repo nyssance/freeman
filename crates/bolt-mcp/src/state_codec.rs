@@ -69,29 +69,18 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 
-pub fn seal(
-    codec: &RequestStateCodec,
-    state: &McpRequestState,
-) -> Result<String, RequestStateError> {
-    codec.seal_json_with(
-        state,
-        &SealOptions::new().ttl(std::time::Duration::from_secs(STATE_TTL_SECS)),
-    )
+pub fn seal(codec: &RequestStateCodec, state: &McpRequestState) -> Result<String, RequestStateError> {
+    codec.seal_json_with(state, &SealOptions::new().ttl(std::time::Duration::from_secs(STATE_TTL_SECS)))
 }
 
 /// Open and verify sealed state for a retry of `tool` with `arguments` by the
 /// current principal. Any failure (bad HMAC, expired, wrong tool/args/user)
 /// returns `Err(reason)` — callers turn it into an in-band tool error.
 pub fn open_verified(
-    codec: &RequestStateCodec,
-    sealed: &str,
-    tool: &str,
-    arguments: Option<&rmcp::model::JsonObject>,
+    codec: &RequestStateCodec, sealed: &str, tool: &str, arguments: Option<&rmcp::model::JsonObject>,
     auth: Option<&bolt_core::middleware::auth::AuthContext>,
 ) -> Result<McpRequestState, String> {
-    let state: McpRequestState = codec
-        .open_json(sealed)
-        .map_err(|e| format!("invalid requestState: {e}"))?;
+    let state: McpRequestState = codec.open_json(sealed).map_err(|e| format!("invalid requestState: {e}"))?;
     if state.tool != tool {
         return Err("requestState does not match this tool".to_string());
     }

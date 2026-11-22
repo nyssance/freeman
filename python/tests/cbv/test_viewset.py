@@ -74,9 +74,7 @@ def test_viewset_with_custom_methods(api, view_set_class: type):
 
         async def create(self, request, data: ArticleCreateSchema) -> ArticleSchema:
             article = await Article.objects.acreate(
-                title=data.title + " custom create",
-                content=data.content,
-                author=data.author,
+                title=data.title + " custom create", content=data.content, author=data.author
             )
             return article
 
@@ -112,8 +110,7 @@ def test_viewset_with_custom_methods(api, view_set_class: type):
 
         # Create
         response = client.post(
-            "/articles",
-            json={"title": "New Article", "content": "New Content", "author": "Test Author"},
+            "/articles", json={"title": "New Article", "content": "New Content", "author": "Test Author"}
         )
         assert response.status_code == 201
         response_data = response.json()
@@ -139,8 +136,7 @@ def test_viewset_with_custom_methods(api, view_set_class: type):
 
         # Partial update
         response = client.patch(
-            f"/articles/{article_id}",
-            json={"title": "Patched Title", "content": None, "author": None},
+            f"/articles/{article_id}", json={"title": "Patched Title", "content": None, "author": None}
         )
         assert response.status_code == 200
         assert response.json()["title"] == "Patched Title"

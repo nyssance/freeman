@@ -509,13 +509,7 @@ class TestQueueBasedLogging:
         bounded = Queue(maxsize=1)
         handler = _DropOnFullQueueHandler(bounded)
         record = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname=__file__,
-            lineno=1,
-            msg="payload",
-            args=None,
-            exc_info=None,
+            name="test", level=logging.INFO, pathname=__file__, lineno=1, msg="payload", args=None, exc_info=None
         )
 
         # Saturate the queue.
@@ -541,13 +535,7 @@ class TestQueueBasedLogging:
         bounded = Queue(maxsize=4)
         handler = _DropOnFullQueueHandler(bounded)
         record = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname=__file__,
-            lineno=1,
-            msg="payload",
-            args=None,
-            exc_info=None,
+            name="test", level=logging.INFO, pathname=__file__, lineno=1, msg="payload", args=None, exc_info=None
         )
         captured = io.StringIO()
         with redirect_stderr(captured):
@@ -574,13 +562,7 @@ class TestQueueBasedLogging:
         listener.start()
         handler = _DropOnFullQueueHandler(q)
         record = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname=__file__,
-            lineno=1,
-            msg="payload",
-            args=None,
-            exc_info=None,
+            name="test", level=logging.INFO, pathname=__file__, lineno=1, msg="payload", args=None, exc_info=None
         )
         captured = io.StringIO()
         with redirect_stderr(captured):
@@ -628,10 +610,7 @@ class TestQueueBasedLogging:
         """setup_django_logging should configure queue handlers for django loggers."""
         # Configure Django settings for test
         if not settings.configured:
-            settings.configure(
-                DEBUG=True,
-                SECRET_KEY="test-secret-key",
-            )
+            settings.configure(DEBUG=True, SECRET_KEY="test-secret-key")
 
         # Reset global state
         config_module._LOGGING_CONFIGURED = False
@@ -705,10 +684,7 @@ class TestQueueBasedLogging:
         """setup_django_logging should not reconfigure when called multiple times."""
         # Configure Django settings for test
         if not settings.configured:
-            settings.configure(
-                DEBUG=True,
-                SECRET_KEY="test-secret-key",
-            )
+            settings.configure(DEBUG=True, SECRET_KEY="test-secret-key")
 
         # First call
         config_module._LOGGING_CONFIGURED = False

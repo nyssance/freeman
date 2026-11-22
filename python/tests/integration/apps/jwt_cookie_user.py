@@ -44,41 +44,26 @@ def seed():
     return {"user_id": user.id, "username": user.username}
 
 
-@api.get(
-    "/whoami",
-    auth=[JWTAuthentication(secret=SECRET, cookie="access_token")],
-    guards=[IsAuthenticated()],
-)
+@api.get("/whoami", auth=[JWTAuthentication(secret=SECRET, cookie="access_token")], guards=[IsAuthenticated()])
 async def whoami(request):
     return {"user_id": request["context"]["user_id"]}
 
 
-@api.post(
-    "/write",
-    auth=[JWTAuthentication(secret=SECRET, cookie="access_token")],
-    guards=[IsAuthenticated()],
-)
+@api.post("/write", auth=[JWTAuthentication(secret=SECRET, cookie="access_token")], guards=[IsAuthenticated()])
 async def write(request):
     return {"user_id": request["context"]["user_id"]}
 
 
 @api.get(
     "/dual",
-    auth=[
-        JWTAuthentication(secret=SECRET, cookie="access_token"),
-        JWTAuthentication(secret=SECRET),
-    ],
+    auth=[JWTAuthentication(secret=SECRET, cookie="access_token"), JWTAuthentication(secret=SECRET)],
     guards=[IsAuthenticated()],
 )
 async def dual(request):
     return {"user_id": request["context"]["user_id"]}
 
 
-@api.get(
-    "/me",
-    auth=[UsernameJWT(secret=SECRET, cookie="access_token")],
-    guards=[IsAuthenticated()],
-)
+@api.get("/me", auth=[UsernameJWT(secret=SECRET, cookie="access_token")], guards=[IsAuthenticated()])
 async def me(request):
     # An async-only get_user serves ``await request.auser()`` only.
     user = await request.auser()

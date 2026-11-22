@@ -39,12 +39,7 @@ def test_calling_exposed_endpoint_binds_path_param():
     api, _ = _build()
     with TestClient(api) as client:
         _, session_id = initialize(client)
-        resp = post_rpc(
-            client,
-            "tools/call",
-            {"name": "get_item", "arguments": {"item_id": 5}},
-            session_id=session_id,
-        )
+        resp = post_rpc(client, "tools/call", {"name": "get_item", "arguments": {"item_id": 5}}, session_id=session_id)
         assert resp.status_code == 200
         result = parse_rpc(resp)["result"]
         assert result["isError"] is False

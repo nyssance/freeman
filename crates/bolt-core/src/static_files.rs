@@ -30,8 +30,8 @@ use crate::state::{ScopeConfig, ServeMode};
 /// exfiltrate but cannot execute, and forcing CSS to download would be
 /// gratuitous for the common "let users upload theme overrides" case.
 const DANGEROUS_MEDIA_EXTS: &[&str] = &[
-    "html", "htm", "xhtml", "xhtm", "shtml", "shtm", "htc", "hta", "svg", "svgz", "xml", "xsl",
-    "xslt", "js", "mjs", "cjs", "wasm",
+    "html", "htm", "xhtml", "xhtm", "shtml", "shtm", "htc", "hta", "svg", "svgz", "xml", "xsl", "xslt", "js", "mjs",
+    "cjs", "wasm",
 ];
 
 fn is_dangerous_media_ext(path: &Path) -> bool {
@@ -40,9 +40,7 @@ fn is_dangerous_media_ext(path: &Path) -> bool {
     };
     // Hot path: zero-allocation comparison. `to_ascii_lowercase()` would
     // heap-allocate a String for every media request.
-    DANGEROUS_MEDIA_EXTS
-        .iter()
-        .any(|candidate| candidate.eq_ignore_ascii_case(ext))
+    DANGEROUS_MEDIA_EXTS.iter().any(|candidate| candidate.eq_ignore_ascii_case(ext))
 }
 
 /// Rejects any path with a leading-dot component. Matches the nginx/Apache
@@ -52,9 +50,7 @@ fn is_dangerous_media_ext(path: &Path) -> bool {
 /// Operates on the URL-decoded path string. Splits on both `/` and `\` so a
 /// Windows-style backslash component (`foo\.env`) is caught as well.
 fn has_dotfile_component(relative_path: &str) -> bool {
-    relative_path
-        .split(['/', '\\'])
-        .any(|segment| segment.starts_with('.'))
+    relative_path.split(['/', '\\']).any(|segment| segment.starts_with('.'))
 }
 
 /// Find a static file in the configured directories (fast path).
@@ -90,9 +86,7 @@ fn find_in_directories(relative_path: &str, directories: &[PathBuf]) -> Option<P
 /// True when every part of `path` is a plain name or `.`. A root, a parent
 /// and a Windows prefix are not, so `join` cannot leave the static directory.
 fn is_plain_relative(path: &str) -> bool {
-    Path::new(path)
-        .components()
-        .all(|part| matches!(part, Component::Normal(_) | Component::CurDir))
+    Path::new(path).components().all(|part| matches!(part, Component::Normal(_) | Component::CurDir))
 }
 
 /// Find a static file using Django's staticfiles finders (for app-level static files)
@@ -134,9 +128,7 @@ fn find_with_django_finders(relative_path: &str) -> Option<PathBuf> {
 ///   `application/octet-stream` — `nosniff` alone won't stop a browser from
 ///   honouring a `text/html`/`image/svg+xml` type and running its scripts.
 pub async fn handle_file(
-    req: HttpRequest,
-    path: web::Path<String>,
-    config: web::Data<Arc<ScopeConfig>>,
+    req: HttpRequest, path: web::Path<String>, config: web::Data<Arc<ScopeConfig>>,
 ) -> HttpResponse {
     // Strip leading slash if present (route captures include it)
     let relative_path = path.into_inner();
@@ -150,10 +142,7 @@ pub async fn handle_file(
     // make a missing file invisible for the cache lifetime even after upload.
     let apply_security_headers = |response: &mut HttpResponse| {
         let headers = response.headers_mut();
-        headers.insert(
-            header::X_CONTENT_TYPE_OPTIONS,
-            header::HeaderValue::from_static("nosniff"),
-        );
+        headers.insert(header::X_CONTENT_TYPE_OPTIONS, header::HeaderValue::from_static("nosniff"));
         if let Some(ref csp) = config.csp_header {
             // `csp` is a pre-validated HeaderValue from startup; clone is
             // Bytes-backed and ~1ns.
@@ -168,16 +157,12 @@ pub async fn handle_file(
         if response.status().is_success()
             && let Some(ref cc) = config.cache_control
         {
-            response
-                .headers_mut()
-                .insert(header::CACHE_CONTROL, cc.clone());
+            response.headers_mut().insert(header::CACHE_CONTROL, cc.clone());
         }
     };
 
     if relative_path.contains("..") {
-        let mut response = HttpResponse::BadRequest()
-            .content_type("text/plain; charset=utf-8")
-            .body("Invalid path");
+        let mut response = HttpResponse::BadRequest().content_type("text/plain; charset=utf-8").body("Invalid path");
         apply_security_headers(&mut response);
         return response;
     }
@@ -236,20 +221,12 @@ async fn serve_file(req: &HttpRequest, file_path: &Path) -> HttpResponse {
 /// filename, which is fine.
 fn disarm_scripting_response(response: &mut HttpResponse) {
     let headers = response.headers_mut();
-    headers.insert(
-        header::CONTENT_TYPE,
-        header::HeaderValue::from_static("application/octet-stream"),
-    );
-    headers.insert(
-        header::CONTENT_DISPOSITION,
-        header::HeaderValue::from_static("attachment"),
-    );
+    headers.insert(header::CONTENT_TYPE, header::HeaderValue::from_static("application/octet-stream"));
+    headers.insert(header::CONTENT_DISPOSITION, header::HeaderValue::from_static("attachment"));
 }
 
 fn not_found_response() -> HttpResponse {
-    HttpResponse::NotFound()
-        .content_type("text/plain; charset=utf-8")
-        .body("File not found")
+    HttpResponse::NotFound().content_type("text/plain; charset=utf-8").body("File not found")
 }
 
 #[cfg(test)]
@@ -330,40 +307,27 @@ mod tests {
     }
 
     fn header_of<'a>(response: &'a HttpResponse, name: &str) -> Option<&'a str> {
-        response
-            .headers()
-            .get(name)
-            .map(|value| value.to_str().unwrap())
+        response.headers().get(name).map(|value| value.to_str().unwrap())
     }
 
     /// A browser must download an upload that can carry script, not render it.
     #[actix_web::test]
     async fn media_serves_an_upload_that_can_carry_script_as_a_download() {
         let temp_dir = TempDir::new().unwrap();
-        fs::write(
-            temp_dir.path().join("page.html"),
-            "<script>alert(1)</script>",
-        )
-        .unwrap();
+        fs::write(temp_dir.path().join("page.html"), "<script>alert(1)</script>").unwrap();
         fs::write(temp_dir.path().join("notes.txt"), "plain").unwrap();
         let media = || scope(temp_dir.path(), ServeMode::Media, false);
 
         let page = get(media(), "page.html").await;
         assert_eq!(page.status(), 200);
-        assert_eq!(
-            header_of(&page, "content-type"),
-            Some("application/octet-stream")
-        );
+        assert_eq!(header_of(&page, "content-type"), Some("application/octet-stream"));
         assert_eq!(header_of(&page, "content-disposition"), Some("attachment"));
         assert_eq!(header_of(&page, "x-content-type-options"), Some("nosniff"));
         assert_eq!(header_of(&page, "cache-control"), Some("max-age=60"));
 
         let notes = get(media(), "notes.txt").await;
         assert_eq!(notes.status(), 200);
-        assert_eq!(
-            header_of(&notes, "content-type"),
-            Some("text/plain; charset=utf-8")
-        );
+        assert_eq!(header_of(&notes, "content-type"), Some("text/plain; charset=utf-8"));
         assert_ne!(header_of(&notes, "content-disposition"), Some("attachment"));
     }
 
@@ -377,18 +341,12 @@ mod tests {
 
         let page = get(files(), "page.html").await;
         assert_eq!(page.status(), 200);
-        assert_eq!(
-            header_of(&page, "content-type"),
-            Some("text/html; charset=utf-8")
-        );
+        assert_eq!(header_of(&page, "content-type"), Some("text/html; charset=utf-8"));
         assert_ne!(header_of(&page, "content-disposition"), Some("attachment"));
 
         let missing = get(files(), "missing.css").await;
         assert_eq!(missing.status(), 404);
-        assert_eq!(
-            header_of(&missing, "x-content-type-options"),
-            Some("nosniff")
-        );
+        assert_eq!(header_of(&missing, "x-content-type-options"), Some("nosniff"));
         assert_eq!(header_of(&missing, "cache-control"), None);
     }
 
@@ -441,26 +399,16 @@ mod tests {
     fn test_is_dangerous_media_ext() {
         // Script-bearing extensions must be flagged regardless of case.
         for ext in &[
-            "html", "HTM", "xhtml", "xhtm", "shtml", "shtm", "htc", "hta", "svg", "SVGZ", "xml",
-            "xsl", "xslt", "js", "MJS", "cjs", "wasm",
+            "html", "HTM", "xhtml", "xhtm", "shtml", "shtm", "htc", "hta", "svg", "SVGZ", "xml", "xsl", "xslt", "js",
+            "MJS", "cjs", "wasm",
         ] {
             let p = Path::new(&format!("upload.{}", ext)).to_path_buf();
-            assert!(
-                is_dangerous_media_ext(&p),
-                "{} must be flagged dangerous (case-insensitive)",
-                ext
-            );
+            assert!(is_dangerous_media_ext(&p), "{} must be flagged dangerous (case-insensitive)", ext);
         }
         // Inert types stay inline so legitimate avatars/images keep working.
-        for ext in &[
-            "png", "jpg", "jpeg", "gif", "webp", "pdf", "txt", "json", "css",
-        ] {
+        for ext in &["png", "jpg", "jpeg", "gif", "webp", "pdf", "txt", "json", "css"] {
             let p = Path::new(&format!("upload.{}", ext)).to_path_buf();
-            assert!(
-                !is_dangerous_media_ext(&p),
-                "{} must NOT be flagged dangerous",
-                ext
-            );
+            assert!(!is_dangerous_media_ext(&p), "{} must NOT be flagged dangerous", ext);
         }
         // No extension at all: don't rewrite. Browsers default to octet-stream
         // for unknown types anyway via nosniff, so this is safe.

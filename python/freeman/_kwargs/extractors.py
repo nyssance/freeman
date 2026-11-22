@@ -22,13 +22,7 @@ from .._serializer_input import ignore_read_only_input, read_only_input_extracto
 from ..concurrency import run_in_orm_executor
 from ..datastructures import UploadFile
 from ..exceptions import HTTPException, RequestValidationError, parse_msgspec_decode_error
-from ..typing import (
-    FieldDefinition,
-    is_msgspec_struct,
-    is_optional,
-    is_upload_file_type,
-    unwrap_optional,
-)
+from ..typing import FieldDefinition, is_msgspec_struct, is_optional, is_upload_file_type, unwrap_optional
 
 __all__ = [
     "create_extractor_for_field",
@@ -361,6 +355,7 @@ def create_query_extractor(
             if key in query_map:
                 return query_map[key]
             return default_value
+
     else:
 
         def extract(query_map: dict[str, Any]) -> Any:
@@ -405,6 +400,7 @@ def create_header_extractor(name: str, annotation: Any, default: Any, alias: str
             if key in headers_map:
                 return headers_map[key]
             return default_value
+
     else:
 
         def extract(headers_map: dict[str, Any]) -> Any:
@@ -451,6 +447,7 @@ def create_cookie_extractor(
             if key in cookies_map:
                 return cookies_map[key]
             return default_value
+
     else:
 
         def extract(cookies_map: dict[str, Any]) -> Any:
@@ -500,6 +497,7 @@ def create_form_extractor(
                 return default_value
             value = form_map[key]
             return value[-1] if type(value) is list else value
+
     else:
 
         def extract_all(form_map: dict[str, Any]) -> Any:
@@ -571,24 +569,20 @@ def _collect_struct_errors(
             try:
                 msgspec.convert(data[encoded_name], type=field.type, strict=False, dec_hook=dec_hook)
             except (msgspec.ValidationError, NotImplementedError) as e:
-                errors.append(
-                    {
-                        "type": "validation_error",
-                        "loc": (source, encoded_name),
-                        "msg": str(e),
-                        "input": inputs[encoded_name],
-                    }
-                )
+                errors.append({
+                    "type": "validation_error",
+                    "loc": (source, encoded_name),
+                    "msg": str(e),
+                    "input": inputs[encoded_name],
+                })
         elif field.required:
             is_file = is_upload_file_type(field.type)
-            errors.append(
-                {
-                    "type": "file_missing" if is_file else "missing_field",
-                    "loc": ("body", encoded_name) if is_file else (source, encoded_name),
-                    "msg": "Missing required file" if is_file else f"Missing required {param_type}: {encoded_name}",
-                    "input": None,
-                }
-            )
+            errors.append({
+                "type": "file_missing" if is_file else "missing_field",
+                "loc": ("body", encoded_name) if is_file else (source, encoded_name),
+                "msg": "Missing required file" if is_file else f"Missing required {param_type}: {encoded_name}",
+                "input": None,
+            })
     return errors
 
 
@@ -848,23 +842,19 @@ def _collect_header_struct_errors(
             try:
                 msgspec.convert(data[encoded_name], type=field_type, strict=strict)
             except msgspec.ValidationError as e:
-                errors.append(
-                    {
-                        "type": "validation_error",
-                        "loc": ("header", header_name),
-                        "msg": str(e),
-                        "input": inputs[encoded_name],
-                    }
-                )
-        elif required:
-            errors.append(
-                {
-                    "type": "missing_field",
+                errors.append({
+                    "type": "validation_error",
                     "loc": ("header", header_name),
-                    "msg": f"Missing required header: {header_name}",
-                    "input": None,
-                }
-            )
+                    "msg": str(e),
+                    "input": inputs[encoded_name],
+                })
+        elif required:
+            errors.append({
+                "type": "missing_field",
+                "loc": ("header", header_name),
+                "msg": f"Missing required header: {header_name}",
+                "input": None,
+            })
     return errors
 
 
@@ -925,12 +915,7 @@ def _create_header_struct_extractor(struct_type: type, default: Any) -> Callable
     return _or_struct_default(extract, default, tuple(header_name for header_name, _, _, _ in error_fields))
 
 
-def create_file_extractor(
-    name: str,
-    annotation: Any,
-    default: Any,
-    alias: str | None = None,
-) -> Callable:
+def create_file_extractor(name: str, annotation: Any, default: Any, alias: str | None = None) -> Callable:
     """
     Create a pre-compiled extractor for file uploads with UploadFile support.
 
@@ -1034,12 +1019,7 @@ def create_file_extractor(
             if key not in files_map:
                 raise RequestValidationError(
                     errors=[
-                        {
-                            "type": "file_missing",
-                            "loc": ("body", key),
-                            "msg": "Missing required file",
-                            "input": None,
-                        }
+                        {"type": "file_missing", "loc": ("body", key), "msg": "Missing required file", "input": None}
                     ]
                 )
 
@@ -1075,10 +1055,7 @@ _OPTIONAL_BODY_EXTRACTORS: dict[Callable, Callable] = {}
 
 
 def create_body_extractor(
-    name: str,
-    annotation: Any,
-    default: Any = inspect.Parameter.empty,
-    embed_key: str | None = None,
+    name: str, annotation: Any, default: Any = inspect.Parameter.empty, embed_key: str | None = None
 ) -> Callable:
     """
     Create a pre-compiled extractor for request body.
@@ -1168,10 +1145,7 @@ def _build_before_body_extractor(annotation: Any, plan: Callable) -> Callable:
         try:
             raw = msgspec.json.decode(body_bytes)
         except msgspec.DecodeError as e:
-            raise RequestValidationError(
-                errors=[parse_msgspec_decode_error(e, body_bytes)],
-                body=body_bytes,
-            ) from e
+            raise RequestValidationError(errors=[parse_msgspec_decode_error(e, body_bytes)], body=body_bytes) from e
         data = run_before_validators(plan, raw)
         token = RAW_VALIDATED.set(True)
         try:
@@ -1203,10 +1177,8 @@ def _build_body_extractor(annotation: Any) -> Callable:
             except msgspec.DecodeError as e:
                 # JSON parsing error (malformed JSON) - return 422 with error details including line/column
                 error_detail = parse_msgspec_decode_error(e, body_bytes)
-                raise RequestValidationError(
-                    errors=[error_detail],
-                    body=body_bytes,
-                ) from e
+                raise RequestValidationError(errors=[error_detail], body=body_bytes) from e
+
     else:
         # Fallback to generic msgspec decode
         def extract(body_bytes: bytes) -> Any:
@@ -1219,10 +1191,7 @@ def _build_body_extractor(annotation: Any) -> Callable:
             except msgspec.DecodeError as e:
                 # JSON parsing error (malformed JSON) - return 422 with error details including line/column
                 error_detail = parse_msgspec_decode_error(e, body_bytes)
-                raise RequestValidationError(
-                    errors=[error_detail],
-                    body=body_bytes,
-                ) from e
+                raise RequestValidationError(errors=[error_detail], body=body_bytes) from e
 
     # A body with no read_only serializer field keeps `extract` as it is.
     return ignore_read_only_input(annotation, extract)

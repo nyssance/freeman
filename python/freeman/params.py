@@ -11,17 +11,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-__all__ = [
-    "Param",
-    "Query",
-    "Path",
-    "Body",
-    "Header",
-    "Cookie",
-    "Form",
-    "File",
-    "Depends",
-]
+__all__ = ["Param", "Query", "Path", "Body", "Header", "Cookie", "Form", "File", "Depends"]
 
 
 @dataclass(frozen=True)
@@ -225,14 +215,7 @@ def Body(
     Returns:
         Param marker instance
     """
-    return Param(
-        source="body",
-        default=default,
-        alias=alias,
-        embed=embed,
-        description=description,
-        example=example,
-    )
+    return Param(source="body", default=default, alias=alias, embed=embed, description=description, example=example)
 
 
 def Header(
@@ -257,12 +240,7 @@ def Header(
         Param marker instance
     """
     return Param(
-        source="header",
-        default=default,
-        alias=alias,
-        description=description,
-        example=example,
-        deprecated=deprecated,
+        source="header", default=default, alias=alias, description=description, example=example, deprecated=deprecated
     )
 
 
@@ -288,22 +266,11 @@ def Cookie(
         Param marker instance
     """
     return Param(
-        source="cookie",
-        default=default,
-        alias=alias,
-        description=description,
-        example=example,
-        deprecated=deprecated,
+        source="cookie", default=default, alias=alias, description=description, example=example, deprecated=deprecated
     )
 
 
-def Form(
-    default: Any = ...,
-    *,
-    alias: str | None = None,
-    description: str | None = None,
-    example: Any = None,
-) -> Any:
+def Form(default: Any = ..., *, alias: str | None = None, description: str | None = None, example: Any = None) -> Any:
     """
     Mark parameter as form data field.
 
@@ -316,13 +283,7 @@ def Form(
     Returns:
         Param marker instance
     """
-    return Param(
-        source="form",
-        default=default,
-        alias=alias,
-        description=description,
-        example=example,
-    )
+    return Param(source="form", default=default, alias=alias, description=description, example=example)
 
 
 def _file_limit(name: str, value: Any, minimum: int) -> int | None:

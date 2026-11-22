@@ -72,10 +72,7 @@ class TestNonMultipartPayloadLimit:
 
 class TestMultipartPayloadLimit:
     def test_small_upload_succeeds(self, client):
-        response = client.post(
-            "/upload",
-            files={"avatar": ("small.bin", b"x" * 100, "application/octet-stream")},
-        )
+        response = client.post("/upload", files={"avatar": ("small.bin", b"x" * 100, "application/octet-stream")})
         assert response.status_code == 200
         assert response.json()["size"] == 100
 
@@ -83,8 +80,7 @@ class TestMultipartPayloadLimit:
         # Total multipart body exceeds MAX_PAYLOAD → 413 (not 422), matching the
         # non-multipart path. Previously multipart had no aggregate fast-reject.
         response = client.post(
-            "/upload",
-            files={"avatar": ("big.bin", b"x" * (MAX_PAYLOAD * 3), "application/octet-stream")},
+            "/upload", files={"avatar": ("big.bin", b"x" * (MAX_PAYLOAD * 3), "application/octet-stream")}
         )
         assert response.status_code == 413
 
@@ -97,10 +93,7 @@ class TestPerFieldMaxSize:
             api = BoltAPI()
 
             @api.post("/two")
-            async def two(
-                avatar: Annotated[UploadFile, File(max_size=100)],
-                document: Annotated[UploadFile, File()],
-            ):
+            async def two(avatar: Annotated[UploadFile, File(max_size=100)], document: Annotated[UploadFile, File()]):
                 return {"avatar": avatar.size, "document": document.size}
 
             with TestClient(api) as client:
@@ -131,8 +124,7 @@ class TestPerFieldMaxSize:
 
             @api.post("/mixed")
             async def mixed(
-                avatar: Annotated[UploadFile, File(max_size=100)],
-                profile: Annotated[ProfileUpload, Form()],
+                avatar: Annotated[UploadFile, File(max_size=100)], profile: Annotated[ProfileUpload, Form()]
             ):
                 return {"avatar": avatar.size, "document": profile.document.size}
 

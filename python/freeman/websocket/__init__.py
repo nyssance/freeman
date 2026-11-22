@@ -36,17 +36,8 @@ from .close_codes import (
     WS_1013_TRY_AGAIN_LATER,
     CloseCode,
 )
-from .exceptions import (
-    WebSocketClose,
-    WebSocketDisconnect,
-    WebSocketException,
-)
-from .handlers import (
-    get_websocket_param_name,
-    is_websocket_handler,
-    mark_websocket_handler,
-    run_websocket_handler,
-)
+from .exceptions import WebSocketClose, WebSocketDisconnect, WebSocketException
+from .handlers import get_websocket_param_name, is_websocket_handler, mark_websocket_handler, run_websocket_handler
 from .state import WebSocketState
 from .types import WebSocket
 

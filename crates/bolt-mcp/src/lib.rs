@@ -54,8 +54,7 @@ pub enum McpService {
 
 impl McpService {
     pub async fn handle<B>(
-        &self,
-        req: http::Request<B>,
+        &self, req: http::Request<B>,
     ) -> http::Response<http_body_util::combinators::BoxBody<bytes::Bytes, std::convert::Infallible>>
     where
         B: http_body::Body + Send + 'static,
@@ -85,9 +84,7 @@ impl McpMount {
     #[inline]
     fn matches_path(&self, path: &str) -> bool {
         path == self.path
-            || (path.len() == self.path.len() + 1
-                && path.ends_with('/')
-                && path.starts_with(self.path.as_str()))
+            || (path.len() == self.path.len() + 1 && path.ends_with('/') && path.starts_with(self.path.as_str()))
     }
 }
 
@@ -98,10 +95,7 @@ pub static GLOBAL_MCP_MOUNTS: OnceCell<Arc<Vec<McpMount>>> = OnceCell::new();
 /// `AppState.extensions` as an `Arc<Vec<McpMount>>`.
 #[inline]
 pub fn find_mcp_mount<'a>(state: &'a AppState, path: &str) -> Option<&'a McpMount> {
-    state
-        .extensions
-        .get::<Arc<Vec<McpMount>>>()
-        .and_then(|mounts| mounts.iter().find(|m| m.matches_path(path)))
+    state.extensions.get::<Arc<Vec<McpMount>>>().and_then(|mounts| mounts.iter().find(|m| m.matches_path(path)))
 }
 
 fn get_bool(config: &Bound<'_, PyDict>, key: &str) -> PyResult<bool> {
@@ -130,9 +124,8 @@ pub fn parse_mount(py: Python<'_>, mount_def: &Bound<'_, PyDict>) -> PyResult<Mc
     if let Some(list) = mount_def.get_item("auth_backends")?
         && !list.is_none()
     {
-        let dicts: Vec<HashMap<String, Py<PyAny>>> = list.extract().map_err(|e| {
-            PyValueError::new_err(format!("Invalid MCP mount 'auth_backends': {e}"))
-        })?;
+        let dicts: Vec<HashMap<String, Py<PyAny>>> =
+            list.extract().map_err(|e| PyValueError::new_err(format!("Invalid MCP mount 'auth_backends': {e}")))?;
         for dict in &dicts {
             let backend = parse_auth_backend(dict, py)?;
             // Django middleware does not run on an MCP mount, so no code
@@ -148,9 +141,8 @@ pub fn parse_mount(py: Python<'_>, mount_def: &Bound<'_, PyDict>) -> PyResult<Mc
     let auth_challenge = parse_challenge(mount_def, "auth_challenge")?;
     let guards = match mount_def.get_item("guards")? {
         Some(list) if !list.is_none() => {
-            let dicts: Vec<HashMap<String, Py<PyAny>>> = list
-                .extract()
-                .map_err(|e| PyValueError::new_err(format!("Invalid MCP mount 'guards': {e}")))?;
+            let dicts: Vec<HashMap<String, Py<PyAny>>> =
+                list.extract().map_err(|e| PyValueError::new_err(format!("Invalid MCP mount 'guards': {e}")))?;
             let mut parsed: Vec<Guard> = Vec::with_capacity(dicts.len());
             for dict in &dicts {
                 parsed.push(parse_guard(dict, py)?);
@@ -165,14 +157,9 @@ pub fn parse_mount(py: Python<'_>, mount_def: &Bound<'_, PyDict>) -> PyResult<Mc
         Some(obj) if !obj.is_none() => {
             let www_authenticate: String = mount_def
                 .get_item("www_authenticate")?
-                .ok_or_else(|| {
-                    PyValueError::new_err("MCP mount with verify_token missing 'www_authenticate'")
-                })?
+                .ok_or_else(|| PyValueError::new_err("MCP mount with verify_token missing 'www_authenticate'"))?
                 .extract()?;
-            Some(McpOAuth {
-                verify_token: obj.unbind(),
-                www_authenticate,
-            })
+            Some(McpOAuth { verify_token: obj.unbind(), www_authenticate })
         }
         _ => None,
     };
@@ -219,14 +206,7 @@ pub fn parse_mount(py: Python<'_>, mount_def: &Bound<'_, PyDict>) -> PyResult<Mc
         ))
     };
 
-    Ok(McpMount {
-        path,
-        auth_backends,
-        auth_challenge,
-        guards,
-        oauth,
-        service,
-    })
+    Ok(McpMount { path, auth_backends, auth_challenge, guards, oauth, service })
 }
 
 /// Register production MCP mounts. Called once at startup by `mount_mcp`
@@ -236,12 +216,8 @@ pub fn register_mcp_mounts(py: Python<'_>, mounts: Vec<Py<PyAny>>) -> PyResult<(
     let mut parsed = Vec::with_capacity(mounts.len());
     for mount in &mounts {
         let dict = mount.bind(py);
-        let dict = dict
-            .cast::<PyDict>()
-            .map_err(|_| PyValueError::new_err("MCP mount definition must be a dict"))?;
+        let dict = dict.cast::<PyDict>().map_err(|_| PyValueError::new_err("MCP mount definition must be a dict"))?;
         parsed.push(parse_mount(py, dict)?);
     }
-    GLOBAL_MCP_MOUNTS
-        .set(Arc::new(parsed))
-        .map_err(|_| PyValueError::new_err("MCP mounts already registered"))
+    GLOBAL_MCP_MOUNTS.set(Arc::new(parsed)).map_err(|_| PyValueError::new_err("MCP mounts already registered"))
 }

@@ -15,13 +15,7 @@ from freeman.responses import JSON
 
 from .backends import JWTAuthentication, www_authenticate_challenge
 from .guards import IsAuthenticated
-from .tokens import (
-    DEFAULT_REFRESH_TTL,
-    TokenRotationError,
-    create_token_pair,
-    rotate_refresh_token,
-    set_token_cookies,
-)
+from .tokens import DEFAULT_REFRESH_TTL, TokenRotationError, create_token_pair, rotate_refresh_token, set_token_cookies
 
 
 class LoginCredentials(msgspec.Struct):
@@ -148,12 +142,7 @@ class JWTAuthViews:
             user_id = str(user.pk)
             version = await self.store.get_user_version(user_id)
             pair = create_token_pair(
-                user,
-                secret=self.secret,
-                algorithm=self.algorithm,
-                kid=self.kid,
-                version=version,
-                method="pwd",
+                user, secret=self.secret, algorithm=self.algorithm, kid=self.kid, version=version, method="pwd"
             )
             return set_token_cookies(
                 JSON({"ok": True}),
@@ -196,11 +185,7 @@ class JWTAuthViews:
             )
 
         @api.post(
-            f"{self.prefix}/logout",
-            auth=[refresh_auth],
-            guards=[IsAuthenticated()],
-            tags=["auth"],
-            summary="Log out",
+            f"{self.prefix}/logout", auth=[refresh_auth], guards=[IsAuthenticated()], tags=["auth"], summary="Log out"
         )
         async def logout(request: Any):
             claims = await self._require_live_refresh(request)

@@ -90,12 +90,7 @@ def http_exception_handler(exc: HTTPException) -> tuple[int, list[tuple[str, str
     """
     if exc.body is not None:
         return _json_response(exc.status_code, exc.headers, exc.body)
-    return format_error_response(
-        status_code=exc.status_code,
-        detail=exc.detail,
-        headers=exc.headers,
-        extra=exc.extra,
-    )
+    return format_error_response(status_code=exc.status_code, detail=exc.detail, headers=exc.headers, extra=exc.extra)
 
 
 # Pre-compiled regex patterns for validation error parsing
@@ -178,11 +173,7 @@ def _format_validation_errors(errors: Any, loc: str) -> list[dict[str, Any]]:
 
 def _log_response_validation_error(exc: ResponseValidationError, errors: list[dict[str, Any]]) -> None:
     # Response validation errors show bugs in the return values of handlers.
-    logger.error(
-        "Response Validation Error: Handler returned invalid response. Errors: %s",
-        errors,
-        exc_info=exc,
-    )
+    logger.error("Response Validation Error: Handler returned invalid response. Errors: %s", errors, exc_info=exc)
 
 
 def _log_suspicious_operation(exc: BaseException) -> None:
@@ -195,17 +186,10 @@ def _log_suspicious_operation(exc: BaseException) -> None:
 
 def _log_server_error(exc: BaseException) -> None:
     # Always log 500 errors. They are unexpected server errors.
-    logger.error(
-        "Internal Server Error: %s - %s",
-        type(exc).__name__,
-        str(exc),
-        exc_info=exc,
-    )
+    logger.error("Internal Server Error: %s - %s", type(exc).__name__, str(exc), exc_info=exc)
 
 
-def request_validation_error_handler(
-    exc: RequestValidationError,
-) -> tuple[int, list[tuple[str, str]], bytes]:
+def request_validation_error_handler(exc: RequestValidationError) -> tuple[int, list[tuple[str, str]], bytes]:
     """Handle RequestValidationError and convert to 422 response.
 
     Args:
@@ -214,15 +198,11 @@ def request_validation_error_handler(
     Returns:
         Tuple of (status_code, headers, body)
     """
-    return format_error_response(
-        status_code=422,
-        detail=_format_validation_errors(exc.errors(), "body"),
-    )
+    return format_error_response(status_code=422, detail=_format_validation_errors(exc.errors(), "body"))
 
 
 def response_validation_error_handler(
-    exc: ResponseValidationError,
-    debug: bool = False,
+    exc: ResponseValidationError, debug: bool = False
 ) -> tuple[int, list[tuple[str, str]], bytes]:
     """Handle ResponseValidationError and convert to 500 response.
 
@@ -284,18 +264,10 @@ def generic_exception_handler(
         tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
         # Split into individual lines for better JSON display, stripping trailing newlines
         tb_formatted = [line.rstrip("\n") for line in "".join(tb_lines).split("\n") if line.strip()]
-        extra = {
-            "exception": str(exc),
-            "exception_type": type(exc).__name__,
-            "traceback": tb_formatted,
-        }
+        extra = {"exception": str(exc), "exception_type": type(exc).__name__, "traceback": tb_formatted}
         detail = f"{type(exc).__name__}: {str(exc)}"
 
-    return format_error_response(
-        status_code=500,
-        detail=detail,
-        extra=extra,
-    )
+    return format_error_response(status_code=500, detail=detail, extra=extra)
 
 
 _CLIENT_ERROR_TYPES: tuple[type[BaseException], ...] = tuple(
@@ -338,9 +310,7 @@ def _resolve_debug(debug: bool | None) -> bool:
 
 
 def handle_exception(
-    exc: Exception,
-    debug: bool | None = None,
-    request: Any | None = None,
+    exc: Exception, debug: bool | None = None, request: Any | None = None
 ) -> tuple[int, list[tuple[str, str]], bytes]:
     """Main exception handler that routes to specific handlers.
 
@@ -368,10 +338,7 @@ def handle_exception(
     elif isinstance(exc, msgspec.ValidationError):
         # Direct msgspec validation error
         errors = msgspec_validation_error_to_dict(exc)
-        return format_error_response(
-            status_code=422,
-            detail=errors,
-        )
+        return format_error_response(status_code=422, detail=errors)
     elif isinstance(exc, ResponseFileNotFound):
         # The text of the error has the path of the file. The client must not get it.
         return format_error_response(status_code=404, detail="File not found")
@@ -380,16 +347,10 @@ def handle_exception(
     elif DjangoSuspiciousOperation is not None and isinstance(exc, DjangoSuspiciousOperation):
         # Django answers 400 and logs the exception to django.security.
         _log_suspicious_operation(exc)
-        return format_error_response(
-            status_code=400,
-            detail=str(exc) if debug else "Bad Request",
-        )
+        return format_error_response(status_code=400, detail=str(exc) if debug else "Bad Request")
     elif DjangoPermissionDenied is not None and isinstance(exc, DjangoPermissionDenied):
         # Django's PermissionDenied exception - return 403
-        return format_error_response(
-            status_code=403,
-            detail=str(exc) or "Permission denied",
-        )
+        return format_error_response(status_code=403, detail=str(exc) or "Permission denied")
     elif DjangoHttp404 is not None and isinstance(exc, DjangoHttp404):
         # Django answers 404. It shows the message only in debug mode, because
         # the message of get_object_or_404 names the model.
@@ -695,9 +656,7 @@ def _skips_formatter(exc: HTTPException) -> bool:
 
 
 def handle_exception_with_formatter(
-    formatter: ErrorFormatter | None,
-    exc: Exception,
-    request: Any,
+    formatter: ErrorFormatter | None, exc: Exception, request: Any
 ) -> tuple[int, list[tuple[str, str]], bytes]:
     """Handle an exception with the formatter, or with ``handle_exception`` when there is none.
 

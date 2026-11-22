@@ -37,10 +37,7 @@ def _move_project_into_src_layout(project: ServerProject) -> str:
     """
     package = project.package_name
     source = project.read_file(f"{package}/settings.py")
-    project.write_file(
-        f"src/{package}/settings.py",
-        source.replace(f'"{package}.urls"', f'"src.{package}.urls"'),
-    )
+    project.write_file(f"src/{package}/settings.py", source.replace(f'"{package}.urls"', f'"src.{package}.urls"'))
     for name in ("__init__.py", "urls.py"):
         project.write_file(f"src/{package}/{name}", project.path(f"{package}/{name}").read_bytes())
         project.path(f"{package}/{name}").unlink()
@@ -78,8 +75,7 @@ def test_runbolt_dev_reloads_when_imported_helper_changes(make_server_project):
     to the watcher.
     """
     project = make_server_project(
-        api_source=app_source("reload_import_dep"),
-        extra_files={"reload_helper.py": app_bytes("_reload_helper")},
+        api_source=app_source("reload_import_dep"), extra_files={"reload_helper.py": app_bytes("_reload_helper")}
     )
 
     with project.start(dev=True) as server:
@@ -182,27 +178,11 @@ def test_runbolt_dev_serves_and_reloads_for_module_invocation(make_server_projec
     env.pop("PYTHONPATH", None)
     port = get_free_port()
     process = _spawn_process(
-        [
-            sys.executable,
-            "-m",
-            main_module,
-            "runbolt",
-            "--dev",
-            "--host",
-            DEFAULT_HOST,
-            "--port",
-            str(port),
-        ],
+        [sys.executable, "-m", main_module, "runbolt", "--dev", "--host", DEFAULT_HOST, "--port", str(port)],
         cwd=project.root,
         env=env,
     )
-    server = RunningServer(
-        project=None,
-        process=process,
-        host=DEFAULT_HOST,
-        port=port,
-        startup_path="/version",
-    )
+    server = RunningServer(project=None, process=process, host=DEFAULT_HOST, port=port, startup_path="/version")
 
     with server:
         assert server.get("/version").json() == {"version": "v1"}
@@ -296,10 +276,7 @@ def test_runbolt_dev_reloads_with_force_polling(make_server_project):
     Polling can lag the inotify path by up to one poll interval (500ms), so
     use the same generous timeout as the inotify case.
     """
-    project = make_server_project(
-        api_source=app_source("reload_v1"),
-        settings_extra="BOLT_DEV_FORCE_POLLING = True",
-    )
+    project = make_server_project(api_source=app_source("reload_v1"), settings_extra="BOLT_DEV_FORCE_POLLING = True")
 
     with project.start(dev=True) as server:
         initial = server.get("/version")

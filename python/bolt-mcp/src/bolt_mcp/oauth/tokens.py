@@ -66,13 +66,7 @@ def make_token_verifier(server: AuthorizationServer):
 
     def verify(token: str) -> dict | None:
         try:
-            return jwt.decode(
-                token,
-                secret,
-                algorithms=algorithms,
-                audience=audience,
-                issuer=issuer,
-            )
+            return jwt.decode(token, secret, algorithms=algorithms, audience=audience, issuer=issuer)
         except jwt.PyJWTError:
             return None
 

@@ -14,13 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 
 from freeman import BoltAPI
-from freeman.auth import (
-    DjangoCacheRevocation,
-    InMemoryRevocation,
-    IsAuthenticated,
-    JWTAuthentication,
-    JWTAuthViews,
-)
+from freeman.auth import DjangoCacheRevocation, InMemoryRevocation, IsAuthenticated, JWTAuthentication, JWTAuthViews
 from freeman.auth.tokens import create_token_pair, rotate_refresh_token
 from freeman.testing import TestClient
 
@@ -75,9 +69,7 @@ def test_failed_login_has_the_challenge_of_the_token_routes():
         return None
 
     JWTAuthViews(
-        store=InMemoryRevocation(),
-        secret="a-secure-test-secret-that-is-long-enough",
-        credential_validator=nobody,
+        store=InMemoryRevocation(), secret="a-secure-test-secret-that-is-long-enough", credential_validator=nobody
     ).register(api)
 
     with TestClient(api) as client:
@@ -98,12 +90,7 @@ def test_auth_views_are_documented_in_openapi():
 
     with TestClient(api) as client:
         schema = client.get("/docs/openapi.json").json()
-    assert set(schema["paths"]) >= {
-        "/auth/login",
-        "/auth/refresh",
-        "/auth/logout",
-        "/auth/logout-all",
-    }
+    assert set(schema["paths"]) >= {"/auth/login", "/auth/refresh", "/auth/logout", "/auth/logout-all"}
 
 
 SECRET = "a-secure-test-secret-that-is-long-enough"
@@ -139,10 +126,7 @@ def test_cookies_are_secure_unless_the_project_turns_it_off(secure_cookies):
         assert "HttpOnly" in attributes
 
 
-@pytest.mark.parametrize(
-    ("prefix", "path"),
-    [("/", "/"), ("", "/"), ("/auth", "/auth"), ("/api/auth/", "/api/auth")],
-)
+@pytest.mark.parametrize(("prefix", "path"), [("/", "/"), ("", "/"), ("/auth", "/auth"), ("/api/auth/", "/api/auth")])
 def test_refresh_cookie_path_is_the_prefix_of_the_routes(prefix, path):
     """The refresh cookie has the path of the routes. Routes at the root give the path ``/``."""
     api = _views_api(prefix=prefix, secure_cookies=False)
@@ -193,7 +177,8 @@ def rsa_pems() -> tuple[str, str]:
         encryption_algorithm=serialization.NoEncryption(),
     ).decode()
     public_pem = (
-        private_key.public_key()
+        private_key
+        .public_key()
         .public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
         .decode()
     )
@@ -367,9 +352,7 @@ def test_default_refresh_refuses_a_user_that_cannot_log_in(change):
     user = get_user_model().objects.create_user("erin", password="right-password")
     api = BoltAPI()
     JWTAuthViews(
-        store=InMemoryRevocation(),
-        secret="a-secure-test-secret-that-is-long-enough",
-        secure_cookies=False,
+        store=InMemoryRevocation(), secret="a-secure-test-secret-that-is-long-enough", secure_cookies=False
     ).register(api)
 
     with TestClient(api) as client:
@@ -445,9 +428,7 @@ def test_default_login_checks_the_django_user(settings):
 
     api = BoltAPI()
     JWTAuthViews(
-        store=InMemoryRevocation(),
-        secret="a-secure-test-secret-that-is-long-enough",
-        secure_cookies=False,
+        store=InMemoryRevocation(), secret="a-secure-test-secret-that-is-long-enough", secure_cookies=False
     ).register(api)
 
     with TestClient(api) as client:

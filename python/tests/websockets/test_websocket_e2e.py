@@ -20,17 +20,8 @@ if not settings.configured:
     settings.configure(
         DEBUG=True,
         SECRET_KEY="test-secret-key-for-websocket-e2e",
-        INSTALLED_APPS=[
-            "django.contrib.contenttypes",
-            "django.contrib.auth",
-            "freeman",
-        ],
-        DATABASES={
-            "default": {
-                "ENGINE": "django.db.backends.sqlite3",
-                "NAME": ":memory:",
-            }
-        },
+        INSTALLED_APPS=["django.contrib.contenttypes", "django.contrib.auth", "freeman"],
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
         USE_TZ=True,
     )
     django.setup()
@@ -45,10 +36,7 @@ E2E_JWT_SECRET = "test-secret-key-for-websocket-e2e-jwt"
 
 
 def create_e2e_jwt(
-    user_id: int = 123,
-    is_staff: bool = False,
-    is_superuser: bool = False,
-    permissions: list[str] | None = None,
+    user_id: int = 123, is_staff: bool = False, is_superuser: bool = False, permissions: list[str] | None = None
 ) -> str:
     """Create a JWT token for e2e testing."""
     payload = {
@@ -126,10 +114,7 @@ class TestWebSocketJSON:
             with contextlib.suppress(Exception):
                 async for data in websocket.iter_json():
                     # Echo back with processing
-                    response = {
-                        "received": data,
-                        "type": type(data).__name__,
-                    }
+                    response = {"received": data, "type": type(data).__name__}
                     await websocket.send_json(response)
 
         return api
@@ -157,10 +142,7 @@ class TestWebSocketJSON:
         """Test sending nested JSON structures."""
         async with WebSocketTestClient(api, "/ws/json") as ws:
             data = {
-                "users": [
-                    {"name": "Alice", "age": 30},
-                    {"name": "Bob", "age": 25},
-                ],
+                "users": [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}],
                 "meta": {"count": 2, "page": 1},
             }
             await ws.send_json(data)
@@ -226,13 +208,7 @@ class TestWebSocketPathParams:
         @api.websocket("/ws/user/{user_id}/channel/{channel_id}")
         async def multi_param_handler(websocket: WebSocket, user_id: str, channel_id: str):
             await websocket.accept()
-            await websocket.send_json(
-                {
-                    "user_id": user_id,
-                    "channel_id": channel_id,
-                    "status": "connected",
-                }
-            )
+            await websocket.send_json({"user_id": user_id, "channel_id": channel_id, "status": "connected"})
 
         return api
 
@@ -259,11 +235,7 @@ class TestWebSocketPathParams:
         """Test WebSocket with multiple path parameters."""
         async with WebSocketTestClient(api, "/ws/user/42/channel/tech") as ws:
             response = await ws.receive_json()
-            assert response == {
-                "user_id": "42",
-                "channel_id": "tech",
-                "status": "connected",
-            }
+            assert response == {"user_id": "42", "channel_id": "tech", "status": "connected"}
 
 
 class TestWebSocketQueryParams:
@@ -312,22 +284,14 @@ class TestWebSocketHeaders:
             # Access headers from scope
             user_agent = websocket.headers.get("user-agent", "unknown")
             custom = websocket.headers.get("x-custom-header", "none")
-            await websocket.send_json(
-                {
-                    "user_agent": user_agent,
-                    "custom_header": custom,
-                }
-            )
+            await websocket.send_json({"user_agent": user_agent, "custom_header": custom})
 
         return api
 
     @pytest.mark.asyncio
     async def test_custom_headers(self, api):
         """Test accessing custom headers."""
-        headers = {
-            "User-Agent": "TestClient/1.0",
-            "X-Custom-Header": "custom-value",
-        }
+        headers = {"User-Agent": "TestClient/1.0", "X-Custom-Header": "custom-value"}
         async with WebSocketTestClient(api, "/ws/headers", headers=headers) as ws:
             response = await ws.receive_json()
             assert response["user_agent"] == "TestClient/1.0"
@@ -691,19 +655,13 @@ class TestWebSocketGuards:
             await websocket.accept()
             await websocket.send_text("public")
 
-        @api.websocket(
-            "/ws/protected",
-            auth=[JWTAuthentication(secret=E2E_JWT_SECRET)],
-            guards=[IsAuthenticated()],
-        )
+        @api.websocket("/ws/protected", auth=[JWTAuthentication(secret=E2E_JWT_SECRET)], guards=[IsAuthenticated()])
         async def protected_ws(websocket: WebSocket):
             await websocket.accept()
             await websocket.send_text("protected")
 
         @api.websocket(
-            "/ws/admin",
-            auth=[JWTAuthentication(secret=E2E_JWT_SECRET)],
-            guards=[Requires("is_superuser", True)],
+            "/ws/admin", auth=[JWTAuthentication(secret=E2E_JWT_SECRET)], guards=[Requires("is_superuser", True)]
         )
         async def admin_ws(websocket: WebSocket):
             await websocket.accept()
@@ -830,32 +788,17 @@ class TestWebSocketTypeCoercion:
         async def user_handler(websocket: WebSocket, user_id: int):
             await websocket.accept()
             # Verify type coercion worked
-            await websocket.send_json(
-                {
-                    "user_id": user_id,
-                    "type": type(user_id).__name__,
-                }
-            )
+            await websocket.send_json({"user_id": user_id, "type": type(user_id).__name__})
 
         @api.websocket("/ws/price/{price}")
         async def price_handler(websocket: WebSocket, price: float):
             await websocket.accept()
-            await websocket.send_json(
-                {
-                    "price": price,
-                    "type": type(price).__name__,
-                }
-            )
+            await websocket.send_json({"price": price, "type": type(price).__name__})
 
         @api.websocket("/ws/active/{active}")
         async def active_handler(websocket: WebSocket, active: bool):
             await websocket.accept()
-            await websocket.send_json(
-                {
-                    "active": active,
-                    "type": type(active).__name__,
-                }
-            )
+            await websocket.send_json({"active": active, "type": type(active).__name__})
 
         return api
 
@@ -910,22 +853,12 @@ class TestWebSocketAnnotatedTypes:
         @api.websocket("/ws/annotated/{user_id}")
         async def annotated_handler(websocket: WebSocket, user_id: Annotated[int, "positive integer"]):
             await websocket.accept()
-            await websocket.send_json(
-                {
-                    "user_id": user_id,
-                    "type": type(user_id).__name__,
-                }
-            )
+            await websocket.send_json({"user_id": user_id, "type": type(user_id).__name__})
 
         @api.websocket("/ws/annotated_float/{price}")
         async def annotated_float_handler(websocket: WebSocket, price: Annotated[float, "price in USD"]):
             await websocket.accept()
-            await websocket.send_json(
-                {
-                    "price": price,
-                    "type": type(price).__name__,
-                }
-            )
+            await websocket.send_json({"price": price, "type": type(price).__name__})
 
         return api
 

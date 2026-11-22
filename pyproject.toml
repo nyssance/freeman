@@ -150,10 +150,13 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["freeman"]
+split-on-trailing-comma = false
 
 [tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
+line-ending = "lf"
+preview = true
+quote-style = "preserve"
+skip-magic-trailing-comma = true
 # Ruff 0.16 and later also format the Python blocks in Markdown. Keep the
 # snippets in docs/ and the readmes as their authors wrote them: the
 # formatter removes the column alignment of teaching comments and splits

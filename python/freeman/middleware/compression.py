@@ -57,30 +57,7 @@ past 6; 9 is rarely worth the extra cost for dynamic responses.
 - 9 — best ratio, slowest
 """
 
-ZstdLevel = Literal[
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-]
+ZstdLevel = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
 """Zstd compression level (1..=22).
 
 Higher = smaller output but more CPU per response. Levels above ~19 enable

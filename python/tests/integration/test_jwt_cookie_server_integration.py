@@ -68,65 +68,33 @@ def test_cookie_csrf_over_real_server(make_server_project):
         http_origin = server.base_url
         https_origin = f"https://{server.host}:{server.port}"
 
-        cross_site = server.request(
-            "POST",
-            "/write",
-            headers={**cookie, "Sec-Fetch-Site": "cross-site"},
-        )
+        cross_site = server.request("POST", "/write", headers={**cookie, "Sec-Fetch-Site": "cross-site"})
         assert cross_site.status_code == 403, cross_site.text
 
-        same_origin = server.request(
-            "POST",
-            "/write",
-            headers={**cookie, "Sec-Fetch-Site": "same-origin"},
-        )
+        same_origin = server.request("POST", "/write", headers={**cookie, "Sec-Fetch-Site": "same-origin"})
         assert same_origin.status_code == 200, same_origin.text
 
-        matching_origin = server.request(
-            "POST",
-            "/write",
-            headers={**cookie, "Origin": http_origin},
-        )
+        matching_origin = server.request("POST", "/write", headers={**cookie, "Origin": http_origin})
         assert matching_origin.status_code == 200, matching_origin.text
 
-        referer_only = server.request(
-            "POST",
-            "/write",
-            headers={**cookie, "Referer": f"{http_origin}/some/page"},
-        )
+        referer_only = server.request("POST", "/write", headers={**cookie, "Referer": f"{http_origin}/some/page"})
         assert referer_only.status_code == 200, referer_only.text
 
-        same_site = server.request(
-            "POST",
-            "/write",
-            headers={**cookie, "Sec-Fetch-Site": "same-site"},
-        )
+        same_site = server.request("POST", "/write", headers={**cookie, "Sec-Fetch-Site": "same-site"})
         assert same_site.status_code == 403, same_site.text
 
-        wrong_scheme = server.request(
-            "POST",
-            "/write",
-            headers={**cookie, "Origin": https_origin},
-        )
+        wrong_scheme = server.request("POST", "/write", headers={**cookie, "Origin": https_origin})
         assert wrong_scheme.status_code == 403, wrong_scheme.text
 
         # The check follows X-Forwarded-Proto from any peer. It passes one
         # origin, so a value that a client sends never makes it weaker.
         forwarded_scheme = server.request(
-            "POST",
-            "/write",
-            headers={
-                **cookie,
-                "Origin": https_origin,
-                "X-Forwarded-Proto": "https",
-            },
+            "POST", "/write", headers={**cookie, "Origin": https_origin, "X-Forwarded-Proto": "https"}
         )
         assert forwarded_scheme.status_code == 200, forwarded_scheme.text
 
         http_origin_on_https = server.request(
-            "POST",
-            "/write",
-            headers={**cookie, "Origin": http_origin, "X-Forwarded-Proto": "https"},
+            "POST", "/write", headers={**cookie, "Origin": http_origin, "X-Forwarded-Proto": "https"}
         )
         assert http_origin_on_https.status_code == 403, http_origin_on_https.text
 

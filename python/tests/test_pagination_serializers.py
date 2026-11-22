@@ -12,14 +12,7 @@ import builtins
 import msgspec
 import pytest
 
-from freeman import (
-    BoltAPI,
-    CursorPagination,
-    LimitOffsetPagination,
-    PageNumberPagination,
-    PaginatedResponse,
-    paginate,
-)
+from freeman import BoltAPI, CursorPagination, LimitOffsetPagination, PageNumberPagination, PaginatedResponse, paginate
 from freeman.serializers import Serializer
 from freeman.testing import TestClient
 from freeman.views import ViewSet
@@ -103,10 +96,7 @@ def sample_blog_posts(db):
     for i in range(1, 6):
         author = Author.objects.create(name=f"Author {i}", email=f"author{i}@example.com")
         post = BlogPost.objects.create(
-            title=f"Post {i}",
-            content=f"Post content {i}",
-            author=author,
-            published=i % 2 == 0,
+            title=f"Post {i}", content=f"Post content {i}", author=author, published=i % 2 == 0
         )
         posts.append(post)
     return posts
@@ -260,11 +250,7 @@ def test_paginate_with_flat_serializer_uses_sync_from_model(sample_articles, mon
     async def fail_afrom_model(cls, instance, *, _depth=0, max_depth=10):
         raise AssertionError("flat pagination should not call afrom_model()")
 
-    monkeypatch.setattr(
-        ArticleListSerializer,
-        "afrom_model",
-        classmethod(fail_afrom_model),
-    )
+    monkeypatch.setattr(ArticleListSerializer, "afrom_model", classmethod(fail_afrom_model))
 
     @api.get("/articles", response_model=list[ArticleListSerializer])
     @paginate(SmallPagePagination)
@@ -341,11 +327,7 @@ def test_paginate_preloads_relations_instead_of_per_item_async_loading(sample_bl
         seen_ids.append(instance.pk)
         return await original_afrom_model(cls, instance, _depth=_depth, max_depth=max_depth)
 
-    monkeypatch.setattr(
-        ConcurrentBlogPostListSerializer,
-        "afrom_model",
-        classmethod(tracked_afrom_model),
-    )
+    monkeypatch.setattr(ConcurrentBlogPostListSerializer, "afrom_model", classmethod(tracked_afrom_model))
 
     class SmallPagePagination(PageNumberPagination):
         page_size = 2

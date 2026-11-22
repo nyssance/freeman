@@ -18,10 +18,7 @@ class TestMergedAPILoggingPreservation:
     def test_handler_maps_to_original_api_after_merge(self):
         """Each handler should map back to its original API instance after merge."""
         # Create API 1 with custom logging
-        logging_config_1 = LoggingConfig(
-            logger_name="api1_logger",
-            skip_status_codes={204},
-        )
+        logging_config_1 = LoggingConfig(logger_name="api1_logger", skip_status_codes={204})
         api1 = BoltAPI(logging_config=logging_config_1)
 
         @api1.get("/api1")
@@ -29,10 +26,7 @@ class TestMergedAPILoggingPreservation:
             return {"api": 1}
 
         # Create API 2 with different logging
-        logging_config_2 = LoggingConfig(
-            logger_name="api2_logger",
-            skip_status_codes={304},
-        )
+        logging_config_2 = LoggingConfig(logger_name="api2_logger", skip_status_codes={304})
         api2 = BoltAPI(logging_config=logging_config_2)
 
         @api2.get("/api2")
@@ -352,10 +346,7 @@ class TestAPIDeduplication:
             return {"api": 2}
 
         # Both should be kept (different objects)
-        apis = [
-            ("app1.api:api", api1),
-            ("app2.api:api", api2),
-        ]
+        apis = [("app1.api:api", api1), ("app2.api:api", api2)]
 
         # Deduplicate
         seen_ids = set()
@@ -384,10 +375,7 @@ class TestLoggingWithHandlerCalls:
             raise ValueError("Test error")
 
         # Simulate exception logging
-        request = {
-            "method": "GET",
-            "path": "/error",
-        }
+        request = {"method": "GET", "path": "/error"}
 
         exc = ValueError("Test error")
 

@@ -226,10 +226,7 @@ def test_dispatch_probes_worker_loop_default(make_server_project):
             assert server.get("/t-buffered-protocol").json() == {"greeting": "hello"}
             assert _EchoHandler.wait_for_lines(2) == [b"ping\n", b"ping\n"]
             assert server.get("/t-start-tls").json() == {"reply": "tls-ok"}
-            assert server.get("/t-backpressure").json() == {
-                "received": 8 * 1024 * 1024,
-                "backpressure_observed": True,
-            }
+            assert server.get("/t-backpressure").json() == {"received": 8 * 1024 * 1024, "backpressure_observed": True}
             assert server.get("/t-pipes").json() == {"value": "through-pipes"}
             assert server.get("/t-fd-watcher").json() == {
                 "value": "fd-ready",

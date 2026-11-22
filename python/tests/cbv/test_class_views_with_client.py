@@ -34,11 +34,7 @@ from freeman.views import APIView, ViewSet
 
 def create_jwt_token(user_id: int = 1, is_admin: bool = False, secret: str = "test-secret") -> str:
     """Helper to create JWT tokens for testing."""
-    payload = {
-        "sub": str(user_id),
-        "user_id": user_id,
-        "exp": int(time.time()) + 3600,
-    }
+    payload = {"sub": str(user_id), "user_id": user_id, "exp": int(time.time()) + 3600}
     if is_admin:
         payload["is_superuser"] = True
     return jwt.encode(payload, secret, algorithm="HS256")
@@ -408,10 +404,7 @@ def test_complete_crud_operations():
     api = BoltAPI()
 
     # In-memory database
-    items_db = {
-        1: {"id": 1, "name": "Item 1", "price": 10.0},
-        2: {"id": 2, "name": "Item 2", "price": 20.0},
-    }
+    items_db = {1: {"id": 1, "name": "Item 1", "price": 10.0}, 2: {"id": 2, "name": "Item 2", "price": 20.0}}
     next_id = [3]  # Use list for mutable counter
 
     class ItemSchema(msgspec.Struct):
@@ -433,11 +426,7 @@ def test_complete_crud_operations():
         async def post(self, request, data: ItemCreateSchema) -> dict:
             item_id = next_id[0]
             next_id[0] += 1
-            items_db[item_id] = {
-                "id": item_id,
-                "name": data.name,
-                "price": data.price,
-            }
+            items_db[item_id] = {"id": item_id, "name": data.name, "price": data.price}
             return items_db[item_id]
 
     @api.view("/items/{item_id}")
@@ -450,11 +439,7 @@ def test_complete_crud_operations():
         async def put(self, request, item_id: int, data: ItemCreateSchema) -> dict:
             if item_id not in items_db:
                 raise HTTPException(status_code=404, detail="Item not found")
-            items_db[item_id] = {
-                "id": item_id,
-                "name": data.name,
-                "price": data.price,
-            }
+            items_db[item_id] = {"id": item_id, "name": data.name, "price": data.price}
             return items_db[item_id]
 
         async def delete(self, request, item_id: int) -> dict:

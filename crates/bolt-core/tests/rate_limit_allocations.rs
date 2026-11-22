@@ -48,11 +48,8 @@ fn headers(value: &str) -> AHashMap<String, String> {
 
 #[test]
 fn a_header_keyed_request_allocates_nothing() {
-    let config = RateLimitConfig {
-        rps: 1_000_000,
-        burst: 1_000_000,
-        key: RateLimitKey::Header("x-tenant".to_string()),
-    };
+    let config =
+        RateLimitConfig { rps: 1_000_000, burst: 1_000_000, key: RateLimitKey::Header("x-tenant".to_string()) };
     let map = headers("acme");
 
     // The first request creates the limiter for this bucket, which allocates.
@@ -62,28 +59,19 @@ fn a_header_keyed_request_allocates_nothing() {
 
     let allocations = count(|| {
         for _ in 0..1_000 {
-            assert!(
-                check_before_auth(&limiters, 9_001, &map, None, &config, "GET", "/limited")
-                    .is_none()
-            );
+            assert!(check_before_auth(&limiters, 9_001, &map, None, &config, "GET", "/limited").is_none());
         }
     });
 
-    assert_eq!(
-        allocations, 0,
-        "expected no allocation per request, got {allocations} over 1000 requests"
-    );
+    assert_eq!(allocations, 0, "expected no allocation per request, got {allocations} over 1000 requests");
 }
 
 #[test]
 fn a_long_header_value_allocates_nothing_either() {
     // The old code copied the value into the map key, so cost grew with it.
     // It also refused anything over 256 bytes.
-    let config = RateLimitConfig {
-        rps: 1_000_000,
-        burst: 1_000_000,
-        key: RateLimitKey::Header("x-tenant".to_string()),
-    };
+    let config =
+        RateLimitConfig { rps: 1_000_000, burst: 1_000_000, key: RateLimitKey::Header("x-tenant".to_string()) };
     let map = headers(&"t".repeat(4096));
 
     let limiters = RateLimiters::default();
@@ -91,15 +79,9 @@ fn a_long_header_value_allocates_nothing_either() {
 
     let allocations = count(|| {
         for _ in 0..1_000 {
-            assert!(
-                check_before_auth(&limiters, 9_002, &map, None, &config, "GET", "/limited")
-                    .is_none()
-            );
+            assert!(check_before_auth(&limiters, 9_002, &map, None, &config, "GET", "/limited").is_none());
         }
     });
 
-    assert_eq!(
-        allocations, 0,
-        "expected no allocation per request, got {allocations} over 1000 requests"
-    );
+    assert_eq!(allocations, 0, "expected no allocation per request, got {allocations} over 1000 requests");
 }

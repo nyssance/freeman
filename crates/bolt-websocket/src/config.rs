@@ -33,46 +33,23 @@ impl WsConfig {
         const NON_NEGATIVE: &str = "an int of 0 or more";
         const POSITIVE: &str = "an int of 1 or more";
 
-        let max_connections = match env_var(
-            py,
-            "DJANGO_BOLT_WS_MAX_CONNECTIONS",
-            NON_NEGATIVE,
-            |_: &usize| true,
-        )? {
+        let max_connections = match env_var(py, "DJANGO_BOLT_WS_MAX_CONNECTIONS", NON_NEGATIVE, |_: &usize| true)? {
             Some(max) => max,
             None => settings.non_negative_int("BOLT_WS_MAX_CONNECTIONS", 10000)?, // Default: 10k connections
         };
-        let channel_buffer_size =
-            match env_var(py, "DJANGO_BOLT_WS_CHANNEL_SIZE", POSITIVE, |n: &usize| {
-                *n >= 1
-            })? {
-                Some(size) => size,
-                None => settings.positive_int("BOLT_WS_CHANNEL_SIZE", 100)?, // Default: 100 messages buffer
-            };
-        let heartbeat_secs = match env_var(
-            py,
-            "DJANGO_BOLT_WS_HEARTBEAT_INTERVAL",
-            POSITIVE,
-            |n: &u64| *n >= 1,
-        )? {
+        let channel_buffer_size = match env_var(py, "DJANGO_BOLT_WS_CHANNEL_SIZE", POSITIVE, |n: &usize| *n >= 1)? {
+            Some(size) => size,
+            None => settings.positive_int("BOLT_WS_CHANNEL_SIZE", 100)?, // Default: 100 messages buffer
+        };
+        let heartbeat_secs = match env_var(py, "DJANGO_BOLT_WS_HEARTBEAT_INTERVAL", POSITIVE, |n: &u64| *n >= 1)? {
             Some(secs) => secs,
             None => settings.positive_int("BOLT_WS_HEARTBEAT_INTERVAL", 5u64)?, // Default: 5 seconds
         };
-        let client_timeout_secs = match env_var(
-            py,
-            "DJANGO_BOLT_WS_CLIENT_TIMEOUT",
-            NON_NEGATIVE,
-            |_: &u64| true,
-        )? {
+        let client_timeout_secs = match env_var(py, "DJANGO_BOLT_WS_CLIENT_TIMEOUT", NON_NEGATIVE, |_: &u64| true)? {
             Some(secs) => secs,
             None => settings.non_negative_int("BOLT_WS_CLIENT_TIMEOUT", 10u64)?, // Default: 10 seconds
         };
-        let max_message_size = match env_var(
-            py,
-            "DJANGO_BOLT_WS_MAX_MESSAGE_SIZE",
-            NON_NEGATIVE,
-            |_: &usize| true,
-        )? {
+        let max_message_size = match env_var(py, "DJANGO_BOLT_WS_MAX_MESSAGE_SIZE", NON_NEGATIVE, |_: &usize| true)? {
             Some(size) => size,
             None => settings.non_negative_int("BOLT_WS_MAX_MESSAGE_SIZE", 1024 * 1024)?, // Default: 1MB
         };

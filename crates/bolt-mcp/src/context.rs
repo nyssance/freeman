@@ -137,11 +137,7 @@ impl McpPyContext {
         if !self.has_progress_token {
             return;
         }
-        let _ = self.tx.send(CtxEvent::Progress {
-            progress,
-            total,
-            message,
-        });
+        let _ = self.tx.send(CtxEvent::Progress { progress, total, message });
     }
 
     /// Emit notifications/message. Enforced against the per-request gate here
@@ -150,11 +146,7 @@ impl McpPyContext {
         if !self.wants_log(level) {
             return;
         }
-        let _ = self.tx.send(CtxEvent::Log {
-            level: level.to_string(),
-            data_json,
-            logger,
-        });
+        let _ = self.tx.send(CtxEvent::Log { level: level.to_string(), data_json, logger });
     }
 
     /// MRTR replay lookup: the JSON envelope for `key` if the client already
@@ -166,32 +158,17 @@ impl McpPyContext {
     /// Live path (legacy peers): send a server->client request and resolve
     /// `reply_future` (an asyncio Future created by the calling coroutine on
     /// the WorkerLoop) with the JSON envelope when the client responds.
-    fn server_request_send(
-        &self,
-        kind: &str,
-        params_json: String,
-        reply_future: Bound<'_, PyAny>,
-    ) -> PyResult<()> {
+    fn server_request_send(&self, kind: &str, params_json: String, reply_future: Bound<'_, PyAny>) -> PyResult<()> {
         let method = match kind {
             "elicitation" => METHOD_ELICIT,
             "sampling" => METHOD_SAMPLE,
             other => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "unknown server request kind '{other}'"
-                )));
+                return Err(pyo3::exceptions::PyValueError::new_err(format!("unknown server request kind '{other}'")));
             }
         };
         self.tx
-            .send(CtxEvent::ServerRequest {
-                method,
-                params_json,
-                reply: reply_future.unbind(),
-            })
-            .map_err(|_| {
-                pyo3::exceptions::PyRuntimeError::new_err(
-                    "MCP request finished; context is no longer usable",
-                )
-            })
+            .send(CtxEvent::ServerRequest { method, params_json, reply: reply_future.unbind() })
+            .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("MCP request finished; context is no longer usable"))
     }
 }
 
@@ -206,11 +183,7 @@ pub fn resolve_reply_future(reply: &Py<PyAny>, envelope_json: &str) {
     Python::attach(|py| {
         let result: PyResult<()> = (|| {
             let resolve = MCP_RESOLVE_FUTURE.get_or_try_init(py, || {
-                Ok::<_, PyErr>(
-                    py.import("freeman._worker_loop")?
-                        .getattr("mcp_resolve_future")?
-                        .unbind(),
-                )
+                Ok::<_, PyErr>(py.import("freeman._worker_loop")?.getattr("mcp_resolve_future")?.unbind())
             })?;
             let fut = reply.bind(py);
             let fut_loop = fut.call_method0("get_loop")?;

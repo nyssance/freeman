@@ -20,18 +20,16 @@ use tokio::io::AsyncReadExt;
 use bolt_asgi::asgi_http;
 use bolt_core::error::{self, handle_python_error};
 use bolt_core::form_parsing::{
-    DEFAULT_MAX_FIELDS, DEFAULT_MAX_PARTS, DEFAULT_MEMORY_LIMIT, ERROR_TYPE_PAYLOAD_TOO_LARGE,
-    FileContent, FileFieldConstraints, FileInfo, FormParseResult, FormValue, LimitedPayload,
-    parse_multipart, parse_urlencoded,
+    DEFAULT_MAX_FIELDS, DEFAULT_MAX_PARTS, DEFAULT_MEMORY_LIMIT, ERROR_TYPE_PAYLOAD_TOO_LARGE, FileContent,
+    FileFieldConstraints, FileInfo, FormParseResult, FormValue, LimitedPayload, parse_multipart, parse_urlencoded,
 };
 use bolt_core::metadata::{RustArgBinding, RustArgSource};
 use bolt_core::middleware;
 use bolt_core::middleware::auth::populate_auth_context;
 use bolt_core::request::PyRequest;
 use bolt_core::request_pipeline::{
-    EMPTY_TYPES, build_validation_error_response, extract_cookie_header, extract_headers,
-    query_sequences, set_query_sequences, validate_and_cache_source,
-    validate_and_cache_typed_params,
+    EMPTY_TYPES, build_validation_error_response, extract_cookie_header, extract_headers, query_sequences,
+    set_query_sequences, validate_and_cache_source, validate_and_cache_typed_params,
 };
 use bolt_core::response_builder;
 use bolt_core::response_meta::ResponseMeta;
@@ -39,12 +37,8 @@ use bolt_core::responses;
 use bolt_core::router::{QueryParams, normalize_request_path, parse_query_string};
 use bolt_core::state::{AppState, find_asgi_mount};
 use bolt_core::streaming::{StreamConfig, create_python_stream, create_sse_stream};
-use bolt_core::type_coercion::{
-    CoercedValue, TypeHints, coerced_value_to_py, string_map_to_py_dict,
-};
-use bolt_core::validation::{
-    AuthGuardResult, parse_cookies_inline, parse_selected_cookies, validate_auth_and_guards,
-};
+use bolt_core::type_coercion::{CoercedValue, TypeHints, coerced_value_to_py, string_map_to_py_dict};
+use bolt_core::validation::{AuthGuardResult, parse_cookies_inline, parse_selected_cookies, validate_auth_and_guards};
 
 use std::future::Future;
 use std::pin::Pin;
@@ -67,13 +61,8 @@ pub(crate) const SKIP_CORS_HEADER_NAME: HeaderName = HeaderName::from_static("x-
 const SKIP_CORS_HEADER_VALUE: HeaderValue = HeaderValue::from_static("true");
 
 fn get_streaming_response_class(py: Python<'_>) -> &Py<PyAny> {
-    STREAMING_RESPONSE_CLASS.get_or_init(py, || {
-        py.import("freeman.responses")
-            .unwrap()
-            .getattr("StreamingResponse")
-            .unwrap()
-            .unbind()
-    })
+    STREAMING_RESPONSE_CLASS
+        .get_or_init(py, || py.import("freeman.responses").unwrap().getattr("StreamingResponse").unwrap().unbind())
 }
 
 // Reuse the global Python asyncio event loop created at server startup (TASK_LOCALS)
@@ -82,11 +71,7 @@ fn get_streaming_response_class(py: Python<'_>) -> &Py<PyAny> {
 /// Handles both small files (loaded into memory) and large files (streamed).
 /// Note: Not inlined as it's async and relatively large
 pub async fn build_file_response(
-    file_path: &str,
-    status: StatusCode,
-    headers: Vec<(String, String)>,
-    skip_compression: bool,
-    is_head_request: bool,
+    file_path: &str, status: StatusCode, headers: Vec<(String, String)>, skip_compression: bool, is_head_request: bool,
 ) -> HttpResponse {
     match File::open(file_path).await {
         Ok(mut file) => {
@@ -165,28 +150,20 @@ pub async fn build_file_response(
         // go away, or lose its permission, before this opens it.
         Err(e) => match e.kind() {
             ErrorKind::NotFound => {
-                let response = HttpResponse::NotFound()
-                    .content_type("text/plain; charset=utf-8")
-                    .body("File not found");
-                error::with_error_info(response, || {
-                    error::ErrorInfo::core("not_found", "File not found")
-                })
+                let response =
+                    HttpResponse::NotFound().content_type("text/plain; charset=utf-8").body("File not found");
+                error::with_error_info(response, || error::ErrorInfo::core("not_found", "File not found"))
             }
             ErrorKind::PermissionDenied => {
-                let response = HttpResponse::Forbidden()
-                    .content_type("text/plain; charset=utf-8")
-                    .body("Permission denied");
-                error::with_error_info(response, || {
-                    error::ErrorInfo::core("forbidden", "Permission denied")
-                })
+                let response =
+                    HttpResponse::Forbidden().content_type("text/plain; charset=utf-8").body("Permission denied");
+                error::with_error_info(response, || error::ErrorInfo::core("forbidden", "Permission denied"))
             }
             _ => {
                 let response = HttpResponse::InternalServerError()
                     .content_type("text/plain; charset=utf-8")
                     .body(format!("File error: {}", e));
-                error::with_error_info(response, || {
-                    error::ErrorInfo::internal(format!("File error: {}", e))
-                })
+                error::with_error_info(response, || error::ErrorInfo::internal(format!("File error: {}", e)))
             }
         },
     }
@@ -255,9 +232,7 @@ pub fn file_info_to_py(py: Python<'_>, file: &FileInfo) -> PyResult<Py<PyDict>> 
 /// });
 /// ```
 pub fn form_result_to_py(
-    py: Python<'_>,
-    result: &FormParseResult,
-    seq_fields: &std::collections::HashSet<String>,
+    py: Python<'_>, result: &FormParseResult, seq_fields: &std::collections::HashSet<String>,
 ) -> PyResult<(Py<PyDict>, Py<PyDict>)> {
     let form_dict = PyDict::new(py);
     for (key, value) in &result.form_map {
@@ -274,10 +249,7 @@ pub fn form_result_to_py(
                 }
             }
             FormValue::Multi(vs) => {
-                let items = vs
-                    .iter()
-                    .map(|v| coerced_value_to_py(py, v))
-                    .collect::<PyResult<Vec<Py<PyAny>>>>()?;
+                let items = vs.iter().map(|v| coerced_value_to_py(py, v)).collect::<PyResult<Vec<Py<PyAny>>>>()?;
                 let list = PyList::new(py, items)?;
                 form_dict.set_item(key, list)?;
             }
@@ -352,17 +324,10 @@ fn parse_wire_status(item: &Bound<'_, PyAny>) -> PyResult<StatusCode> {
 
 #[cold]
 fn invalid_wire_status(item: &Bound<'_, PyAny>) -> PyErr {
-    let value = item
-        .repr()
-        .map(|repr| repr.to_string())
-        .unwrap_or_else(|_| "?".to_string());
+    let value = item.repr().map(|repr| repr.to_string()).unwrap_or_else(|_| "?".to_string());
     // The client gets no detail of a 500 when DEBUG is off, so the log names the status.
-    log::error!(
-        "The response status must be an int from 200 to 599, got {value}. Bolt sends a 500."
-    );
-    pyo3::exceptions::PyValueError::new_err(format!(
-        "The response status must be an int from 200 to 599, got {value}"
-    ))
+    log::error!("The response status must be an int from 200 to 599, got {value}. Bolt sends a 500.");
+    pyo3::exceptions::PyValueError::new_err(format!("The response status must be an int from 200 to 599, got {value}"))
 }
 
 fn parse_response_wire(py: Python<'_>, result_obj: &Py<PyAny>) -> PyResult<ParsedResponseWire> {
@@ -382,10 +347,7 @@ fn parse_response_wire(py: Python<'_>, result_obj: &Py<PyAny>) -> PyResult<Parse
         match ResponseMeta::from_tag(tag) {
             Some(static_meta) => MetaRef::Static(static_meta),
             None => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Unknown response meta tag: {}",
-                    tag
-                )));
+                return Err(pyo3::exceptions::PyValueError::new_err(format!("Unknown response meta tag: {}", tag)));
             }
         }
     } else {
@@ -411,42 +373,25 @@ fn parse_response_wire(py: Python<'_>, result_obj: &Py<PyAny>) -> PyResult<Parse
             // stream
             let streaming_cls = get_streaming_response_class(py);
             if !payload.is_instance(streaming_cls.bind(py))? {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "stream payload must be StreamingResponse",
-                ));
+                return Err(pyo3::exceptions::PyTypeError::new_err("stream payload must be StreamingResponse"));
             }
-            let media_type: PyBackedStr = payload
-                .getattr(pyo3::intern!(py, "media_type"))?
-                .extract()?;
+            let media_type: PyBackedStr = payload.getattr(pyo3::intern!(py, "media_type"))?.extract()?;
             let content_obj: Py<PyAny> = payload.getattr(pyo3::intern!(py, "content"))?.unbind();
-            let is_async_generator: bool = payload
-                .getattr(pyo3::intern!(py, "is_async_generator"))?
-                .extract()
-                .unwrap_or(false);
+            let is_async_generator: bool =
+                payload.getattr(pyo3::intern!(py, "is_async_generator"))?.extract().unwrap_or(false);
 
             // For SSE streams, extract optional keep-alive ping interval
             let ping_interval: Option<f64> = if media_type == "text/event-stream" {
-                payload
-                    .getattr(pyo3::intern!(py, "ping_interval"))
-                    .ok()
-                    .and_then(|v| v.extract().ok())
+                payload.getattr(pyo3::intern!(py, "ping_interval")).ok().and_then(|v| v.extract().ok())
             } else {
                 None
             };
 
-            ResponseWireBody::Stream {
-                media_type,
-                content_obj,
-                is_async_generator,
-                ping_interval,
-            }
+            ResponseWireBody::Stream { media_type, content_obj, is_async_generator, ping_interval }
         }
         2 => ResponseWireBody::FilePath(payload.extract::<String>()?), // file
         other => {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Unsupported response body kind: {}",
-                other
-            )));
+            return Err(pyo3::exceptions::PyValueError::new_err(format!("Unsupported response body kind: {}", other)));
         }
     };
 
@@ -455,9 +400,7 @@ fn parse_response_wire(py: Python<'_>, result_obj: &Py<PyAny>) -> PyResult<Parse
 
 /// Borrow the global `CompressionConfig` from `AppState` attached to the
 /// request. Returns `None` when no `BoltAPI(compression=...)` was configured.
-fn compression_config_from_req(
-    req: &HttpRequest,
-) -> Option<&bolt_core::metadata::CompressionConfig> {
+fn compression_config_from_req(req: &HttpRequest) -> Option<&bolt_core::metadata::CompressionConfig> {
     req.app_data::<actix_web::web::Data<std::sync::Arc<bolt_core::state::AppState>>>()
         .and_then(|s| s.global_compression_config.as_deref())
 }
@@ -465,37 +408,23 @@ fn compression_config_from_req(
 #[inline]
 fn mark_skip_cors(response: &mut HttpResponse, skip_cors: bool) {
     if skip_cors {
-        response
-            .headers_mut()
-            .insert(SKIP_CORS_HEADER_NAME, SKIP_CORS_HEADER_VALUE);
+        response.headers_mut().insert(SKIP_CORS_HEADER_NAME, SKIP_CORS_HEADER_VALUE);
     }
 }
 
 /// Build HttpResponse from an already-parsed wire result.
 /// Shared by both sync-result fallback (stream/file from trivially-async) and async path.
 async fn build_response_from_parsed(
-    parsed: ParsedResponseWire,
-    skip_compression: bool,
-    skip_cors: bool,
-    is_head_request: bool,
-    req: &HttpRequest,
+    parsed: ParsedResponseWire, skip_compression: bool, skip_cors: bool, is_head_request: bool, req: &HttpRequest,
     stream_config: StreamConfig,
 ) -> HttpResponse {
     let meta_ref = parsed.meta.as_ref();
 
     match parsed.body {
         ResponseWireBody::Bytes(body_bytes) => {
-            let body = if is_head_request {
-                Vec::new()
-            } else {
-                body_bytes
-            };
-            let mut response = response_builder::build_response_from_meta(
-                parsed.status,
-                meta_ref,
-                body,
-                skip_compression,
-            );
+            let body = if is_head_request { Vec::new() } else { body_bytes };
+            let mut response =
+                response_builder::build_response_from_meta(parsed.status, meta_ref, body, skip_compression);
             mark_skip_cors(&mut response, skip_cors);
             response
         }
@@ -506,43 +435,26 @@ async fn build_response_from_parsed(
             } else {
                 Bytes::from_owner(backed)
             };
-            let mut response = response_builder::build_response_from_meta(
-                parsed.status,
-                meta_ref,
-                body,
-                skip_compression,
-            );
+            let mut response =
+                response_builder::build_response_from_meta(parsed.status, meta_ref, body, skip_compression);
             mark_skip_cors(&mut response, skip_cors);
             response
         }
         ResponseWireBody::FilePath(file_path) => {
             let headers = response_builder::meta_to_headers(meta_ref);
-            let mut response = build_file_response(
-                &file_path,
-                parsed.status,
-                headers,
-                skip_compression,
-                is_head_request,
-            )
-            .await;
+            let mut response =
+                build_file_response(&file_path, parsed.status, headers, skip_compression, is_head_request).await;
             mark_skip_cors(&mut response, skip_cors);
             response
         }
-        ResponseWireBody::Stream {
-            media_type,
-            content_obj,
-            is_async_generator,
-            ping_interval,
-        } => {
+        ResponseWireBody::Stream { media_type, content_obj, is_async_generator, ping_interval } => {
             let headers = response_builder::meta_to_headers(meta_ref);
 
             // If the user passed `Content-Encoding` via StreamingResponse
             // headers they have already encoded the body (or are claiming
             // identity); skip the framework codec in that case so we don't
             // double-encode or clobber the caller's intent.
-            let user_set_content_encoding = headers
-                .iter()
-                .any(|(k, _)| k.eq_ignore_ascii_case("content-encoding"));
+            let user_set_content_encoding = headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("content-encoding"));
 
             let codec = if user_set_content_encoding {
                 None
@@ -567,13 +479,7 @@ async fn build_response_from_parsed(
                     mark_skip_cors(&mut response, skip_cors);
                     return response;
                 }
-                let stream = create_sse_stream(
-                    content_obj,
-                    is_async_generator,
-                    ping_interval,
-                    codec,
-                    stream_config,
-                );
+                let stream = create_sse_stream(content_obj, is_async_generator, ping_interval, codec, stream_config);
                 let mut response = response_builder::build_sse_response(
                     parsed.status,
                     headers,
@@ -625,31 +531,15 @@ async fn build_response_from_parsed(
 /// only with DEBUG on.
 #[cold]
 fn log_invalid_response(req: &HttpRequest, err: &PyErr) {
-    log::error!(
-        "{} {}: cannot build the response of the handler: {err}",
-        req.method(),
-        req.path()
-    );
+    log::error!("{} {}: cannot build the response of the handler: {err}", req.method(), req.path());
 }
 
 pub async fn response_from_wire_result(
-    result_obj: Py<PyAny>,
-    skip_compression: bool,
-    skip_cors: bool,
-    is_head_request: bool,
-    req: &HttpRequest,
+    result_obj: Py<PyAny>, skip_compression: bool, skip_cors: bool, is_head_request: bool, req: &HttpRequest,
     stream_config: StreamConfig,
 ) -> PyResult<HttpResponse> {
     let parsed = Python::attach(|py| parse_response_wire(py, &result_obj))?;
-    Ok(build_response_from_parsed(
-        parsed,
-        skip_compression,
-        skip_cors,
-        is_head_request,
-        req,
-        stream_config,
-    )
-    .await)
+    Ok(build_response_from_parsed(parsed, skip_compression, skip_cors, is_head_request, req, stream_config).await)
 }
 
 /// One request source as Rust holds it: the string map and its coerced values.
@@ -679,12 +569,8 @@ impl<K: Borrow<str> + Eq + Hash, V: AsRef<str>> SourceValues<'_, K, V> {
 /// raises the 422 from the source dicts. A `prebind_only` route builds no
 /// source dict when this succeeds, because nothing else reads them.
 pub(crate) fn build_prebound_from_values(
-    py: Python<'_>,
-    bindings: &[RustArgBinding],
-    path: &SourceValues<'_, &str, Cow<'_, str>>,
-    query: &SourceValues<'_, Cow<'_, str>, Cow<'_, str>>,
-    headers: &SourceValues<'_>,
-    cookies: &SourceValues<'_>,
+    py: Python<'_>, bindings: &[RustArgBinding], path: &SourceValues<'_, &str, Cow<'_, str>>,
+    query: &SourceValues<'_, Cow<'_, str>, Cow<'_, str>>, headers: &SourceValues<'_>, cookies: &SourceValues<'_>,
 ) -> PyResult<Option<(Py<PyList>, Py<PyDict>)>> {
     let args = PyList::empty(py);
     let kwargs = PyDict::new(py);
@@ -753,10 +639,7 @@ pub(crate) fn parse_content_length(req: &HttpRequest) -> Option<usize> {
 /// chunked requests with no Content-Length), for which this returns false and the
 /// per-path streaming checks bound the body instead.
 #[inline]
-pub(crate) fn content_length_exceeds_limit(
-    content_length: Option<usize>,
-    max_payload_size: usize,
-) -> bool {
+pub(crate) fn content_length_exceeds_limit(content_length: Option<usize>, max_payload_size: usize) -> bool {
     matches!(content_length, Some(len) if len > max_payload_size)
 }
 
@@ -766,10 +649,7 @@ pub(crate) fn content_length_exceeds_limit(
     clippy::result_large_err,
     reason = "the error is the response to send, as for the request_pipeline helpers; the path is cold"
 )]
-pub(crate) async fn read_body(
-    payload: &mut web::Payload,
-    max_payload_size: usize,
-) -> Result<Vec<u8>, HttpResponse> {
+pub(crate) async fn read_body(payload: &mut web::Payload, max_payload_size: usize) -> Result<Vec<u8>, HttpResponse> {
     // Not sized from Content-Length: a client could claim the limit and
     // send nothing, so memory follows the bytes that arrive.
     let mut body = Vec::new();
@@ -784,10 +664,7 @@ pub(crate) async fn read_body(
             Err(e) => {
                 let response = HttpResponse::BadRequest()
                     .content_type("application/json")
-                    .body(format!(
-                        "{{\"error\": \"Failed to read request body: {}\"}}",
-                        e
-                    ));
+                    .body(format!("{{\"error\": \"Failed to read request body: {}\"}}", e));
                 return Err(error::with_error_info(response, || {
                     error::ErrorInfo::core("bad_request", "Failed to read request body")
                 }));
@@ -798,20 +675,14 @@ pub(crate) async fn read_body(
 }
 
 pub async fn handle_request<const ACCESS_LOG: bool>(
-    req: HttpRequest,
-    payload: web::Payload,
-    state: web::Data<Arc<AppState>>,
+    req: HttpRequest, payload: web::Payload, state: web::Data<Arc<AppState>>,
 ) -> HttpResponse {
     // Without the access log and an error formatter, this is the whole cost: one Option check.
     if !ACCESS_LOG && state.error_renderer.is_none() {
         return route_request(req, payload, state, &mut None).await;
     }
     // ACCESS_LOG: the compiler removes the timer when ACCESS_LOG=false (const generic).
-    let access_log_start = if ACCESS_LOG {
-        Some(std::time::Instant::now())
-    } else {
-        None
-    };
+    let access_log_start = if ACCESS_LOG { Some(std::time::Instant::now()) } else { None };
     let kept_req = req.clone();
     let kept_state = state.clone();
     let mut access_log_route = None;
@@ -822,13 +693,7 @@ pub async fn handle_request<const ACCESS_LOG: bool>(
     if let Some(start) = access_log_start
         && let Some(handler_id) = access_log_route
     {
-        write_access_log(
-            &kept_state,
-            &kept_req,
-            response.status().as_u16(),
-            start,
-            handler_id,
-        );
+        write_access_log(&kept_state, &kept_req, response.status().as_u16(), start, handler_id);
     }
     response
 }
@@ -851,13 +716,7 @@ fn access_log_level(status: u16) -> (u8, &'static str) {
 /// skipped paths and status codes, the sample rate and the slow-request
 /// threshold. A 4xx or a 5xx always passes the last two. A route with no
 /// metadata has no filter and writes to `django.server`.
-fn write_access_log(
-    state: &AppState,
-    req: &HttpRequest,
-    status: u16,
-    start: std::time::Instant,
-    handler_id: usize,
-) {
+fn write_access_log(state: &AppState, req: &HttpRequest, status: u16, start: std::time::Instant, handler_id: usize) {
     let (bit, level) = access_log_level(status);
     let meta = state.route_metadata.get(handler_id);
     let logger_index = meta.map_or(0, |meta| meta.access_log_filter.logger);
@@ -884,19 +743,9 @@ fn write_access_log(
     } else {
         0
     };
-    let msg = format!(
-        "{} {} {} {:.1}ms",
-        req.method().as_str(),
-        req.path(),
-        status,
-        dur_ms
-    );
+    let msg = format!("{} {} {} {:.1}ms", req.method().as_str(), req.path(), status, dur_ms);
     // The line of a 429 counts the 429 responses before it that wrote no line.
-    let msg = if suppressed == 0 {
-        msg
-    } else {
-        format!("{msg} | suppressed: {suppressed}")
-    };
+    let msg = if suppressed == 0 { msg } else { format!("{msg} | suppressed: {suppressed}") };
     Python::attach(|py| {
         let _ = logger.logger.call_method1(py, level, (msg,));
     });
@@ -949,15 +798,8 @@ struct RustAnswer {
 impl RustAnswer {
     /// Read the parts of `answer`. With an error formatter, the middleware gets
     /// the formatted response, as the client would without middleware.
-    #[expect(
-        clippy::result_large_err,
-        reason = "the error is the response to send; the path is cold"
-    )]
-    fn read(
-        answer: HttpResponse,
-        req: &HttpRequest,
-        state: &Arc<AppState>,
-    ) -> Result<Self, HttpResponse> {
+    #[expect(clippy::result_large_err, reason = "the error is the response to send; the path is cold")]
+    fn read(answer: HttpResponse, req: &HttpRequest, state: &Arc<AppState>) -> Result<Self, HttpResponse> {
         let answer = if state.error_renderer.is_some() {
             crate::error_formatter::format_error_response(answer, req, state)
         } else {
@@ -969,38 +811,21 @@ impl RustAnswer {
         let body = match actix_web::body::MessageBody::try_into_bytes(answer.into_body()) {
             Ok(body) => body,
             Err(_) => {
-                return Err(error::with_error_info(
-                    HttpResponse::InternalServerError().finish(),
-                    || error::ErrorInfo::core("internal_error", "The response has no bytes body"),
-                ));
+                return Err(error::with_error_info(HttpResponse::InternalServerError().finish(), || {
+                    error::ErrorInfo::core("internal_error", "The response has no bytes body")
+                }));
             }
         };
-        Ok(Self {
-            status,
-            content_type,
-            headers,
-            body,
-        })
+        Ok(Self { status, content_type, headers, body })
     }
 
     /// The ResponseWireV1 of the answer: `(status, meta, 0, body)`. An empty
     /// content type means none.
     fn into_wire(self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let headers = if self.headers.is_empty() {
-            py.None()
-        } else {
-            self.headers.into_pyobject(py)?.into_any().unbind()
-        };
-        let meta = (
-            pyo3::intern!(py, "octetstream"),
-            self.content_type,
-            headers,
-            py.None(),
-        );
-        Ok((self.status, meta, 0u8, PyBytes::new(py, &self.body))
-            .into_pyobject(py)?
-            .into_any()
-            .unbind())
+        let headers =
+            if self.headers.is_empty() { py.None() } else { self.headers.into_pyobject(py)?.into_any().unbind() };
+        let meta = (pyo3::intern!(py, "octetstream"), self.content_type, headers, py.None());
+        Ok((self.status, meta, 0u8, PyBytes::new(py, &self.body)).into_pyobject(py)?.into_any().unbind())
     }
 }
 
@@ -1013,10 +838,7 @@ impl RustAnswer {
 /// the filter of that route keeps it. A native route, a mount and the
 /// preflight answer of global CORS leave it `None`.
 async fn route_request(
-    req: HttpRequest,
-    mut payload: web::Payload,
-    state: web::Data<Arc<AppState>>,
-    access_log_route: &mut Option<usize>,
+    req: HttpRequest, mut payload: web::Payload, state: web::Data<Arc<AppState>>, access_log_route: &mut Option<usize>,
 ) -> HttpResponse {
     // Keep as &str - no allocation, only clone on error paths
     let method = req.method().as_str();
@@ -1062,11 +884,8 @@ async fn route_request(
                 // The line of the redirect has the filter of the route at the other form.
                 *access_log_route = Some(alternate.handler_id());
                 let query = req.query_string();
-                let location = if query.is_empty() {
-                    alternate_path.clone()
-                } else {
-                    format!("{}?{}", alternate_path, query)
-                };
+                let location =
+                    if query.is_empty() { alternate_path.clone() } else { format!("{}?{}", alternate_path, query) };
                 return HttpResponse::PermanentRedirect() // 308
                     .insert_header(("Location", location))
                     .finish();
@@ -1079,9 +898,7 @@ async fn route_request(
                     let allow_header = available_methods.join(", ");
                     // CORS headers will be added by CorsMiddleware
                     // The line of this answer has the filter of the first route of the path.
-                    *access_log_route = router
-                        .find(&available_methods[0], route_path)
-                        .map(|found| found.handler_id());
+                    *access_log_route = router.find(&available_methods[0], route_path).map(|found| found.handler_id());
                     return HttpResponse::NoContent()
                         .insert_header(("Allow", allow_header))
                         .insert_header(("Content-Type", "application/json"))
@@ -1093,9 +910,7 @@ async fn route_request(
             // pays nothing. Before the ASGI fallback so an overlapping prefix
             // cannot shadow an MCP endpoint.
             if let Some(mcp_mount) = bolt_mcp::find_mcp_mount(state.get_ref(), path) {
-                let response =
-                    bolt_mcp::bridge::handle_mcp_request(req, payload, mcp_mount, state.get_ref())
-                        .await;
+                let response = bolt_mcp::bridge::handle_mcp_request(req, payload, mcp_mount, state.get_ref()).await;
                 return without_error_info(response, &state);
             }
 
@@ -1113,9 +928,7 @@ async fn route_request(
             }
             let answer = if !allowed_methods.is_empty() {
                 // The line of this answer has the filter of the first route of the path.
-                *access_log_route = router
-                    .find(&allowed_methods[0], allowed_path)
-                    .map(|found| found.handler_id());
+                *access_log_route = router.find(&allowed_methods[0], allowed_path).map(|found| found.handler_id());
                 // The automatic OPTIONS answer of the route path.
                 if other_form && method == "OPTIONS" {
                     return HttpResponse::NoContent()
@@ -1168,10 +981,8 @@ async fn route_request(
             if access_log_route.is_none() {
                 *access_log_route = Some(no_route.handler_id);
             }
-            let runs_middleware = state
-                .route_metadata
-                .get(no_route.handler_id)
-                .is_some_and(|meta| meta.plan.runs_python_middleware());
+            let runs_middleware =
+                state.route_metadata.get(no_route.handler_id).is_some_and(|meta| meta.plan.runs_python_middleware());
             if !runs_middleware {
                 return answer;
             }
@@ -1184,14 +995,7 @@ async fn route_request(
     // Actix middleware such as CORS and compression does. The boxed future
     // keeps the future of this function small for Python routes.
     if let Some(native) = route.native {
-        return Box::pin(crate::native::dispatch(
-            &req,
-            payload,
-            native,
-            path_params,
-            &state,
-        ))
-        .await;
+        return Box::pin(crate::native::dispatch(&req, payload, native, path_params, &state)).await;
     }
 
     // Method maps to a static str (known fixed set — no per-request alloc);
@@ -1214,9 +1018,8 @@ async fn route_request(
     let needs_query = plan.is_none_or(|p| p.needs_query());
     // The map borrows its keys and values from the URI when they need no decode.
     let query_string = if needs_query { req.uri().query() } else { None };
-    let query_params: Option<QueryParams<'_>> = query_string
-        .map(parse_query_string)
-        .filter(|parsed| !parsed.is_empty());
+    let query_params: Option<QueryParams<'_>> =
+        query_string.map(parse_query_string).filter(|parsed| !parsed.is_empty());
 
     let needs_body = plan.is_none_or(|p| p.needs_body());
 
@@ -1229,41 +1032,37 @@ async fn route_request(
 
     // A sequence query parameter takes each value of its repeated key.
     let query_sequences = match route_metadata {
-        Some(route_meta) if needs_query && check_query => match query_sequences(
-            req.uri().query(),
-            &route_meta.query_seq_fields,
-            max_param_length,
-        ) {
-            Ok(sequences) => sequences,
-            Err(error) => return error.into_response(),
-        },
+        Some(route_meta) if needs_query && check_query => {
+            match query_sequences(req.uri().query(), &route_meta.query_seq_fields, max_param_length) {
+                Ok(sequences) => sequences,
+                Err(error) => return error.into_response(),
+            }
+        }
         _ => Vec::new(),
     };
 
     // Type validation for path and query parameters (Rust-native, no GIL)
-    let (path_coerced, query_coerced) =
-        if let Some(route_meta) = route_metadata.filter(|_| check_query) {
-            match validate_and_cache_typed_params(
-                path_params.as_ref(),
-                query_params.as_ref(),
-                &route_meta.path_types,
-                &route_meta.query_types,
-                max_param_length,
-            ) {
-                Ok(cached) => cached,
-                Err(response) => return response,
-            }
-        } else {
-            (Vec::new(), Vec::new())
-        };
+    let (path_coerced, query_coerced) = if let Some(route_meta) = route_metadata.filter(|_| check_query) {
+        match validate_and_cache_typed_params(
+            path_params.as_ref(),
+            query_params.as_ref(),
+            &route_meta.path_types,
+            &route_meta.query_types,
+            max_param_length,
+        ) {
+            Ok(cached) => cached,
+            Err(response) => return response,
+        }
+    } else {
+        (Vec::new(), Vec::new())
+    };
 
     let needs_headers = plan.is_none_or(|p| p.needs_headers());
     let needs_cookies = plan.is_none_or(|p| p.needs_cookies());
     let needs_form_parsing = plan.is_some_and(|p| p.needs_form_parsing());
     let has_route_auth_or_guards = plan.is_some_and(|p| p.has_auth_or_guards());
     let has_route_rate_limit = plan.is_some_and(|p| p.has_rate_limit());
-    let must_extract_headers =
-        needs_headers || needs_form_parsing || has_route_auth_or_guards || has_route_rate_limit;
+    let must_extract_headers = needs_headers || needs_form_parsing || has_route_auth_or_guards || has_route_rate_limit;
     let skip_cors = plan.is_some_and(|p| p.skip_cors());
     let skip_compression = plan.is_some_and(|p| p.skip_compression());
     let can_sync_dispatch = plan.is_some_and(|p| p.can_sync_dispatch());
@@ -1323,11 +1122,7 @@ async fn route_request(
     if has_route_auth_or_guards && let Some(route_meta) = route_metadata {
         let empty_headers = AHashMap::new();
         let headers_map = headers.as_ref().unwrap_or(&empty_headers);
-        let mut rejection = match validate_auth_and_guards(
-            headers_map,
-            &route_meta.auth_backends,
-            &route_meta.guards,
-        ) {
+        let mut rejection = match validate_auth_and_guards(headers_map, &route_meta.auth_backends, &route_meta.guards) {
             AuthGuardResult::Allow(ctx) => {
                 auth_ctx = ctx;
                 None
@@ -1337,24 +1132,15 @@ async fn route_request(
                 auth_ctx = Some(ctx);
                 None
             }
-            AuthGuardResult::Unauthorized => Some(responses::error_401_challenge(
-                route_meta.www_authenticate.as_ref(),
-            )),
-            AuthGuardResult::Forbidden(denial) => {
-                Some(responses::error_403_denial(denial.as_deref()))
-            }
+            AuthGuardResult::Unauthorized => Some(responses::error_401_challenge(route_meta.www_authenticate.as_ref())),
+            AuthGuardResult::Forbidden(denial) => Some(responses::error_403_denial(denial.as_deref())),
         };
         // A safe method passes the check, so it needs no connection info.
-        let requires_csrf = auth_ctx.as_ref().is_some_and(|auth| auth.cookie_csrf)
-            && !bolt_core::validation::is_safe_method(method);
+        let requires_csrf =
+            auth_ctx.as_ref().is_some_and(|auth| auth.cookie_csrf) && !bolt_core::validation::is_safe_method(method);
         // Any peer may set the scheme here. See `passes_cookie_csrf`.
         if requires_csrf
-            && bolt_core::validation::cookie_csrf_blocks(
-                method,
-                headers_map,
-                true,
-                req.connection_info().scheme(),
-            )
+            && bolt_core::validation::cookie_csrf_blocks(method, headers_map, true, req.connection_info().scheme())
         {
             rejection = Some(responses::error_403());
         }
@@ -1391,32 +1177,26 @@ async fn route_request(
     // Cookie parsing can be expensive for requests with many cookies
     let mut cookies = if needs_cookies {
         let cookie_header = if let Some(headers) = &headers {
-            headers
-                .get("cookie")
-                .map(|value| Cow::Borrowed(value.as_str()))
+            headers.get("cookie").map(|value| Cow::Borrowed(value.as_str()))
         } else {
             match extract_cookie_header(&req, state.max_header_size) {
                 Ok(value) => value,
                 Err(response) => return response,
             }
         };
-        Some(
-            if let Some(meta) = route_metadata.filter(|meta| meta.prebind_only) {
-                parse_selected_cookies(
-                    cookie_header.as_deref(),
-                    |name| {
-                        meta.rust_arg_bindings.as_ref().is_some_and(|bindings| {
-                            bindings.iter().any(|binding| {
-                                binding.source == RustArgSource::Cookie && binding.key == name
-                            })
-                        })
-                    },
-                    max_param_length,
-                )
-            } else {
-                parse_cookies_inline(cookie_header.as_deref())
-            },
-        )
+        Some(if let Some(meta) = route_metadata.filter(|meta| meta.prebind_only) {
+            parse_selected_cookies(
+                cookie_header.as_deref(),
+                |name| {
+                    meta.rust_arg_bindings.as_ref().is_some_and(|bindings| {
+                        bindings.iter().any(|binding| binding.source == RustArgSource::Cookie && binding.key == name)
+                    })
+                },
+                max_param_length,
+            )
+        } else {
+            parse_cookies_inline(cookie_header.as_deref())
+        })
     } else {
         None
     };
@@ -1453,11 +1233,7 @@ async fn route_request(
     // When headers weren't extracted (pure API routes with no auth/cookies/middleware),
     // empty strings are safe because no Django middleware will call META anyway.
     let (conn_host, conn_scheme, conn_remote_addr) = if must_extract_headers {
-        let host = headers
-            .as_ref()
-            .and_then(|h| h.get("host"))
-            .cloned()
-            .unwrap_or_default();
+        let host = headers.as_ref().and_then(|h| h.get("host")).cloned().unwrap_or_default();
         // Same trust rule as the client address: only a trusted proxy sets the
         // scheme with `X-Forwarded-Proto`.
         let scheme = middleware::client_ip::resolve_scheme(
@@ -1473,11 +1249,7 @@ async fn route_request(
     };
 
     // Determine if form parsing is needed and get content type
-    let content_type = headers
-        .as_ref()
-        .and_then(|h| h.get("content-type"))
-        .map(|s| s.as_str())
-        .unwrap_or("");
+    let content_type = headers.as_ref().and_then(|h| h.get("content-type")).map(|s| s.as_str()).unwrap_or("");
 
     let is_multipart = content_type.starts_with("multipart/form-data");
     let is_urlencoded = content_type.starts_with("application/x-www-form-urlencoded");
@@ -1490,11 +1262,7 @@ async fn route_request(
     // Bolt does not read the body of a request that Rust answers: a flood of
     // rejected requests reads no body, and a 413 cannot replace the answer.
     let reads_body = (needs_body || needs_form_parsing) && !answered;
-    let content_length = if reads_body {
-        parse_content_length(&req)
-    } else {
-        None
-    };
+    let content_length = if reads_body { parse_content_length(&req) } else { None };
     if content_length_exceeds_limit(content_length, state.max_payload_size) {
         return responses::error_413();
     }
@@ -1507,18 +1275,10 @@ async fn route_request(
         // Multipart form parsing - uses the payload stream directly
         let empty_form_type_hints: HashMap<String, u8> = HashMap::new();
         let empty_file_constraints: HashMap<String, FileFieldConstraints> = HashMap::new();
-        let form_type_hints = route_metadata
-            .map(|m| &m.form_type_hints)
-            .unwrap_or(&empty_form_type_hints);
-        let file_constraints = route_metadata
-            .map(|m| &m.file_constraints)
-            .unwrap_or(&empty_file_constraints);
-        let max_upload_size = route_metadata
-            .map(|m| m.max_upload_size)
-            .unwrap_or(1024 * 1024);
-        let memory_spool_threshold = route_metadata
-            .map(|m| m.memory_spool_threshold)
-            .unwrap_or(DEFAULT_MEMORY_LIMIT);
+        let form_type_hints = route_metadata.map(|m| &m.form_type_hints).unwrap_or(&empty_form_type_hints);
+        let file_constraints = route_metadata.map(|m| &m.file_constraints).unwrap_or(&empty_file_constraints);
+        let max_upload_size = route_metadata.map(|m| m.max_upload_size).unwrap_or(1024 * 1024);
+        let memory_spool_threshold = route_metadata.map(|m| m.memory_spool_threshold).unwrap_or(DEFAULT_MEMORY_LIMIT);
 
         // Create Multipart from the payload. The limit covers each byte of the body,
         // as the parser buffers a part header with no limit of its own.
@@ -1556,21 +1316,11 @@ async fn route_request(
         // URL-encoded form parsing
         if needs_form_parsing && is_urlencoded {
             let empty_form_type_hints: HashMap<String, u8> = HashMap::new();
-            let form_type_hints = route_metadata
-                .map(|m| &m.form_type_hints)
-                .unwrap_or(&empty_form_type_hints);
+            let form_type_hints = route_metadata.map(|m| &m.form_type_hints).unwrap_or(&empty_form_type_hints);
 
-            match parse_urlencoded(
-                &body_vec,
-                form_type_hints,
-                max_param_length,
-                DEFAULT_MAX_FIELDS,
-            ) {
+            match parse_urlencoded(&body_vec, form_type_hints, max_param_length, DEFAULT_MAX_FIELDS) {
                 Ok(form_map) => {
-                    let result = FormParseResult {
-                        form_map,
-                        files_map: HashMap::new(),
-                    };
+                    let result = FormParseResult { form_map, files_map: HashMap::new() };
                     (body_vec, Some(result))
                 }
                 Err(validation_error) => {
@@ -1626,22 +1376,10 @@ async fn route_request(
             let prebound = build_prebound_from_values(
                 py,
                 bindings,
-                &SourceValues {
-                    values: path_params.as_ref(),
-                    coerced: &path_coerced,
-                },
-                &SourceValues {
-                    values: query_params.as_ref(),
-                    coerced: &query_coerced,
-                },
-                &SourceValues {
-                    values: headers.as_ref(),
-                    coerced: &headers_coerced,
-                },
-                &SourceValues {
-                    values: cookies.as_ref(),
-                    coerced: &cookies_coerced,
-                },
+                &SourceValues { values: path_params.as_ref(), coerced: &path_coerced },
+                &SourceValues { values: query_params.as_ref(), coerced: &query_coerced },
+                &SourceValues { values: headers.as_ref(), coerced: &headers_coerced },
+                &SourceValues { values: cookies.as_ref(), coerced: &cookies_coerced },
             );
             if let Some((pre_args, pre_kwargs)) = prebound? {
                 let state_dict = PyDict::new(py);
@@ -1656,9 +1394,7 @@ async fn route_request(
         // Saves 1 Python heap alloc per empty source (up to 4 for simple API handlers).
         let path_params_py: Option<Py<PyDict>> = match path_params.as_ref() {
             Some(_) if skip_dicts => None,
-            Some(path_params) => {
-                Some(string_map_to_py_dict(py, path_params, &path_coerced)?.unbind())
-            }
+            Some(path_params) => Some(string_map_to_py_dict(py, path_params, &path_coerced)?.unbind()),
             None => None,
         };
 
@@ -1698,8 +1434,7 @@ async fn route_request(
 
         // Only create form/files dicts when form data is present (saves 2 allocs per request).
         let (form_map_opt, files_map_opt) = if let Some(ref result) = form_result {
-            static EMPTY_SEQ: std::sync::OnceLock<std::collections::HashSet<String>> =
-                std::sync::OnceLock::new();
+            static EMPTY_SEQ: std::sync::OnceLock<std::collections::HashSet<String>> = std::sync::OnceLock::new();
             let seq_fields = route_metadata
                 .map(|m| &m.form_seq_fields)
                 .unwrap_or_else(|| EMPTY_SEQ.get_or_init(std::collections::HashSet::new));
@@ -1720,16 +1455,8 @@ async fn route_request(
             query_string: query_string.map(str::to_owned).unwrap_or_default(),
             headers: headers_py,
             cookies: cookies_py,
-            raw_headers: if keep_raw_headers {
-                headers.take()
-            } else {
-                None
-            },
-            raw_cookies: if keep_raw_cookies {
-                cookies.take()
-            } else {
-                None
-            },
+            raw_headers: if keep_raw_headers { headers.take() } else { None },
+            raw_cookies: if keep_raw_cookies { cookies.take() } else { None },
             context,
             user: None,
             state: state_lock,
@@ -1759,9 +1486,7 @@ async fn route_request(
             // 4-tuple construction in Python and its parsing here.
             if result_obj.bind(py).is_instance_of::<PyBytes>() {
                 let backed = AttachedBytes::from(result_obj.extract::<PyBackedBytes>(py)?);
-                let status = route_metadata
-                    .map(|m| m.default_status_code)
-                    .unwrap_or(StatusCode::OK);
+                let status = route_metadata.map(|m| m.default_status_code).unwrap_or(StatusCode::OK);
                 let body = if is_head_request {
                     drop(backed);
                     Bytes::new()
@@ -1787,8 +1512,7 @@ async fn route_request(
                 return Ok(DispatchOutcome::Pending(Box::pin(fut)));
             }
 
-            let parsed = parse_response_wire(py, &result_obj)
-                .inspect_err(|err| log_invalid_response(&req, err))?;
+            let parsed = parse_response_wire(py, &result_obj).inspect_err(|err| log_invalid_response(&req, err))?;
             let meta_ref = parsed.meta.as_ref();
             let response = match parsed.body {
                 ResponseWireBody::ZeroCopyBytes(backed) => {
@@ -1798,27 +1522,15 @@ async fn route_request(
                     } else {
                         Bytes::from_owner(backed)
                     };
-                    let mut resp = response_builder::build_response_from_meta(
-                        parsed.status,
-                        meta_ref,
-                        body,
-                        skip_compression,
-                    );
+                    let mut resp =
+                        response_builder::build_response_from_meta(parsed.status, meta_ref, body, skip_compression);
                     mark_skip_cors(&mut resp, skip_cors);
                     resp
                 }
                 ResponseWireBody::Bytes(body_bytes) => {
-                    let body = if is_head_request {
-                        Vec::new()
-                    } else {
-                        body_bytes
-                    };
-                    let mut resp = response_builder::build_response_from_meta(
-                        parsed.status,
-                        meta_ref,
-                        body,
-                        skip_compression,
-                    );
+                    let body = if is_head_request { Vec::new() } else { body_bytes };
+                    let mut resp =
+                        response_builder::build_response_from_meta(parsed.status, meta_ref, body, skip_compression);
                     mark_skip_cors(&mut resp, skip_cors);
                     resp
                 }
@@ -1832,10 +1544,7 @@ async fn route_request(
             Ok(DispatchOutcome::Ready(response))
         } else if can_lane_dispatch {
             // LANE PATH: one lane thread runs the complete sync request (bolt_core::lane).
-            let fut = bolt_core::lane::dispatch(
-                route.dispatch_sync.clone_ref(py),
-                request_obj.into_any(),
-            );
+            let fut = bolt_core::lane::dispatch(route.dispatch_sync.clone_ref(py), request_obj.into_any());
             Ok(DispatchOutcome::Pending(Box::pin(fut)))
         } else {
             // ASYNC PATH: submit to this worker thread's WorkerLoop, whose
@@ -1851,15 +1560,8 @@ async fn route_request(
         // Sync dispatch completed but body needs async post-processing (stream/file).
         // Already parsed — no duplicate GIL acquire or wire re-parse.
         Ok(DispatchOutcome::SyncResult(parsed)) => {
-            build_response_from_parsed(
-                parsed,
-                skip_compression,
-                skip_cors,
-                is_head_request,
-                &req,
-                state.stream_config,
-            )
-            .await
+            build_response_from_parsed(parsed, skip_compression, skip_cors, is_head_request, &req, state.stream_config)
+                .await
         }
         Ok(DispatchOutcome::Pending(fut)) => match fut.await {
             Ok(result_obj) => {
@@ -1876,15 +1578,7 @@ async fn route_request(
                     Ok(response) => response,
                     Err(e) => {
                         log_invalid_response(&req, &e);
-                        Python::attach(|py| {
-                            handle_python_error(
-                                py,
-                                e,
-                                req.path(),
-                                req.method().as_str(),
-                                state.debug,
-                            )
-                        })
+                        Python::attach(|py| handle_python_error(py, e, req.path(), req.method().as_str(), state.debug))
                     }
                 }
             }
@@ -1893,25 +1587,18 @@ async fn route_request(
                 handle_python_error(py, e, req.path(), req.method().as_str(), state.debug)
             }),
         },
-        Err(e) => Python::attach(|py| {
-            handle_python_error(py, e, req.path(), req.method().as_str(), state.debug)
-        }),
+        Err(e) => Python::attach(|py| handle_python_error(py, e, req.path(), req.method().as_str(), state.debug)),
     };
 
     // A 401 from Python gets the challenge of the route, as a 401 from Rust.
-    responses::add_challenge(
-        &mut response,
-        route_metadata.and_then(|m| m.www_authenticate.as_ref()),
-    );
+    responses::add_challenge(&mut response, route_metadata.and_then(|m| m.www_authenticate.as_ref()));
     response
 }
 
 #[cfg(test)]
 mod tests {
     use super::{SKIP_CORS_HEADER_NAME, access_log_level, answer_headers};
-    use actix_web::http::header::{
-        CONTENT_LENGTH, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue,
-    };
+    use actix_web::http::header::{CONTENT_LENGTH, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 
     #[test]
     fn the_middleware_gets_each_text_header_of_an_answer() {
@@ -1919,15 +1606,9 @@ mod tests {
         map.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         map.insert(CONTENT_LENGTH, HeaderValue::from_static("2"));
         map.insert(SKIP_CORS_HEADER_NAME, HeaderValue::from_static("1"));
-        map.insert(
-            HeaderName::from_static("allow"),
-            HeaderValue::from_static("GET, POST"),
-        );
+        map.insert(HeaderName::from_static("allow"), HeaderValue::from_static("GET, POST"));
         // A value with a byte that is not ASCII cannot go back into a response.
-        map.insert(
-            HeaderName::from_static("x-name"),
-            HeaderValue::from_bytes(b"caf\xe9").unwrap(),
-        );
+        map.insert(HeaderName::from_static("x-name"), HeaderValue::from_bytes(b"caf\xe9").unwrap());
 
         let (content_type, headers) = answer_headers(&map);
 

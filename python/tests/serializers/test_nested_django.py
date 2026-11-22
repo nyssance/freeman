@@ -127,12 +127,7 @@ class TestSingleNestedForeignKey:
         author_data = {"id": 1, "name": "Charlie", "email": "charlie@example.com"}
 
         serializer = BlogPostSerializer(
-            id=1,
-            title="New Post",
-            content="Content",
-            author=author_data,
-            tags=[],
-            published=False,
+            id=1, title="New Post", content="Content", author=author_data, tags=[], published=False
         )
 
         # Check if author was validated
@@ -165,13 +160,7 @@ class TestSingleNestedForeignKey:
         """Test creating post with AuthorSerializer instance."""
         author = AuthorSerializer(id=1, name="David", email="david@example.com")
 
-        serializer = BlogPostSerializer(
-            id=1,
-            title="New Post",
-            content="Content",
-            author=author,
-            tags=[],
-        )
+        serializer = BlogPostSerializer(id=1, title="New Post", content="Content", author=author, tags=[])
 
         assert isinstance(serializer.author, AuthorSerializer)
         assert serializer.author.name == "David"
@@ -230,10 +219,7 @@ class TestNestedManyToMany:
             title="Post",
             content="Content",
             author={"id": 1, "name": "Test", "email": "test@example.com", "bio": ""},
-            tags=[
-                {"id": 1, "name": "python"},
-                {"id": 2, "name": "django"},
-            ],
+            tags=[{"id": 1, "name": "python"}, {"id": 2, "name": "django"}],
         )
 
         assert isinstance(serializer.tags, list)
@@ -311,21 +297,10 @@ class TestNestedWithinNested:
             title="Post",
             content="Content",
             author={"id": 1, "name": "Grace", "email": "grace@example.com"},
-            tags=[
-                {"id": 1, "name": "python"},
-                {"id": 2, "name": "django"},
-            ],
+            tags=[{"id": 1, "name": "python"}, {"id": 2, "name": "django"}],
             comments=[
-                {
-                    "id": 1,
-                    "text": "Comment 1",
-                    "author": {"id": 2, "name": "Henry", "email": "henry@example.com"},
-                },
-                {
-                    "id": 2,
-                    "text": "Comment 2",
-                    "author": {"id": 3, "name": "Jane", "email": "jane@example.com"},
-                },
+                {"id": 1, "text": "Comment 1", "author": {"id": 2, "name": "Henry", "email": "henry@example.com"}},
+                {"id": 2, "text": "Comment 2", "author": {"id": 3, "name": "Jane", "email": "jane@example.com"}},
             ],
         )
 
@@ -492,13 +467,7 @@ class TestNestedFieldValidation:
         """Test creating post with valid author email."""
         # Create directly with AuthorSerializer to test field validation
         author = AuthorSerializer(id=1, name="Alice", email="alice@example.com")
-        serializer = BlogPostSerializer(
-            id=1,
-            title="Post",
-            content="Content",
-            author=author,
-            tags=[],
-        )
+        serializer = BlogPostSerializer(id=1, title="Post", content="Content", author=author, tags=[])
 
         # Should create successfully
         assert isinstance(serializer.author, AuthorSerializer)
@@ -685,19 +654,13 @@ class TestEdgeCases:
 
         # Test with dict - should work
         serializer1 = CommentSerializer(
-            id=1,
-            text="Comment",
-            author={"id": 1, "name": "Author", "email": "author@example.com"},
+            id=1, text="Comment", author={"id": 1, "name": "Author", "email": "author@example.com"}
         )
         assert isinstance(serializer1.author, (AuthorSerializer, dict))
 
         # Test with AuthorSerializer instance - should work
         author = AuthorSerializer(id=1, name="Author", email="author@example.com")
-        serializer2 = CommentSerializer(
-            id=1,
-            text="Comment",
-            author=author,
-        )
+        serializer2 = CommentSerializer(id=1, text="Comment", author=author)
         assert isinstance(serializer2.author, AuthorSerializer)
 
         # Test with plain ID - should fail

@@ -20,9 +20,7 @@ use std::hash::Hash;
 use crate::form_parsing::ValidationError;
 use crate::responses;
 use crate::router::{PathParams, QueryParams, QuerySequences};
-use crate::type_coercion::{
-    CoercedValue, CoercedValues, TYPE_STRING, TypeHints, coerce_param, coerced_value_to_py,
-};
+use crate::type_coercion::{CoercedValue, CoercedValues, TYPE_STRING, TypeHints, coerce_param, coerced_value_to_py};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -35,22 +33,15 @@ pub static EMPTY_TYPES: std::sync::LazyLock<TypeHints> = std::sync::LazyLock::ne
 /// typed path parameter keeps its string. Returns the pre-coerced non-string
 /// values of each source. String parameters are validated for length but left as-is.
 pub fn validate_and_cache_typed_params<'t>(
-    path_params: Option<&PathParams<'_>>,
-    query_params: Option<&QueryParams<'_>>,
-    path_types: &'t TypeHints,
-    query_types: &'t TypeHints,
-    max_length: usize,
+    path_params: Option<&PathParams<'_>>, query_params: Option<&QueryParams<'_>>, path_types: &'t TypeHints,
+    query_types: &'t TypeHints, max_length: usize,
 ) -> Result<(CoercedValues<'t>, CoercedValues<'t>), HttpResponse> {
     let path_coerced = match path_params {
-        Some(params) => {
-            validate_and_cache_source(params, path_types, max_length, "Path parameter")?
-        }
+        Some(params) => validate_and_cache_source(params, path_types, max_length, "Path parameter")?,
         None => Vec::new(),
     };
     let query_coerced = match query_params {
-        Some(params) => {
-            validate_and_cache_source(params, query_types, max_length, "Query parameter")?
-        }
+        Some(params) => validate_and_cache_source(params, query_types, max_length, "Query parameter")?,
         None => Vec::new(),
     };
     Ok((path_coerced, query_coerced))
@@ -71,10 +62,7 @@ pub fn validate_and_cache_typed_params<'t>(
 ///
 /// `values` can own its strings (headers, cookies) or borrow them (query).
 pub fn validate_and_cache_source<'t, K, V>(
-    values: &AHashMap<K, V>,
-    types: &'t TypeHints,
-    max_length: usize,
-    label: &str,
+    values: &AHashMap<K, V>, types: &'t TypeHints, max_length: usize, label: &str,
 ) -> Result<CoercedValues<'t>, HttpResponse>
 where
     K: Borrow<str> + Eq + Hash,
@@ -91,14 +79,7 @@ where
         }
         for (name, &type_hint) in types {
             if let Some(value) = values.get(name.as_str()) {
-                coerce_into(
-                    &mut coerced_values,
-                    name,
-                    value.as_ref(),
-                    type_hint,
-                    max_length,
-                    label,
-                )?;
+                coerce_into(&mut coerced_values, name, value.as_ref(), type_hint, max_length, label)?;
             }
         }
     } else {
@@ -109,14 +90,7 @@ where
                 return Err(too_long(label, name, value.len(), max_length));
             }
             if let Some((typed_name, &type_hint)) = types.get_key_value(name) {
-                coerce_into(
-                    &mut coerced_values,
-                    typed_name,
-                    value,
-                    type_hint,
-                    max_length,
-                    label,
-                )?;
+                coerce_into(&mut coerced_values, typed_name, value, type_hint, max_length, label)?;
             }
         }
     }
@@ -130,9 +104,7 @@ where
 /// scalar parser keeps the last value of a key, so it does not check the others.
 /// The error is the rejected parameter, for HTTP and WebSocket.
 pub fn query_sequences<'a>(
-    query: Option<&'a str>,
-    keys: &AHashSet<String>,
-    max_length: usize,
+    query: Option<&'a str>, keys: &AHashSet<String>, max_length: usize,
 ) -> Result<QuerySequences<'a>, ParamError> {
     let query = match query {
         Some(query) if !keys.is_empty() && !query.is_empty() => query,
@@ -153,9 +125,7 @@ pub fn query_sequences<'a>(
 
 /// Put each sequence query key in the Python query dict as a list of its values.
 pub fn set_query_sequences(
-    py: Python<'_>,
-    query_dict: &Bound<'_, PyDict>,
-    sequences: &[(Cow<'_, str>, Vec<Cow<'_, str>>)],
+    py: Python<'_>, query_dict: &Bound<'_, PyDict>, sequences: &[(Cow<'_, str>, Vec<Cow<'_, str>>)],
 ) -> PyResult<()> {
     for (name, values) in sequences {
         query_dict.set_item(name, pyo3::types::PyList::new(py, values)?)?;
@@ -204,20 +174,12 @@ fn too_long_detail(label: &str, name: &str, len: usize, max_length: usize) -> St
 
 #[cold]
 fn too_long_msg(len: usize, max_length: usize) -> String {
-    format!(
-        "Parameter too long: {} bytes (max {} bytes)",
-        len, max_length
-    )
+    format!("Parameter too long: {} bytes (max {} bytes)", len, max_length)
 }
 
 #[inline]
 fn coerce_into<'t>(
-    coerced_values: &mut CoercedValues<'t>,
-    name: &'t str,
-    value: &str,
-    type_hint: u8,
-    max_length: usize,
-    label: &str,
+    coerced_values: &mut CoercedValues<'t>, name: &'t str, value: &str, type_hint: u8, max_length: usize, label: &str,
 ) -> Result<(), HttpResponse> {
     if type_hint == TYPE_STRING {
         return Ok(());
@@ -237,11 +199,7 @@ fn coerce_into<'t>(
 /// The error is the 422 detail text, prefixed with `label` and `name`.
 #[inline]
 pub fn coerce_declared_value(
-    name: &str,
-    value: &str,
-    types: &TypeHints,
-    max_length: usize,
-    label: &str,
+    name: &str, value: &str, types: &TypeHints, max_length: usize, label: &str,
 ) -> Result<Option<CoercedValue>, String> {
     match types.get(name) {
         Some(&type_hint) if type_hint != TYPE_STRING => coerce_param(value, type_hint, max_length)
@@ -258,11 +216,7 @@ pub fn coerce_declared_value(
 /// checks only a value that it does not coerce. The error is the detail text.
 #[inline]
 pub fn coerce_param_value(
-    name: &str,
-    value: &str,
-    types: &TypeHints,
-    max_length: usize,
-    label: &str,
+    name: &str, value: &str, types: &TypeHints, max_length: usize, label: &str,
 ) -> Result<Option<CoercedValue>, String> {
     let coerced = coerce_declared_value(name, value, types, max_length, label)?;
     if coerced.is_none() && value.len() > max_length {
@@ -276,12 +230,7 @@ pub fn coerce_param_value(
 /// A bad typed value is a `ValueError`, which rejects the upgrade. Values with
 /// no type hint stay strings and get no length check, as before.
 pub fn set_declared_item(
-    py: Python<'_>,
-    dict: &Bound<'_, PyDict>,
-    name: &str,
-    value: &str,
-    types: &TypeHints,
-    max_length: usize,
+    py: Python<'_>, dict: &Bound<'_, PyDict>, name: &str, value: &str, types: &TypeHints, max_length: usize,
     label: &str,
 ) -> PyResult<()> {
     let coerced = coerce_declared_value(name, value, types, max_length, label);
@@ -293,12 +242,7 @@ pub fn set_declared_item(
 /// A value that is too long or a bad typed value is a `ValueError`.
 /// The error rejects the upgrade, as a header or cookie error does.
 pub fn set_param_item(
-    py: Python<'_>,
-    dict: &Bound<'_, PyDict>,
-    name: &str,
-    value: &str,
-    types: &TypeHints,
-    max_length: usize,
+    py: Python<'_>, dict: &Bound<'_, PyDict>, name: &str, value: &str, types: &TypeHints, max_length: usize,
     label: &str,
 ) -> PyResult<()> {
     let coerced = coerce_param_value(name, value, types, max_length, label);
@@ -307,11 +251,7 @@ pub fn set_param_item(
 
 #[inline]
 fn set_coerced_item(
-    py: Python<'_>,
-    dict: &Bound<'_, PyDict>,
-    name: &str,
-    value: &str,
-    coerced: Result<Option<CoercedValue>, String>,
+    py: Python<'_>, dict: &Bound<'_, PyDict>, name: &str, value: &str, coerced: Result<Option<CoercedValue>, String>,
 ) -> PyResult<()> {
     match coerced {
         Ok(Some(coerced)) => dict.set_item(name, coerced_value_to_py(py, &coerced)?),
@@ -345,10 +285,7 @@ pub fn header_str(value: &HeaderValue) -> Option<&str> {
 /// so we skip the redundant to_ascii_lowercase() call (~50ns saved per header)
 /// OPTIMIZATION: #[inline] on hot path - called on every request
 #[inline]
-pub fn extract_headers(
-    req: &HttpRequest,
-    max_header_size: usize,
-) -> Result<AHashMap<String, String>, HttpResponse> {
+pub fn extract_headers(req: &HttpRequest, max_header_size: usize) -> Result<AHashMap<String, String>, HttpResponse> {
     const MAX_HEADERS: usize = 100;
     let mut headers: AHashMap<String, String> = AHashMap::with_capacity(16);
     let mut header_count = 0;
@@ -370,10 +307,7 @@ pub fn extract_headers(
 }
 
 /// Validate every header but copy only repeated Cookie lines.
-pub fn extract_cookie_header(
-    req: &HttpRequest,
-    max_header_size: usize,
-) -> Result<Option<Cow<'_, str>>, HttpResponse> {
+pub fn extract_cookie_header(req: &HttpRequest, max_header_size: usize) -> Result<Option<Cow<'_, str>>, HttpResponse> {
     let mut cookie: Option<Cow<'_, str>> = None;
     for (index, (name, value)) in req.headers().iter().enumerate() {
         if index >= 100 {
@@ -423,12 +357,8 @@ pub fn insert_header_line(headers: &mut AHashMap<String, String>, name: &str, va
 /// Build HTTP 422 response for validation errors
 pub fn build_validation_error_response(error: &ValidationError) -> HttpResponse {
     let body = serde_json::json!({ "detail": [error.to_json()] });
-    let response = HttpResponse::UnprocessableEntity()
-        .content_type("application/json")
-        .body(body.to_string());
-    crate::error::with_error_info(response, || {
-        responses::validation_info(serde_json::json!([error.to_json()]))
-    })
+    let response = HttpResponse::UnprocessableEntity().content_type("application/json").body(body.to_string());
+    crate::error::with_error_info(response, || responses::validation_info(serde_json::json!([error.to_json()])))
 }
 
 #[cfg(test)]
@@ -472,30 +402,15 @@ mod tests {
     fn query_sequences_checks_the_length_of_each_value() {
         let keys: AHashSet<String> = ["tag".to_string()].into_iter().collect();
         let sequences = query_sequences(Some("tag=abc&tag=de"), &keys, 3).unwrap();
-        assert_eq!(
-            sequences,
-            vec![(Cow::from("tag"), vec![Cow::from("abc"), Cow::from("de")])]
-        );
-        let detail = query_sequences(Some("tag=abcd&tag=a"), &keys, 3)
-            .unwrap_err()
-            .to_string();
-        assert_eq!(
-            detail,
-            "Query parameter 'tag': Parameter too long: 4 bytes (max 3 bytes)"
-        );
+        assert_eq!(sequences, vec![(Cow::from("tag"), vec![Cow::from("abc"), Cow::from("de")])]);
+        let detail = query_sequences(Some("tag=abcd&tag=a"), &keys, 3).unwrap_err().to_string();
+        assert_eq!(detail, "Query parameter 'tag': Parameter too long: 4 bytes (max 3 bytes)");
         assert!(query_sequences(None, &keys, 3).unwrap().is_empty());
-        assert!(
-            query_sequences(Some("tag=abcd"), &Default::default(), 3)
-                .unwrap()
-                .is_empty()
-        );
+        assert!(query_sequences(Some("tag=abcd"), &Default::default(), 3).unwrap().is_empty());
     }
 
     fn values(pairs: &[(&str, &str)]) -> AHashMap<String, String> {
-        pairs
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
+        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
     }
 
     fn path_values<'a>(pairs: &[(&'a str, &'a str)]) -> PathParams<'a> {
@@ -530,11 +445,7 @@ mod tests {
     #[test]
     fn source_coerces_only_typed_values() {
         // Fewer types than values: the loop walks the types.
-        let headers = values(&[
-            ("x-count", "5"),
-            ("x-debug", "yes"),
-            ("accept", "text/html"),
-        ]);
+        let headers = values(&[("x-count", "5"), ("x-debug", "yes"), ("accept", "text/html")]);
         let hints = types(&[("x-count", TYPE_INT), ("x-debug", TYPE_BOOL)]);
         let mut coerced = validate_and_cache_source(&headers, &hints, 64, "Header").unwrap();
         coerced.sort_by_key(|(name, _)| *name);
@@ -578,66 +489,40 @@ mod tests {
         let long = "a".repeat(65);
         // More values than types: the length loop runs on its own.
         let cookies = values(&[("a", "1"), ("b", "2"), ("session", &long)]);
-        let response =
-            validate_and_cache_source(&cookies, &types(&[("a", TYPE_INT)]), 64, "Cookie")
-                .unwrap_err();
+        let response = validate_and_cache_source(&cookies, &types(&[("a", TYPE_INT)]), 64, "Cookie").unwrap_err();
         assert!(detail(response).contains("Cookie 'session': Parameter too long"));
         // No more values than types: the length check runs in the value loop.
         let single = values(&[("session", &long)]);
-        let response = validate_and_cache_source(&single, &types(&[("a", TYPE_INT)]), 64, "Cookie")
-            .unwrap_err();
+        let response = validate_and_cache_source(&single, &types(&[("a", TYPE_INT)]), 64, "Cookie").unwrap_err();
         assert!(detail(response).contains("Cookie 'session': Parameter too long"));
     }
 
     #[test]
     fn declared_value_skips_string_and_unknown_names() {
         let hints = types(&[("x-name", TYPE_STRING)]);
-        assert!(
-            coerce_declared_value("x-name", "1", &hints, 64, "Header")
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            coerce_declared_value("other", "1", &hints, 64, "Header")
-                .unwrap()
-                .is_none()
-        );
+        assert!(coerce_declared_value("x-name", "1", &hints, 64, "Header").unwrap().is_none());
+        assert!(coerce_declared_value("other", "1", &hints, 64, "Header").unwrap().is_none());
     }
 
     #[test]
     fn param_value_rejects_bad_typed_value_with_label_and_name() {
         let hints = types(&[("limit", TYPE_INT)]);
         let detail = coerce_param_value("limit", "abc", &hints, 64, "Query parameter").unwrap_err();
-        assert!(
-            detail.starts_with("Query parameter 'limit': Invalid integer 'abc'"),
-            "{detail}"
-        );
+        assert!(detail.starts_with("Query parameter 'limit': Invalid integer 'abc'"), "{detail}");
         assert!(matches!(
             coerce_param_value("limit", "7", &hints, 64, "Query parameter"),
             Ok(Some(CoercedValue::Int(7)))
         ));
-        let detail = coerce_param_value("limit", &"1".repeat(65), &hints, 64, "Query parameter")
-            .unwrap_err();
-        assert_eq!(
-            detail,
-            "Query parameter 'limit': Parameter too long: 65 bytes (max 64 bytes)"
-        );
+        let detail = coerce_param_value("limit", &"1".repeat(65), &hints, 64, "Query parameter").unwrap_err();
+        assert_eq!(detail, "Query parameter 'limit': Parameter too long: 65 bytes (max 64 bytes)");
     }
 
     #[test]
     fn param_value_checks_length_of_untyped_value() {
         let hints = types(&[]);
-        assert!(
-            coerce_param_value("q", "short", &hints, 64, "Path parameter")
-                .unwrap()
-                .is_none()
-        );
-        let detail =
-            coerce_param_value("q", &"a".repeat(65), &hints, 64, "Path parameter").unwrap_err();
-        assert_eq!(
-            detail,
-            "Path parameter 'q': Parameter too long: 65 bytes (max 64 bytes)"
-        );
+        assert!(coerce_param_value("q", "short", &hints, 64, "Path parameter").unwrap().is_none());
+        let detail = coerce_param_value("q", &"a".repeat(65), &hints, 64, "Path parameter").unwrap_err();
+        assert_eq!(detail, "Path parameter 'q': Parameter too long: 65 bytes (max 64 bytes)");
     }
 
     #[test]
@@ -645,12 +530,10 @@ mod tests {
         let hints = types(&[("id", TYPE_INT)]);
         let none = types(&[]);
         let bad = path_values(&[("id", "x")]);
-        let response =
-            validate_and_cache_typed_params(Some(&bad), None, &hints, &none, 64).unwrap_err();
+        let response = validate_and_cache_typed_params(Some(&bad), None, &hints, &none, 64).unwrap_err();
         assert!(detail(response).contains("Path parameter 'id'"));
         let bad_query = crate::router::parse_query_string("id=x");
-        let response =
-            validate_and_cache_typed_params(None, Some(&bad_query), &none, &hints, 64).unwrap_err();
+        let response = validate_and_cache_typed_params(None, Some(&bad_query), &none, &hints, 64).unwrap_err();
         assert!(detail(response).contains("Query parameter 'id'"));
     }
 
@@ -660,14 +543,8 @@ mod tests {
         let query_hints = types(&[]);
         let path = path_values(&[("id", "5")]);
         let query = crate::router::parse_query_string("id=x");
-        let (path_coerced, query_coerced) = validate_and_cache_typed_params(
-            Some(&path),
-            Some(&query),
-            &path_hints,
-            &query_hints,
-            64,
-        )
-        .unwrap();
+        let (path_coerced, query_coerced) =
+            validate_and_cache_typed_params(Some(&path), Some(&query), &path_hints, &query_hints, 64).unwrap();
         assert!(matches!(path_coerced[..], [("id", CoercedValue::Int(5))]));
         assert!(query_coerced.is_empty());
     }
@@ -677,31 +554,21 @@ mod tests {
         let max = "a".repeat(64);
         // More values than types.
         let cookies = values(&[("a", "1"), ("session", &max)]);
-        assert!(
-            validate_and_cache_source(&cookies, &types(&[("a", TYPE_INT)]), 64, "Cookie").is_ok()
-        );
+        assert!(validate_and_cache_source(&cookies, &types(&[("a", TYPE_INT)]), 64, "Cookie").is_ok());
         // No more values than types.
         let single = values(&[("session", &max)]);
-        assert!(
-            validate_and_cache_source(&single, &types(&[("a", TYPE_INT)]), 64, "Cookie").is_ok()
-        );
+        assert!(validate_and_cache_source(&single, &types(&[("a", TYPE_INT)]), 64, "Cookie").is_ok());
     }
 
     #[test]
     fn param_value_accepts_an_untyped_value_of_max_length() {
         let value = "a".repeat(64);
-        assert!(
-            coerce_param_value("q", &value, &types(&[]), 64, "Path parameter")
-                .unwrap()
-                .is_none()
-        );
+        assert!(coerce_param_value("q", &value, &types(&[]), 64, "Path parameter").unwrap().is_none());
     }
 
     fn request_with_headers(count: usize) -> HttpRequest {
         (0..count)
-            .fold(actix_web::test::TestRequest::default(), |request, i| {
-                request.append_header((format!("x-h{i}"), "v"))
-            })
+            .fold(actix_web::test::TestRequest::default(), |request, i| request.append_header((format!("x-h{i}"), "v")))
             .to_http_request()
     }
 
@@ -712,10 +579,9 @@ mod tests {
         assert!(extract_cookie_header(&request, 1024).is_ok());
 
         let request = request_with_headers(101);
-        for response in [
-            extract_headers(&request, 1024).unwrap_err(),
-            extract_cookie_header(&request, 1024).unwrap_err(),
-        ] {
+        for response in
+            [extract_headers(&request, 1024).unwrap_err(), extract_cookie_header(&request, 1024).unwrap_err()]
+        {
             assert_eq!(response.status(), 400);
             let body = response.into_body().try_into_bytes().unwrap();
             assert_eq!(&body[..], responses::ERROR_BODY_400_HEADERS);
@@ -730,20 +596,12 @@ mod tests {
             .append_header(("x-tag", "c".repeat(16)))
             .to_http_request();
         assert_eq!(extract_headers(&request, 16).unwrap()["cookie"], max);
-        assert_eq!(
-            extract_cookie_header(&request, 16).unwrap().as_deref(),
-            Some(max.as_str())
-        );
+        assert_eq!(extract_cookie_header(&request, 16).unwrap().as_deref(), Some(max.as_str()));
 
         for over in [("cookie", format!("{max}c")), ("x-tag", "c".repeat(17))] {
-            let request = actix_web::test::TestRequest::default()
-                .append_header(over)
-                .to_http_request();
+            let request = actix_web::test::TestRequest::default().append_header(over).to_http_request();
             assert_eq!(extract_headers(&request, 16).unwrap_err().status(), 400);
-            assert_eq!(
-                extract_cookie_header(&request, 16).unwrap_err().status(),
-                400
-            );
+            assert_eq!(extract_cookie_header(&request, 16).unwrap_err().status(), 400);
         }
     }
     /// The JSON body of a response.
@@ -754,21 +612,12 @@ mod tests {
 
     #[test]
     fn a_param_error_gives_a_422_that_names_its_source_and_value() {
-        let error = ParamError {
-            label: "Query parameter",
-            name: "page".to_string(),
-            msg: "Expected an integer".to_string(),
-        };
+        let error =
+            ParamError { label: "Query parameter", name: "page".to_string(), msg: "Expected an integer".to_string() };
         let response = error.into_response();
         assert_eq!(response.status(), 422);
-        assert_eq!(
-            response.headers().get("content-type").unwrap(),
-            "application/json"
-        );
-        assert_eq!(
-            json_body(response),
-            serde_json::json!({"detail": "Query parameter 'page': Expected an integer"})
-        );
+        assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+        assert_eq!(json_body(response), serde_json::json!({"detail": "Query parameter 'page': Expected an integer"}));
     }
 
     #[test]
@@ -776,13 +625,7 @@ mod tests {
         let error = ValidationError::file_too_large("upload", 10, 20);
         let response = build_validation_error_response(&error);
         assert_eq!(response.status(), 422);
-        assert_eq!(
-            response.headers().get("content-type").unwrap(),
-            "application/json"
-        );
-        assert_eq!(
-            json_body(response),
-            serde_json::json!({"detail": [error.to_json()]})
-        );
+        assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+        assert_eq!(json_body(response), serde_json::json!({"detail": [error.to_json()]}));
     }
 }

@@ -16,12 +16,7 @@ from .backends import (
 )
 
 # Permission guards
-from .guards import (
-    AllowAny,
-    IsAuthenticated,
-    Requires,
-    get_default_permission_classes,
-)
+from .guards import AllowAny, IsAuthenticated, Requires, get_default_permission_classes
 
 # JWT utilities for Django User integration
 from .jwt_utils import (
@@ -49,20 +44,10 @@ from .revocation import (
 from .token import Token
 
 # Access + refresh token lifecycle
-from .tokens import (
-    TokenPair,
-    TokenRotationError,
-    create_token_pair,
-    rotate_refresh_token,
-    set_token_cookies,
-)
+from .tokens import TokenPair, TokenRotationError, create_token_pair, rotate_refresh_token, set_token_cookies
 
 # User loading for request.user
-from .user_loader import (
-    get_registered_backend,
-    load_user,
-    register_auth_backend,
-)
+from .user_loader import get_registered_backend, load_user, register_auth_backend
 from .views import JWTAuthViews, LoginCredentials
 
 __all__ = [

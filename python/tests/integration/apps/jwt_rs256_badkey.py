@@ -20,9 +20,7 @@ async def health():
 
 
 @api.get(
-    "/whoami",
-    auth=[JWTAuthentication(public_key="not-a-valid-pem", algorithms=["RS256"])],
-    guards=[IsAuthenticated()],
+    "/whoami", auth=[JWTAuthentication(public_key="not-a-valid-pem", algorithms=["RS256"])], guards=[IsAuthenticated()]
 )
 async def whoami(request):
     return {"user_id": request["context"]["user_id"]}

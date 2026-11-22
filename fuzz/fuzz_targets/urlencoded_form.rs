@@ -9,14 +9,7 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|body: &[u8]| {
     // One field of each type, with a one-letter name that the fuzzer finds fast.
-    let type_hints: HashMap<String, u8> = ('a'..='j')
-        .zip(1u8..)
-        .map(|(name, type_hint)| (name.to_string(), type_hint))
-        .collect();
-    let _ = parse_urlencoded(
-        body,
-        &type_hints,
-        DEFAULT_MAX_PARAM_LENGTH,
-        DEFAULT_MAX_FIELDS,
-    );
+    let type_hints: HashMap<String, u8> =
+        ('a'..='j').zip(1u8..).map(|(name, type_hint)| (name.to_string(), type_hint)).collect();
+    let _ = parse_urlencoded(body, &type_hints, DEFAULT_MAX_PARAM_LENGTH, DEFAULT_MAX_FIELDS);
 });

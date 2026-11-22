@@ -13,11 +13,7 @@ import inspect
 
 import msgspec
 
-from freeman._kwargs.extractors import (
-    _collect_sequence_field_names,
-    _create_param_struct_extractor,
-    _is_sequence_field,
-)
+from freeman._kwargs.extractors import _collect_sequence_field_names, _create_param_struct_extractor, _is_sequence_field
 from freeman.datastructures import UploadFile
 
 # ---------------------------------------------------------------------------
@@ -313,12 +309,7 @@ class TestCreateParamStructExtractorScalarWrapping:
         extractor = self._make_extractor(Form)
         assert extractor.needs_files_map is True
 
-        file_info = {
-            "filename": "note.txt",
-            "content": b"hello",
-            "content_type": "text/plain",
-            "size": 5,
-        }
+        file_info = {"filename": "note.txt", "content": b"hello", "content_type": "text/plain", "size": 5}
         result = extractor({"tags": "solo"}, {"upload": file_info})
 
         assert result.tags == ["solo"]

@@ -60,11 +60,7 @@ impl<S> LimitedPayload<S> {
     /// Wrap `inner`. The returned flag is true after the body passes `limit`.
     pub fn new(inner: S, limit: usize) -> (Self, Rc<Cell<bool>>) {
         let exceeded = Rc::new(Cell::new(false));
-        let stream = Self {
-            inner,
-            remaining: limit,
-            exceeded: Rc::clone(&exceeded),
-        };
+        let stream = Self { inner, remaining: limit, exceeded: Rc::clone(&exceeded) };
         (stream, exceeded)
     }
 }
@@ -154,10 +150,7 @@ impl ValidationError {
 
     pub fn invalid_content_type(field: &str, allowed_types: &[String], actual_type: &str) -> Self {
         let mut ctx = HashMap::new();
-        ctx.insert(
-            "allowed_types".to_string(),
-            serde_json::json!(allowed_types),
-        );
+        ctx.insert("allowed_types".to_string(), serde_json::json!(allowed_types));
         ctx.insert("actual_type".to_string(), serde_json::json!(actual_type));
         ValidationError {
             error_type: "file_invalid_content_type".to_string(),
@@ -181,10 +174,7 @@ impl ValidationError {
 
     pub fn type_coercion_error(field: &str, expected_type: &str, error_msg: &str) -> Self {
         let mut ctx = HashMap::new();
-        ctx.insert(
-            "expected_type".to_string(),
-            serde_json::json!(expected_type),
-        );
+        ctx.insert("expected_type".to_string(), serde_json::json!(expected_type));
         ctx.insert("error".to_string(), serde_json::json!(error_msg));
         ValidationError {
             error_type: "type_error".to_string(),
@@ -290,10 +280,7 @@ pub struct FormParseResult {
 /// assert!(matches!(result.get("age").unwrap(), FormValue::Single(_)));
 /// ```
 pub fn parse_urlencoded(
-    body: &[u8],
-    type_hints: &HashMap<String, u8>,
-    max_param_length: usize,
-    max_fields: usize,
+    body: &[u8], type_hints: &HashMap<String, u8>, max_param_length: usize, max_fields: usize,
 ) -> Result<HashMap<String, FormValue>, ValidationError> {
     let mut result: HashMap<String, FormValue> = HashMap::new();
 
@@ -307,9 +294,8 @@ pub fn parse_urlencoded(
             });
         }
         let type_hint = type_hints.get(key.as_ref()).copied().unwrap_or(TYPE_STRING);
-        let coerced = coerce_param(&value, type_hint, max_param_length).map_err(|e| {
-            ValidationError::type_coercion_error(&key, type_hint_name(type_hint), &e.to_string())
-        })?;
+        let coerced = coerce_param(&value, type_hint, max_param_length)
+            .map_err(|e| ValidationError::type_coercion_error(&key, type_hint_name(type_hint), &e.to_string()))?;
 
         match result.entry(key.into_owned()) {
             std::collections::hash_map::Entry::Vacant(e) => {
@@ -372,14 +358,8 @@ pub fn parse_urlencoded(
     reason = "each limit is a separate setting, and the hot path passes them without a struct"
 )]
 pub async fn parse_multipart(
-    mut payload: Multipart,
-    type_hints: &HashMap<String, u8>,
-    file_constraints: &HashMap<String, FileFieldConstraints>,
-    max_upload_size: usize,
-    memory_limit: usize,
-    max_parts: usize,
-    max_param_length: usize,
-    max_total_size: usize,
+    mut payload: Multipart, type_hints: &HashMap<String, u8>, file_constraints: &HashMap<String, FileFieldConstraints>,
+    max_upload_size: usize, memory_limit: usize, max_parts: usize, max_param_length: usize, max_total_size: usize,
 ) -> Result<FormParseResult, ValidationError> {
     let mut form_map: HashMap<String, FormValue> = HashMap::new();
     let mut files_map: HashMap<String, Vec<FileInfo>> = HashMap::new();
@@ -414,29 +394,18 @@ pub async fn parse_multipart(
             continue;
         };
 
-        let field_name = content_disposition
-            .get_name()
-            .unwrap_or("unknown")
-            .to_string();
+        let field_name = content_disposition.get_name().unwrap_or("unknown").to_string();
 
         // Check if it's a file upload (has filename)
         if let Some(filename) = content_disposition.get_filename() {
             let filename = filename.to_string();
-            let content_type = field
-                .content_type()
-                .map(|m| m.to_string())
-                .unwrap_or_else(|| "application/octet-stream".to_string());
+            let content_type =
+                field.content_type().map(|m| m.to_string()).unwrap_or_else(|| "application/octet-stream".to_string());
 
             // Read file content with size limit and disk spooling
-            let file_info = read_file_content(
-                &mut field,
-                &field_name,
-                &filename,
-                &content_type,
-                max_upload_size,
-                memory_limit,
-            )
-            .await?;
+            let file_info =
+                read_file_content(&mut field, &field_name, &filename, &content_type, max_upload_size, memory_limit)
+                    .await?;
 
             // Enforce aggregate payload limit across all parts. checked_add so a
             // pathological size can't wrap; overflow is treated as over-limit.
@@ -451,10 +420,7 @@ pub async fn parse_multipart(
             }
 
             // Add to files_map
-            files_map
-                .entry(field_name.clone())
-                .or_default()
-                .push(file_info);
+            files_map.entry(field_name.clone()).or_default().push(file_info);
 
             // Validate max_files constraint
             if let Some(constraints) = file_constraints.get(&field_name)
@@ -462,11 +428,7 @@ pub async fn parse_multipart(
             {
                 let count = files_map.get(&field_name).map(|v| v.len()).unwrap_or(0);
                 if count > max_files {
-                    return Err(ValidationError::too_many_files(
-                        &field_name,
-                        max_files,
-                        count,
-                    ));
+                    return Err(ValidationError::too_many_files(&field_name, max_files, count));
                 }
             }
         } else {
@@ -486,11 +448,8 @@ pub async fn parse_multipart(
                     return Err(ValidationError::type_coercion_error(
                         &field_name,
                         type_hint_name(type_hint),
-                        &CoerceError::TooLong {
-                            len: value_bytes.len() + data.len(),
-                            max: max_param_length,
-                        }
-                        .to_string(),
+                        &CoerceError::TooLong { len: value_bytes.len() + data.len(), max: max_param_length }
+                            .to_string(),
                     ));
                 }
                 // Enforce aggregate payload limit incrementally so an unbounded
@@ -506,11 +465,7 @@ pub async fn parse_multipart(
 
             // Type coercion
             let coerced = coerce_param(&value, type_hint, max_param_length).map_err(|e| {
-                ValidationError::type_coercion_error(
-                    &field_name,
-                    type_hint_name(type_hint),
-                    &e.to_string(),
-                )
+                ValidationError::type_coercion_error(&field_name, type_hint_name(type_hint), &e.to_string())
             })?;
 
             // Preserve duplicate keys (e.g. multi-select) as FormValue::Multi.
@@ -526,19 +481,12 @@ pub async fn parse_multipart(
         }
     }
 
-    Ok(FormParseResult {
-        form_map,
-        files_map,
-    })
+    Ok(FormParseResult { form_map, files_map })
 }
 
 /// Read file content with disk spooling for large files
 async fn read_file_content(
-    field: &mut actix_multipart::Field,
-    field_name: &str,
-    filename: &str,
-    content_type: &str,
-    max_size: usize,
+    field: &mut actix_multipart::Field, field_name: &str, filename: &str, content_type: &str, max_size: usize,
     memory_limit: usize,
 ) -> Result<FileInfo, ValidationError> {
     let mut size: usize = 0;
@@ -596,53 +544,32 @@ async fn read_file_content(
         }
     }
 
-    let content = if let Some(tf) = temp_file {
-        FileContent::Disk(tf)
-    } else {
-        FileContent::Memory(buffer)
-    };
+    let content = if let Some(tf) = temp_file { FileContent::Disk(tf) } else { FileContent::Memory(buffer) };
 
-    Ok(FileInfo {
-        filename: filename.to_string(),
-        content,
-        content_type: content_type.to_string(),
-        size,
-    })
+    Ok(FileInfo { filename: filename.to_string(), content, content_type: content_type.to_string(), size })
 }
 
 /// Validate a file against constraints
-fn validate_file(
-    file: &FileInfo,
-    field_name: &str,
-    constraints: &FileFieldConstraints,
-) -> Result<(), ValidationError> {
+fn validate_file(file: &FileInfo, field_name: &str, constraints: &FileFieldConstraints) -> Result<(), ValidationError> {
     // Check max_size
     if let Some(max_size) = constraints.max_size
         && file.size > max_size
     {
-        return Err(ValidationError::file_too_large(
-            field_name, max_size, file.size,
-        ));
+        return Err(ValidationError::file_too_large(field_name, max_size, file.size));
     }
 
     // Check min_size
     if let Some(min_size) = constraints.min_size
         && file.size < min_size
     {
-        return Err(ValidationError::file_too_small(
-            field_name, min_size, file.size,
-        ));
+        return Err(ValidationError::file_too_small(field_name, min_size, file.size));
     }
 
     // Check allowed_types with wildcard matching
     if let Some(ref allowed_types) = constraints.allowed_types
         && !is_content_type_allowed(&file.content_type, allowed_types)
     {
-        return Err(ValidationError::invalid_content_type(
-            field_name,
-            allowed_types,
-            &file.content_type,
-        ));
+        return Err(ValidationError::invalid_content_type(field_name, allowed_types, &file.content_type));
     }
 
     Ok(())
@@ -732,12 +659,7 @@ mod tests {
         assert_eq!(error.error_type, "too_many_fields");
         assert_eq!(error.msg, "Too many form fields (max 2)");
         // The parser stops at the extra field, before it checks its value.
-        assert_eq!(
-            parse(b"a=1&b=2&c=too-long-value")
-                .err()
-                .map(|e| e.error_type),
-            Some("too_many_fields".to_string())
-        );
+        assert_eq!(parse(b"a=1&b=2&c=too-long-value").err().map(|e| e.error_type), Some("too_many_fields".to_string()));
     }
 
     #[test]
@@ -748,26 +670,16 @@ mod tests {
         type_hints.insert("age".to_string(), crate::type_coercion::TYPE_INT);
         type_hints.insert("active".to_string(), crate::type_coercion::TYPE_BOOL);
 
-        let result = parse_urlencoded(
-            &body,
-            &type_hints,
-            crate::type_coercion::DEFAULT_MAX_PARAM_LENGTH,
-            DEFAULT_MAX_FIELDS,
-        )
-        .unwrap();
+        let result =
+            parse_urlencoded(&body, &type_hints, crate::type_coercion::DEFAULT_MAX_PARAM_LENGTH, DEFAULT_MAX_FIELDS)
+                .unwrap();
 
         assert!(matches!(
             result.get("name"),
             Some(FormValue::Single(CoercedValue::String(s))) if s == "John"
         ));
-        assert!(matches!(
-            result.get("age"),
-            Some(FormValue::Single(CoercedValue::Int(30)))
-        ));
-        assert!(matches!(
-            result.get("active"),
-            Some(FormValue::Single(CoercedValue::Bool(true)))
-        ));
+        assert!(matches!(result.get("age"), Some(FormValue::Single(CoercedValue::Int(30)))));
+        assert!(matches!(result.get("active"), Some(FormValue::Single(CoercedValue::Bool(true)))));
     }
 
     /// Ensures repeated URL-encoded form keys are accumulated as `FormValue::Multi` and single-occurrence keys remain `FormValue::Single`.
@@ -803,13 +715,9 @@ mod tests {
         let body = Bytes::from("tag=a&tag=b&tag=c&name=John");
         let type_hints = HashMap::new();
 
-        let result = parse_urlencoded(
-            &body,
-            &type_hints,
-            crate::type_coercion::DEFAULT_MAX_PARAM_LENGTH,
-            DEFAULT_MAX_FIELDS,
-        )
-        .unwrap();
+        let result =
+            parse_urlencoded(&body, &type_hints, crate::type_coercion::DEFAULT_MAX_PARAM_LENGTH, DEFAULT_MAX_FIELDS)
+                .unwrap();
 
         match result.get("tag") {
             Some(FormValue::Multi(v)) => {
@@ -859,8 +767,7 @@ mod tests {
         type Item = Result<Bytes, actix_web::error::PayloadError>;
 
         fn poll_next(
-            self: std::pin::Pin<&mut Self>,
-            cx: &mut std::task::Context<'_>,
+            self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>,
         ) -> std::task::Poll<Option<Self::Item>> {
             let this = self.get_mut();
             if this.yield_pending {
@@ -871,8 +778,7 @@ mod tests {
             }
             match this.chunks.pop_front() {
                 Some(chunk) => {
-                    this.consumed
-                        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    this.consumed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     this.yield_pending = true;
                     std::task::Poll::Ready(Some(Ok(chunk)))
                 }
@@ -899,10 +805,7 @@ mod tests {
         let n_data_chunks = 200usize;
         let max_param_length = 1000usize;
 
-        let header = format!(
-            "--{b}\r\nContent-Disposition: form-data; name=\"value\"\r\n\r\n",
-            b = boundary
-        );
+        let header = format!("--{b}\r\nContent-Disposition: form-data; name=\"value\"\r\n\r\n", b = boundary);
         let closing = format!("\r\n--{b}--\r\n", b = boundary);
 
         let mut chunks: VecDeque<Bytes> = VecDeque::new();
@@ -914,26 +817,16 @@ mod tests {
         let total_chunks = chunks.len();
 
         let consumed = Arc::new(AtomicUsize::new(0));
-        let stream = CountingStream {
-            chunks,
-            consumed: Arc::clone(&consumed),
-            yield_pending: false,
-        };
+        let stream = CountingStream { chunks, consumed: Arc::clone(&consumed), yield_pending: false };
 
         let mut headers = HeaderMap::new();
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_static("multipart/form-data; boundary=TESTBOUNDARY"),
-        );
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("multipart/form-data; boundary=TESTBOUNDARY"));
 
         let multipart = Multipart::new(&headers, stream);
         let type_hints: HashMap<String, u8> = HashMap::new();
         let file_constraints: HashMap<String, FileFieldConstraints> = HashMap::new();
 
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
         let result = runtime.block_on(parse_multipart(
             multipart,
             &type_hints,
@@ -950,11 +843,7 @@ mod tests {
             Ok(_) => panic!("oversized field should be rejected"),
             Err(e) => e,
         };
-        assert!(
-            err.msg.contains("Parameter too long"),
-            "unexpected error message: {}",
-            err.msg
-        );
+        assert!(err.msg.contains("Parameter too long"), "unexpected error message: {}", err.msg);
 
         // Crucially: it aborted *before* draining the whole field — far fewer
         // chunks consumed than were provided.
@@ -989,9 +878,7 @@ mod tests {
     const BOUNDARY: &str = "LIMITBOUNDARY";
 
     fn text_part(name: &str, value: &[u8]) -> Vec<u8> {
-        let mut part =
-            format!("--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n")
-                .into_bytes();
+        let mut part = format!("--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n").into_bytes();
         part.extend_from_slice(value);
         part.extend_from_slice(b"\r\n");
         part
@@ -1009,26 +896,17 @@ mod tests {
 
     /// Parse `parts` as one multipart body that arrives in one chunk.
     fn parse_parts(
-        parts: &[Vec<u8>],
-        file_constraints: &HashMap<String, FileFieldConstraints>,
-        limits: &Limits,
+        parts: &[Vec<u8>], file_constraints: &HashMap<String, FileFieldConstraints>, limits: &Limits,
     ) -> Result<FormParseResult, ValidationError> {
         use actix_web::http::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 
         let mut body = parts.concat();
         body.extend_from_slice(format!("--{BOUNDARY}--\r\n").as_bytes());
-        let stream = futures_util::stream::iter(vec![Ok::<_, actix_web::error::PayloadError>(
-            Bytes::from(body),
-        )]);
+        let stream = futures_util::stream::iter(vec![Ok::<_, actix_web::error::PayloadError>(Bytes::from(body))]);
         let mut headers = HeaderMap::new();
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_str(&format!("multipart/form-data; boundary={BOUNDARY}")).unwrap(),
-        );
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        headers
+            .insert(CONTENT_TYPE, HeaderValue::from_str(&format!("multipart/form-data; boundary={BOUNDARY}")).unwrap());
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
         runtime.block_on(parse_multipart(
             Multipart::new(&headers, stream),
             &HashMap::new(),
@@ -1050,36 +928,17 @@ mod tests {
 
     #[test]
     fn multipart_accepts_max_parts_and_rejects_one_more() {
-        let limits = Limits {
-            max_parts: 2,
-            ..Limits::default()
-        };
+        let limits = Limits { max_parts: 2, ..Limits::default() };
         let two = [text_part("a", b"1"), text_part("b", b"2")];
-        let three = [
-            text_part("a", b"1"),
-            text_part("b", b"2"),
-            text_part("c", b"3"),
-        ];
+        let three = [text_part("a", b"1"), text_part("b", b"2"), text_part("c", b"3")];
 
-        assert_eq!(
-            parse_parts(&two, &HashMap::new(), &limits)
-                .unwrap()
-                .form_map
-                .len(),
-            2
-        );
-        assert_eq!(
-            error_type(parse_parts(&three, &HashMap::new(), &limits)),
-            "too_many_parts"
-        );
+        assert_eq!(parse_parts(&two, &HashMap::new(), &limits).unwrap().form_map.len(), 2);
+        assert_eq!(error_type(parse_parts(&three, &HashMap::new(), &limits)), "too_many_parts");
     }
 
     #[test]
     fn multipart_text_field_of_max_param_length_is_accepted_and_one_more_byte_is_rejected() {
-        let limits = Limits {
-            max_param_length: 4,
-            ..Limits::default()
-        };
+        let limits = Limits { max_param_length: 4, ..Limits::default() };
 
         let accepted = parse_parts(&[text_part("value", b"abcd")], &HashMap::new(), &limits);
         assert!(matches!(
@@ -1092,10 +951,7 @@ mod tests {
             Err(error) => error,
         };
         assert_eq!(error.error_type, "type_error");
-        assert_eq!(
-            error.ctx["error"],
-            serde_json::json!(CoerceError::TooLong { len: 5, max: 4 }.to_string())
-        );
+        assert_eq!(error.ctx["error"], serde_json::json!(CoerceError::TooLong { len: 5, max: 4 }.to_string()));
     }
 
     #[test]
@@ -1105,27 +961,17 @@ mod tests {
 
         // One byte for each chunk, so the field grows by one byte at a time.
         let mut chunks: VecDeque<Bytes> = VecDeque::new();
-        chunks.push_back(Bytes::from(format!(
-            "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"value\"\r\n\r\n"
-        )));
+        chunks
+            .push_back(Bytes::from(format!("--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"value\"\r\n\r\n")));
         for byte in b"abcdef" {
             chunks.push_back(Bytes::copy_from_slice(&[*byte]));
         }
         chunks.push_back(Bytes::from(format!("\r\n--{BOUNDARY}--\r\n")));
-        let stream = CountingStream {
-            chunks,
-            consumed: Default::default(),
-            yield_pending: false,
-        };
+        let stream = CountingStream { chunks, consumed: Default::default(), yield_pending: false };
         let mut headers = HeaderMap::new();
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_str(&format!("multipart/form-data; boundary={BOUNDARY}")).unwrap(),
-        );
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        headers
+            .insert(CONTENT_TYPE, HeaderValue::from_str(&format!("multipart/form-data; boundary={BOUNDARY}")).unwrap());
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
         let result = runtime.block_on(parse_multipart(
             Multipart::new(&headers, stream),
             &HashMap::new(),
@@ -1142,76 +988,41 @@ mod tests {
             Err(error) => error,
         };
         // The fourth byte is the first one over the limit.
-        assert_eq!(
-            error.ctx["error"],
-            serde_json::json!(CoerceError::TooLong { len: 4, max: 3 }.to_string())
-        );
+        assert_eq!(error.ctx["error"], serde_json::json!(CoerceError::TooLong { len: 4, max: 3 }.to_string()));
     }
 
     #[test]
     fn multipart_text_fields_count_toward_the_total_size() {
-        let limits = Limits {
-            max_total_size: 5,
-            ..Limits::default()
-        };
+        let limits = Limits { max_total_size: 5, ..Limits::default() };
         let parts = [text_part("a", b"abc"), text_part("b", b"abc")];
 
-        assert_eq!(
-            error_type(parse_parts(&parts, &HashMap::new(), &limits)),
-            ERROR_TYPE_PAYLOAD_TOO_LARGE
-        );
+        assert_eq!(error_type(parse_parts(&parts, &HashMap::new(), &limits)), ERROR_TYPE_PAYLOAD_TOO_LARGE);
     }
 
     #[test]
     fn multipart_files_count_toward_the_total_size() {
-        let limits = Limits {
-            max_total_size: 6,
-            ..Limits::default()
-        };
-        let at_limit = [
-            file_part("a", "text/plain", b"abc"),
-            file_part("b", "text/plain", b"abc"),
-        ];
-        let over_limit = [
-            file_part("a", "text/plain", b"abc"),
-            file_part("b", "text/plain", b"abcd"),
-        ];
+        let limits = Limits { max_total_size: 6, ..Limits::default() };
+        let at_limit = [file_part("a", "text/plain", b"abc"), file_part("b", "text/plain", b"abc")];
+        let over_limit = [file_part("a", "text/plain", b"abc"), file_part("b", "text/plain", b"abcd")];
 
         assert!(parse_parts(&at_limit, &HashMap::new(), &limits).is_ok());
-        assert_eq!(
-            error_type(parse_parts(&over_limit, &HashMap::new(), &limits)),
-            ERROR_TYPE_PAYLOAD_TOO_LARGE
-        );
+        assert_eq!(error_type(parse_parts(&over_limit, &HashMap::new(), &limits)), ERROR_TYPE_PAYLOAD_TOO_LARGE);
     }
 
     #[test]
     fn multipart_file_of_max_upload_size_is_accepted_and_one_more_byte_is_rejected() {
-        let limits = Limits {
-            max_upload_size: 4,
-            ..Limits::default()
-        };
+        let limits = Limits { max_upload_size: 4, ..Limits::default() };
 
-        let accepted = parse_parts(
-            &[file_part("doc", "text/plain", b"abcd")],
-            &HashMap::new(),
-            &limits,
-        );
+        let accepted = parse_parts(&[file_part("doc", "text/plain", b"abcd")], &HashMap::new(), &limits);
         assert_eq!(accepted.unwrap().files_map["doc"][0].size, 4);
 
-        let rejected = parse_parts(
-            &[file_part("doc", "text/plain", b"abcde")],
-            &HashMap::new(),
-            &limits,
-        );
+        let rejected = parse_parts(&[file_part("doc", "text/plain", b"abcde")], &HashMap::new(), &limits);
         assert_eq!(error_type(rejected), "file_too_large");
     }
 
     #[test]
     fn multipart_file_of_the_memory_limit_stays_in_memory_and_one_more_byte_goes_to_disk() {
-        let limits = Limits {
-            memory_limit: 4,
-            ..Limits::default()
-        };
+        let limits = Limits { memory_limit: 4, ..Limits::default() };
         let upload = |data: &[u8]| {
             let parts = [file_part("upload", "text/plain", data)];
             let mut parsed = parse_parts(&parts, &HashMap::new(), &limits).unwrap();
@@ -1233,24 +1044,13 @@ mod tests {
     fn multipart_file_of_its_max_size_is_accepted_and_one_more_byte_is_rejected() {
         let constraints = HashMap::from([(
             "doc".to_string(),
-            FileFieldConstraints {
-                max_size: Some(4),
-                ..FileFieldConstraints::default()
-            },
+            FileFieldConstraints { max_size: Some(4), ..FileFieldConstraints::default() },
         )]);
 
-        let accepted = parse_parts(
-            &[file_part("doc", "text/plain", b"abcd")],
-            &constraints,
-            &Limits::default(),
-        );
+        let accepted = parse_parts(&[file_part("doc", "text/plain", b"abcd")], &constraints, &Limits::default());
         assert_eq!(accepted.unwrap().files_map["doc"][0].size, 4);
 
-        let rejected = parse_parts(
-            &[file_part("doc", "text/plain", b"abcde")],
-            &constraints,
-            &Limits::default(),
-        );
+        let rejected = parse_parts(&[file_part("doc", "text/plain", b"abcde")], &constraints, &Limits::default());
         assert_eq!(error_type(rejected), "file_too_large");
     }
 
@@ -1258,24 +1058,13 @@ mod tests {
     fn multipart_file_of_its_min_size_is_accepted_and_one_less_byte_is_rejected() {
         let constraints = HashMap::from([(
             "doc".to_string(),
-            FileFieldConstraints {
-                min_size: Some(4),
-                ..FileFieldConstraints::default()
-            },
+            FileFieldConstraints { min_size: Some(4), ..FileFieldConstraints::default() },
         )]);
 
-        let accepted = parse_parts(
-            &[file_part("doc", "text/plain", b"abcd")],
-            &constraints,
-            &Limits::default(),
-        );
+        let accepted = parse_parts(&[file_part("doc", "text/plain", b"abcd")], &constraints, &Limits::default());
         assert_eq!(accepted.unwrap().files_map["doc"][0].size, 4);
 
-        let rejected = parse_parts(
-            &[file_part("doc", "text/plain", b"abc")],
-            &constraints,
-            &Limits::default(),
-        );
+        let rejected = parse_parts(&[file_part("doc", "text/plain", b"abc")], &constraints, &Limits::default());
         assert_eq!(error_type(rejected), "file_too_small");
     }
 
@@ -1283,10 +1072,7 @@ mod tests {
     fn multipart_field_with_its_max_files_is_accepted_and_one_more_file_is_rejected() {
         let constraints = HashMap::from([(
             "doc".to_string(),
-            FileFieldConstraints {
-                max_files: Some(2),
-                ..FileFieldConstraints::default()
-            },
+            FileFieldConstraints { max_files: Some(2), ..FileFieldConstraints::default() },
         )]);
         let file = || file_part("doc", "text/plain", b"abc");
 
@@ -1307,21 +1093,10 @@ mod tests {
             },
         )]);
 
-        let accepted = parse_parts(
-            &[file_part("doc", "image/png", b"abc")],
-            &constraints,
-            &Limits::default(),
-        );
-        assert_eq!(
-            accepted.unwrap().files_map["doc"][0].content_type,
-            "image/png"
-        );
+        let accepted = parse_parts(&[file_part("doc", "image/png", b"abc")], &constraints, &Limits::default());
+        assert_eq!(accepted.unwrap().files_map["doc"][0].content_type, "image/png");
 
-        let rejected = parse_parts(
-            &[file_part("doc", "text/plain", b"abc")],
-            &constraints,
-            &Limits::default(),
-        );
+        let rejected = parse_parts(&[file_part("doc", "text/plain", b"abc")], &constraints, &Limits::default());
         assert_eq!(error_type(rejected), "file_invalid_content_type");
     }
 
@@ -1367,21 +1142,12 @@ mod tests {
         }
         let total_chunks = chunks.len();
         let consumed = Arc::new(AtomicUsize::new(0));
-        let stream = CountingStream {
-            chunks,
-            consumed: Arc::clone(&consumed),
-            yield_pending: false,
-        };
+        let stream = CountingStream { chunks, consumed: Arc::clone(&consumed), yield_pending: false };
         let (limited, exceeded) = LimitedPayload::new(stream, 4096);
         let mut headers = HeaderMap::new();
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_str(&format!("multipart/form-data; boundary={BOUNDARY}")).unwrap(),
-        );
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        headers
+            .insert(CONTENT_TYPE, HeaderValue::from_str(&format!("multipart/form-data; boundary={BOUNDARY}")).unwrap());
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
         let result = runtime.block_on(parse_multipart(
             Multipart::new(&headers, limited),
             &HashMap::new(),
@@ -1402,14 +1168,9 @@ mod tests {
 
     #[test]
     fn a_limited_payload_passes_a_body_of_the_limit() {
-        let chunks = vec![
-            Ok::<_, PayloadError>(Bytes::from_static(b"abc")),
-            Ok(Bytes::from_static(b"de")),
-        ];
+        let chunks = vec![Ok::<_, PayloadError>(Bytes::from_static(b"abc")), Ok(Bytes::from_static(b"de"))];
         let (limited, exceeded) = LimitedPayload::new(futures_util::stream::iter(chunks), 5);
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread().build().unwrap();
         let items: Vec<_> = runtime.block_on(limited.collect());
         assert_eq!(items.len(), 2);
         assert!(items.iter().all(Result::is_ok));

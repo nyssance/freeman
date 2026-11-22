@@ -193,11 +193,7 @@ def get_admin_route_patterns() -> list[tuple[str, list[str]]]:
     admin_root = f"/{admin_prefix}"
     admin_root_slash = f"/{admin_prefix}/"
 
-    return [
-        (admin_root, methods),
-        (admin_root_slash, methods),
-        (admin_pattern, methods),
-    ]
+    return [(admin_root, methods), (admin_root_slash, methods), (admin_pattern, methods)]
 
 
 def get_static_url_prefix() -> str | None:
@@ -237,10 +233,7 @@ def should_enable_admin() -> bool:
         # admin only needs a SessionMiddleware in the chain (checked below),
         # which alternative backends like django-qsessions provide via a
         # subclass while replacing the sessions app in INSTALLED_APPS.
-        required_apps = [
-            "django.contrib.auth",
-            "django.contrib.contenttypes",
-        ]
+        required_apps = ["django.contrib.auth", "django.contrib.contenttypes"]
 
         for app in required_apps:
             if app not in settings.INSTALLED_APPS:

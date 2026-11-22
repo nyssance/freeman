@@ -190,10 +190,7 @@ async def reject_anonymous(request, call_next) -> dict:
 
 @pytest.mark.parametrize(
     ("method", "params"),
-    [
-        ("resources/read", {"uri": "config://app"}),
-        ("prompts/get", {"name": "greet", "arguments": {"name": "Ada"}}),
-    ],
+    [("resources/read", {"uri": "config://app"}), ("prompts/get", {"name": "greet", "arguments": {"name": "Ada"}})],
 )
 def test_middleware_rejects_a_call_with_a_jsonrpc_error(method, params):
     # MCP masks error details by default; a JsonRpcError keeps its message.

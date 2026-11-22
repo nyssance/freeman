@@ -100,10 +100,7 @@ def get_websocket_param_name(func: Callable[..., Any]) -> str | None:
 
 
 async def run_websocket_handler(
-    handler: Callable[..., Any],
-    websocket: WebSocket,
-    path_params: dict[str, str] | None = None,
-    **extra_kwargs: Any,
+    handler: Callable[..., Any], websocket: WebSocket, path_params: dict[str, str] | None = None, **extra_kwargs: Any
 ) -> None:
     """
     Run a WebSocket handler with proper parameter injection.

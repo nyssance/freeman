@@ -40,10 +40,7 @@ def client():
         return {"count": count, "type": type(count).__name__}
 
     @api.get("/swapped")
-    async def swapped(
-        p: Annotated[str, Query(alias="page")],
-        page: Annotated[int, Query(alias="p")],
-    ):
+    async def swapped(p: Annotated[str, Query(alias="page")], page: Annotated[int, Query(alias="p")]):
         return {"p": p, "page": page, "page_type": type(page).__name__}
 
     with TestClient(api) as test_client:
@@ -92,9 +89,7 @@ def test_aliased_cookie_and_header_are_read_by_their_alias():
 
     @api.get("/alias")
     async def alias(
-        request,
-        session: Annotated[str, Cookie(alias="sid")],
-        trace: Annotated[str, Header(alias="X-Trace-Id")],
+        request, session: Annotated[str, Cookie(alias="sid")], trace: Annotated[str, Header(alias="X-Trace-Id")]
     ):
         return {"session": session, "trace": trace}
 
@@ -178,19 +173,15 @@ def ws_api():
 
     @api.websocket("/ws/rooms/{id}")
     async def room(
-        websocket: WebSocket,
-        room_id: Annotated[int, Path(alias="id")],
-        page: Annotated[int, Query(alias="p")],
+        websocket: WebSocket, room_id: Annotated[int, Path(alias="id")], page: Annotated[int, Query(alias="p")]
     ):
         await websocket.accept()
-        await websocket.send_json(
-            {
-                "room_id": room_id,
-                "room_id_type": type(room_id).__name__,
-                "page": page,
-                "page_type": type(page).__name__,
-            }
-        )
+        await websocket.send_json({
+            "room_id": room_id,
+            "room_id_type": type(room_id).__name__,
+            "page": page,
+            "page_type": type(page).__name__,
+        })
 
     return api
 

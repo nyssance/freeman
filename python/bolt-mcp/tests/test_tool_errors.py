@@ -98,8 +98,7 @@ def test_resource_and_prompt_exceptions_are_logged_and_masked_by_default(method,
 
 
 @pytest.mark.parametrize(
-    ("method", "params"),
-    [("resources/read", {"uri": "config://broken"}), ("prompts/get", {"name": "broken_prompt"})],
+    ("method", "params"), [("resources/read", {"uri": "config://broken"}), ("prompts/get", {"name": "broken_prompt"})]
 )
 def test_resource_and_prompt_exception_text_is_kept_when_unmasked(method, params):
     with TestClient(_server(mask_error_details=False)) as client:

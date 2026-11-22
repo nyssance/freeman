@@ -29,9 +29,19 @@ def _normalize_datetime(value: datetime) -> datetime:
 
 
 # The claims that are Token fields. ``extras`` cannot hold them.
-_STANDARD_CLAIMS = frozenset(
-    {"exp", "sub", "iat", "iss", "aud", "jti", "nbf", "is_staff", "is_superuser", "is_admin", "permissions"}
-)
+_STANDARD_CLAIMS = frozenset({
+    "exp",
+    "sub",
+    "iat",
+    "iss",
+    "aud",
+    "jti",
+    "nbf",
+    "is_staff",
+    "is_superuser",
+    "is_admin",
+    "permissions",
+})
 
 
 @dataclass
@@ -183,12 +193,7 @@ class Token:
 
         return result
 
-    def encode(
-        self,
-        secret: str,
-        algorithm: str = "HS256",
-        headers: dict[str, Any] | None = None,
-    ) -> str:
+    def encode(self, secret: str, algorithm: str = "HS256", headers: dict[str, Any] | None = None) -> str:
         """
         Encode the token into a JWT string.
 
@@ -207,12 +212,7 @@ class Token:
             ValueError: If encoding fails
         """
         try:
-            return jwt.encode(
-                payload=self.to_dict(),
-                key=secret,
-                algorithm=algorithm,
-                headers=headers,
-            )
+            return jwt.encode(payload=self.to_dict(), key=secret, algorithm=algorithm, headers=headers)
         except Exception as e:
             raise ValueError(f"Failed to encode token: {e}") from e
 

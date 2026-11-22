@@ -59,9 +59,9 @@ def _compiled_pk_query(model: type, alias: str) -> tuple[str, list[str], _Conver
         # UUID on SQLite. Find them once, with the SELECT.
         converters = tuple(
             (position, column_converters, expression)
-            for position, (column_converters, expression) in compiler.get_converters(
-                [column for column, _sql, _alias in compiler.select]
-            ).items()
+            for position, (column_converters, expression) in compiler.get_converters([
+                column for column, _sql, _alias in compiler.select
+            ]).items()
         )
         compiled = (sql, fields, converters)
 

@@ -135,14 +135,12 @@ def main() -> None:
     reg = http(
         "POST",
         asm["registration_endpoint"],
-        data=json.dumps(
-            {
-                "client_name": "mcp-oauth-client-demo",
-                "redirect_uris": [REDIRECT_URI],
-                "grant_types": ["authorization_code", "refresh_token"],
-                "application_type": "native",
-            }
-        ).encode(),
+        data=json.dumps({
+            "client_name": "mcp-oauth-client-demo",
+            "redirect_uris": [REDIRECT_URI],
+            "grant_types": ["authorization_code", "refresh_token"],
+            "application_type": "native",
+        }).encode(),
         headers={"Content-Type": "application/json"},
     )
     reg_body = json.loads(reg.read())

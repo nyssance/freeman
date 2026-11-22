@@ -96,11 +96,7 @@ class WebSocket:
         """Client address as (host, port) tuple."""
         return self._scope.get("client")
 
-    async def accept(
-        self,
-        subprotocol: str | None = None,
-        headers: list[tuple[bytes, bytes]] | None = None,
-    ) -> None:
+    async def accept(self, subprotocol: str | None = None, headers: list[tuple[bytes, bytes]] | None = None) -> None:
         """
         Accept the WebSocket connection.
 
@@ -227,11 +223,7 @@ class WebSocket:
         else:
             await self.send_bytes(text.encode("utf-8"))
 
-    async def close(
-        self,
-        code: int = CloseCode.NORMAL,
-        reason: str = "",
-    ) -> None:
+    async def close(self, code: int = CloseCode.NORMAL, reason: str = "") -> None:
         """
         Close the WebSocket connection.
 
@@ -252,13 +244,7 @@ class WebSocket:
         self._state = WebSocketState.DISCONNECTED
         # A client that left needs no close frame.
         with contextlib.suppress(OSError):
-            await self._send(
-                {
-                    "type": "websocket.close",
-                    "code": code,
-                    "reason": reason,
-                }
-            )
+            await self._send({"type": "websocket.close", "code": code, "reason": reason})
 
     async def iter_text(self):
         """Async iterator for text messages. A binary frame raises, as in ``receive_text()``."""

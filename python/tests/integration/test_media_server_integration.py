@@ -15,9 +15,7 @@ def test_media_files_served_from_media_root(make_server_project):
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "mediafiles/upload.txt": "user uploaded content\n",
-        },
+        extra_files={"mediafiles/upload.txt": "user uploaded content\n"},
     )
 
     with project.start() as server:
@@ -43,10 +41,7 @@ def test_static_and_media_coexist(make_server_project):
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "staticroot/style.css": "body { color: red; }\n",
-            "mediafiles/upload.txt": "media content\n",
-        },
+        extra_files={"staticroot/style.css": "body { color: red; }\n", "mediafiles/upload.txt": "media content\n"},
     )
 
     with project.start() as server:
@@ -71,9 +66,7 @@ def test_static_prefix_requires_path_boundary(make_server_project):
         STATIC_URL = "/static/"
         STATICFILES_DIRS = [str(BASE_DIR / "staticassets")]
         """,
-        extra_files={
-            "staticassets/test.css": "ok\n",
-        },
+        extra_files={"staticassets/test.css": "ok\n"},
     )
 
     with project.start() as server:
@@ -100,10 +93,7 @@ def test_media_does_not_fall_through_to_static_finders(make_server_project):
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "staticassets/bait.css": "static-only file\n",
-            "mediafiles/.keep": "",
-        },
+        extra_files={"staticassets/bait.css": "static-only file\n", "mediafiles/.keep": ""},
     )
 
     with project.start() as server:
@@ -125,9 +115,7 @@ def test_media_response_sets_caching_and_nosniff_headers(make_server_project):
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "mediafiles/photo.bin": b"\x00" * 4096,
-        },
+        extra_files={"mediafiles/photo.bin": b"\x00" * 4096},
     )
 
     with project.start() as server:
@@ -153,9 +141,7 @@ def test_media_range_request_returns_partial_content(make_server_project):
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "mediafiles/clip.bin": body,
-        },
+        extra_files={"mediafiles/clip.bin": body},
     )
 
     with project.start() as server:
@@ -174,9 +160,7 @@ def test_media_range_to_the_end_returns_partial_content(make_server_project):
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "mediafiles/clip.bin": body,
-        },
+        extra_files={"mediafiles/clip.bin": body},
     )
 
     with project.start() as server:
@@ -200,9 +184,7 @@ def test_media_range_with_a_stale_if_range_returns_the_whole_file(make_server_pr
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "mediafiles/clip.bin": body,
-        },
+        extra_files={"mediafiles/clip.bin": body},
     )
 
     with project.start() as server:
@@ -219,12 +201,7 @@ def test_media_range_with_a_stale_if_range_returns_the_whole_file(make_server_pr
 
 @pytest.mark.parametrize(
     "attack_path",
-    [
-        "/media/../etc/passwd",
-        "/media/sub/../../etc/passwd",
-        "/media/..%2fetc/passwd",
-        "/media/%2e%2e/etc/passwd",
-    ],
+    ["/media/../etc/passwd", "/media/sub/../../etc/passwd", "/media/..%2fetc/passwd", "/media/%2e%2e/etc/passwd"],
 )
 def test_media_traversal_blocked(make_server_project, attack_path):
     """Directory-traversal attempts must never escape MEDIA_ROOT."""
@@ -233,9 +210,7 @@ def test_media_traversal_blocked(make_server_project, attack_path):
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "mediafiles/keep.txt": "ok\n",
-        },
+        extra_files={"mediafiles/keep.txt": "ok\n"},
     )
 
     with project.start() as server:
@@ -254,9 +229,7 @@ def test_media_symlink_outside_root_blocked(make_server_project, tmp_path):
         MEDIA_URL = "/media/"
         MEDIA_ROOT = str(BASE_DIR / "mediafiles")
         """,
-        extra_files={
-            "mediafiles/.keep": "",
-        },
+        extra_files={"mediafiles/.keep": ""},
     )
 
     media_root = project.path("mediafiles")
@@ -275,20 +248,13 @@ def test_media_symlink_outside_root_blocked(make_server_project, tmp_path):
 
 
 def _media_project(make_server_project, extra_settings: str = "", **kwargs):
-    parts = [
-        'MEDIA_URL = "/media/"',
-        'MEDIA_ROOT = str(BASE_DIR / "mediafiles")',
-    ]
+    parts = ['MEDIA_URL = "/media/"', 'MEDIA_ROOT = str(BASE_DIR / "mediafiles")']
     extra = textwrap.dedent(extra_settings).strip()
     if extra:
         parts.append(extra)
     files = {"mediafiles/upload.txt": "ok\n"}
     files.update(kwargs.pop("extra_files", {}))
-    return make_server_project(
-        settings_extra="\n".join(parts),
-        extra_files=files,
-        **kwargs,
-    )
+    return make_server_project(settings_extra="\n".join(parts), extra_files=files, **kwargs)
 
 
 def test_media_head_returns_headers_without_body(make_server_project):
@@ -326,11 +292,7 @@ def test_media_rejects_write_methods(make_server_project, method):
 def test_media_directory_request_does_not_list_or_500(make_server_project):
     """GET on a directory inside MEDIA_ROOT must 404, not list contents or 500."""
     project = _media_project(
-        make_server_project,
-        extra_files={
-            "mediafiles/photos/a.txt": "a\n",
-            "mediafiles/photos/b.txt": "b\n",
-        },
+        make_server_project, extra_files={"mediafiles/photos/a.txt": "a\n", "mediafiles/photos/b.txt": "b\n"}
     )
 
     with project.start() as server:
@@ -385,10 +347,7 @@ def test_media_cache_control_header_from_max_age_setting(make_server_project):
     per-user uploads where the URL is the only access control. `public`
     would let CDNs / proxies cache one user's media and hand it to another.
     """
-    project = _media_project(
-        make_server_project,
-        extra_settings="BOLT_MEDIA_MAX_AGE = 3600",
-    )
+    project = _media_project(make_server_project, extra_settings="BOLT_MEDIA_MAX_AGE = 3600")
 
     with project.start() as server:
         response = server.get("/media/upload.txt")
@@ -420,10 +379,7 @@ def test_media_cache_control_not_applied_to_404(make_server_project):
     Cache-Control is gated on a success status, while nosniff (a security
     header) stays on every response.
     """
-    project = _media_project(
-        make_server_project,
-        extra_settings="BOLT_MEDIA_MAX_AGE = 31536000",
-    )
+    project = _media_project(make_server_project, extra_settings="BOLT_MEDIA_MAX_AGE = 31536000")
 
     with project.start() as server:
         present = server.get("/media/upload.txt")
@@ -449,10 +405,7 @@ def test_media_invalid_max_age_stops_startup(make_server_project, bad_value):
 
     A bool is an int in Python, so `True` must not become `max-age=1`.
     """
-    project = _media_project(
-        make_server_project,
-        extra_settings=f"BOLT_MEDIA_MAX_AGE = {bad_value}",
-    )
+    project = _media_project(make_server_project, extra_settings=f"BOLT_MEDIA_MAX_AGE = {bad_value}")
 
     with pytest.raises(AssertionError) as excinfo, project.start():
         pass
@@ -521,10 +474,7 @@ def test_media_dangerous_uploads_force_attachment_and_octet_stream(make_server_p
     `<script>alert(document.cookie)</script>` as `.html`/`.svg`/`.js` and the
     browser executing it inline at `/media/...` (i.e. in the app's origin).
     """
-    project = _media_project(
-        make_server_project,
-        extra_files={f"mediafiles/{filename}": body},
-    )
+    project = _media_project(make_server_project, extra_files={f"mediafiles/{filename}": body})
 
     with project.start() as server:
         response = server.get(f"/media/{filename}")
@@ -567,10 +517,7 @@ def test_media_safe_types_keep_their_content_type(make_server_project, filename,
     here because actix-files chooses inline vs. attachment per type (PDFs
     default to attachment with a filename, independent of our security fix).
     """
-    project = _media_project(
-        make_server_project,
-        extra_files={f"mediafiles/{filename}": body},
-    )
+    project = _media_project(make_server_project, extra_files={f"mediafiles/{filename}": body})
 
     with project.start() as server:
         response = server.get(f"/media/{filename}")
@@ -587,16 +534,7 @@ def test_media_safe_types_keep_their_content_type(make_server_project, filename,
     assert response.headers.get("x-content-type-options") == "nosniff"
 
 
-@pytest.mark.parametrize(
-    "dotfile_path",
-    [
-        ".env",
-        ".git/config",
-        ".htaccess",
-        "subdir/.ssh/id_rsa",
-        "ok/.hidden",
-    ],
-)
+@pytest.mark.parametrize("dotfile_path", [".env", ".git/config", ".htaccess", "subdir/.ssh/id_rsa", "ok/.hidden"])
 def test_media_dotfile_paths_return_404(make_server_project, dotfile_path):
     """Hidden / dotfile paths under MEDIA_ROOT must not be served.
 
@@ -604,10 +542,7 @@ def test_media_dotfile_paths_return_404(make_server_project, dotfile_path):
     there (`.env`, leftover `.git/`, editor backups). nginx and Apache deny
     dotfiles by default for this reason — django-bolt should too.
     """
-    project = _media_project(
-        make_server_project,
-        extra_files={f"mediafiles/{dotfile_path}": "SECRET=do-not-leak\n"},
-    )
+    project = _media_project(make_server_project, extra_files={f"mediafiles/{dotfile_path}": "SECRET=do-not-leak\n"})
 
     with project.start() as server:
         response = server.get(f"/media/{dotfile_path}")

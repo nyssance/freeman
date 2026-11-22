@@ -214,11 +214,7 @@ def test_requires_permissions_checks_the_django_user():
     async def users():
         return {"ok": True}
 
-    @api.get(
-        "/safe",
-        auth=[SessionAuthentication()],
-        guards=[Requires("permissions", none_of=["auth.delete_user"])],
-    )
+    @api.get("/safe", auth=[SessionAuthentication()], guards=[Requires("permissions", none_of=["auth.delete_user"])])
     async def safe():
         return {"ok": True}
 
@@ -331,10 +327,7 @@ def test_login_url_redirects_only_a_request_with_no_user():
     # The session backend is the second backend. Rust reports its position.
     @api.get(
         "/staff",
-        auth=[
-            JWTAuthentication(secret=TOKEN_SECRET),
-            SessionAuthentication(login_url="/accounts/login/"),
-        ],
+        auth=[JWTAuthentication(secret=TOKEN_SECRET), SessionAuthentication(login_url="/accounts/login/")],
         guards=[Requires("is_staff", True)],
     )
     async def staff():
@@ -423,8 +416,7 @@ def test_session_route_on_an_api_with_django_middleware():
 @pytest.mark.django_db(transaction=True)
 def test_session_backend_as_the_global_default():
     with override_settings(
-        BOLT_AUTHENTICATION_CLASSES=[SessionAuthentication()],
-        BOLT_DEFAULT_PERMISSION_CLASSES=[IsAuthenticated()],
+        BOLT_AUTHENTICATION_CLASSES=[SessionAuthentication()], BOLT_DEFAULT_PERMISSION_CLASSES=[IsAuthenticated()]
     ):
         api = BoltAPI()
         _add_login(api)
@@ -463,8 +455,7 @@ def test_a_duplicate_empty_session_cookie_does_not_skip_the_csrf_check(login_url
         session_id = client.cookies["sessionid"]
     with TestClient(api) as attacker:
         response = attacker.post(
-            "/act",
-            headers={"cookie": f"sessionid=; sessionid={session_id}", "sec-fetch-site": "cross-site"},
+            "/act", headers={"cookie": f"sessionid=; sessionid={session_id}", "sec-fetch-site": "cross-site"}
         )
 
     assert response.status_code == 403, response.text

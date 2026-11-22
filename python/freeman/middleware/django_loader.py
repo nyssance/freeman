@@ -47,9 +47,7 @@ def _dotted_paths(value: Any) -> list[str]:
 
 
 def load_django_middleware(
-    config: bool | list[str] | dict[str, Any] = True,
-    *,
-    exclude_defaults: bool = True,
+    config: bool | list[str] | dict[str, Any] = True, *, exclude_defaults: bool = True
 ) -> list[MiddlewareType]:
     """
     Load Django middleware for Bolt routes.
@@ -124,8 +122,4 @@ def get_django_middleware_setting() -> list[str]:
         return []
 
 
-__all__ = [
-    "load_django_middleware",
-    "get_django_middleware_setting",
-    "DEFAULT_EXCLUDED_MIDDLEWARE",
-]
+__all__ = ["load_django_middleware", "get_django_middleware_setting", "DEFAULT_EXCLUDED_MIDDLEWARE"]

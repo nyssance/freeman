@@ -9,7 +9,4 @@ def site_page(request):
     return HttpResponse("a page of Django")
 
 
-urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("site/", site_page),
-]
+urlpatterns = [path("admin/", admin.site.urls), path("site/", site_page)]

@@ -66,18 +66,12 @@ impl FdWatchers {
     /// registration. The caller (Python) has already cancelled the previous
     /// Handle, so a readiness event still in flight for it is a no-op.
     pub fn add(
-        self: &Arc<Self>,
-        runtime: &tokio::runtime::Handle,
-        tx: &tokio::sync::mpsc::UnboundedSender<WorkerLoopCommand>,
-        fd: RawFd,
-        direction: Direction,
-        handle: Py<PyAny>,
+        self: &Arc<Self>, runtime: &tokio::runtime::Handle, tx: &tokio::sync::mpsc::UnboundedSender<WorkerLoopCommand>,
+        fd: RawFd, direction: Direction, handle: Py<PyAny>,
     ) -> PyResult<()> {
         // SAFETY: the descriptor is owned by Python for the duration of this
         // call; the borrow only lives long enough to dup it.
-        let owned: OwnedFd = unsafe { BorrowedFd::borrow_raw(fd) }
-            .try_clone_to_owned()
-            .map_err(PyErr::from)?;
+        let owned: OwnedFd = unsafe { BorrowedFd::borrow_raw(fd) }.try_clone_to_owned().map_err(PyErr::from)?;
         let async_fd = {
             let _guard = runtime.enter();
             // SAFETY: `owned` is our own duplicate of the descriptor. The
@@ -86,20 +80,8 @@ impl FdWatchers {
             unsafe { AsyncFd::register_with_interest(owned, direction.interest()) }
                 .map_err(|err| PyErr::from(std::io::Error::from(err)))?
         };
-        let task = runtime.spawn(watch(
-            async_fd,
-            fd,
-            direction,
-            Arc::new(handle),
-            tx.clone(),
-            Arc::clone(self),
-        ));
-        if let Some(previous) = self
-            .tasks
-            .lock()
-            .unwrap()
-            .insert((fd, direction), task.abort_handle())
-        {
+        let task = runtime.spawn(watch(async_fd, fd, direction, Arc::new(handle), tx.clone(), Arc::clone(self)));
+        if let Some(previous) = self.tasks.lock().unwrap().insert((fd, direction), task.abort_handle()) {
             previous.abort();
         }
         Ok(())
@@ -116,10 +98,7 @@ impl FdWatchers {
     /// under the same key).
     fn retire(&self, fd: RawFd, direction: Direction, id: tokio::task::Id) {
         let mut tasks = self.tasks.lock().unwrap();
-        if tasks
-            .get(&(fd, direction))
-            .is_some_and(|task| task.id() == id)
-        {
+        if tasks.get(&(fd, direction)).is_some_and(|task| task.id() == id) {
             tasks.remove(&(fd, direction));
         }
     }
@@ -160,11 +139,7 @@ impl Ready {
 }
 
 fn still_ready(fd: RawFd, direction: Direction) -> bool {
-    let mut pollfd = libc::pollfd {
-        fd,
-        events: direction.poll_events(),
-        revents: 0,
-    };
+    let mut pollfd = libc::pollfd { fd, events: direction.poll_events(), revents: 0 };
     // SAFETY: `pollfd` is a valid, exclusively borrowed array of one entry.
     let rc = unsafe { libc::poll(&mut pollfd, 1, 0) };
     // On error (EINTR) report ready: an extra callback is harmless, a lost
@@ -182,24 +157,15 @@ struct Retire {
 
 impl Drop for Retire {
     fn drop(&mut self) {
-        self.watchers
-            .retire(self.fd, self.direction, tokio::task::id());
+        self.watchers.retire(self.fd, self.direction, tokio::task::id());
     }
 }
 
 async fn watch(
-    async_fd: AsyncFd<OwnedFd>,
-    key_fd: RawFd,
-    direction: Direction,
-    handle: Arc<Py<PyAny>>,
-    tx: tokio::sync::mpsc::UnboundedSender<WorkerLoopCommand>,
-    watchers: Arc<FdWatchers>,
+    async_fd: AsyncFd<OwnedFd>, key_fd: RawFd, direction: Direction, handle: Arc<Py<PyAny>>,
+    tx: tokio::sync::mpsc::UnboundedSender<WorkerLoopCommand>, watchers: Arc<FdWatchers>,
 ) {
-    let _retire = Retire {
-        fd: key_fd,
-        direction,
-        watchers,
-    };
+    let _retire = Retire { fd: key_fd, direction, watchers };
     let fd = async_fd.get_ref().as_raw_fd();
     loop {
         let mut guard = match async_fd.ready(direction.interest()).await {
@@ -207,12 +173,7 @@ async fn watch(
             Err(_) => return,
         };
         let (rearm_tx, rearm_rx) = tokio::sync::oneshot::channel();
-        let ready = Ready {
-            handle: Arc::clone(&handle),
-            fd,
-            direction,
-            rearm: rearm_tx,
-        };
+        let ready = Ready { handle: Arc::clone(&handle), fd, direction, rearm: rearm_tx };
         if tx.send(WorkerLoopCommand::Ready(ready)).is_err() {
             return;
         }

@@ -126,28 +126,12 @@ from .params import Depends
 
 # Type-safe Request object
 from .request import Request
-from .responses import (
-    JSON,
-    EventSourceResponse,
-    Response,
-    ServerSentEvent,
-    StreamingResponse,
-    format_sse_event,
-)
+from .responses import JSON, EventSourceResponse, Response, ServerSentEvent, StreamingResponse, format_sse_event
 from .router import Router
-from .types import (
-    APIKeyAuth,
-    DjangoModel,
-    JWTClaims,
-    TimingState,
-    TracingState,
-    UserType,
-)
+from .types import APIKeyAuth, DjangoModel, JWTClaims, TimingState, TracingState, UserType
 
 # Types and protocols
-from .types import (
-    Request as RequestProtocol,  # Protocol for type checking
-)
+from .types import Request as RequestProtocol  # Protocol for type checking
 
 # Views module
 from .views import (
@@ -164,14 +148,7 @@ from .views import (
 )
 
 # WebSocket module
-from .websocket import (
-    CloseCode,
-    WebSocket,
-    WebSocketClose,
-    WebSocketDisconnect,
-    WebSocketException,
-    WebSocketState,
-)
+from .websocket import CloseCode, WebSocket, WebSocketClose, WebSocketDisconnect, WebSocketException, WebSocketState
 
 __all__ = [
     # Core

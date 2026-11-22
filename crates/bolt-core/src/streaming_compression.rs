@@ -45,9 +45,7 @@ impl StreamCodec {
     /// rather than panicking the worker.
     fn build_encoder(self) -> std::io::Result<Box<dyn PerChunkEncoder>> {
         match self {
-            StreamCodec::Brotli { quality, lgwin } => {
-                Ok(Box::new(BrotliEncoder::new(quality, lgwin)))
-            }
+            StreamCodec::Brotli { quality, lgwin } => Ok(Box::new(BrotliEncoder::new(quality, lgwin))),
             StreamCodec::Gzip { level } => Ok(Box::new(GzipEncoder::new(level))),
             StreamCodec::Zstd { level } => Ok(Box::new(ZstdEncoder::new(level)?)),
         }
@@ -62,19 +60,13 @@ impl StreamCodec {
 /// - the API has no `CompressionConfig`
 /// - the client's `Accept-Encoding` matches no available codec
 pub fn select_stream_encoding(
-    req: &HttpRequest,
-    config: Option<&CompressionConfig>,
-    skip_compression: bool,
+    req: &HttpRequest, config: Option<&CompressionConfig>, skip_compression: bool,
 ) -> Option<StreamCodec> {
     if skip_compression {
         return None;
     }
     let cfg = config?;
-    let ae = req
-        .headers()
-        .get(ACCEPT_ENCODING)
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("");
+    let ae = req.headers().get(ACCEPT_ENCODING).and_then(|h| h.to_str().ok()).unwrap_or("");
 
     if let Some(codec) = codec_for_backend(&cfg.backend, cfg)
         && accepts_encoding(ae, codec.header_name())
@@ -82,25 +74,16 @@ pub fn select_stream_encoding(
         return Some(codec);
     }
     if cfg.gzip_fallback && accepts_encoding(ae, "gzip") {
-        return Some(StreamCodec::Gzip {
-            level: cfg.gzip_level,
-        });
+        return Some(StreamCodec::Gzip { level: cfg.gzip_level });
     }
     None
 }
 
 fn codec_for_backend(backend: &str, cfg: &CompressionConfig) -> Option<StreamCodec> {
     match backend {
-        "brotli" => Some(StreamCodec::Brotli {
-            quality: cfg.brotli_level,
-            lgwin: cfg.brotli_lgwin,
-        }),
-        "gzip" => Some(StreamCodec::Gzip {
-            level: cfg.gzip_level,
-        }),
-        "zstd" => Some(StreamCodec::Zstd {
-            level: cfg.zstd_level,
-        }),
+        "brotli" => Some(StreamCodec::Brotli { quality: cfg.brotli_level, lgwin: cfg.brotli_lgwin }),
+        "gzip" => Some(StreamCodec::Gzip { level: cfg.gzip_level }),
+        "zstd" => Some(StreamCodec::Zstd { level: cfg.zstd_level }),
         _ => None,
     }
 }
@@ -136,11 +119,7 @@ pub fn accepts_encoding(header: &str, name: &str) -> bool {
                 && let Ok(parsed) = value.trim_ascii().parse::<f32>()
             {
                 // Reject NaN; clamp to [0, 1] per RFC 7231 §5.3.1.
-                q = if parsed.is_nan() {
-                    0.0
-                } else {
-                    parsed.clamp(0.0, 1.0)
-                };
+                q = if parsed.is_nan() { 0.0 } else { parsed.clamp(0.0, 1.0) };
             }
         }
         if is_name {
@@ -179,9 +158,7 @@ struct SinkWriter {
 
 impl SinkWriter {
     fn new() -> Self {
-        SinkWriter {
-            buf: Vec::with_capacity(SINK_BUF_CAPACITY),
-        }
+        SinkWriter { buf: Vec::with_capacity(SINK_BUF_CAPACITY) }
     }
 
     /// Yield the current buffer, leaving a fresh 4 KiB-capacity `Vec` in place.
@@ -223,16 +200,8 @@ pub struct EncoderStream<S> {
 impl<S> EncoderStream<S> {
     pub fn new(inner: S, codec: StreamCodec) -> Self {
         match codec.build_encoder() {
-            Ok(encoder) => EncoderStream {
-                inner,
-                encoder: Some(encoder),
-                init_error: None,
-            },
-            Err(e) => EncoderStream {
-                inner,
-                encoder: None,
-                init_error: Some(e),
-            },
+            Ok(encoder) => EncoderStream { inner, encoder: Some(encoder), init_error: None },
+            Err(e) => EncoderStream { inner, encoder: None, init_error: Some(e) },
         }
     }
 }
@@ -303,9 +272,7 @@ struct BrotliEncoder {
 
 impl BrotliEncoder {
     fn new(quality: u32, lgwin: u32) -> Self {
-        BrotliEncoder {
-            inner: CompressorWriter::new(SinkWriter::new(), SINK_BUF_CAPACITY, quality, lgwin),
-        }
+        BrotliEncoder { inner: CompressorWriter::new(SinkWriter::new(), SINK_BUF_CAPACITY, quality, lgwin) }
     }
 }
 
@@ -331,12 +298,7 @@ struct GzipEncoder {
 
 impl GzipEncoder {
     fn new(level: u32) -> Self {
-        GzipEncoder {
-            inner: flate2::write::GzEncoder::new(
-                SinkWriter::new(),
-                flate2::Compression::new(level),
-            ),
-        }
+        GzipEncoder { inner: flate2::write::GzEncoder::new(SinkWriter::new(), flate2::Compression::new(level)) }
     }
 }
 
@@ -396,10 +358,7 @@ mod tests {
     use std::io::Read;
 
     async fn collect_compressed(codec: StreamCodec, events: Vec<&'static [u8]>) -> Vec<Bytes> {
-        let items: Vec<Result<Bytes, std::io::Error>> = events
-            .into_iter()
-            .map(|b| Ok(Bytes::from_static(b)))
-            .collect();
+        let items: Vec<Result<Bytes, std::io::Error>> = events.into_iter().map(|b| Ok(Bytes::from_static(b))).collect();
         let inner = stream::iter(items);
         let mut wrapped = EncoderStream::new(inner, codec);
         let mut out = Vec::new();
@@ -422,53 +381,32 @@ mod tests {
     #[tokio::test]
     async fn brotli_roundtrip_decodes_to_concatenated_input() {
         let chunks = collect_compressed(
-            StreamCodec::Brotli {
-                quality: 5,
-                lgwin: 18,
-            },
+            StreamCodec::Brotli { quality: 5, lgwin: 18 },
             vec![b"data: one\n\n", b"data: two\n\n", b"data: three\n\n"],
         )
         .await;
         let compressed = concat(&chunks);
         let mut decoded = Vec::new();
-        Decompressor::new(&compressed[..], 4096)
-            .read_to_end(&mut decoded)
-            .unwrap();
+        Decompressor::new(&compressed[..], 4096).read_to_end(&mut decoded).unwrap();
         assert_eq!(decoded, b"data: one\n\ndata: two\n\ndata: three\n\n");
     }
 
     #[tokio::test]
     async fn brotli_emits_per_event_chunks() {
         let chunks = collect_compressed(
-            StreamCodec::Brotli {
-                quality: 5,
-                lgwin: 18,
-            },
+            StreamCodec::Brotli { quality: 5, lgwin: 18 },
             vec![b"data: one\n\n", b"data: two\n\n", b"data: three\n\n"],
         )
         .await;
-        assert!(
-            chunks.len() >= 3,
-            "expected per-event flush, got {} chunks",
-            chunks.len()
-        );
+        assert!(chunks.len() >= 3, "expected per-event flush, got {} chunks", chunks.len());
     }
 
     #[tokio::test]
     async fn brotli_empty_stream() {
-        let chunks = collect_compressed(
-            StreamCodec::Brotli {
-                quality: 5,
-                lgwin: 18,
-            },
-            vec![],
-        )
-        .await;
+        let chunks = collect_compressed(StreamCodec::Brotli { quality: 5, lgwin: 18 }, vec![]).await;
         let compressed = concat(&chunks);
         let mut decoded = Vec::new();
-        Decompressor::new(&compressed[..], 4096)
-            .read_to_end(&mut decoded)
-            .unwrap();
+        Decompressor::new(&compressed[..], 4096).read_to_end(&mut decoded).unwrap();
         assert!(decoded.is_empty());
     }
 
@@ -490,16 +428,10 @@ mod tests {
     #[tokio::test]
     async fn the_stream_yields_no_empty_chunk() {
         // An empty output chunk and an empty tail give no item.
-        let items: Vec<Result<Bytes, std::io::Error>> = vec![
-            Ok(Bytes::from_static(b"a")),
-            Ok(Bytes::new()),
-            Ok(Bytes::from_static(b"b")),
-        ];
-        let mut wrapped = EncoderStream {
-            inner: stream::iter(items),
-            encoder: Some(Box::new(CopyEncoder)),
-            init_error: None,
-        };
+        let items: Vec<Result<Bytes, std::io::Error>> =
+            vec![Ok(Bytes::from_static(b"a")), Ok(Bytes::new()), Ok(Bytes::from_static(b"b"))];
+        let mut wrapped =
+            EncoderStream { inner: stream::iter(items), encoder: Some(Box::new(CopyEncoder)), init_error: None };
         let mut out = Vec::new();
         while let Some(chunk) = wrapped.next().await {
             out.push(chunk.expect("chunk"));
@@ -518,9 +450,7 @@ mod tests {
         .await;
         let compressed = concat(&chunks);
         let mut decoded = Vec::new();
-        GzDecoder::new(&compressed[..])
-            .read_to_end(&mut decoded)
-            .unwrap();
+        GzDecoder::new(&compressed[..]).read_to_end(&mut decoded).unwrap();
         assert_eq!(decoded, b"data: one\n\ndata: two\n\ndata: three\n\n");
     }
 
@@ -531,11 +461,7 @@ mod tests {
             vec![b"data: one\n\n", b"data: two\n\n", b"data: three\n\n"],
         )
         .await;
-        assert!(
-            chunks.len() >= 3,
-            "expected per-event flush, got {} chunks",
-            chunks.len()
-        );
+        assert!(chunks.len() >= 3, "expected per-event flush, got {} chunks", chunks.len());
     }
 
     // ─── Zstd ─────────────────────────────────────────────────────────
@@ -559,11 +485,7 @@ mod tests {
             vec![b"data: one\n\n", b"data: two\n\n", b"data: three\n\n"],
         )
         .await;
-        assert!(
-            chunks.len() >= 3,
-            "expected per-event flush, got {} chunks",
-            chunks.len()
-        );
+        assert!(chunks.len() >= 3, "expected per-event flush, got {} chunks", chunks.len());
     }
 
     // ─── Accept-Encoding parser ────────────────────────────────────────
@@ -652,21 +574,13 @@ mod tests {
 
     impl AcceptEntry {
         fn render(&self) -> String {
-            let coding = if self.upper {
-                self.coding.to_ascii_uppercase()
-            } else {
-                self.coding.to_string()
-            };
+            let coding = if self.upper { self.coding.to_ascii_uppercase() } else { self.coding.to_string() };
             let Some(q) = self.q else {
                 return coding;
             };
             let sp = if self.spaces { " " } else { "" };
             let q_name = if self.upper { "Q" } else { "q" };
-            format!(
-                "{coding}{sp};{sp}{q_name}{sp}={sp}{}.{:03}",
-                q / 1000,
-                q % 1000
-            )
+            format!("{coding}{sp};{sp}{q_name}{sp}={sp}{}.{:03}", q / 1000, q % 1000)
         }
     }
 
@@ -679,12 +593,7 @@ mod tests {
             any::<bool>(),
             any::<bool>(),
         )
-            .prop_map(|(coding, q, upper, spaces)| AcceptEntry {
-                coding,
-                q,
-                upper,
-                spaces,
-            })
+            .prop_map(|(coding, q, upper, spaces)| AcceptEntry { coding, q, upper, spaces })
     }
 
     proptest! {
@@ -727,9 +636,7 @@ mod tests {
     // ─── select_stream_encoding ────────────────────────────────────────
 
     fn req_with_ae(ae: &str) -> HttpRequest {
-        actix_web::test::TestRequest::default()
-            .insert_header(("accept-encoding", ae))
-            .to_http_request()
+        actix_web::test::TestRequest::default().insert_header(("accept-encoding", ae)).to_http_request()
     }
 
     #[test]
@@ -767,10 +674,7 @@ mod tests {
 
     #[test]
     fn select_skips_fallback_when_disabled() {
-        let cfg = CompressionConfig {
-            gzip_fallback: false,
-            ..Default::default()
-        };
+        let cfg = CompressionConfig { gzip_fallback: false, ..Default::default() };
         let r = req_with_ae("gzip");
         assert!(select_stream_encoding(&r, Some(&cfg), false).is_none());
     }
@@ -800,10 +704,7 @@ mod tests {
 
     #[test]
     fn select_picks_zstd_when_configured() {
-        let cfg = CompressionConfig {
-            backend: "zstd".to_string(),
-            ..Default::default()
-        };
+        let cfg = CompressionConfig { backend: "zstd".to_string(), ..Default::default() };
         let r = req_with_ae("zstd, gzip");
         match select_stream_encoding(&r, Some(&cfg), false).unwrap() {
             StreamCodec::Zstd { .. } => {}

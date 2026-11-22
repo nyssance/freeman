@@ -179,10 +179,7 @@ fn push_path_byte(path: &mut String, byte: u8) {
 /// `normalize_request_path` gives to a `%` in a request path. A `{param}`
 /// stays as it is.
 pub fn encode_route_path(path: &str) -> Cow<'_, str> {
-    if path
-        .bytes()
-        .all(|byte| is_plain_path_byte(byte) || matches!(byte, b'/' | b'{' | b'}'))
-    {
+    if path.bytes().all(|byte| is_plain_path_byte(byte) || matches!(byte, b'/' | b'{' | b'}')) {
         return Cow::Borrowed(path);
     }
     let mut encoded = String::with_capacity(path.len() + 8);
@@ -253,9 +250,7 @@ fn normalize_path_escapes(path: &str) -> Cow<'_, str> {
         let escape = escape_byte(&bytes[i..]);
         let len = if escape.is_some() { 3 } else { 1 };
         let in_form = escape.is_some_and(|byte| {
-            !is_plain_path_byte(byte)
-                && !bytes[i + 1].is_ascii_lowercase()
-                && !bytes[i + 2].is_ascii_lowercase()
+            !is_plain_path_byte(byte) && !bytes[i + 1].is_ascii_lowercase() && !bytes[i + 2].is_ascii_lowercase()
         });
         if !in_form {
             let out = normalized.get_or_insert_with(|| String::with_capacity(path.len() + 2));
@@ -288,10 +283,7 @@ struct MethodRouter {
 
 impl MethodRouter {
     fn new() -> Self {
-        MethodRouter {
-            static_routes: AHashMap::new(),
-            dynamic_router: MatchRouter::new(),
-        }
+        MethodRouter { static_routes: AHashMap::new(), dynamic_router: MatchRouter::new() }
     }
 }
 
@@ -337,19 +329,9 @@ impl Router {
     /// Set the route of a request that matches no route. The router does not
     /// match it for a method or a path.
     pub fn set_no_route(
-        &mut self,
-        handler_id: usize,
-        handler: Py<PyAny>,
-        dispatch: Py<PyAny>,
-        dispatch_sync: Py<PyAny>,
+        &mut self, handler_id: usize, handler: Py<PyAny>, dispatch: Py<PyAny>, dispatch_sync: Py<PyAny>,
     ) {
-        self.no_route = Some(Route {
-            handler,
-            dispatch,
-            dispatch_sync,
-            handler_id,
-            native: None,
-        });
+        self.no_route = Some(Route { handler, dispatch, dispatch_sync, handler_id, native: None });
     }
 
     /// The route of a request that matches no route, if the app has one.
@@ -364,32 +346,16 @@ impl Router {
     }
 
     pub fn register(
-        &mut self,
-        method: &str,
-        path: &str,
-        handler_id: usize,
-        handler: Py<PyAny>,
-        dispatch: Py<PyAny>,
+        &mut self, method: &str, path: &str, handler_id: usize, handler: Py<PyAny>, dispatch: Py<PyAny>,
         dispatch_sync: Py<PyAny>,
     ) -> PyResult<()> {
-        let route = Route {
-            handler,
-            dispatch,
-            dispatch_sync,
-            handler_id,
-            native: None,
-        };
+        let route = Route { handler, dispatch, dispatch_sync, handler_id, native: None };
         self.insert(method, path, route)
     }
 
     /// Register a native route.
     pub fn register_native(
-        &mut self,
-        py: Python<'_>,
-        method: &str,
-        path: &str,
-        capsule: Py<PyAny>,
-        native: NativeHandler,
+        &mut self, py: Python<'_>, method: &str, path: &str, capsule: Py<PyAny>, native: NativeHandler,
     ) -> PyResult<()> {
         let route = Route {
             handler: capsule,
@@ -414,10 +380,7 @@ impl Router {
             "OPTIONS" => &mut self.options,
             "QUERY" => &mut self.query,
             _ => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Unsupported method: {}",
-                    method
-                )));
+                return Err(pyo3::exceptions::PyValueError::new_err(format!("Unsupported method: {}", method)));
             }
         };
 
@@ -442,12 +405,7 @@ impl Router {
             method_router
                 .dynamic_router
                 .insert(&converted_path, route)
-                .map_err(|e| {
-                    pyo3::exceptions::PyValueError::new_err(format!(
-                        "Failed to register route: {}",
-                        e
-                    ))
-                })?;
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to register route: {}", e)))?;
         }
         self.handler_ids.push(handler_id);
 
@@ -521,9 +479,7 @@ impl Router {
 
         for (method_name, method_router) in method_routers.iter() {
             // Check static routes first (O(1)), then dynamic routes (radix tree).
-            if method_router.static_routes.contains_key(path)
-                || method_router.dynamic_router.at(path).is_ok()
-            {
+            if method_router.static_routes.contains_key(path) || method_router.dynamic_router.at(path).is_ok() {
                 methods.push(method_name.to_string());
             }
         }
@@ -637,13 +593,10 @@ fn hex_digit(byte: Option<&u8>) -> Option<u8> {
 /// A pair with no `=` has an empty value. An empty key stays.
 #[inline]
 pub fn query_pairs(query: &str) -> impl Iterator<Item = (Cow<'_, str>, Cow<'_, str>)> {
-    query
-        .split('&')
-        .filter(|pair| !pair.is_empty())
-        .map(|pair| {
-            let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
-            (decode_query_component(key), decode_query_component(value))
-        })
+    query.split('&').filter(|pair| !pair.is_empty()).map(|pair| {
+        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+        (decode_query_component(key), decode_query_component(value))
+    })
 }
 
 /// Parse a query string into a map. A repeated key keeps its last value, as `QueryDict[key]` does.
@@ -689,12 +642,7 @@ mod tests {
     fn owned(sequences: QuerySequences<'_>) -> Vec<(String, Vec<String>)> {
         sequences
             .into_iter()
-            .map(|(name, values)| {
-                (
-                    name.into_owned(),
-                    values.into_iter().map(Cow::into_owned).collect(),
-                )
-            })
+            .map(|(name, values)| (name.into_owned(), values.into_iter().map(Cow::into_owned).collect()))
             .collect()
     }
 
@@ -707,9 +655,7 @@ mod tests {
         assert_eq!(convert_path("/items/{id}/tags"), "/items/{id}/tags");
     }
 
-    const METHODS: [&str; 8] = [
-        "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "QUERY",
-    ];
+    const METHODS: [&str; 8] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "QUERY"];
 
     /// A router with the handler id of each route at its index. Each callable is `None`.
     fn router_with(routes: &[(&str, &str)]) -> Router {
@@ -717,9 +663,7 @@ mod tests {
         Python::attach(|py| {
             let mut router = Router::new();
             for (handler_id, (method, path)) in routes.iter().enumerate() {
-                router
-                    .register(method, path, handler_id, py.None(), py.None(), py.None())
-                    .unwrap();
+                router.register(method, path, handler_id, py.None(), py.None(), py.None()).unwrap();
             }
             router
         })
@@ -735,10 +679,8 @@ mod tests {
         let (route, params) = found.into_parts();
         assert_eq!(route.handler_id, handler_id);
         let params = params.map(|params| {
-            let mut params: Vec<(String, String)> = params
-                .into_iter()
-                .map(|(name, value)| (name.to_string(), value.into_owned()))
-                .collect();
+            let mut params: Vec<(String, String)> =
+                params.into_iter().map(|(name, value)| (name.to_string(), value.into_owned())).collect();
             params.sort();
             params
         });
@@ -746,12 +688,7 @@ mod tests {
     }
 
     fn params(pairs: &[(&str, &str)]) -> Params {
-        Some(
-            pairs
-                .iter()
-                .map(|(name, value)| (name.to_string(), value.to_string()))
-                .collect(),
-        )
+        Some(pairs.iter().map(|(name, value)| (name.to_string(), value.to_string())).collect())
     }
 
     /// A Python route is unique too. The second insert is an error and the first route stays.
@@ -759,13 +696,8 @@ mod tests {
     fn a_python_route_does_not_replace_an_earlier_route_of_the_same_static_path() {
         let mut router = router_with(&[("GET", "/items")]);
         Python::attach(|py| {
-            let error = router
-                .register("GET", "/items", 1, py.None(), py.None(), py.None())
-                .unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "ValueError: Failed to register route: GET /items is already registered"
-            );
+            let error = router.register("GET", "/items", 1, py.None(), py.None(), py.None()).unwrap_err();
+            assert_eq!(error.to_string(), "ValueError: Failed to register route: GET /items is already registered");
         });
         assert_eq!(lookup(&router, "GET", "/items"), Some((0, None)));
         assert_eq!(router.handler_ids(), [0]);
@@ -773,17 +705,12 @@ mod tests {
 
     #[test]
     fn each_method_finds_only_its_own_routes() {
-        let routes: Vec<(&str, &str)> = METHODS
-            .iter()
-            .flat_map(|method| [(*method, "/items"), (*method, "/items/{id}")])
-            .collect();
+        let routes: Vec<(&str, &str)> =
+            METHODS.iter().flat_map(|method| [(*method, "/items"), (*method, "/items/{id}")]).collect();
         let router = router_with(&routes);
         for (index, method) in METHODS.iter().enumerate() {
             assert_eq!(lookup(&router, method, "/items"), Some((2 * index, None)));
-            assert_eq!(
-                lookup(&router, method, "/items/7"),
-                Some((2 * index + 1, params(&[("id", "7")])))
-            );
+            assert_eq!(lookup(&router, method, "/items/7"), Some((2 * index + 1, params(&[("id", "7")]))));
         }
 
         let router = router_with(&[("GET", "/items"), ("GET", "/items/{id}")]);
@@ -797,9 +724,7 @@ mod tests {
     fn an_unknown_method_does_not_register_and_finds_nothing() {
         let mut router = router_with(&[("GET", "/items")]);
         Python::attach(|py| {
-            let error = router
-                .register("TRACE", "/items", 1, py.None(), py.None(), py.None())
-                .unwrap_err();
+            let error = router.register("TRACE", "/items", 1, py.None(), py.None(), py.None()).unwrap_err();
             assert_eq!(error.to_string(), "ValueError: Unsupported method: TRACE");
         });
         assert_eq!(lookup(&router, "TRACE", "/items"), None);
@@ -810,29 +735,20 @@ mod tests {
     fn a_static_route_wins_and_has_no_params() {
         let router = router_with(&[("GET", "/users/{id}"), ("GET", "/users/me")]);
         assert_eq!(lookup(&router, "GET", "/users/me"), Some((1, None)));
-        assert_eq!(
-            lookup(&router, "GET", "/users/42"),
-            Some((0, params(&[("id", "42")])))
-        );
+        assert_eq!(lookup(&router, "GET", "/users/42"), Some((0, params(&[("id", "42")]))));
         assert_eq!(lookup(&router, "GET", "/users"), None);
         assert_eq!(lookup(&router, "GET", "/users/42/posts"), None);
     }
 
     #[test]
     fn a_dynamic_route_gives_each_param() {
-        let router = router_with(&[
-            ("GET", "/orgs/{org}/repos/{repo:str}"),
-            ("GET", "/files/{rest:path}"),
-        ]);
+        let router = router_with(&[("GET", "/orgs/{org}/repos/{repo:str}"), ("GET", "/files/{rest:path}")]);
         assert_eq!(
             lookup(&router, "GET", "/orgs/acme/repos/widgets"),
             Some((0, params(&[("org", "acme"), ("repo", "widgets")])))
         );
         // A path param takes the rest of the path. Only `%XX` decodes.
-        assert_eq!(
-            lookup(&router, "GET", "/files/a/b%20c+d.txt"),
-            Some((1, params(&[("rest", "a/b c+d.txt")])))
-        );
+        assert_eq!(lookup(&router, "GET", "/files/a/b%20c+d.txt"), Some((1, params(&[("rest", "a/b c+d.txt")]))));
     }
 
     #[test]
@@ -846,18 +762,12 @@ mod tests {
 
     #[test]
     fn encode_route_path_escapes_what_a_url_path_cannot_hold() {
-        assert!(matches!(
-            encode_route_path("/items/{id}/a-b_c.d~e:f@g"),
-            Cow::Borrowed(_)
-        ));
+        assert!(matches!(encode_route_path("/items/{id}/a-b_c.d~e:f@g"), Cow::Borrowed(_)));
         assert_eq!(encode_route_path("/a b"), "/a%20b");
         assert_eq!(encode_route_path("/\u{fc}"), "/%C3%BC");
         assert_eq!(encode_route_path("/\u{20ac}/x?y#z"), "/%E2%82%AC/x%3Fy%23z");
         // A parameter keeps its name, and an escape stays as it is.
-        assert_eq!(
-            encode_route_path("/\u{fc}/{n\u{e4}me}/{rest:path}"),
-            "/%C3%BC/{n\u{e4}me}/{rest:path}"
-        );
+        assert_eq!(encode_route_path("/\u{fc}/{n\u{e4}me}/{rest:path}"), "/%C3%BC/{n\u{e4}me}/{rest:path}");
         assert_eq!(encode_route_path("/%C3%BC b"), "/%C3%BC%20b");
     }
 
@@ -865,10 +775,7 @@ mod tests {
     fn a_route_path_matches_the_escaped_request_path() {
         let router = router_with(&[("GET", "/\u{fc} b"), ("GET", "/\u{fc} b/{id}")]);
         assert_eq!(lookup(&router, "GET", "/%C3%BC%20b"), Some((0, None)));
-        assert_eq!(
-            lookup(&router, "GET", "/%C3%BC%20b/a%20b"),
-            Some((1, params(&[("id", "a b")])))
-        );
+        assert_eq!(lookup(&router, "GET", "/%C3%BC%20b/a%20b"), Some((1, params(&[("id", "a b")]))));
         assert_eq!(lookup(&router, "GET", "/\u{fc} b"), None);
     }
 
@@ -876,10 +783,7 @@ mod tests {
     fn normalize_request_path_gives_one_form_to_each_escape() {
         // No `%`, or each escape in its form: the path stays borrowed.
         for path in ["/", "/items/3", "/a+b:c", "/a%20b/%C3%BC/x%2Fy%2541"] {
-            assert!(
-                matches!(normalize_request_path(path), Cow::Borrowed(same) if same == path),
-                "{path}"
-            );
+            assert!(matches!(normalize_request_path(path), Cow::Borrowed(same) if same == path), "{path}");
         }
         // The letter case of the digits.
         assert_eq!(normalize_request_path("/%c3%bC/a%2fb"), "/%C3%BC/a%2Fb");
@@ -908,10 +812,7 @@ mod tests {
         assert_eq!(find("/%C3%BC"), Some((0, None)));
         assert_eq!(find("/%61"), Some((1, None)));
         assert_eq!(find("/%C3%A9/b"), Some((2, None)));
-        assert_eq!(
-            find("/a%3ab/x%2fy%2541"),
-            Some((3, params(&[("id", "x/y%41")])))
-        );
+        assert_eq!(find("/a%3ab/x%2fy%2541"), Some((3, params(&[("id", "x/y%41")]))));
         assert_eq!(find("/100%25"), Some((4, None)));
         assert_eq!(find("/100%"), Some((4, None)));
         // An escaped `/` is data of one segment.
@@ -959,33 +860,19 @@ mod tests {
     fn a_route_that_conflicts_does_not_register() {
         let mut router = router_with(&[("GET", "/items/{id}")]);
         Python::attach(|py| {
-            let error = router
-                .register("GET", "/items/{key}", 1, py.None(), py.None(), py.None())
-                .unwrap_err()
-                .to_string();
-            assert!(
-                error.starts_with("ValueError: Failed to register route: "),
-                "{error}"
-            );
+            let error =
+                router.register("GET", "/items/{key}", 1, py.None(), py.None(), py.None()).unwrap_err().to_string();
+            assert!(error.starts_with("ValueError: Failed to register route: "), "{error}");
         });
-        assert_eq!(
-            lookup(&router, "GET", "/items/1"),
-            Some((0, params(&[("id", "1")])))
-        );
+        assert_eq!(lookup(&router, "GET", "/items/1"), Some((0, params(&[("id", "1")]))));
     }
 
     #[test]
     fn a_second_static_route_does_not_replace_the_first() {
         let mut router = router_with(&[("GET", "/items"), ("POST", "/items")]);
         Python::attach(|py| {
-            let error = router
-                .register("GET", "/items", 2, py.None(), py.None(), py.None())
-                .unwrap_err()
-                .to_string();
-            assert_eq!(
-                error,
-                "ValueError: Failed to register route: GET /items is already registered"
-            );
+            let error = router.register("GET", "/items", 2, py.None(), py.None(), py.None()).unwrap_err().to_string();
+            assert_eq!(error, "ValueError: Failed to register route: GET /items is already registered");
         });
         assert_eq!(lookup(&router, "GET", "/items"), Some((0, None)));
         assert_eq!(lookup(&router, "POST", "/items"), Some((1, None)));
@@ -1004,10 +891,7 @@ mod tests {
             ("GET", "/cors"),
             ("OPTIONS", "/cors"),
         ]);
-        assert_eq!(
-            router.find_all_methods("/items"),
-            ["GET", "POST", "PUT", "PATCH", "HEAD", "QUERY", "OPTIONS"]
-        );
+        assert_eq!(router.find_all_methods("/items"), ["GET", "POST", "PUT", "PATCH", "HEAD", "QUERY", "OPTIONS"]);
         assert_eq!(router.find_all_methods("/items/3"), ["DELETE", "OPTIONS"]);
         // A registered OPTIONS route is listed once.
         assert_eq!(router.find_all_methods("/cors"), ["GET", "OPTIONS"]);
@@ -1017,17 +901,11 @@ mod tests {
     #[test]
     fn collect_query_sequences_keeps_each_value_of_a_listed_key_in_order() {
         let keys: AHashSet<String> = ["tag".to_string(), "id".to_string()].into_iter().collect();
-        let sequences = owned(collect_query_sequences(
-            "tag=b&page=2&tag=a%20c&id=1&tag=b&empty",
-            &keys,
-        ));
+        let sequences = owned(collect_query_sequences("tag=b&page=2&tag=a%20c&id=1&tag=b&empty", &keys));
         assert_eq!(
             sequences,
             vec![
-                (
-                    "tag".to_string(),
-                    vec!["b".to_string(), "a c".to_string(), "b".to_string()]
-                ),
+                ("tag".to_string(), vec!["b".to_string(), "a c".to_string(), "b".to_string()]),
                 ("id".to_string(), vec!["1".to_string()]),
             ]
         );
@@ -1048,10 +926,7 @@ mod tests {
         let keys: AHashSet<String> = ["tag".to_string()].into_iter().collect();
         assert_eq!(
             owned(collect_query_sequences("tag=a+b&t%61g=c%2Bd", &keys)),
-            vec![(
-                "tag".to_string(),
-                vec!["a b".to_string(), "c+d".to_string()]
-            )]
+            vec![("tag".to_string(), vec!["a b".to_string(), "c+d".to_string()])]
         );
     }
 
@@ -1078,8 +953,7 @@ mod tests {
 
     #[test]
     fn test_parse_query_string_decodes_plus_as_space() {
-        let params =
-            parse_query_string("q=hello+world&tag=a%2Bb&mixed=a+b%20c&my+key=1&flag+on&plain=x");
+        let params = parse_query_string("q=hello+world&tag=a%2Bb&mixed=a+b%20c&my+key=1&flag+on&plain=x");
 
         assert_eq!(params["q"], "hello world");
         assert_eq!(params["tag"], "a+b");
@@ -1123,9 +997,8 @@ mod tests {
 
     #[test]
     fn test_query_pairs_keep_their_order() {
-        let pairs: Vec<(String, String)> = query_pairs("b=2&a=1&flag&b=3")
-            .map(|(key, value)| (key.into_owned(), value.into_owned()))
-            .collect();
+        let pairs: Vec<(String, String)> =
+            query_pairs("b=2&a=1&flag&b=3").map(|(key, value)| (key.into_owned(), value.into_owned())).collect();
 
         let expected = [("b", "2"), ("a", "1"), ("flag", ""), ("b", "3")];
         assert_eq!(pairs, expected.map(|(k, v)| (k.to_string(), v.to_string())));
@@ -1156,18 +1029,13 @@ mod tests {
     ];
 
     fn raw_query() -> impl Strategy<Value = String> {
-        prop::collection::vec(prop::sample::select(QUERY_PIECES), 0..16)
-            .prop_map(|pieces| pieces.concat())
+        prop::collection::vec(prop::sample::select(QUERY_PIECES), 0..16).prop_map(|pieces| pieces.concat())
     }
 
     /// Encode a form component, with `+` or `%20` for a space.
     fn form_encode(text: &str, plus_for_space: bool) -> String {
         let encoded = urlencoding::encode(text).into_owned();
-        if plus_for_space {
-            encoded.replace("%20", "+")
-        } else {
-            encoded
-        }
+        if plus_for_space { encoded.replace("%20", "+") } else { encoded }
     }
 
     proptest! {

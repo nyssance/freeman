@@ -38,52 +38,28 @@ from msgspec import Meta
 # String Length Types (Django CharField equivalents)
 # =============================================================================
 
-Char50 = Annotated[
-    str,
-    Meta(max_length=50, description="String with max 50 chars"),
-]
+Char50 = Annotated[str, Meta(max_length=50, description="String with max 50 chars")]
 """String with max 50 characters."""
 
-Char100 = Annotated[
-    str,
-    Meta(max_length=100, description="String with max 100 chars"),
-]
+Char100 = Annotated[str, Meta(max_length=100, description="String with max 100 chars")]
 """String with max 100 characters."""
 
-Char150 = Annotated[
-    str,
-    Meta(max_length=150, description="String with max 150 chars"),
-]
+Char150 = Annotated[str, Meta(max_length=150, description="String with max 150 chars")]
 """String with max 150 characters. Default for Django auth username."""
 
-Char200 = Annotated[
-    str,
-    Meta(max_length=200, description="String with max 200 chars"),
-]
+Char200 = Annotated[str, Meta(max_length=200, description="String with max 200 chars")]
 """String with max 200 characters."""
 
-Char255 = Annotated[
-    str,
-    Meta(max_length=255, description="String with max 255 chars"),
-]
+Char255 = Annotated[str, Meta(max_length=255, description="String with max 255 chars")]
 """String with max 255 characters. Common varchar default."""
 
-Char500 = Annotated[
-    str,
-    Meta(max_length=500, description="String with max 500 chars"),
-]
+Char500 = Annotated[str, Meta(max_length=500, description="String with max 500 chars")]
 """String with max 500 characters."""
 
-Char1000 = Annotated[
-    str,
-    Meta(max_length=1000, description="String with max 1000 chars"),
-]
+Char1000 = Annotated[str, Meta(max_length=1000, description="String with max 1000 chars")]
 """String with max 1000 characters."""
 
-Text = Annotated[
-    str,
-    Meta(description="Unlimited text"),
-]
+Text = Annotated[str, Meta(description="Unlimited text")]
 """Unlimited text string."""
 
 # =============================================================================
@@ -170,82 +146,37 @@ UUID = Annotated[
 # Integer Types
 # =============================================================================
 
-SmallInt = Annotated[
-    int,
-    Meta(
-        ge=-32768,
-        le=32767,
-        description="Small integer (-32768 to 32767)",
-    ),
-]
+SmallInt = Annotated[int, Meta(ge=-32768, le=32767, description="Small integer (-32768 to 32767)")]
 """Small integer. Range: -32768 to 32767."""
 
-Int = Annotated[
-    int,
-    Meta(
-        ge=-2147483648,
-        le=2147483647,
-        description="Integer (-2147483648 to 2147483647)",
-    ),
-]
+Int = Annotated[int, Meta(ge=-2147483648, le=2147483647, description="Integer (-2147483648 to 2147483647)")]
 """Standard integer. Range: -2147483648 to 2147483647."""
 
 BigInt = Annotated[
-    int,
-    Meta(
-        ge=-9223372036854775808,
-        le=9223372036854775807,
-        description="Big integer (64-bit signed)",
-    ),
+    int, Meta(ge=-9223372036854775808, le=9223372036854775807, description="Big integer (64-bit signed)")
 ]
 """Big integer (64-bit signed)."""
 
-PositiveSmallInt = Annotated[
-    int,
-    Meta(
-        ge=0,
-        le=32767,
-        description="Positive small integer (0 to 32767)",
-    ),
-]
+PositiveSmallInt = Annotated[int, Meta(ge=0, le=32767, description="Positive small integer (0 to 32767)")]
 """Positive small integer. Range: 0 to 32767."""
 
-PositiveInt = Annotated[
-    int,
-    Meta(gt=0, description="Positive integer (> 0)"),
-]
+PositiveInt = Annotated[int, Meta(gt=0, description="Positive integer (> 0)")]
 """Integer greater than 0."""
 
-PositiveBigInt = Annotated[
-    int,
-    Meta(
-        ge=0,
-        le=9223372036854775807,
-        description="Positive big integer (0 to 2^63-1)",
-    ),
-]
+PositiveBigInt = Annotated[int, Meta(ge=0, le=9223372036854775807, description="Positive big integer (0 to 2^63-1)")]
 """Positive big integer (64-bit unsigned range)."""
 
-NonNegativeInt = Annotated[
-    int,
-    Meta(ge=0, description="Non-negative integer (>= 0)"),
-]
+NonNegativeInt = Annotated[int, Meta(ge=0, description="Non-negative integer (>= 0)")]
 """Integer greater than or equal to 0."""
 
 # =============================================================================
 # Float Types
 # =============================================================================
 
-Float = Annotated[
-    float,
-    Meta(description="Floating point number"),
-]
+Float = Annotated[float, Meta(description="Floating point number")]
 """Floating point number."""
 
-PositiveFloat = Annotated[
-    float,
-    Meta(ge=0, description="Positive float (>= 0)"),
-]
+PositiveFloat = Annotated[float, Meta(ge=0, description="Positive float (>= 0)")]
 """Float that must be >= 0."""
 
 # =============================================================================
@@ -283,38 +214,17 @@ IP = Annotated[
 ]
 """IPv4 or IPv6 address."""
 
-Port = Annotated[
-    int,
-    Meta(
-        ge=1,
-        le=65535,
-        description="Network port (1-65535)",
-    ),
-]
+Port = Annotated[int, Meta(ge=1, le=65535, description="Network port (1-65535)")]
 """Network port number. Range: 1 to 65535."""
 
-HttpStatus = Annotated[
-    int,
-    Meta(
-        ge=100,
-        le=599,
-        description="HTTP status code (100-599)",
-    ),
-]
+HttpStatus = Annotated[int, Meta(ge=100, le=599, description="HTTP status code (100-599)")]
 """HTTP status code. Range: 100 to 599."""
 
 # =============================================================================
 # File Path
 # =============================================================================
 
-FilePath = Annotated[
-    str,
-    Meta(
-        max_length=100,
-        description="File system path",
-        examples=["/path/to/file.txt"],
-    ),
-]
+FilePath = Annotated[str, Meta(max_length=100, description="File system path", examples=["/path/to/file.txt"])]
 """File system path. Max 100 chars."""
 
 # =============================================================================
@@ -332,14 +242,7 @@ Username = Annotated[
 ]
 """Django auth-compatible username. Max 150 chars, letters/digits/@/./+/-/_."""
 
-Password = Annotated[
-    str,
-    Meta(
-        min_length=8,
-        max_length=128,
-        description="Password (8-128 chars)",
-    ),
-]
+Password = Annotated[str, Meta(min_length=8, max_length=128, description="Password (8-128 chars)")]
 """Password. Min 8, max 128 chars."""
 
 # =============================================================================
@@ -358,12 +261,7 @@ Phone = Annotated[
 """Phone number in E.164 international format."""
 
 HexColor = Annotated[
-    str,
-    Meta(
-        pattern=r"^#[0-9a-fA-F]{6}$(?!\n)",
-        description="Hex color (#RRGGBB)",
-        examples=["#FF5733", "#ffffff"],
-    ),
+    str, Meta(pattern=r"^#[0-9a-fA-F]{6}$(?!\n)", description="Hex color (#RRGGBB)", examples=["#FF5733", "#ffffff"])
 ]
 """Hex color code (#RRGGBB format)."""
 
@@ -418,68 +316,30 @@ Timezone = Annotated[
 # Geographic Types
 # =============================================================================
 
-Latitude = Annotated[
-    float,
-    Meta(
-        ge=-90,
-        le=90,
-        description="Latitude (-90 to 90)",
-    ),
-]
+Latitude = Annotated[float, Meta(ge=-90, le=90, description="Latitude (-90 to 90)")]
 """Geographic latitude. Range: -90 to 90 degrees."""
 
-Longitude = Annotated[
-    float,
-    Meta(
-        ge=-180,
-        le=180,
-        description="Longitude (-180 to 180)",
-    ),
-]
+Longitude = Annotated[float, Meta(ge=-180, le=180, description="Longitude (-180 to 180)")]
 """Geographic longitude. Range: -180 to 180 degrees."""
 
 # =============================================================================
 # Percentage and Rating Types
 # =============================================================================
 
-Percentage = Annotated[
-    float,
-    Meta(
-        ge=0,
-        le=100,
-        description="Percentage (0-100)",
-    ),
-]
+Percentage = Annotated[float, Meta(ge=0, le=100, description="Percentage (0-100)")]
 """Percentage value. Range: 0 to 100."""
 
-Rating = Annotated[
-    float,
-    Meta(
-        ge=0,
-        le=5,
-        description="Rating (0-5 stars)",
-    ),
-]
+Rating = Annotated[float, Meta(ge=0, le=5, description="Rating (0-5 stars)")]
 """Star rating. Range: 0 to 5."""
 
-Rating10 = Annotated[
-    float,
-    Meta(
-        ge=0,
-        le=10,
-        description="Rating (0-10)",
-    ),
-]
+Rating10 = Annotated[float, Meta(ge=0, le=10, description="Rating (0-10)")]
 """Rating on 0-10 scale."""
 
 # =============================================================================
 # Simple Constraint Types
 # =============================================================================
 
-NonEmptyStr = Annotated[
-    str,
-    Meta(min_length=1, description="Non-empty string"),
-]
+NonEmptyStr = Annotated[str, Meta(min_length=1, description="Non-empty string")]
 """String that must have at least 1 character."""
 
 # =============================================================================

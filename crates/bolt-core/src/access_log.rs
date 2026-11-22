@@ -40,17 +40,11 @@ impl AccessLogger {
         let logger = py.import("logging")?.call_method1("getLogger", (name,))?;
         let mut levels = 0;
         for (bit, level) in [(1, 20), (2, 30), (4, 40)] {
-            if logger
-                .call_method1("isEnabledFor", (level,))?
-                .extract::<bool>()?
-            {
+            if logger.call_method1("isEnabledFor", (level,))?.extract::<bool>()? {
                 levels |= bit;
             }
         }
-        Ok(Self {
-            levels,
-            logger: logger.unbind(),
-        })
+        Ok(Self { levels, logger: logger.unbind() })
     }
 }
 
@@ -58,8 +52,7 @@ impl AccessLogger {
 /// logger in the result. Index 0 is `django.server`, the logger of a route
 /// with no `logger_name` and of a route with no metadata.
 pub fn read_access_loggers<'a>(
-    py: Python<'_>,
-    filters: impl IntoIterator<Item = &'a mut AccessLogFilter>,
+    py: Python<'_>, filters: impl IntoIterator<Item = &'a mut AccessLogFilter>,
 ) -> PyResult<Vec<AccessLogger>> {
     let mut names = vec![DEFAULT_LOGGER_NAME.to_string()];
     let mut loggers = vec![AccessLogger::read(py, DEFAULT_LOGGER_NAME)?];
@@ -81,13 +74,8 @@ pub fn read_access_loggers<'a>(
 
 /// `true` when a route writes to a logger that writes a line. `route_loggers`
 /// gives the logger index of each route.
-pub fn access_log_on(
-    loggers: &[AccessLogger],
-    route_loggers: impl IntoIterator<Item = usize>,
-) -> bool {
-    route_loggers
-        .into_iter()
-        .any(|index| loggers.get(index).is_some_and(|logger| logger.levels != 0))
+pub fn access_log_on(loggers: &[AccessLogger], route_loggers: impl IntoIterator<Item = usize>) -> bool {
+    route_loggers.into_iter().any(|index| loggers.get(index).is_some_and(|logger| logger.levels != 0))
 }
 
 /// Which responses of a route write an access-log line.
@@ -132,9 +120,7 @@ impl AccessLogFilter {
 
     /// Add the request paths and the status codes that write no line.
     pub fn with_skips(
-        mut self,
-        paths: impl IntoIterator<Item = String>,
-        status_codes: impl IntoIterator<Item = u16>,
+        mut self, paths: impl IntoIterator<Item = String>, status_codes: impl IntoIterator<Item = u16>,
     ) -> Self {
         self.skip_paths = paths.into_iter().collect();
         self.skip_status_codes = status_codes.into_iter().collect();
@@ -152,15 +138,11 @@ impl AccessLogFilter {
         };
         let sample_rate = number(SAMPLE_RATE_KEY)?;
         if sample_rate.is_some_and(|rate| !(0.0..=1.0).contains(&rate)) {
-            return Err(PyValueError::new_err(format!(
-                "{SAMPLE_RATE_KEY} must be from 0.0 to 1.0"
-            )));
+            return Err(PyValueError::new_err(format!("{SAMPLE_RATE_KEY} must be from 0.0 to 1.0")));
         }
         let min_duration_ms = number(MIN_DURATION_KEY)?;
         if min_duration_ms.is_some_and(|min| min.is_nan() || min < 0.0) {
-            return Err(PyValueError::new_err(format!(
-                "{MIN_DURATION_KEY} must be 0 or more"
-            )));
+            return Err(PyValueError::new_err(format!("{MIN_DURATION_KEY} must be 0 or more")));
         }
         let skip_paths = match py_meta.get_item(SKIP_PATHS_KEY)? {
             Some(value) if !value.is_none() => value.extract::<Vec<String>>()?,
@@ -170,12 +152,9 @@ impl AccessLogFilter {
             Some(value) if !value.is_none() => value.extract::<Vec<u16>>()?,
             _ => Vec::new(),
         };
-        let filter =
-            Self::new(sample_rate, min_duration_ms).with_skips(skip_paths, skip_status_codes);
+        let filter = Self::new(sample_rate, min_duration_ms).with_skips(skip_paths, skip_status_codes);
         match py_meta.get_item(LOGGER_NAME_KEY)? {
-            Some(value) if !value.is_none() => {
-                Ok(filter.with_logger_name(value.extract::<String>()?))
-            }
+            Some(value) if !value.is_none() => Ok(filter.with_logger_name(value.extract::<String>()?)),
             _ => Ok(filter),
         }
     }
@@ -184,8 +163,7 @@ impl AccessLogFilter {
     /// status code. With no skip value, the cost is two length checks.
     #[inline]
     pub fn skips(&self, path: &str, status: u16) -> bool {
-        self.skip_status_codes.contains(&status)
-            || (!self.skip_paths.is_empty() && self.skip_paths.contains(path))
+        self.skip_status_codes.contains(&status) || (!self.skip_paths.is_empty() && self.skip_paths.contains(path))
     }
 
     /// `true` when the response writes its access-log line.
@@ -275,8 +253,7 @@ pub fn rejection_line_at(logger: usize, now: Instant) -> Option<u64> {
         if limits.len() <= logger {
             limits.resize_with(logger + 1, || None);
         }
-        let (first, limit) =
-            limits[logger].get_or_insert_with(|| (now, RejectionLineLimit::default()));
+        let (first, limit) = limits[logger].get_or_insert_with(|| (now, RejectionLineLimit::default()));
         limit.line_in(now.saturating_duration_since(*first).as_secs())
     })
 }
@@ -284,8 +261,8 @@ pub fn rejection_line_at(logger: usize, now: Instant) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AccessLogFilter, AccessLogger, RejectionLineLimit, access_log_on, random_unit,
-        read_access_loggers, rejection_line_at,
+        AccessLogFilter, AccessLogger, RejectionLineLimit, access_log_on, random_unit, read_access_loggers,
+        rejection_line_at,
     };
     use pyo3::prelude::*;
     use pyo3::types::PyDict;
@@ -393,35 +370,25 @@ mod tests {
         Python::initialize();
         Python::attach(|py| {
             let meta = PyDict::new(py);
-            assert_eq!(
-                AccessLogFilter::from_python(&meta).unwrap(),
-                AccessLogFilter::default()
-            );
+            assert_eq!(AccessLogFilter::from_python(&meta).unwrap(), AccessLogFilter::default());
 
             meta.set_item("access_log_sample_rate", 0.05).unwrap();
             meta.set_item("access_log_min_duration_ms", 250).unwrap();
-            assert_eq!(
-                AccessLogFilter::from_python(&meta).unwrap(),
-                AccessLogFilter::new(Some(0.05), Some(250.0))
-            );
+            assert_eq!(AccessLogFilter::from_python(&meta).unwrap(), AccessLogFilter::new(Some(0.05), Some(250.0)));
 
-            meta.set_item("access_log_skip_paths", ("/health", "/ready"))
-                .unwrap();
-            meta.set_item("access_log_skip_status_codes", (204, 304))
-                .unwrap();
+            meta.set_item("access_log_skip_paths", ("/health", "/ready")).unwrap();
+            meta.set_item("access_log_skip_status_codes", (204, 304)).unwrap();
             assert_eq!(
                 AccessLogFilter::from_python(&meta).unwrap(),
                 AccessLogFilter::new(Some(0.05), Some(250.0))
                     .with_skips(["/ready".to_string(), "/health".to_string()], [204, 304])
             );
             // A status code that is not a number from 0 to 65535 is an error.
-            meta.set_item("access_log_skip_status_codes", (-1,))
-                .unwrap();
+            meta.set_item("access_log_skip_status_codes", (-1,)).unwrap();
             assert!(AccessLogFilter::from_python(&meta).is_err());
             meta.del_item("access_log_skip_status_codes").unwrap();
 
-            meta.set_item("access_log_logger_name", "myapp.api")
-                .unwrap();
+            meta.set_item("access_log_logger_name", "myapp.api").unwrap();
             assert_eq!(
                 AccessLogFilter::from_python(&meta).unwrap(),
                 AccessLogFilter::new(Some(0.05), Some(250.0))
@@ -461,15 +428,8 @@ mod tests {
             let indexes: Vec<usize> = filters.iter().map(|filter| filter.logger).collect();
             assert_eq!(indexes, [1, 0, 2, 1, 0]);
             assert_eq!(loggers.len(), 3);
-            let name = |index: usize| -> String {
-                loggers[index]
-                    .logger
-                    .bind(py)
-                    .getattr("name")
-                    .unwrap()
-                    .extract()
-                    .unwrap()
-            };
+            let name =
+                |index: usize| -> String { loggers[index].logger.bind(py).getattr("name").unwrap().extract().unwrap() };
             assert_eq!(name(0), "django.server");
             assert_eq!(name(1), "access_log_test.quiet");
             // A logger at WARNING writes the WARNING and the ERROR lines only.
@@ -481,10 +441,7 @@ mod tests {
     fn the_log_is_on_only_when_a_route_uses_a_logger_that_writes() {
         Python::initialize();
         Python::attach(|py| {
-            let logger = |levels| AccessLogger {
-                levels,
-                logger: py.None(),
-            };
+            let logger = |levels| AccessLogger { levels, logger: py.None() };
             // django.server writes INFO. The custom logger writes nothing.
             let loggers = [logger(1 | 2 | 4), logger(0)];
             assert!(!access_log_on(&loggers, [1, 1]));
@@ -513,27 +470,16 @@ mod tests {
         std::thread::spawn(|| {
             let start = Instant::now();
             assert_eq!(rejection_line_at(0, start), Some(0));
-            assert_eq!(
-                rejection_line_at(0, start + Duration::from_millis(999)),
-                None
-            );
-            assert_eq!(
-                rejection_line_at(0, start + Duration::from_millis(1000)),
-                Some(1)
-            );
+            assert_eq!(rejection_line_at(0, start + Duration::from_millis(999)), None);
+            assert_eq!(rejection_line_at(0, start + Duration::from_millis(1000)), Some(1));
             // A time before the first response is in second 0.
             assert_eq!(rejection_line_at(0, start - Duration::from_secs(9)), None);
-            assert_eq!(
-                rejection_line_at(0, start + Duration::from_secs(2)),
-                Some(1)
-            );
+            assert_eq!(rejection_line_at(0, start + Duration::from_secs(2)), Some(1));
         })
         .join()
         .unwrap();
         // The state of the other thread is not here.
-        std::thread::spawn(|| assert_eq!(rejection_line_at(0, Instant::now()), Some(0)))
-            .join()
-            .unwrap();
+        std::thread::spawn(|| assert_eq!(rejection_line_at(0, Instant::now()), Some(0))).join().unwrap();
     }
 
     #[test]

@@ -162,8 +162,7 @@ def test_the_constraint_of_an_optional_parameter_shows_on_its_value_type():
 
     @api.get("/items")
     async def items(
-        page: Annotated[int | None, msgspec.Meta(ge=1), Query()],
-        size: Annotated[int, msgspec.Meta(ge=1)] | None = None,
+        page: Annotated[int | None, msgspec.Meta(ge=1), Query()], size: Annotated[int, msgspec.Meta(ge=1)] | None = None
     ):
         return {}
 

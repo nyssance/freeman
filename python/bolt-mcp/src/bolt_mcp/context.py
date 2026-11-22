@@ -170,11 +170,7 @@ class Context:
         deterministic for the same arguments; pass an explicit stable ``key=``
         when it is not (e.g. data-dependent branching).
         """
-        params = {
-            "mode": "form",
-            "message": message,
-            "requestedSchema": schema or {"type": "object", "properties": {}},
-        }
+        params = {"mode": "form", "message": message, "requestedSchema": schema or {"type": "object", "properties": {}}}
         return await self._input("elicitation", params, key=key)
 
     async def sample(

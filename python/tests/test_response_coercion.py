@@ -310,10 +310,7 @@ def test_validation_error_entry_has_the_response_location_and_the_error_type(cli
     ]
 
 
-@pytest.mark.parametrize(
-    ("path", "status_code"),
-    [("/struct/serializer", 200), ("/struct/serializer-sync", 201)],
-)
+@pytest.mark.parametrize(("path", "status_code"), [("/struct/serializer", 200), ("/struct/serializer-sync", 201)])
 def test_serializer_for_a_struct_is_dumped_then_validated(client, path, status_code):
     response = client.get(path)
 
@@ -364,8 +361,7 @@ def test_none_for_a_list_is_an_empty_list(client):
 
 
 @pytest.mark.parametrize(
-    ("path", "type_name"),
-    [("/list/dict", "Item"), ("/list-int/dict", "int"), ("/list/union-dict", repr(Item | Camel))],
+    ("path", "type_name"), [("/list/dict", "Item"), ("/list-int/dict", "int"), ("/list/union-dict", repr(Item | Camel))]
 )
 def test_non_list_for_a_list_is_a_type_mismatch(client, path, type_name):
     message = _validation_message(client.get(path))
@@ -402,6 +398,7 @@ def _scalar_route(api: BoltAPI, path: str, value: Any, *, is_async: bool, **anno
 
         async def handler():
             return value
+
     else:
 
         def handler():
@@ -747,10 +744,7 @@ def test_queryset_in_json_loads_the_declared_fields(client, path):
     first = Article.objects.create(title="One", content="c", author="a")
     second = Article.objects.create(title="Two", content="c", author="a")
 
-    assert client.get(path).json() == [
-        {"id": first.id, "title": "One"},
-        {"id": second.id, "title": "Two"},
-    ]
+    assert client.get(path).json() == [{"id": first.id, "title": "One"}, {"id": second.id, "title": "Two"}]
 
 
 @pytest.mark.django_db(transaction=True)

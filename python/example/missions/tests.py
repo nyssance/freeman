@@ -38,10 +38,7 @@ class TestMissionEndpoints:
 
     def test_create_mission(self, client):
         """POST /missions creates a mission."""
-        response = client.post(
-            "/missions",
-            json={"name": "Artemis II", "description": "Crewed mission"},
-        )
+        response = client.post("/missions", json={"name": "Artemis II", "description": "Crewed mission"})
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Artemis II"
@@ -72,10 +69,7 @@ class TestMissionEndpoints:
     def test_get_mission(self, client):
         """GET /missions/{id} returns mission details (API-based setup)."""
         # Create via API
-        create_resp = client.post(
-            "/missions",
-            json={"name": "Apollo 11", "description": "Moon landing"},
-        )
+        create_resp = client.post("/missions", json={"name": "Apollo 11", "description": "Moon landing"})
         mission_id = create_resp.json()["id"]
 
         # Fetch via API
@@ -94,10 +88,7 @@ class TestMissionEndpoints:
         """PUT /missions/{id} updates mission (ORM-based setup)."""
         mission = Mission.objects.create(name="Mars Rover", status="planned")
 
-        response = client.put(
-            f"/missions/{mission.id}",
-            json={"status": "active"},
-        )
+        response = client.put(f"/missions/{mission.id}", json={"status": "active"})
         assert response.status_code == 200
         assert response.json()["status"] == "active"
 
@@ -108,10 +99,7 @@ class TestMissionEndpoints:
         """PUT /missions/{id} rejects invalid status (ORM-based setup)."""
         mission = Mission.objects.create(name="Valid Name", status="planned")
 
-        response = client.put(
-            f"/missions/{mission.id}",
-            json={"status": "invalid"},
-        )
+        response = client.put(f"/missions/{mission.id}", json={"status": "invalid"})
         assert response.status_code == 422
 
     def test_delete_mission(self, client):
@@ -149,8 +137,7 @@ class TestAstronautEndpoints:
         mission = Mission.objects.create(name="Moon Mission")
 
         response = client.post(
-            f"/missions/{mission.id}/astronauts",
-            data={"name": "Neil Armstrong", "role": "Commander"},
+            f"/missions/{mission.id}/astronauts", data={"name": "Neil Armstrong", "role": "Commander"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -162,10 +149,7 @@ class TestAstronautEndpoints:
         """POST /missions/{id}/astronauts validates role via Form model."""
         mission = Mission.objects.create(name="Moon Mission")
 
-        response = client.post(
-            f"/missions/{mission.id}/astronauts",
-            data={"name": "John Doe", "role": "Invalid Role"},
-        )
+        response = client.post(f"/missions/{mission.id}/astronauts", data={"name": "John Doe", "role": "Invalid Role"})
         assert response.status_code == 422
 
     def test_list_astronauts(self, client):
@@ -223,9 +207,7 @@ class TestFileUploadEndpoints:
     def test_upload_mission_not_found(self, client):
         """POST /missions/{id}/documents returns 404 for unknown mission."""
         response = client.post(
-            "/missions/99999/documents",
-            data={"title": "Test"},
-            files={"file": ("test.txt", b"test", "text/plain")},
+            "/missions/99999/documents", data={"title": "Test"}, files={"file": ("test.txt", b"test", "text/plain")}
         )
         assert response.status_code == 404
 
@@ -249,10 +231,7 @@ class TestFileUploadEndpoints:
         """POST /missions/{id}/report works without optional files."""
         mission = Mission.objects.create(name="No Attachment Test")
 
-        response = client.post(
-            f"/missions/{mission.id}/report",
-            data={"title": "Status Update"},
-        )
+        response = client.post(f"/missions/{mission.id}/report", data={"title": "Status Update"})
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == "Status Update"
@@ -266,10 +245,7 @@ class TestHeaderStructEndpoints:
 
     def test_header_struct_required(self, client):
         """GET /missions/secure requires X-Api-Key header."""
-        response = client.get(
-            "/missions/secure",
-            headers={"X-Api-Key": "secret123"},
-        )
+        response = client.get("/missions/secure", headers={"X-Api-Key": "secret123"})
         assert response.status_code == 200
         data = response.json()
         assert data["api_key"] == "secret123"
@@ -278,10 +254,7 @@ class TestHeaderStructEndpoints:
 
     def test_header_struct_with_optional(self, client):
         """GET /missions/secure accepts optional X-Request-Id header."""
-        response = client.get(
-            "/missions/secure",
-            headers={"X-Api-Key": "mykey", "X-Request-Id": "req-456"},
-        )
+        response = client.get("/missions/secure", headers={"X-Api-Key": "mykey", "X-Request-Id": "req-456"})
         assert response.status_code == 200
         data = response.json()
         assert data["api_key"] == "mykey"
@@ -299,10 +272,7 @@ class TestCookieStructEndpoints:
 
     def test_cookie_struct_with_values(self, client):
         """GET /missions/preferences reads cookies."""
-        response = client.get(
-            "/missions/preferences",
-            headers={"cookie": "theme=dark; language=es"},
-        )
+        response = client.get("/missions/preferences", headers={"cookie": "theme=dark; language=es"})
         assert response.status_code == 200
         data = response.json()
         assert data["theme"] == "dark"
@@ -318,10 +288,7 @@ class TestCookieStructEndpoints:
 
     def test_cookie_struct_partial(self, client):
         """GET /missions/preferences uses default for missing cookie."""
-        response = client.get(
-            "/missions/preferences",
-            headers={"cookie": "theme=dark"},
-        )
+        response = client.get("/missions/preferences", headers={"cookie": "theme=dark"})
         assert response.status_code == 200
         data = response.json()
         assert data["theme"] == "dark"
@@ -345,10 +312,7 @@ class TestAdditionalMissionRoutes:
         denied = client.get(f"/missions/{mission.id}/classified", headers={"X-Clearance-Level": "public"})
         assert denied.status_code == 403
 
-        allowed = client.get(
-            f"/missions/{mission.id}/classified",
-            headers={"X-Clearance-Level": "top-secret"},
-        )
+        allowed = client.get(f"/missions/{mission.id}/classified", headers={"X-Clearance-Level": "top-secret"})
         assert allowed.status_code == 200
         assert allowed.json()["mission"] == "Secret Mission"
 
@@ -366,8 +330,7 @@ class TestAdditionalMissionRoutes:
         mission = Mission.objects.create(name="Patch Test", status="planned")
 
         response = client.post(
-            f"/missions/{mission.id}/patch",
-            files={"patch": ("patch.txt", b"patch-bytes", "text/plain")},
+            f"/missions/{mission.id}/patch", files={"patch": ("patch.txt", b"patch-bytes", "text/plain")}
         )
         assert response.status_code == 200
         payload = response.json()

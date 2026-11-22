@@ -181,10 +181,7 @@ def account(i: int = 1) -> Account:
 
 def profile() -> Profile:
     return Profile(
-        id=9,
-        envelope=Envelope(account=account()),
-        by_name={"a": account(2)},
-        envelopes=[Envelope(account=account(3))],
+        id=9, envelope=Envelope(account=account()), by_name={"a": account(2)}, envelopes=[Envelope(account=account(3))]
     )
 
 

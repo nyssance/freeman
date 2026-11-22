@@ -40,8 +40,7 @@ pub struct GuardDenial {
 impl GuardDenial {
     pub fn new(text: String) -> Self {
         let body = Bytes::from(
-            serde_json::to_vec(&serde_json::json!({ "detail": &text }))
-                .expect("a JSON string always serializes"),
+            serde_json::to_vec(&serde_json::json!({ "detail": &text })).expect("a JSON string always serializes"),
         );
         Self { text, body }
     }
@@ -137,10 +136,7 @@ pub struct GuardSet {
 
 impl GuardSet {
     pub fn from_guards(guards: Vec<Guard>) -> Self {
-        Self {
-            enforcing: guards.iter().any(|guard| !matches!(guard, Guard::AllowAny)),
-            guards,
-        }
+        Self { enforcing: guards.iter().any(|guard| !matches!(guard, Guard::AllowAny)), guards }
     }
 
     #[inline(always)]
@@ -180,12 +176,7 @@ pub fn evaluate_guards(guard_set: &GuardSet, auth_ctx: Option<&AuthContext>) -> 
                     return GuardResult::Unauthorized;
                 }
             }
-            Guard::Requires {
-                claim,
-                values,
-                quantifier,
-                denial,
-            } => match auth_ctx {
+            Guard::Requires { claim, values, quantifier, denial } => match auth_ctx {
                 // Every `Requires` — including a `none_of` one — fails closed
                 // without a credential. A request carrying no claims matches
                 // nothing, so treating "no match" as success here would let
@@ -206,12 +197,7 @@ pub fn evaluate_guards(guard_set: &GuardSet, auth_ctx: Option<&AuthContext>) -> 
 /// Evaluate one `Requires` guard against the authenticated context. The
 /// claim's value is resolved exactly once, then compared against each
 /// expected value.
-fn requires_matches(
-    ctx: &AuthContext,
-    claim: &ClaimKey,
-    values: &[Json],
-    quantifier: Quantifier,
-) -> bool {
+fn requires_matches(ctx: &AuthContext, claim: &ClaimKey, values: &[Json], quantifier: Quantifier) -> bool {
     let resolved = resolve_claim(ctx, claim);
     if values.is_empty() {
         // Python rejects an empty `none_of`, so this arm is only reachable
@@ -274,10 +260,7 @@ fn resolve_claim<'a>(ctx: &'a AuthContext, claim: &'a ClaimKey) -> ClaimValue<'a
         ClaimKey::IsStaff => opt_bool(claims.is_staff),
         ClaimKey::IsSuperuser => opt_bool(claims.is_superuser),
         ClaimKey::IsAdmin => opt_bool(claims.is_admin),
-        ClaimKey::Amr => claims
-            .amr
-            .as_deref()
-            .map_or(ClaimValue::Absent, ClaimValue::StrList),
+        ClaimKey::Amr => claims.amr.as_deref().map_or(ClaimValue::Absent, ClaimValue::StrList),
         ClaimKey::Aud => match &claims.aud {
             None => ClaimValue::Absent,
             Some(Audience::Single(aud)) => ClaimValue::Str(aud),
@@ -308,9 +291,7 @@ impl ClaimValue<'_> {
     fn matches(&self, expected: &Json) -> bool {
         match self {
             ClaimValue::Absent => false,
-            ClaimValue::Permissions(perms) => {
-                expected.as_str().is_some_and(|perm| perms.contains(perm))
-            }
+            ClaimValue::Permissions(perms) => expected.as_str().is_some_and(|perm| perms.contains(perm)),
             ClaimValue::Str(v) => expected.as_str() == Some(v),
             ClaimValue::Int(v) => expected.as_i64() == Some(*v),
             ClaimValue::Bool(v) => expected.as_bool() == Some(*v),
@@ -364,10 +345,7 @@ mod tests {
             } else {
                 Some(permissions.iter().map(|p| p.to_string()).collect())
             },
-            extra: extra
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.clone()))
-                .collect::<HashMap<_, _>>(),
+            extra: extra.iter().map(|(k, v)| (k.to_string(), v.clone())).collect::<HashMap<_, _>>(),
         };
         AuthContext::from_jwt_claims(claims, "jwt", false)
     }
@@ -377,10 +355,7 @@ mod tests {
     }
 
     fn requires_with(
-        claim: &str,
-        values: &[Json],
-        quantifier: Quantifier,
-        denial: Option<Arc<GuardDenial>>,
+        claim: &str, values: &[Json], quantifier: Quantifier, denial: Option<Arc<GuardDenial>>,
     ) -> GuardSet {
         GuardSet::from_guards(vec![Guard::Requires {
             claim: ClaimKey::parse(claim.to_string()),
@@ -419,16 +394,8 @@ mod tests {
                 Json::Number(number) => (value.clone(), Json::from(number.as_i64().unwrap() + 1)),
                 _ => unreachable!("the payload has no other type"),
             };
-            assert_eq!(
-                evaluate_guards(&any_of(name, &[expected]), Some(&ctx)),
-                GuardResult::Allow,
-                "{name}"
-            );
-            assert_eq!(
-                evaluate_guards(&any_of(name, &[other]), Some(&ctx)),
-                GuardResult::Forbidden(None),
-                "{name}"
-            );
+            assert_eq!(evaluate_guards(&any_of(name, &[expected]), Some(&ctx)), GuardResult::Allow, "{name}");
+            assert_eq!(evaluate_guards(&any_of(name, &[other]), Some(&ctx)), GuardResult::Forbidden(None), "{name}");
         }
     }
 
@@ -438,10 +405,7 @@ mod tests {
         let mut ctx = jwt_ctx(&[], &[]);
         assert_eq!(evaluate_guards(&guards, Some(&ctx)), GuardResult::Allow);
         ctx.user_id = None;
-        assert_eq!(
-            evaluate_guards(&guards, Some(&ctx)),
-            GuardResult::Unauthorized
-        );
+        assert_eq!(evaluate_guards(&guards, Some(&ctx)), GuardResult::Unauthorized);
         assert_eq!(evaluate_guards(&guards, None), GuardResult::Unauthorized);
     }
 
@@ -451,50 +415,29 @@ mod tests {
         let with_role = jwt_ctx(&["read"], &[("role", Json::from("client"))]);
         let without = jwt_ctx(&[], &[]);
         for claim in ["role", "permissions"] {
-            assert_eq!(
-                evaluate_guards(&any_of(claim, &[]), Some(&with_role)),
-                GuardResult::Allow,
-                "{claim}"
-            );
-            assert_eq!(
-                evaluate_guards(&any_of(claim, &[]), Some(&without)),
-                GuardResult::Forbidden(None),
-                "{claim}"
-            );
+            assert_eq!(evaluate_guards(&any_of(claim, &[]), Some(&with_role)), GuardResult::Allow, "{claim}");
+            assert_eq!(evaluate_guards(&any_of(claim, &[]), Some(&without)), GuardResult::Forbidden(None), "{claim}");
             assert_eq!(
                 evaluate_guards(&none_of(claim, &[]), Some(&with_role)),
                 GuardResult::Forbidden(None),
                 "{claim}"
             );
-            assert_eq!(
-                evaluate_guards(&none_of(claim, &[]), Some(&without)),
-                GuardResult::Allow,
-                "{claim}"
-            );
+            assert_eq!(evaluate_guards(&none_of(claim, &[]), Some(&without)), GuardResult::Allow, "{claim}");
         }
     }
 
     #[test]
     fn extra_claim_string_equality() {
         let ctx = jwt_ctx(&[], &[("role", Json::from("client"))]);
-        assert_eq!(
-            evaluate_guards(&any_of("role", &[Json::from("client")]), Some(&ctx)),
-            GuardResult::Allow
-        );
-        assert_eq!(
-            evaluate_guards(&any_of("role", &[Json::from("vendor")]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&any_of("role", &[Json::from("client")]), Some(&ctx)), GuardResult::Allow);
+        assert_eq!(evaluate_guards(&any_of("role", &[Json::from("vendor")]), Some(&ctx)), GuardResult::Forbidden(None));
     }
 
     #[test]
     fn any_of_matches_either_value() {
         let ctx = jwt_ctx(&[], &[("role", Json::from("vip"))]);
         assert_eq!(
-            evaluate_guards(
-                &any_of("role", &[Json::from("client"), Json::from("vip")]),
-                Some(&ctx)
-            ),
+            evaluate_guards(&any_of("role", &[Json::from("client"), Json::from("vip")]), Some(&ctx)),
             GuardResult::Allow
         );
     }
@@ -502,65 +445,30 @@ mod tests {
     #[test]
     fn missing_claim_is_forbidden_when_authenticated() {
         let ctx = jwt_ctx(&[], &[]);
-        assert_eq!(
-            evaluate_guards(&any_of("role", &[Json::from("client")]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&any_of("role", &[Json::from("client")]), Some(&ctx)), GuardResult::Forbidden(None));
     }
 
     #[test]
     fn unauthenticated_is_401() {
-        assert_eq!(
-            evaluate_guards(&any_of("role", &[Json::from("client")]), None),
-            GuardResult::Unauthorized
-        );
+        assert_eq!(evaluate_guards(&any_of("role", &[Json::from("client")]), None), GuardResult::Unauthorized);
     }
 
     #[test]
     fn list_claim_matches_on_membership() {
-        let ctx = jwt_ctx(
-            &[],
-            &[(
-                "roles",
-                Json::Array(vec![Json::from("beta"), Json::from("client")]),
-            )],
-        );
-        assert_eq!(
-            evaluate_guards(&any_of("roles", &[Json::from("client")]), Some(&ctx)),
-            GuardResult::Allow
-        );
-        assert_eq!(
-            evaluate_guards(&any_of("roles", &[Json::from("admin")]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        let ctx = jwt_ctx(&[], &[("roles", Json::Array(vec![Json::from("beta"), Json::from("client")]))]);
+        assert_eq!(evaluate_guards(&any_of("roles", &[Json::from("client")]), Some(&ctx)), GuardResult::Allow);
+        assert_eq!(evaluate_guards(&any_of("roles", &[Json::from("admin")]), Some(&ctx)), GuardResult::Forbidden(None));
     }
 
     #[test]
     fn match_all_requires_every_value() {
-        let ctx = jwt_ctx(
-            &[],
-            &[("roles", Json::Array(vec![Json::from("a"), Json::from("b")]))],
-        );
+        let ctx = jwt_ctx(&[], &[("roles", Json::Array(vec![Json::from("a"), Json::from("b")]))]);
         assert_eq!(
-            evaluate_guards(
-                &requires(
-                    "roles",
-                    &[Json::from("a"), Json::from("b")],
-                    Quantifier::All
-                ),
-                Some(&ctx)
-            ),
+            evaluate_guards(&requires("roles", &[Json::from("a"), Json::from("b")], Quantifier::All), Some(&ctx)),
             GuardResult::Allow
         );
         assert_eq!(
-            evaluate_guards(
-                &requires(
-                    "roles",
-                    &[Json::from("a"), Json::from("c")],
-                    Quantifier::All
-                ),
-                Some(&ctx)
-            ),
+            evaluate_guards(&requires("roles", &[Json::from("a"), Json::from("c")], Quantifier::All), Some(&ctx)),
             GuardResult::Forbidden(None)
         );
     }
@@ -568,23 +476,14 @@ mod tests {
     #[test]
     fn empty_values_is_presence_check() {
         let ctx = jwt_ctx(&[], &[("tenant", Json::from("acme"))]);
-        assert_eq!(
-            evaluate_guards(&any_of("tenant", &[]), Some(&ctx)),
-            GuardResult::Allow
-        );
-        assert_eq!(
-            evaluate_guards(&any_of("missing", &[]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&any_of("tenant", &[]), Some(&ctx)), GuardResult::Allow);
+        assert_eq!(evaluate_guards(&any_of("missing", &[]), Some(&ctx)), GuardResult::Forbidden(None));
     }
 
     #[test]
     fn null_claim_is_not_present() {
         let ctx = jwt_ctx(&[], &[("tenant", Json::Null)]);
-        assert_eq!(
-            evaluate_guards(&any_of("tenant", &[]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&any_of("tenant", &[]), Some(&ctx)), GuardResult::Forbidden(None));
     }
 
     #[test]
@@ -592,15 +491,9 @@ mod tests {
         // `Requires("beta")` on a boolean claim means "the flag is set" — a
         // token carrying `beta: false` must not pass a bare presence check.
         let ctx = jwt_ctx(&[], &[("beta", Json::from(false))]);
-        assert_eq!(
-            evaluate_guards(&any_of("beta", &[]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&any_of("beta", &[]), Some(&ctx)), GuardResult::Forbidden(None));
         let ctx = jwt_ctx(&[], &[("beta", Json::from(true))]);
-        assert_eq!(
-            evaluate_guards(&any_of("beta", &[]), Some(&ctx)),
-            GuardResult::Allow
-        );
+        assert_eq!(evaluate_guards(&any_of("beta", &[]), Some(&ctx)), GuardResult::Allow);
     }
 
     #[test]
@@ -608,89 +501,48 @@ mod tests {
         // Same rule for the typed standard claims (is_staff/is_superuser/is_admin):
         // jwt_ctx sets is_staff=true and leaves is_superuser unset.
         let ctx = jwt_ctx(&[], &[]);
-        assert_eq!(
-            evaluate_guards(&any_of("is_staff", &[]), Some(&ctx)),
-            GuardResult::Allow
-        );
-        assert_eq!(
-            evaluate_guards(&any_of("is_superuser", &[]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&any_of("is_staff", &[]), Some(&ctx)), GuardResult::Allow);
+        assert_eq!(evaluate_guards(&any_of("is_superuser", &[]), Some(&ctx)), GuardResult::Forbidden(None));
         // An explicitly-false typed claim is not "present" either.
         let mut ctx = jwt_ctx(&[], &[]);
         if let Some(claims) = ctx.claims.as_mut() {
             claims.is_superuser = Some(false);
         }
-        assert_eq!(
-            evaluate_guards(&any_of("is_superuser", &[]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&any_of("is_superuser", &[]), Some(&ctx)), GuardResult::Forbidden(None));
         // But a false boolean still matches an explicit `Requires("x", False)`.
-        assert_eq!(
-            evaluate_guards(&any_of("is_superuser", &[Json::from(false)]), Some(&ctx)),
-            GuardResult::Allow
-        );
+        assert_eq!(evaluate_guards(&any_of("is_superuser", &[Json::from(false)]), Some(&ctx)), GuardResult::Allow);
     }
 
     #[test]
     fn int_and_bool_claims_match() {
         let ctx = jwt_ctx(&[], &[("level", Json::from(5)), ("beta", Json::from(true))]);
-        assert_eq!(
-            evaluate_guards(&any_of("level", &[Json::from(5)]), Some(&ctx)),
-            GuardResult::Allow
-        );
-        assert_eq!(
-            evaluate_guards(&any_of("level", &[Json::from(4)]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
-        assert_eq!(
-            evaluate_guards(&any_of("beta", &[Json::from(true)]), Some(&ctx)),
-            GuardResult::Allow
-        );
+        assert_eq!(evaluate_guards(&any_of("level", &[Json::from(5)]), Some(&ctx)), GuardResult::Allow);
+        assert_eq!(evaluate_guards(&any_of("level", &[Json::from(4)]), Some(&ctx)), GuardResult::Forbidden(None));
+        assert_eq!(evaluate_guards(&any_of("beta", &[Json::from(true)]), Some(&ctx)), GuardResult::Allow);
     }
 
     #[test]
     fn standard_claims_are_reachable() {
         let ctx = jwt_ctx(&[], &[]);
         // sub/is_staff are typed fields, not extra claims — still guardable.
-        assert_eq!(
-            evaluate_guards(&any_of("sub", &[Json::from("user1")]), Some(&ctx)),
-            GuardResult::Allow
-        );
-        assert_eq!(
-            evaluate_guards(&any_of("is_staff", &[Json::from(true)]), Some(&ctx)),
-            GuardResult::Allow
-        );
+        assert_eq!(evaluate_guards(&any_of("sub", &[Json::from("user1")]), Some(&ctx)), GuardResult::Allow);
+        assert_eq!(evaluate_guards(&any_of("is_staff", &[Json::from(true)]), Some(&ctx)), GuardResult::Allow);
     }
 
     #[test]
     fn permissions_claim_reads_jwt_permission_set() {
         let ctx = jwt_ctx(&["blog.add", "blog.change"], &[]);
+        assert_eq!(evaluate_guards(&any_of("permissions", &[Json::from("blog.add")]), Some(&ctx)), GuardResult::Allow);
         assert_eq!(
             evaluate_guards(
-                &any_of("permissions", &[Json::from("blog.add")]),
+                &requires("permissions", &[Json::from("blog.add"), Json::from("blog.change")], Quantifier::All),
                 Some(&ctx)
             ),
             GuardResult::Allow
         );
         assert_eq!(
             evaluate_guards(
-                &requires(
-                    "permissions",
-                    &[Json::from("blog.add"), Json::from("blog.change")],
-                    Quantifier::All
-                ),
-                Some(&ctx)
-            ),
-            GuardResult::Allow
-        );
-        assert_eq!(
-            evaluate_guards(
-                &requires(
-                    "permissions",
-                    &[Json::from("blog.add"), Json::from("blog.delete")],
-                    Quantifier::All
-                ),
+                &requires("permissions", &[Json::from("blog.add"), Json::from("blog.delete")], Quantifier::All),
                 Some(&ctx)
             ),
             GuardResult::Forbidden(None)
@@ -704,18 +556,9 @@ mod tests {
         let mut key_perms = HashMap::new();
         key_perms.insert("k1".to_string(), vec!["can.read".to_string()]);
         let ctx = AuthContext::from_api_key("k1", &key_perms);
+        assert_eq!(evaluate_guards(&any_of("permissions", &[Json::from("can.read")]), Some(&ctx)), GuardResult::Allow);
         assert_eq!(
-            evaluate_guards(
-                &any_of("permissions", &[Json::from("can.read")]),
-                Some(&ctx)
-            ),
-            GuardResult::Allow
-        );
-        assert_eq!(
-            evaluate_guards(
-                &any_of("permissions", &[Json::from("can.write")]),
-                Some(&ctx)
-            ),
+            evaluate_guards(&any_of("permissions", &[Json::from("can.write")]), Some(&ctx)),
             GuardResult::Forbidden(None)
         );
     }
@@ -723,10 +566,7 @@ mod tests {
     #[test]
     fn non_permission_claim_never_matches_for_api_keys() {
         let ctx = AuthContext::from_api_key("k1", &HashMap::new());
-        assert_eq!(
-            evaluate_guards(&any_of("role", &[Json::from("client")]), Some(&ctx)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&any_of("role", &[Json::from("client")]), Some(&ctx)), GuardResult::Forbidden(None));
     }
 
     #[test]
@@ -734,30 +574,21 @@ mod tests {
         let banned = jwt_ctx(&[], &[("role", Json::from("banned"))]);
         let ok = jwt_ctx(&[], &[("role", Json::from("client"))]);
         let guards = none_of("role", &[Json::from("banned"), Json::from("suspended")]);
-        assert_eq!(
-            evaluate_guards(&guards, Some(&banned)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&guards, Some(&banned)), GuardResult::Forbidden(None));
         assert_eq!(evaluate_guards(&guards, Some(&ok)), GuardResult::Allow);
     }
 
     #[test]
     fn none_of_passes_when_claim_is_absent() {
         let ctx = jwt_ctx(&[], &[]);
-        assert_eq!(
-            evaluate_guards(&none_of("role", &[Json::from("banned")]), Some(&ctx)),
-            GuardResult::Allow
-        );
+        assert_eq!(evaluate_guards(&none_of("role", &[Json::from("banned")]), Some(&ctx)), GuardResult::Allow);
     }
 
     #[test]
     fn none_of_is_401_without_credentials() {
         // The security property: a request with no claims matches nothing, so
         // a naive "did not match" would let anonymous callers through.
-        assert_eq!(
-            evaluate_guards(&none_of("role", &[Json::from("banned")]), None),
-            GuardResult::Unauthorized
-        );
+        assert_eq!(evaluate_guards(&none_of("role", &[Json::from("banned")]), None), GuardResult::Unauthorized);
     }
 
     #[test]
@@ -766,22 +597,14 @@ mod tests {
         let clean = jwt_ctx(&[], &[("roles", serde_json::json!(["a", "b"]))]);
         let dirty = jwt_ctx(&[], &[("roles", serde_json::json!(["a", "banned"]))]);
         assert_eq!(evaluate_guards(&guards, Some(&clean)), GuardResult::Allow);
-        assert_eq!(
-            evaluate_guards(&guards, Some(&dirty)),
-            GuardResult::Forbidden(None)
-        );
+        assert_eq!(evaluate_guards(&guards, Some(&dirty)), GuardResult::Forbidden(None));
     }
 
     #[test]
     fn denial_is_attached_to_the_forbidden_verdict() {
         let ctx = jwt_ctx(&[], &[("role", Json::from("vendor"))]);
         let denial = Arc::new(GuardDenial::new("Client accounts only".to_string()));
-        let guards = requires_with(
-            "role",
-            &[Json::from("client")],
-            Quantifier::Any,
-            Some(denial),
-        );
+        let guards = requires_with("role", &[Json::from("client")], Quantifier::Any, Some(denial));
         match evaluate_guards(&guards, Some(&ctx)) {
             GuardResult::Forbidden(Some(denial)) => {
                 assert_eq!(denial.text, "Client accounts only");
@@ -802,20 +625,13 @@ mod tests {
     fn denial_is_not_attached_to_unauthorized() {
         // A custom message must not leak to a caller that never authenticated.
         let denial = Arc::new(GuardDenial::new("Client accounts only".to_string()));
-        let guards = requires_with(
-            "role",
-            &[Json::from("client")],
-            Quantifier::Any,
-            Some(denial),
-        );
+        let guards = requires_with("role", &[Json::from("client")], Quantifier::Any, Some(denial));
         assert_eq!(evaluate_guards(&guards, None), GuardResult::Unauthorized);
     }
 
     #[test]
     fn allow_any_only_is_not_enforcing() {
         assert!(!GuardSet::from_guards(vec![Guard::AllowAny]).is_enforcing());
-        assert!(
-            GuardSet::from_guards(vec![Guard::AllowAny, Guard::IsAuthenticated]).is_enforcing()
-        );
+        assert!(GuardSet::from_guards(vec![Guard::AllowAny, Guard::IsAuthenticated]).is_enforcing());
     }
 }

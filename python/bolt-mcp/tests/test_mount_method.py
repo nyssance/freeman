@@ -110,11 +110,7 @@ def test_child_mcp_mount_is_available_under_parent_prefix():
     parent.mount("/child", child)
 
     with TestClient(parent) as client:
-        response = client.post(
-            "/child/mcp",
-            content=rpc_body("initialize", INITIALIZE_PARAMS),
-            headers=mcp_headers(),
-        )
+        response = client.post("/child/mcp", content=rpc_body("initialize", INITIALIZE_PARAMS), headers=mcp_headers())
     assert response.status_code == 200
     assert parent._mcp_mounts[0]["path"] == "/child/mcp"
 

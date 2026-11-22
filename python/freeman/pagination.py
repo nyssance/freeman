@@ -207,14 +207,7 @@ class PaginationBase(ABC):
     response_class: type = PaginatedResponse
 
     def build_response(
-        self,
-        items: list[Any],
-        *,
-        total: int,
-        request: Any,
-        has_next: bool,
-        has_previous: bool,
-        **info: Any,
+        self, items: list[Any], *, total: int, request: Any, has_next: bool, has_previous: bool, **info: Any
     ) -> Any:
         """Build the envelope for one page.
 

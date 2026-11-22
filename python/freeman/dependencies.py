@@ -47,11 +47,7 @@ def is_async_dependency(dep_fn: Callable) -> bool:
 
 
 def compile_dependency(
-    dep_fn: Callable,
-    handler_meta: dict[Any, dict[str, Any]],
-    compile_binder: Callable,
-    http_method: str,
-    path: str,
+    dep_fn: Callable, handler_meta: dict[Any, dict[str, Any]], compile_binder: Callable, http_method: str, path: str
 ) -> dict[str, Any]:
     """Compile the binding of ``dep_fn`` for one route, and of each dependency that it depends on.
 
@@ -65,10 +61,7 @@ def compile_dependency(
 
 
 def _compile_dep_arg_plan(
-    dep_fn: Callable,
-    dep_meta: dict[str, Any],
-    handler_meta: dict[Any, dict[str, Any]],
-    compile_binder: Callable,
+    dep_fn: Callable, dep_meta: dict[str, Any], handler_meta: dict[Any, dict[str, Any]], compile_binder: Callable
 ) -> None:
     """Compile the per-field extraction plan for a dependency ONCE.
 
@@ -98,16 +91,16 @@ def _compile_dep_arg_plan(
     http_method = dep_meta["http_method"]
     path = dep_meta["path"]
     for name, marker, sync_marker in nested_markers:
-        nested.append(
-            (name, marker, compile_dependency(marker.dependency, handler_meta, compile_binder, http_method, path))
-        )
-        nested_sync.append(
-            (
-                name,
-                sync_marker,
-                compile_dependency(sync_marker.dependency, handler_meta, compile_binder, http_method, path),
-            )
-        )
+        nested.append((
+            name,
+            marker,
+            compile_dependency(marker.dependency, handler_meta, compile_binder, http_method, path),
+        ))
+        nested_sync.append((
+            name,
+            sync_marker,
+            compile_dependency(sync_marker.dependency, handler_meta, compile_binder, http_method, path),
+        ))
     dep_meta["_is_async_dep"] = is_async_dependency(dep_fn)
     dep_meta["_is_request_only_dep"] = dep_meta.get("mode") == "request_only"
     dep_meta["_dep_nested"] = nested

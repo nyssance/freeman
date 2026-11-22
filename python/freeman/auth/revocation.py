@@ -326,10 +326,7 @@ class DjangoCacheRevocation(RevocationStore):
     def _require_atomic_cache(self) -> None:
         cache_type = type(self.cache)
         backend_modules = {cls.__module__ for cls in cache_type.__mro__}
-        known_non_atomic = {
-            "django.core.cache.backends.filebased",
-            "django.core.cache.backends.dummy",
-        }
+        known_non_atomic = {"django.core.cache.backends.filebased", "django.core.cache.backends.dummy"}
         inherits_non_atomic_incr = getattr(cache_type, "incr", None) is BaseCache.incr
         if backend_modules.intersection(known_non_atomic) or inherits_non_atomic_incr:
             raise NotImplementedError(
@@ -424,11 +421,7 @@ class DjangoORMRevocation(RevocationStore):
     """
 
     def __init__(
-        self,
-        model: str = "bolt_revocation.RevokedToken",
-        *,
-        default_ttl: int = _DEFAULT_TTL_SECONDS,
-        leeway: int = 60,
+        self, model: str = "bolt_revocation.RevokedToken", *, default_ttl: int = _DEFAULT_TTL_SECONDS, leeway: int = 60
     ):
         """
         Initialize ORM-based revocation.

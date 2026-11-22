@@ -22,12 +22,7 @@ urlpatterns = [path("", include("freeman.urls"))]
 """
 
 _TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
-        "APP_DIRS": True,
-        "OPTIONS": {},
-    }
+    {"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [], "APP_DIRS": True, "OPTIONS": {}}
 ]
 
 

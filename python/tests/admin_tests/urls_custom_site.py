@@ -5,6 +5,4 @@ from django.urls import path
 
 site = AdminSite(name="backoffice")
 
-urlpatterns = [
-    path("office/", site.urls),
-]
+urlpatterns = [path("office/", site.urls)]

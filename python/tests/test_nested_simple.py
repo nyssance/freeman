@@ -83,13 +83,7 @@ def test_nested_many_with_objects():
         title: str
         tags: list[TagSerializer]
 
-    book = BookSerializer(
-        title="Test",
-        tags=[
-            {"id": 1, "name": "python"},
-            {"id": 2, "name": "django"},
-        ],
-    )
+    book = BookSerializer(title="Test", tags=[{"id": 1, "name": "python"}, {"id": 2, "name": "django"}])
 
     assert len(book.tags) == 2
     assert all(isinstance(tag, TagSerializer) for tag in book.tags)

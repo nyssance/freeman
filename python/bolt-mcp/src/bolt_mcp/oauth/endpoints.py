@@ -82,12 +82,7 @@ def _valid_redirect_uri(uri: str, *, application_type: str) -> bool:
 
 
 def _redirect_error(
-    redirect_uri: str,
-    state: str | None,
-    error: str,
-    description: str | None = None,
-    *,
-    iss: str | None = None,
+    redirect_uri: str, state: str | None, error: str, description: str | None = None, *, iss: str | None = None
 ) -> Redirect:
     params = {"error": error}
     if description:
@@ -214,11 +209,7 @@ def register_oauth_endpoints(api: BoltAPI, server: AuthorizationServer) -> None:
                 return HTML(server.render_login(p, error="Session expired — sign in again"))
             if decision != "approve":
                 return _redirect_error(
-                    p["redirect_uri"],
-                    p.get("state"),
-                    "access_denied",
-                    "The user denied the request",
-                    iss=_issuer,
+                    p["redirect_uri"], p.get("state"), "access_denied", "The user denied the request", iss=_issuer
                 )
             return await _issue_code_redirect(p, client, user, session_key=None)
 

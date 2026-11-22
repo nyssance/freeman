@@ -26,14 +26,7 @@ from freeman.serializers import (
     Username,
     computed_field,
 )
-from freeman.serializers.types import (
-    UUID,
-    HexColor,
-    IPv4,
-    Latitude,
-    Longitude,
-    Port,
-)
+from freeman.serializers.types import UUID, HexColor, IPv4, Latitude, Longitude, Port
 from freeman.testing import TestClient
 
 # =============================================================================
@@ -134,22 +127,14 @@ api = BoltAPI()
 @api.post("/users")
 async def create_user(data: UserInputSerializer):
     """Create user with validated email and username."""
-    return UserOutputSerializer(
-        id=1,
-        email=data.email,
-        username=data.username,
-        website=data.website,
-    )
+    return UserOutputSerializer(id=1, email=data.email, username=data.username, website=data.website)
 
 
 @api.get("/users/{user_id}")
 async def get_user(user_id: int):
     """Get user - returns validated types."""
     return UserOutputSerializer(
-        id=user_id,
-        email="test@example.com",
-        username="john_doe",
-        website="https://example.com",
+        id=user_id, email="test@example.com", username="john_doe", website="https://example.com"
     )
 
 
@@ -241,10 +226,7 @@ class FullUserSerializer(Serializer):
     bio: str = ""
 
     class Config:
-        field_sets = {
-            "list": ["id", "username"],
-            "detail": ["id", "email", "username", "website"],
-        }
+        field_sets = {"list": ["id", "username"], "detail": ["id", "email", "username", "website"]}
 
     @computed_field
     def display_name(self) -> str:
@@ -260,10 +242,7 @@ UserPublicSerializer = FullUserSerializer.subset("id", "username", "display_name
 @api.get("/v2/users")
 async def list_users_v2():
     """List users with type-safe subset serializer."""
-    users = [
-        UserListSerializer(id=1, username="john_doe"),
-        UserListSerializer(id=2, username="jane_doe"),
-    ]
+    users = [UserListSerializer(id=1, username="john_doe"), UserListSerializer(id=2, username="jane_doe")]
     return [u.dump() for u in users]
 
 
@@ -271,10 +250,7 @@ async def list_users_v2():
 async def get_user_detail_v2(user_id: int):
     """Get user detail with type-safe subset serializer."""
     user = UserDetailSerializer(
-        id=user_id,
-        email="john@example.com",
-        username="john_doe",
-        website="https://johndoe.com",
+        id=user_id, email="john@example.com", username="john_doe", website="https://johndoe.com"
     )
     return user.dump()
 
@@ -307,11 +283,7 @@ class TestValidTypeInput:
 
     def test_create_user_valid(self, client):
         """Test creating user with valid email and username."""
-        payload = {
-            "email": "test@example.com",
-            "username": "john_doe",
-            "website": "https://example.com",
-        }
+        payload = {"email": "test@example.com", "username": "john_doe", "website": "https://example.com"}
         response = client.post("/users", json=payload)
 
         assert response.status_code == 200
@@ -322,11 +294,7 @@ class TestValidTypeInput:
 
     def test_create_contact_valid(self, client):
         """Test creating contact with valid phone."""
-        payload = {
-            "name": "John Doe",
-            "email": "john@example.com",
-            "phone": "+14155551234",
-        }
+        payload = {"name": "John Doe", "email": "john@example.com", "phone": "+14155551234"}
         response = client.post("/contacts", json=payload)
 
         assert response.status_code == 200
@@ -336,11 +304,7 @@ class TestValidTypeInput:
 
     def test_create_location_valid(self, client):
         """Test creating location with valid lat/lng."""
-        payload = {
-            "name": "San Francisco",
-            "lat": 37.7749,
-            "lng": -122.4194,
-        }
+        payload = {"name": "San Francisco", "lat": 37.7749, "lng": -122.4194}
         response = client.post("/locations", json=payload)
 
         assert response.status_code == 200
@@ -351,11 +315,7 @@ class TestValidTypeInput:
 
     def test_create_server_valid(self, client):
         """Test creating server config with valid IP and port."""
-        payload = {
-            "name": "Web Server",
-            "host": "192.168.1.1",
-            "port": 8080,
-        }
+        payload = {"name": "Web Server", "host": "192.168.1.1", "port": 8080}
         response = client.post("/servers", json=payload)
 
         assert response.status_code == 200
@@ -366,11 +326,7 @@ class TestValidTypeInput:
 
     def test_create_theme_valid(self, client):
         """Test creating theme with valid hex colors."""
-        payload = {
-            "name": "Dark Theme",
-            "primary_color": "#FF5733",
-            "secondary_color": "#000000",
-        }
+        payload = {"name": "Dark Theme", "primary_color": "#FF5733", "secondary_color": "#000000"}
         response = client.post("/themes", json=payload)
 
         assert response.status_code == 200
@@ -380,10 +336,7 @@ class TestValidTypeInput:
 
     def test_update_progress_valid(self, client):
         """Test updating progress with valid percentage."""
-        payload = {
-            "task": "Build feature",
-            "completion": 75.5,
-        }
+        payload = {"task": "Build feature", "completion": 75.5}
         response = client.post("/progress", json=payload)
 
         assert response.status_code == 200
@@ -393,10 +346,7 @@ class TestValidTypeInput:
 
     def test_create_entity_valid(self, client):
         """Test creating entity with valid UUID."""
-        payload = {
-            "id": "550e8400-e29b-41d4-a716-446655440000",
-            "name": "Test Entity",
-        }
+        payload = {"id": "550e8400-e29b-41d4-a716-446655440000", "name": "Test Entity"}
         response = client.post("/entities", json=payload)
 
         assert response.status_code == 200
@@ -406,11 +356,7 @@ class TestValidTypeInput:
 
     def test_create_post_valid(self, client):
         """Test creating blog post with valid slug."""
-        payload = {
-            "title": "My Blog Post",
-            "slug": "my-blog-post",
-            "external_url": "https://example.com/post",
-        }
+        payload = {"title": "My Blog Post", "slug": "my-blog-post", "external_url": "https://example.com/post"}
         response = client.post("/posts", json=payload)
 
         assert response.status_code == 200
@@ -420,11 +366,7 @@ class TestValidTypeInput:
 
     def test_paginate_valid(self, client):
         """Test pagination with valid positive integers."""
-        payload = {
-            "page": 1,
-            "per_page": 20,
-            "total": 100,
-        }
+        payload = {"page": 1, "per_page": 20, "total": 100}
         response = client.post("/paginate", json=payload)
 
         assert response.status_code == 200
@@ -443,10 +385,7 @@ class TestInvalidTypeInput:
 
     def test_create_user_invalid_email(self, client):
         """Test that invalid email is rejected."""
-        payload = {
-            "email": "not-an-email",
-            "username": "john_doe",
-        }
+        payload = {"email": "not-an-email", "username": "john_doe"}
         response = client.post("/users", json=payload)
 
         assert response.status_code in [400, 422]
@@ -594,10 +533,7 @@ class TestInvalidTypeInput:
 
     def test_create_entity_invalid_uuid(self, client):
         """Test that invalid UUID is rejected."""
-        payload = {
-            "id": "not-a-uuid",
-            "name": "Entity",
-        }
+        payload = {"id": "not-a-uuid", "name": "Entity"}
         response = client.post("/entities", json=payload)
 
         assert response.status_code in [400, 422]
@@ -636,11 +572,7 @@ class TestInvalidTypeInput:
 
     def test_paginate_invalid_page_negative(self, client):
         """Test that negative page is rejected."""
-        payload = {
-            "page": -1,
-            "per_page": 20,
-            "total": 100,
-        }
+        payload = {"page": -1, "per_page": 20, "total": 100}
         response = client.post("/paginate", json=payload)
 
         assert response.status_code in [400, 422]

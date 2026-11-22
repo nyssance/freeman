@@ -25,10 +25,7 @@ use bolt_core::validation::{AuthGuardResult, cookie_csrf_blocks, validate_auth_a
 // The `Err` response ends the request. See `bolt_core::request_pipeline` for
 // why the lint does not apply.
 #[allow(clippy::result_large_err)]
-async fn read_body(
-    payload: &mut web::Payload,
-    max_payload_size: usize,
-) -> Result<Bytes, HttpResponse> {
+async fn read_body(payload: &mut web::Payload, max_payload_size: usize) -> Result<Bytes, HttpResponse> {
     let mut body = web::BytesMut::new();
     while let Some(chunk) = payload.next().await {
         let chunk = match chunk {
@@ -51,14 +48,14 @@ async fn read_body(
 fn auth_context_from_principal(dict: &Bound<'_, PyDict>) -> PyResult<AuthContext> {
     use pyo3::exceptions::PyValueError;
     fn item<'py>(dict: &Bound<'py, PyDict>, key: &str) -> PyResult<Bound<'py, pyo3::PyAny>> {
-        dict.get_item(key)?
-            .ok_or_else(|| PyValueError::new_err(format!("verify_token principal missing '{key}'")))
+        dict.get_item(key)?.ok_or_else(|| PyValueError::new_err(format!("verify_token principal missing '{key}'")))
     }
     let claims_json: Option<String> = item(dict, "claims_json")?.extract()?;
     let claims = match claims_json {
-        Some(raw) => Some(serde_json::from_str(&raw).map_err(|e| {
-            PyValueError::new_err(format!("verify_token principal 'claims_json': {e}"))
-        })?),
+        Some(raw) => Some(
+            serde_json::from_str(&raw)
+                .map_err(|e| PyValueError::new_err(format!("verify_token principal 'claims_json': {e}")))?,
+        ),
         None => None,
     };
     let permissions: Vec<String> = item(dict, "permissions")?.extract()?;
@@ -83,10 +80,7 @@ fn oauth_401(www_authenticate: &str) -> HttpResponse {
 }
 
 pub async fn handle_mcp_request(
-    req: HttpRequest,
-    mut payload: web::Payload,
-    mount: &McpMount,
-    state: &AppState,
+    req: HttpRequest, mut payload: web::Payload, mount: &McpMount, state: &AppState,
 ) -> HttpResponse {
     let headers = match extract_headers(&req, state.max_header_size) {
         Ok(headers) => headers,
@@ -134,9 +128,9 @@ pub async fn handle_mcp_request(
             if bound.is_none() {
                 return Ok(None);
             }
-            let dict = bound.cast::<PyDict>().map_err(|_| {
-                pyo3::exceptions::PyValueError::new_err("verify_token must return a dict or None")
-            })?;
+            let dict = bound
+                .cast::<PyDict>()
+                .map_err(|_| pyo3::exceptions::PyValueError::new_err("verify_token must return a dict or None"))?;
             Ok(Some(auth_context_from_principal(dict)?))
         });
         match principal {
@@ -173,9 +167,7 @@ pub async fn handle_mcp_request(
             return HttpResponse::BadRequest().finish();
         }
     };
-    request
-        .extensions_mut()
-        .insert(McpAuthExt(auth_ctx.map(std::sync::Arc::new)));
+    request.extensions_mut().insert(McpAuthExt(auth_ctx.map(std::sync::Arc::new)));
 
     // ---- Serve via rmcp ----
     let response = mount.service.handle(request).await;
@@ -207,10 +199,7 @@ pub async fn handle_mcp_request(
     }
     let stream = http_body_util::BodyStream::new(body).filter_map(|frame| async move {
         match frame {
-            Ok(frame) => frame
-                .into_data()
-                .ok()
-                .map(Ok::<Bytes, std::convert::Infallible>),
+            Ok(frame) => frame.into_data().ok().map(Ok::<Bytes, std::convert::Infallible>),
             Err(never) => match never {},
         }
     });

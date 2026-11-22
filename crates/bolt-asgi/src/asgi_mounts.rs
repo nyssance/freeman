@@ -3,18 +3,12 @@ use pyo3::prelude::*;
 use bolt_core::state::AsgiMount;
 
 /// Validate, normalize ordering, and de-duplicate ASGI mount configuration.
-pub fn validate_and_sort_asgi_mounts(
-    py: Python<'_>,
-    mounts: Vec<(String, Py<PyAny>)>,
-) -> PyResult<Vec<AsgiMount>> {
+pub fn validate_and_sort_asgi_mounts(py: Python<'_>, mounts: Vec<(String, Py<PyAny>)>) -> PyResult<Vec<AsgiMount>> {
     let mut asgi_mounts: Vec<AsgiMount> = Vec::with_capacity(mounts.len());
 
     for (prefix, app) in mounts {
         if prefix.is_empty() || !prefix.starts_with('/') {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Invalid ASGI mount prefix: {}",
-                prefix
-            )));
+            return Err(pyo3::exceptions::PyValueError::new_err(format!("Invalid ASGI mount prefix: {}", prefix)));
         }
 
         if prefix.len() > 1 && prefix.ends_with('/') {
@@ -30,11 +24,7 @@ pub fn validate_and_sort_asgi_mounts(
             None => true,
         };
 
-        asgi_mounts.push(AsgiMount {
-            prefix,
-            app,
-            websocket,
-        });
+        asgi_mounts.push(AsgiMount { prefix, app, websocket });
     }
 
     // Longest-prefix match requires descending sort.

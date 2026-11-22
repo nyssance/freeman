@@ -9,9 +9,7 @@ from freeman.auth import IsAuthenticated, JWTAuthentication
 
 ISSUER = "https://issuer.example.test/"
 AUDIENCE = "django-bolt-integration"
-JWKS_URL = os.environ.get(
-    "DJANGO_BOLT_TEST_JWKS_URL",
-)
+JWKS_URL = os.environ.get("DJANGO_BOLT_TEST_JWKS_URL")
 
 api = BoltAPI()
 
@@ -30,14 +28,7 @@ if JWKS_URL is not None:
 
     @api.get(
         "/whoami",
-        auth=[
-            JWTAuthentication(
-                jwks_url=JWKS_URL,
-                algorithms=["RS256"],
-                issuer=ISSUER,
-                audience=AUDIENCE,
-            )
-        ],
+        auth=[JWTAuthentication(jwks_url=JWKS_URL, algorithms=["RS256"], issuer=ISSUER, audience=AUDIENCE)],
         guards=[IsAuthenticated()],
     )
     async def whoami(request):

@@ -18,15 +18,7 @@ from django.conf import settings as django_settings
 from .._serializer_input import any_serializer
 from ..datastructures import UploadFile
 from ..pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, PaginationBase
-from ..responses import (
-    HTML,
-    EventSourceResponse,
-    File,
-    FileResponse,
-    PlainText,
-    Redirect,
-    StreamingResponse,
-)
+from ..responses import HTML, EventSourceResponse, File, FileResponse, PlainText, Redirect, StreamingResponse
 from ..serializers.base import Serializer
 from ..serializers.fields import FieldConfig, _FieldMarker
 from ..typing import is_msgspec_struct, is_optional, resolve_type_alias, unwrap_optional
@@ -334,10 +326,7 @@ def _build_union_examples(response_type: Any) -> dict[str, Example] | None:
         tag = getattr(struct_info, "tag", None)
         if tag is None:
             continue
-        examples[str(tag)] = Example(
-            summary=f"{arm.__name__} variant",
-            value=_synthesize_struct_example(arm),
-        )
+        examples[str(tag)] = Example(summary=f"{arm.__name__} variant", value=_synthesize_struct_example(arm))
     return examples or None
 
 
@@ -498,11 +487,7 @@ class SchemaGenerator:
         return self._enum_values_schema([e.value for e in enum_cls])
 
     def _union_schema(
-        self,
-        inner_schemas: list[Schema | Reference],
-        *,
-        has_none: bool,
-        tagged: bool,
+        self, inner_schemas: list[Schema | Reference], *, has_none: bool, tagged: bool
     ) -> Schema | Reference:
         """Assemble an OpenAPI 3.1 union schema from already-built arm schemas.
 
@@ -733,11 +718,7 @@ class SchemaGenerator:
 
             # Create operation
             operation = self._create_operation(
-                handler=handler,
-                method=method,
-                path=path,
-                meta=meta,
-                handler_id=handler_id,
+                handler=handler, method=method, path=path, meta=meta, handler_id=handler_id
             )
 
             # Collect tags from operation
@@ -767,10 +748,7 @@ class SchemaGenerator:
 
             # Create WebSocket operation (as GET with upgrade)
             operation = self._create_websocket_operation(
-                handler=handler,
-                path=ws_path,
-                meta=meta,
-                handler_id=handler_id,
+                handler=handler, path=ws_path, meta=meta, handler_id=handler_id
             )
 
             # Collect tags from operation
@@ -840,12 +818,7 @@ class SchemaGenerator:
         return candidate
 
     def _create_operation(
-        self,
-        handler: Any,
-        method: str,
-        path: str,
-        meta: dict[str, Any],
-        handler_id: int,
+        self, handler: Any, method: str, path: str, meta: dict[str, Any], handler_id: int
     ) -> Operation:
         """Create OpenAPI Operation for a route handler.
 
@@ -907,13 +880,7 @@ class SchemaGenerator:
 
         return operation
 
-    def _create_websocket_operation(
-        self,
-        handler: Any,
-        path: str,
-        meta: dict[str, Any],
-        handler_id: int,
-    ) -> Operation:
+    def _create_websocket_operation(self, handler: Any, path: str, meta: dict[str, Any], handler_id: int) -> Operation:
         """Create OpenAPI Operation for a WebSocket handler.
 
         WebSocket connections start as HTTP GET requests with an Upgrade header.
@@ -985,20 +952,12 @@ class SchemaGenerator:
             "101": OpenAPIResponse(
                 description="Switching Protocols - WebSocket connection established",
                 headers={
-                    "Upgrade": OpenAPIHeader(
-                        schema=Schema(type="string", enum=["websocket"]),
-                    ),
-                    "Connection": OpenAPIHeader(
-                        schema=Schema(type="string", enum=["Upgrade"]),
-                    ),
+                    "Upgrade": OpenAPIHeader(schema=Schema(type="string", enum=["websocket"])),
+                    "Connection": OpenAPIHeader(schema=Schema(type="string", enum=["Upgrade"])),
                 },
             ),
-            "400": OpenAPIResponse(
-                description="Bad Request - Invalid WebSocket upgrade request",
-            ),
-            "403": OpenAPIResponse(
-                description="Forbidden - Authentication or authorization failed",
-            ),
+            "400": OpenAPIResponse(description="Bad Request - Invalid WebSocket upgrade request"),
+            "403": OpenAPIResponse(description="Forbidden - Authentication or authorization failed"),
         }
 
         # Extract security requirements
@@ -1032,10 +991,7 @@ class SchemaGenerator:
         """
         max_page_size = pagination_class.max_page_size
         page_size = Schema(
-            type="integer",
-            minimum=1,
-            maximum=max_page_size,
-            default=min(pagination_class.page_size, max_page_size),
+            type="integer", minimum=1, maximum=max_page_size, default=min(pagination_class.page_size, max_page_size)
         )
 
         def query(name: str, schema: Schema, description: str) -> Parameter:
@@ -1097,12 +1053,7 @@ class SchemaGenerator:
                 continue
 
             # Map source to OpenAPI parameter location
-            param_in = {
-                "path": "path",
-                "query": "query",
-                "header": "header",
-                "cookie": "cookie",
-            }.get(source)
+            param_in = {"path": "path", "query": "query", "header": "header", "cookie": "cookie"}.get(source)
 
             if not param_in or (param_in, alias) in documented:
                 continue
@@ -1271,11 +1222,7 @@ class SchemaGenerator:
                     if default == inspect.Parameter.empty and not is_optional(annotation):
                         required.append(name)
 
-                schema = Schema(
-                    type="object",
-                    properties=properties,
-                    required=required or None,
-                )
+                schema = Schema(type="object", properties=properties, required=required or None)
 
                 content = {"multipart/form-data": OpenAPIMediaType(schema=schema)}
                 # A urlencoded body cannot hold a file.
@@ -1298,9 +1245,7 @@ class SchemaGenerator:
 
         return RequestBody(
             description=marker.description if marker and marker.description else f"Request body for {body_param}",
-            content={
-                "application/json": OpenAPIMediaType(schema=schema, example=marker.example if marker else None),
-            },
+            content={"application/json": OpenAPIMediaType(schema=schema, example=marker.example if marker else None)},
             required=body_required,
         )
 
@@ -1380,8 +1325,7 @@ class SchemaGenerator:
                     responses[str(code)] = OpenAPIResponse(description=desc)
                 else:
                     responses[str(code)] = OpenAPIResponse(
-                        description=desc,
-                        content=self._response_type_content(resp_type),
+                        description=desc, content=self._response_type_content(resp_type)
                     )
             # Ellipsis catch-all → OpenAPI "default" response
             if ... in response_map:
@@ -1390,8 +1334,7 @@ class SchemaGenerator:
                     responses["default"] = OpenAPIResponse(description="Default response")
                 else:
                     responses["default"] = OpenAPIResponse(
-                        description="Default response",
-                        content=self._response_type_content(ellipsis_type),
+                        description="Default response", content=self._response_type_content(ellipsis_type)
                     )
             # fall through to error response logic below
         else:
@@ -1424,22 +1367,18 @@ class SchemaGenerator:
                 if has_type:
                     body_schema = self._type_to_schema(response_type, register_component=True)
                 responses[str(default_status)] = OpenAPIResponse(
-                    description="Successful response",
-                    content={media_type: OpenAPIMediaType(schema=body_schema)},
+                    description="Successful response", content={media_type: OpenAPIMediaType(schema=body_schema)}
                 )
             elif has_type:
                 responses[str(default_status)] = OpenAPIResponse(
-                    description="Successful response",
-                    content=self._response_type_content(response_type),
+                    description="Successful response", content=self._response_type_content(response_type)
                 )
             else:
                 # Opaque JSON: nothing to type. Recorded for strict mode.
                 self._opaque_operations.append(f"{method} {path}")
                 responses[str(default_status)] = OpenAPIResponse(
                     description="Successful response",
-                    content={
-                        "application/json": OpenAPIMediaType(schema=Schema(type="object")),
-                    },
+                    content={"application/json": OpenAPIMediaType(schema=Schema(type="object"))},
                 )
 
         # Add common error responses if enabled in config
@@ -1456,8 +1395,7 @@ class SchemaGenerator:
                 declared = responses.get("422")
                 if declared is None:
                     responses["422"] = OpenAPIResponse(
-                        description="Validation Error - Request data failed validation",
-                        content=content,
+                        description="Validation Error - Request data failed validation", content=content
                     )
                 else:
                     # The route also sends its own 422, for example HTTPException(422, body=...).
@@ -1467,8 +1405,7 @@ class SchemaGenerator:
 
     @staticmethod
     def _merge_content(
-        declared: dict[str, OpenAPIMediaType] | None,
-        generated: dict[str, OpenAPIMediaType] | None,
+        declared: dict[str, OpenAPIMediaType] | None, generated: dict[str, OpenAPIMediaType] | None
     ) -> dict[str, OpenAPIMediaType] | None:
         """The content of a response that can send the declared body or the generated body.
 
@@ -1527,34 +1464,21 @@ class SchemaGenerator:
                     items=Schema(
                         type="object",
                         properties={
-                            "type": Schema(
-                                type="string",
-                                description="Error type",
-                                example="validation_error",
-                            ),
+                            "type": Schema(type="string", description="Error type", example="validation_error"),
                             "loc": Schema(
                                 type="array",
                                 description="Location of the error (field path)",
-                                items=Schema(
-                                    one_of=[
-                                        Schema(type="string"),
-                                        Schema(type="integer"),
-                                    ]
-                                ),
+                                items=Schema(one_of=[Schema(type="string"), Schema(type="integer")]),
                                 example=["body", "is_active"],
                             ),
                             "msg": Schema(
-                                type="string",
-                                description="Error message",
-                                example="Expected `bool`, got `int`",
+                                type="string", description="Error message", example="Expected `bool`, got `int`"
                             ),
-                            "input": Schema(
-                                description="The input value that caused the error (optional)",
-                            ),
+                            "input": Schema(description="The input value that caused the error (optional)"),
                         },
                         required=["type", "loc", "msg"],
                     ),
-                ),
+                )
             },
             required=["detail"],
         )
@@ -2025,8 +1949,7 @@ class SchemaGenerator:
     def _struct_to_component_schema(self, struct_type: type) -> Reference:
         """Convert msgspec.Struct to a component schema and return its reference."""
         return self._register_component(
-            self._component_key(struct_type),
-            lambda: self._struct_to_schema(struct_type, register_component=True),
+            self._component_key(struct_type), lambda: self._struct_to_schema(struct_type, register_component=True)
         )
 
     def _enum_to_component_schema(self, enum_cls: type) -> Reference:
@@ -2312,12 +2235,7 @@ _TYPING_ORIGIN_HANDLERS: dict[Any, Callable[[SchemaGenerator, tuple[Any, ...], b
 }
 
 # The type that msgspec reads for a bare collection: `set` is `set[Any]`, `tuple` is `tuple[Any, ...]`.
-_BARE_COLLECTIONS: dict[Any, Any] = {
-    list: list[Any],
-    set: set[Any],
-    frozenset: frozenset[Any],
-    tuple: tuple[Any, ...],
-}
+_BARE_COLLECTIONS: dict[Any, Any] = {list: list[Any], set: set[Any], frozenset: frozenset[Any], tuple: tuple[Any, ...]}
 
 # Kwargs, not Schema instances: callers may mutate the returned Schema.
 # Parameters and form fields keep their raw Python type. Each entry matches the

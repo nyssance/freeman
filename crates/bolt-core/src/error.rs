@@ -30,13 +30,7 @@ pub enum ErrorInfo {
 
 impl ErrorInfo {
     pub fn core(kind: &'static str, detail: impl Into<Cow<'static, str>>) -> Self {
-        Self::Core {
-            kind,
-            detail: detail.into(),
-            errors: None,
-            extra: None,
-            reason: None,
-        }
+        Self::Core { kind, detail: detail.into(), errors: None, extra: None, reason: None }
     }
 
     /// A 500 of the Rust core. The client gets no detail, and `reason` goes to the log.
@@ -70,16 +64,8 @@ pub fn with_error_info(response: HttpResponse, info: impl FnOnce() -> ErrorInfo)
 }
 
 #[inline]
-fn with_error_info_if(
-    enabled: bool,
-    response: HttpResponse,
-    info: impl FnOnce() -> ErrorInfo,
-) -> HttpResponse {
-    if enabled {
-        insert_error_info(response, info())
-    } else {
-        response
-    }
+fn with_error_info_if(enabled: bool, response: HttpResponse, info: impl FnOnce() -> ErrorInfo) -> HttpResponse {
+    if enabled { insert_error_info(response, info()) } else { response }
 }
 
 #[cold]
@@ -96,43 +82,25 @@ pub fn internal_error_response(detail: &str) -> HttpResponse {
 }
 
 /// Handle Python exception and convert to HTTP response
-pub fn handle_python_exception(
-    py: Python,
-    exc: &Bound<PyAny>,
-    path: &str,
-    method: &str,
-    debug: bool,
-) -> HttpResponse {
+pub fn handle_python_exception(py: Python, exc: &Bound<PyAny>, path: &str, method: &str, debug: bool) -> HttpResponse {
     let response = default_exception_response(py, exc, path, method, debug);
     with_error_info(response, || ErrorInfo::Exception(exc.clone().unbind()))
 }
 
-fn default_exception_response(
-    py: Python,
-    exc: &Bound<PyAny>,
-    path: &str,
-    method: &str,
-    debug: bool,
-) -> HttpResponse {
+fn default_exception_response(py: Python, exc: &Bound<PyAny>, path: &str, method: &str, debug: bool) -> HttpResponse {
     // Override debug flag with Django's DEBUG setting (for dynamic checking).
     // Startup rejects a DEBUG that is not a bool, but a test can change DEBUG
     // later. Then report the error and keep the DEBUG value of startup.
-    let debug =
-        match DjangoSettings::load(py).and_then(|settings| settings.truth_flag("DEBUG", debug)) {
-            Ok(debug) => debug,
-            Err(err) => {
-                eprintln!("[django-bolt] Warning: {err} Using DEBUG={debug} from startup.");
-                debug
-            }
-        };
+    let debug = match DjangoSettings::load(py).and_then(|settings| settings.truth_flag("DEBUG", debug)) {
+        Ok(debug) => debug,
+        Err(err) => {
+            eprintln!("[django-bolt] Warning: {err} Using DEBUG={debug} from startup.");
+            debug
+        }
+    };
     // Generic exception handling
     let exc_str = exc.to_string();
-    let exc_type = exc
-        .get_type()
-        .name()
-        .ok()
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| "Exception".to_string());
+    let exc_type = exc.get_type().name().ok().map(|s| s.to_string()).unwrap_or_else(|| "Exception".to_string());
 
     let (detail, extra_info) = if debug {
         // Include traceback in debug mode - already in GIL context via py parameter
@@ -163,18 +131,12 @@ fn default_exception_response(
     };
 
     let body = if let Some(extra) = extra_info {
-        format!(
-            r#"{{"detail":"{}","extra":{}}}"#,
-            escape_json(&detail),
-            extra
-        )
+        format!(r#"{{"detail":"{}","extra":{}}}"#, escape_json(&detail), extra)
     } else {
         format!(r#"{{"detail":"{}"}}"#, escape_json(&detail))
     };
 
-    HttpResponse::InternalServerError()
-        .content_type("application/json")
-        .body(body)
+    HttpResponse::InternalServerError().content_type("application/json").body(body)
 }
 
 /// Escape a string for the inside of a JSON string. Each control character is
@@ -187,22 +149,14 @@ fn escape_json(s: &str) -> String {
 /// Handle Python errors and convert to HTTP response
 /// OPTIMIZATION: #[inline(never)] on error path - keeps hot path code smaller
 #[inline(never)]
-pub fn handle_python_error(
-    py: Python<'_>,
-    err: PyErr,
-    path: &str,
-    method: &str,
-    debug: bool,
-) -> HttpResponse {
+pub fn handle_python_error(py: Python<'_>, err: PyErr, path: &str, method: &str, debug: bool) -> HttpResponse {
     err.restore(py);
     if let Some(exc) = PyErr::take(py) {
         let exc_value = exc.value(py);
         handle_python_exception(py, exc_value, path, method, debug)
     } else {
         let response = internal_error_response("Handler execution error");
-        with_error_info(response, || {
-            ErrorInfo::internal("Handler execution error".to_string())
-        })
+        with_error_info(response, || ErrorInfo::internal("Handler execution error".to_string()))
     }
 }
 
@@ -220,16 +174,9 @@ mod tests {
 
     #[test]
     fn with_an_error_formatter_the_error_info_is_in_the_extensions() {
-        let response = with_error_info_if(true, HttpResponse::NotFound().finish(), || {
-            ErrorInfo::core("not_found", "Not Found")
-        });
-        assert!(matches!(
-            response.extensions().get::<ErrorInfo>(),
-            Some(ErrorInfo::Core {
-                kind: "not_found",
-                ..
-            })
-        ));
+        let response =
+            with_error_info_if(true, HttpResponse::NotFound().finish(), || ErrorInfo::core("not_found", "Not Found"));
+        assert!(matches!(response.extensions().get::<ErrorInfo>(), Some(ErrorInfo::Core { kind: "not_found", .. })));
     }
 
     /// The status, the content type and the JSON body of an error response.

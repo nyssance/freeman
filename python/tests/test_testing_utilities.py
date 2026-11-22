@@ -279,11 +279,4 @@ def test_percent_encoded_path_params_async_client():
 def test_invalid_uri_raises_value_error():
     """The Rust test backend rejects a URI that is not valid, and does not panic."""
     with TestClient(_percent_encoded_path_api()) as client, pytest.raises(ValueError, match="Invalid request URI"):
-        _core.test_request(
-            app_id=client.app_id,
-            method="GET",
-            path="/int/\n",
-            headers=[],
-            body=b"",
-            query_string=None,
-        )
+        _core.test_request(app_id=client.app_id, method="GET", path="/int/\n", headers=[], body=b"", query_string=None)

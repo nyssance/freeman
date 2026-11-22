@@ -109,11 +109,7 @@ def test_rss_over_limit_spawns_replacement_before_terminating_old_worker():
 
     # Replacement forked first (port stays covered via SO_REUSEPORT),
     # SIGTERM to the old worker second.
-    assert env.events == [
-        ("spawn", 0, old_pid),
-        ("spawn", 0, old_pid + 1),
-        ("signal", old_pid, signal.SIGTERM),
-    ]
+    assert env.events == [("spawn", 0, old_pid), ("spawn", 0, old_pid + 1), ("signal", old_pid, signal.SIGTERM)]
 
 
 def test_rss_under_limit_does_not_recycle():

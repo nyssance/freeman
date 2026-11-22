@@ -47,16 +47,8 @@ class ArticleCreateSchema(Serializer):
 def test_readonly_model_viewset(api):
     """Test ReadOnlyModelViewSet provides helpers for read operations."""
     # Create test data
-    article1 = Article.objects.create(
-        title="Article 1",
-        content="Content 1",
-        author="Author 1",
-    )
-    Article.objects.create(
-        title="Article 2",
-        content="Content 2",
-        author="Author 2",
-    )
+    article1 = Article.objects.create(title="Article 1", content="Content 1", author="Author 1")
+    Article.objects.create(title="Article 2", content="Content 2", author="Author 2")
 
     @api.viewset("/articles")
     class ArticleListViewSet(ReadOnlyModelViewSet):
@@ -97,8 +89,7 @@ def test_model_viewset_crud(api):
 
         # Create
         response = client.post(
-            "/articles",
-            json={"title": "New Article", "content": "New Content", "author": "Test Author"},
+            "/articles", json={"title": "New Article", "content": "New Content", "author": "Test Author"}
         )
         assert response.status_code == 201
         article_id = response.json()["id"]
@@ -117,10 +108,7 @@ def test_model_viewset_crud(api):
         assert response.json()["title"] == "Updated Title"
 
         # Partial update
-        response = client.patch(
-            f"/articles/{article_id}",
-            json={"title": "Patched Title"},
-        )
+        response = client.patch(f"/articles/{article_id}", json={"title": "Patched Title"})
         assert response.status_code == 200
         assert response.json()["title"] == "Patched Title"
 
@@ -329,12 +317,7 @@ def test_write_actions_answer_422_for_a_body_that_is_not_a_json_object(api, body
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize(
     "body",
-    [
-        {},
-        {"title": "new"},
-        {"title": 1, "content": 2, "author": "a"},
-        {"title": "new", "content": "c", "author": None},
-    ],
+    [{}, {"title": "new"}, {"title": 1, "content": 2, "author": "a"}, {"title": "new", "content": "c", "author": None}],
     ids=["no-field", "two-missing-fields", "two-wrong-types", "null"],
 )
 def test_write_actions_answer_the_422_of_a_function_route_for_a_bad_field(api, body):
@@ -488,11 +471,7 @@ def test_update_does_not_write_a_lookup_field_through_its_relation(api):
 def test_model_viewset_lookup_field(api):
     """Test ModelViewSet with custom lookup_field."""
     # Create article
-    Article.objects.create(
-        title="Test Article",
-        content="Content",
-        author="test-author",
-    )
+    Article.objects.create(title="Test Article", content="Content", author="test-author")
 
     @api.viewset("/articles/by-author")
     class ArticleViewSet(ReadOnlyModelViewSet):

@@ -53,9 +53,13 @@ HANDSHAKE_TIMEOUT = 5.0
 HANDLER_EXIT_TIMEOUT = 1.0
 
 # Response headers that the handshake sets. `accept(headers=...)` cannot set them, as on the server.
-HANDSHAKE_HEADERS = frozenset(
-    {b"sec-websocket-protocol", b"sec-websocket-accept", b"sec-websocket-extensions", b"upgrade", b"connection"}
-)
+HANDSHAKE_HEADERS = frozenset({
+    b"sec-websocket-protocol",
+    b"sec-websocket-accept",
+    b"sec-websocket-extensions",
+    b"upgrade",
+    b"connection",
+})
 
 
 class WebSocketTestClient:
@@ -201,10 +205,7 @@ class WebSocketTestClient:
 
         try:
             found, is_asgi_mount, handler_id, handler, path_params, scope = _core.handle_test_websocket(
-                app_id,
-                self.path,
-                headers_list,
-                self.query_string if self.query_string else None,
+                app_id, self.path, headers_list, self.query_string if self.query_string else None
             )
         except PermissionError as e:
             # Re-raise permission errors from Rust
@@ -320,14 +321,7 @@ class WebSocketTestClient:
 
     async def _enter(self) -> WebSocketTestClient:
         # Use Rust for path matching, auth, and guard evaluation
-        (
-            _found,
-            is_asgi_mount,
-            handler_id,
-            handler,
-            path_params,
-            scope,
-        ) = self._find_handler_via_rust()
+        (_found, is_asgi_mount, handler_id, handler, path_params, scope) = self._find_handler_via_rust()
 
         self._requested_subprotocols = scope["subprotocols"]
 
@@ -423,14 +417,12 @@ class WebSocketTestClient:
             self._handler_exception = error
         # Send disconnect on error
         if not self._closed:
-            await self._server_to_client.put(
-                {
-                    "type": "websocket.close",
-                    "code": CloseCode.INTERNAL_ERROR,
-                    # The reason that the server sends for a handler error.
-                    "reason": "Internal error",
-                }
-            )
+            await self._server_to_client.put({
+                "type": "websocket.close",
+                "code": CloseCode.INTERNAL_ERROR,
+                # The reason that the server sends for a handler error.
+                "reason": "Internal error",
+            })
             self._closed = True
             self._close_code = CloseCode.INTERNAL_ERROR
 
@@ -443,12 +435,7 @@ class WebSocketTestClient:
         """
         if not self._closed:
             # Send disconnect to handler
-            await self._client_to_server.put(
-                {
-                    "type": "websocket.disconnect",
-                    "code": CloseCode.NORMAL,
-                }
-            )
+            await self._client_to_server.put({"type": "websocket.disconnect", "code": CloseCode.NORMAL})
             self._closed = True
 
         # The server lets the handler run after the client leaves. Give the
@@ -488,12 +475,7 @@ class WebSocketTestClient:
         """Send a text message to the server."""
         if self._closed:
             raise RuntimeError("WebSocket is closed")
-        await self._client_to_server.put(
-            {
-                "type": "websocket.receive",
-                "text": data,
-            }
-        )
+        await self._client_to_server.put({"type": "websocket.receive", "text": data})
         # Give handler time to process
         await asyncio.sleep(0)
 
@@ -501,12 +483,7 @@ class WebSocketTestClient:
         """Send a binary message to the server."""
         if self._closed:
             raise RuntimeError("WebSocket is closed")
-        await self._client_to_server.put(
-            {
-                "type": "websocket.receive",
-                "bytes": data,
-            }
-        )
+        await self._client_to_server.put({"type": "websocket.receive", "bytes": data})
         await asyncio.sleep(0)
 
     async def send_json(self, data: Any, mode: str = "text") -> None:
@@ -584,12 +561,7 @@ class WebSocketTestClient:
     async def close(self, code: int = CloseCode.NORMAL) -> None:
         """Close the WebSocket connection."""
         if not self._closed:
-            await self._client_to_server.put(
-                {
-                    "type": "websocket.disconnect",
-                    "code": code,
-                }
-            )
+            await self._client_to_server.put({"type": "websocket.disconnect", "code": code})
             self._closed = True
             self._close_code = code
 

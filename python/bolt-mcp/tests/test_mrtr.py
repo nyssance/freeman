@@ -227,11 +227,7 @@ def test_notifications_stream_before_input_required():
     mount_mcp(api, mcp)
     with TestClient(api) as client:
         resp = post_rpc_modern(
-            client,
-            "tools/call",
-            {"name": "noisy", "arguments": {}},
-            capabilities=ELICIT_CAPS,
-            progress_token="tok",
+            client, "tools/call", {"name": "noisy", "arguments": {}}, capabilities=ELICIT_CAPS, progress_token="tok"
         )
         events = _parse_all_sse(resp.content)
         methods = [e.get("method") for e in events if e.get("method")]

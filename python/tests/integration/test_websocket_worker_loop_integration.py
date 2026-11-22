@@ -20,10 +20,7 @@ pytestmark = pytest.mark.server_integration
 def test_http_handler_resolves_future_awaited_by_websocket(make_server_project):
     project = make_server_project(api_module=app_module("ws_http_bridge"))
 
-    with (
-        project.start() as server,
-        SimpleWebSocketClient(server.host, server.port, "/ws/wait") as websocket,
-    ):
+    with project.start() as server, SimpleWebSocketClient(server.host, server.port, "/ws/wait") as websocket:
         assert websocket.receive_text() == "ready"
 
         response = server.client.post(server.url("/resolve"))

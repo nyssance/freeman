@@ -8,13 +8,7 @@ from django.conf import settings
 from django.test import override_settings
 
 from freeman import BoltAPI
-from freeman.openapi import (
-    JsonRenderPlugin,
-    OpenAPIConfig,
-    ScalarRenderPlugin,
-    SwaggerRenderPlugin,
-    YamlRenderPlugin,
-)
+from freeman.openapi import JsonRenderPlugin, OpenAPIConfig, ScalarRenderPlugin, SwaggerRenderPlugin, YamlRenderPlugin
 from freeman.openapi.spec import Components, OpenAPIFormat, OpenAPIType, Schema
 from freeman.testing import TestClient
 
@@ -72,12 +66,7 @@ def test_debug_toolbar_in_docs(plugin, monkeypatch):
         DEBUG_TOOLBAR_PANELS=["debug_toolbar.panels.timer.TimerPanel"],
         DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda _request: True, "RENDER_PANELS": True},
     ):
-        monkeypatch.setattr(
-            sys.modules[__name__],
-            "urlpatterns",
-            toolbar_urlpatterns(),
-            raising=False,
-        )
+        monkeypatch.setattr(sys.modules[__name__], "urlpatterns", toolbar_urlpatterns(), raising=False)
         api = BoltAPI(
             django_middleware=["debug_toolbar.middleware.DebugToolbarMiddleware"],
             openapi_config=OpenAPIConfig(title="Toolbar", version="1", render_plugins=[plugin]),

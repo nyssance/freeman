@@ -30,8 +30,5 @@ def test_get_without_event_stream_accept_returns_406():
 def test_get_with_unknown_session_returns_404():
     api, _ = make_server()
     with TestClient(api) as client:
-        resp = client.get(
-            "/mcp",
-            headers={"Accept": "text/event-stream", "Mcp-Session-Id": "bogus"},
-        )
+        resp = client.get("/mcp", headers={"Accept": "text/event-stream", "Mcp-Session-Id": "bogus"})
         assert resp.status_code == 404

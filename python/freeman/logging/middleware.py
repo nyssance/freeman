@@ -33,12 +33,7 @@ class LoggingMiddleware:
         self.config = config
         self.logger = config.get_logger()
 
-    def log_exception(
-        self,
-        request: dict[str, Any],
-        exc: Exception,
-        exc_info: bool = True,
-    ) -> None:
+    def log_exception(self, request: dict[str, Any], exc: Exception, exc_info: bool = True) -> None:
         """Log an exception that occurred during request handling.
 
         Args:
@@ -63,12 +58,7 @@ class LoggingMiddleware:
         else:
             # Default exception logging
             log_level = getattr(logging, self.config.error_log_level.upper(), logging.ERROR)
-            self.logger.log(
-                log_level,
-                message,
-                extra=data,
-                exc_info=exc_info,
-            )
+            self.logger.log(log_level, message, extra=data, exc_info=exc_info)
 
 
 # Convenience function to create logging middleware

@@ -37,13 +37,7 @@ if not settings.configured:
             "freeman",
             "bolt_mcp.oauth",
         ],
-        DATABASES={
-            "default": {
-                "ENGINE": "django.db.backends.sqlite3",
-                "NAME": _DB_PATH,
-                "OPTIONS": {"timeout": 30},
-            }
-        },
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": _DB_PATH, "OPTIONS": {"timeout": 30}}},
         MIDDLEWARE=[],
         DEFAULT_AUTO_FIELD="django.db.models.BigAutoField",
         USE_TZ=True,

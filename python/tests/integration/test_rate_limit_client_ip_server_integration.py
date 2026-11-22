@@ -298,14 +298,7 @@ def test_a_bare_address_entry_matches_only_itself(make_server_project):
 
 @pytest.mark.parametrize(
     "setting",
-    [
-        '["10.0.0.0/8", "not-an-ip"]',
-        '["10.0.0.0/33"]',
-        '["::1/129"]',
-        '["10.0.0.0/eight"]',
-        '"10.0.0.0/8"',
-        "[10]",
-    ],
+    ['["10.0.0.0/8", "not-an-ip"]', '["10.0.0.0/33"]', '["::1/129"]', '["10.0.0.0/eight"]', '"10.0.0.0/8"', "[10]"],
 )
 def test_an_invalid_setting_aborts_startup(make_server_project, setting):
     """A wrong list must stop the server, not run with a weaker limit."""

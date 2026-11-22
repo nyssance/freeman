@@ -65,11 +65,7 @@ impl ResponseType {
     pub fn content_type_header(&self) -> Option<HeaderValue> {
         const fn header(response_type: ResponseType) -> Option<HeaderValue> {
             let content_type = response_type.content_type();
-            if content_type.is_empty() {
-                None
-            } else {
-                Some(HeaderValue::from_static(content_type))
-            }
+            if content_type.is_empty() { None } else { Some(HeaderValue::from_static(content_type)) }
         }
         const EMPTY: Option<HeaderValue> = header(ResponseType::Empty);
         const JSON: Option<HeaderValue> = header(ResponseType::Json);
@@ -119,12 +115,8 @@ pub struct ResponseMeta {
 /// Integer tags from Python map directly to these constants,
 /// avoiding String allocation + tuple parsing per response.
 /// Must match _RESPONSE_META_* constants in serialization.py.
-pub static STATIC_META_JSON: ResponseMeta = ResponseMeta {
-    response_type: ResponseType::Json,
-    custom_content_type: None,
-    custom_headers: None,
-    cookies: None,
-};
+pub static STATIC_META_JSON: ResponseMeta =
+    ResponseMeta { response_type: ResponseType::Json, custom_content_type: None, custom_headers: None, cookies: None };
 
 pub static STATIC_META_PLAINTEXT: ResponseMeta = ResponseMeta {
     response_type: ResponseType::PlainText,
@@ -140,19 +132,11 @@ pub static STATIC_META_OCTETSTREAM: ResponseMeta = ResponseMeta {
     cookies: None,
 };
 
-pub static STATIC_META_EMPTY: ResponseMeta = ResponseMeta {
-    response_type: ResponseType::Empty,
-    custom_content_type: None,
-    custom_headers: None,
-    cookies: None,
-};
+pub static STATIC_META_EMPTY: ResponseMeta =
+    ResponseMeta { response_type: ResponseType::Empty, custom_content_type: None, custom_headers: None, cookies: None };
 
-pub static STATIC_META_HTML: ResponseMeta = ResponseMeta {
-    response_type: ResponseType::Html,
-    custom_content_type: None,
-    custom_headers: None,
-    cookies: None,
-};
+pub static STATIC_META_HTML: ResponseMeta =
+    ResponseMeta { response_type: ResponseType::Html, custom_content_type: None, custom_headers: None, cookies: None };
 
 impl ResponseMeta {
     /// Fast-path: resolve integer meta tag to static ResponseMeta.
@@ -184,10 +168,7 @@ impl ResponseMeta {
         let custom_headers: Option<Vec<(String, String)>> = tuple.get_item(2)?.extract()?;
 
         // Element 3: cookies (None or list of 9-tuples)
-        #[expect(
-            clippy::type_complexity,
-            reason = "PyO3 wire format: ResponseWireV1 sends each cookie as one 9-tuple"
-        )]
+        #[expect(clippy::type_complexity, reason = "PyO3 wire format: ResponseWireV1 sends each cookie as one 9-tuple")]
         let cookies_raw: Option<
             Vec<(
                 String,         // name
@@ -204,30 +185,21 @@ impl ResponseMeta {
 
         let cookies = cookies_raw.map(|vec| {
             vec.into_iter()
-                .map(
-                    |(name, value, path, max_age, expires, domain, secure, httponly, samesite)| {
-                        CookieData {
-                            name,
-                            value,
-                            path,
-                            max_age,
-                            expires,
-                            domain,
-                            secure,
-                            httponly,
-                            samesite,
-                        }
-                    },
-                )
+                .map(|(name, value, path, max_age, expires, domain, secure, httponly, samesite)| CookieData {
+                    name,
+                    value,
+                    path,
+                    max_age,
+                    expires,
+                    domain,
+                    secure,
+                    httponly,
+                    samesite,
+                })
                 .collect()
         });
 
-        Ok(ResponseMeta {
-            response_type,
-            custom_content_type,
-            custom_headers,
-            cookies,
-        })
+        Ok(ResponseMeta { response_type, custom_content_type, custom_headers, cookies })
     }
 }
 
@@ -259,11 +231,7 @@ mod tests {
         ];
         for (tag, response_type) in tags {
             let meta = ResponseMeta::from_tag(tag);
-            assert_eq!(
-                meta.map(|meta| meta.response_type),
-                Some(response_type),
-                "tag {tag}"
-            );
+            assert_eq!(meta.map(|meta| meta.response_type), Some(response_type), "tag {tag}");
         }
         assert!(ResponseMeta::from_tag(5).is_none());
     }
@@ -272,18 +240,9 @@ mod tests {
     fn test_response_type_content_type() {
         assert_eq!(ResponseType::Empty.content_type(), "");
         assert_eq!(ResponseType::Json.content_type(), "application/json");
-        assert_eq!(
-            ResponseType::Html.content_type(),
-            "text/html; charset=utf-8"
-        );
-        assert_eq!(
-            ResponseType::PlainText.content_type(),
-            "text/plain; charset=utf-8"
-        );
-        assert_eq!(
-            ResponseType::OctetStream.content_type(),
-            "application/octet-stream"
-        );
+        assert_eq!(ResponseType::Html.content_type(), "text/html; charset=utf-8");
+        assert_eq!(ResponseType::PlainText.content_type(), "text/plain; charset=utf-8");
+        assert_eq!(ResponseType::OctetStream.content_type(), "application/octet-stream");
         assert_eq!(ResponseType::Redirect.content_type(), "");
         assert_eq!(ResponseType::File.content_type(), "");
         assert_eq!(ResponseType::Streaming.content_type(), "");
@@ -302,13 +261,8 @@ mod tests {
             ResponseType::Streaming,
         ] {
             let content_type = response_type.content_type();
-            let expected =
-                (!content_type.is_empty()).then(|| HeaderValue::from_static(content_type));
-            assert_eq!(
-                response_type.content_type_header(),
-                expected,
-                "{response_type:?}"
-            );
+            let expected = (!content_type.is_empty()).then(|| HeaderValue::from_static(content_type));
+            assert_eq!(response_type.content_type_header(), expected, "{response_type:?}");
         }
     }
 }

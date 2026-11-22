@@ -21,12 +21,7 @@ from websockets.exceptions import ConnectionClosed, WebSocketException
 
 class WebSocketLoadTest:
     def __init__(
-        self,
-        url: str,
-        num_clients: int = 10,
-        duration: int = 30,
-        batch_size: int = 10,
-        message_interval: float = 0.1,
+        self, url: str, num_clients: int = 10, duration: int = 30, batch_size: int = 10, message_interval: float = 0.1
     ):
         self.url = url
         self.num_clients = num_clients
@@ -121,10 +116,7 @@ class WebSocketLoadTest:
         """Get current process resource usage"""
         try:
             mem_info = self.process.memory_info()
-            return {
-                "memory_mb": mem_info.rss / 1024 / 1024,
-                "cpu_percent": self.process.cpu_percent(interval=0),
-            }
+            return {"memory_mb": mem_info.rss / 1024 / 1024, "cpu_percent": self.process.cpu_percent(interval=0)}
         except Exception:
             return {"memory_mb": 0, "cpu_percent": 0}
 
@@ -157,10 +149,7 @@ class WebSocketLoadTest:
 
             # Launch in batches to avoid overwhelming the system
             tasks = [self.ws_client(j) for j in range(i, i + batch_size)]
-            print(
-                f"  Waiting for {len(tasks)} clients to run for {self.duration}s...",
-                flush=True,
-            )
+            print(f"  Waiting for {len(tasks)} clients to run for {self.duration}s...", flush=True)
 
             # Run batch tasks and CPU sampling concurrently
             batch_tasks = asyncio.gather(*tasks)
@@ -288,34 +277,12 @@ async def main() -> None:
         default="ws://127.0.0.1:8000/ws",
         help="URL of WebSocket endpoint (default: ws://127.0.0.1:8000/ws)",
     )
+    parser.add_argument("-c", "--clients", type=int, default=50, help="Number of concurrent clients (default: 50)")
+    parser.add_argument("-d", "--duration", type=int, default=30, help="Duration per client in seconds (default: 30)")
     parser.add_argument(
-        "-c",
-        "--clients",
-        type=int,
-        default=50,
-        help="Number of concurrent clients (default: 50)",
+        "-b", "--batch-size", type=int, default=-1, help="Launch batch size (default: -1, use -1 for all at once)"
     )
-    parser.add_argument(
-        "-d",
-        "--duration",
-        type=int,
-        default=30,
-        help="Duration per client in seconds (default: 30)",
-    )
-    parser.add_argument(
-        "-b",
-        "--batch-size",
-        type=int,
-        default=-1,
-        help="Launch batch size (default: -1, use -1 for all at once)",
-    )
-    parser.add_argument(
-        "-i",
-        "--interval",
-        type=float,
-        default=0.1,
-        help="Message interval in seconds (default: 0.1)",
-    )
+    parser.add_argument("-i", "--interval", type=float, default=0.1, help="Message interval in seconds (default: 0.1)")
 
     args = parser.parse_args()
 

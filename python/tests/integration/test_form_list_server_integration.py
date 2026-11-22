@@ -27,10 +27,7 @@ def test_urlencoded_repeated_keys_bind_to_list(make_server_project):
 
     with project.start() as server:
         response = server.request(
-            "POST",
-            "/form-list",
-            content=body,
-            headers={"content-type": "application/x-www-form-urlencoded"},
+            "POST", "/form-list", content=body, headers={"content-type": "application/x-www-form-urlencoded"}
         )
 
     assert response.status_code == 200, response.text
@@ -77,11 +74,7 @@ def test_single_urlencoded_value_wraps_to_one_element_list(make_server_project):
     project = make_server_project(api_module=app_module("form_list"))
 
     with project.start() as server:
-        response = server.request(
-            "POST",
-            "/form-list",
-            data={"name": "carol", "tags": "solo"},
-        )
+        response = server.request("POST", "/form-list", data={"name": "carol", "tags": "solo"})
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -95,11 +88,7 @@ def test_missing_list_field_uses_struct_default(make_server_project):
     project = make_server_project(api_module=app_module("form_list"))
 
     with project.start() as server:
-        response = server.request(
-            "POST",
-            "/form-list",
-            data={"name": "dave"},
-        )
+        response = server.request("POST", "/form-list", data={"name": "dave"})
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -112,10 +101,7 @@ def test_repeated_keys_bind_to_list_in_process():
     """Same app module, exercised in-process — fast feedback on the binding logic
     without spawning a server. The subprocess tests above cover the real TCP path."""
     with TestClient(form_list.api) as client:
-        response = client.post(
-            "/form-list",
-            data={"name": "erin", "tags": ["red", "green"], "counts": ["1", "2", "3"]},
-        )
+        response = client.post("/form-list", data={"name": "erin", "tags": ["red", "green"], "counts": ["1", "2", "3"]})
 
     assert response.status_code == 200, response.text
     data = response.json()

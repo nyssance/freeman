@@ -245,11 +245,7 @@ def test_streaming_preserves_caller_vary_when_compressed():
         async def gen():
             yield "hello"
 
-        return StreamingResponse(
-            gen(),
-            media_type="text/plain",
-            headers={"Vary": "Origin, Cookie"},
-        )
+        return StreamingResponse(gen(), media_type="text/plain", headers={"Vary": "Origin, Cookie"})
 
     with TestClient(api) as client:
         resp = client.get("/stream", headers={"Accept-Encoding": "br"})
@@ -273,11 +269,7 @@ def test_streaming_preserves_caller_content_encoding_skip_codec():
         async def gen():
             yield pre_encoded
 
-        return StreamingResponse(
-            gen(),
-            media_type="application/octet-stream",
-            headers={"Content-Encoding": "br"},
-        )
+        return StreamingResponse(gen(), media_type="application/octet-stream", headers={"Content-Encoding": "br"})
 
     with TestClient(api) as client:
         resp = client.get("/cached", headers={"Accept-Encoding": "br"})

@@ -50,41 +50,27 @@ fn idle_time() -> Duration {
 /// An invalid value raises `ImproperlyConfigured`. The first call sets the idle
 /// time of the process; a later call only checks the variable.
 pub fn configure_idle_time(py: Python<'_>) -> PyResult<()> {
-    let raw =
-        crate::settings::read_env(py, "DJANGO_BOLT_LANE_IDLE_SECONDS", "a number more than 0")?;
-    let idle = parse_idle_time(raw.as_deref())
-        .map_err(|message| crate::settings::improperly_configured(py, message))?;
+    let raw = crate::settings::read_env(py, "DJANGO_BOLT_LANE_IDLE_SECONDS", "a number more than 0")?;
+    let idle =
+        parse_idle_time(raw.as_deref()).map_err(|message| crate::settings::improperly_configured(py, message))?;
     let _ = IDLE.set(idle);
     Ok(())
 }
 
 fn parse_idle_time(raw: Option<&str>) -> Result<Duration, String> {
-    let seconds = crate::settings::parse_env(
-        "DJANGO_BOLT_LANE_IDLE_SECONDS",
-        raw,
-        "a number more than 0",
-        |seconds: &f64| *seconds > 0.0 && Duration::try_from_secs_f64(*seconds).is_ok(),
-    )?;
-    Ok(Duration::from_secs_f64(
-        seconds.unwrap_or(DEFAULT_IDLE_SECONDS),
-    ))
+    let seconds =
+        crate::settings::parse_env("DJANGO_BOLT_LANE_IDLE_SECONDS", raw, "a number more than 0", |seconds: &f64| {
+            *seconds > 0.0 && Duration::try_from_secs_f64(*seconds).is_ok()
+        })?;
+    Ok(Duration::from_secs_f64(seconds.unwrap_or(DEFAULT_IDLE_SECONDS)))
 }
 
 enum Job {
     /// A complete sync request. The lane is idle again after it. The server
     /// awaits the result on its Tokio runtime.
-    Request {
-        callable: Py<PyAny>,
-        request: Py<PyAny>,
-        done: oneshot::Sender<PyResult<Py<PyAny>>>,
-    },
+    Request { callable: Py<PyAny>, request: Py<PyAny>, done: oneshot::Sender<PyResult<Py<PyAny>>> },
     /// One sync call of an async request. The request keeps the lane until `Release`.
-    Call {
-        func: Py<PyAny>,
-        args: Py<PyTuple>,
-        kwargs: Option<Py<PyDict>>,
-        future: Py<PyAny>,
-    },
+    Call { func: Py<PyAny>, args: Py<PyTuple>, kwargs: Option<Py<PyDict>>, future: Py<PyAny> },
     /// The end of an async request. `listed` is true when `RequestLane::release`
     /// put the lane in the idle list.
     Release { listed: bool },
@@ -153,11 +139,7 @@ fn spawn_lane() -> PyResult<IdleLane> {
             unlist(id);
             PyRuntimeError::new_err(format!("could not start a request lane: {err}"))
         })?;
-    Ok(IdleLane {
-        id,
-        sender,
-        pending,
-    })
+    Ok(IdleLane { id, sender, pending })
 }
 
 fn lane_main(id: u64, sender: Sender<Job>, pending: Arc<AtomicUsize>, receiver: Receiver<Job>) {
@@ -212,11 +194,7 @@ fn lane_main(id: u64, sender: Sender<Job>, pending: Arc<AtomicUsize>, receiver: 
         }
         owned = true;
         match job {
-            Job::Request {
-                callable,
-                request,
-                done,
-            } => {
+            Job::Request { callable, request, done } => {
                 let result = Python::attach(|py| callable.call1(py, (request,)));
                 // Go idle before the result leaves. The next request of this
                 // client can then take this lane, and does not start a new one.
@@ -228,12 +206,7 @@ fn lane_main(id: u64, sender: Sender<Job>, pending: Arc<AtomicUsize>, receiver: 
                     break;
                 }
             }
-            Job::Call {
-                func,
-                args,
-                kwargs,
-                future,
-            } => Python::attach(|py| {
+            Job::Call { func, args, kwargs, future } => Python::attach(|py| {
                 if !request_open {
                     request_open = true;
                     call_concurrency_attached(py, "open_lane_request");
@@ -290,31 +263,19 @@ fn go_idle(id: u64, sender: &Sender<Job>, pending: &Arc<AtomicUsize>) -> bool {
     if STOPPING.load(Ordering::Relaxed) {
         return false;
     }
-    idle.push(IdleLane {
-        id,
-        sender: sender.clone(),
-        pending: Arc::clone(pending),
-    });
+    idle.push(IdleLane { id, sender: sender.clone(), pending: Arc::clone(pending) });
     true
 }
 
 /// Complete a `concurrent.futures.Future` with the result of `func(*args, **kwargs)`.
 fn run_call(
-    py: Python<'_>,
-    func: Py<PyAny>,
-    args: Py<PyTuple>,
-    kwargs: Option<Py<PyDict>>,
-    future: Py<PyAny>,
+    py: Python<'_>, func: Py<PyAny>, args: Py<PyTuple>, kwargs: Option<Py<PyDict>>, future: Py<PyAny>,
     pending: &AtomicUsize,
 ) {
     let future = future.bind(py);
     let called = match future.call_method0(intern!(py, "set_running_or_notify_cancel")) {
         Ok(running) if !running.is_truthy().unwrap_or(false) => Ok(None),
-        Ok(_) => Ok(Some(func.call(
-            py,
-            args.bind(py),
-            kwargs.as_ref().map(|k| k.bind(py)),
-        ))),
+        Ok(_) => Ok(Some(func.call(py, args.bind(py), kwargs.as_ref().map(|k| k.bind(py))))),
         Err(err) => Err(err),
     };
     // The call ended. Count it before the future completes. Thus the request
@@ -323,9 +284,7 @@ fn run_call(
     let outcome = match called {
         Ok(None) => return,
         Ok(Some(Ok(value))) => future.call_method1(intern!(py, "set_result"), (value,)),
-        Ok(Some(Err(err))) => {
-            future.call_method1(intern!(py, "set_exception"), (err.into_value(py),))
-        }
+        Ok(Some(Err(err))) => future.call_method1(intern!(py, "set_exception"), (err.into_value(py),)),
         Err(err) => Err(err),
     };
     if let Err(err) = outcome {
@@ -339,26 +298,16 @@ fn call_concurrency(function: &str) {
 }
 
 fn call_concurrency_attached(py: Python<'_>, function: &str) {
-    let called = py
-        .import(intern!(py, "freeman.concurrency"))
-        .and_then(|module| module.call_method0(function));
+    let called = py.import(intern!(py, "freeman.concurrency")).and_then(|module| module.call_method0(function));
     if let Err(err) = called {
         log::warn!("request lane: {function} failed: {err}");
     }
 }
 
-fn submit_request(
-    callable: Py<PyAny>,
-    request: Py<PyAny>,
-    done: oneshot::Sender<PyResult<Py<PyAny>>>,
-) -> PyResult<()> {
+fn submit_request(callable: Py<PyAny>, request: Py<PyAny>, done: oneshot::Sender<PyResult<Py<PyAny>>>) -> PyResult<()> {
     acquire()?
         .sender
-        .send(Job::Request {
-            callable,
-            request,
-            done,
-        })
+        .send(Job::Request { callable, request, done })
         .map_err(|_| PyRuntimeError::new_err("request lane stopped"))
 }
 
@@ -368,8 +317,7 @@ fn lane_stopped<T>(_: T) -> PyResult<Py<PyAny>> {
 
 /// Run `callable(request)` on a lane. The future resolves with the result.
 pub fn dispatch(
-    callable: Py<PyAny>,
-    request: Py<PyAny>,
+    callable: Py<PyAny>, request: Py<PyAny>,
 ) -> impl std::future::Future<Output = PyResult<Py<PyAny>>> + Send + 'static {
     let (done, result) = oneshot::channel();
     let submitted = submit_request(callable, request, done);
@@ -448,25 +396,17 @@ pub struct RequestLane {
 impl RequestLane {
     #[new]
     fn new() -> Self {
-        Self {
-            lane: Mutex::new(None),
-        }
+        Self { lane: Mutex::new(None) }
     }
 
     /// Run `func(*args, **kwargs)` on the lane. Return a `concurrent.futures.Future`.
     #[pyo3(signature = (func, *args, **kwargs))]
     fn submit(
-        &self,
-        py: Python<'_>,
-        func: Py<PyAny>,
-        args: Py<PyTuple>,
-        kwargs: Option<Py<PyDict>>,
+        &self, py: Python<'_>, func: Py<PyAny>, args: Py<PyTuple>, kwargs: Option<Py<PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let future = FUTURE_CLASS
             .get_or_try_init(py, || {
-                py.import(intern!(py, "concurrent.futures"))?
-                    .getattr(intern!(py, "Future"))
-                    .map(Bound::unbind)
+                py.import(intern!(py, "concurrent.futures"))?.getattr(intern!(py, "Future")).map(Bound::unbind)
             })?
             .call0(py)?;
         let mut owned = self.lane.lock();
@@ -477,12 +417,7 @@ impl RequestLane {
         let lane = owned.insert(lane);
         lane.pending.fetch_add(1, Ordering::Relaxed);
         lane.sender
-            .send(Job::Call {
-                func,
-                args,
-                kwargs,
-                future: future.clone_ref(py),
-            })
+            .send(Job::Call { func, args, kwargs, future: future.clone_ref(py) })
             .map_err(|_| PyRuntimeError::new_err("request lane stopped"))?;
         Ok(future)
     }
@@ -533,11 +468,7 @@ mod tests {
     fn request_lane(id: u64, pending: usize) -> (RequestLane, Receiver<Job>) {
         let (sender, receiver) = channel::<Job>();
         let lane = RequestLane {
-            lane: Mutex::new(Some(IdleLane {
-                id,
-                sender,
-                pending: Arc::new(AtomicUsize::new(pending)),
-            })),
+            lane: Mutex::new(Some(IdleLane { id, sender, pending: Arc::new(AtomicUsize::new(pending)) })),
         };
         (lane, receiver)
     }
@@ -555,10 +486,7 @@ mod tests {
         let (lane, receiver) = request_lane(u64::MAX - 1, 0);
         lane.release();
 
-        assert!(matches!(
-            receiver.try_recv(),
-            Ok(Job::Release { listed: true })
-        ));
+        assert!(matches!(receiver.try_recv(), Ok(Job::Release { listed: true })));
         assert!(receiver.try_recv().is_err());
         assert!(take_idle(u64::MAX - 1));
     }
@@ -570,10 +498,7 @@ mod tests {
         let (lane, receiver) = request_lane(u64::MAX - 2, 1);
         lane.release();
 
-        assert!(matches!(
-            receiver.try_recv(),
-            Ok(Job::Release { listed: false })
-        ));
+        assert!(matches!(receiver.try_recv(), Ok(Job::Release { listed: false })));
         assert!(receiver.try_recv().is_err());
         assert!(!take_idle(u64::MAX - 2));
     }
@@ -588,10 +513,7 @@ mod tests {
         lane.release();
         STOPPING.store(false, Ordering::Relaxed);
 
-        assert!(matches!(
-            receiver.try_recv(),
-            Ok(Job::Release { listed: false })
-        ));
+        assert!(matches!(receiver.try_recv(), Ok(Job::Release { listed: false })));
         assert!(receiver.try_recv().is_err());
         assert!(!take_idle(u64::MAX));
     }
@@ -605,10 +527,7 @@ mod tests {
         let (lane, receiver) = request_lane(u64::MAX - 3, 0);
         drop(lane);
 
-        assert!(matches!(
-            receiver.try_recv(),
-            Ok(Job::Release { listed: true })
-        ));
+        assert!(matches!(receiver.try_recv(), Ok(Job::Release { listed: true })));
         assert!(take_idle(u64::MAX - 3));
     }
 
@@ -677,14 +596,7 @@ mod tests {
             let kwargs = PyDict::new(py);
             kwargs.set_item("fail", true).unwrap();
             let kwargs = Some(kwargs.unbind());
-            run_call(
-                py,
-                work(),
-                args(3),
-                kwargs,
-                failed.clone().unbind(),
-                &pending,
-            );
+            run_call(py, work(), args(3), kwargs, failed.clone().unbind(), &pending);
             assert!(failed.call_method0("done").unwrap().is_truthy().unwrap());
             let error = failed.call_method0("exception").unwrap();
             assert!(error.is_instance_of::<pyo3::exceptions::PyValueError>());
@@ -755,10 +667,7 @@ mod tests {
 
     #[test]
     fn idle_time_uses_a_valid_value() {
-        assert_eq!(
-            parse_idle_time(Some("1.5")),
-            Ok(Duration::from_millis(1500))
-        );
+        assert_eq!(parse_idle_time(Some("1.5")), Ok(Duration::from_millis(1500)));
     }
 
     #[test]
@@ -773,9 +682,7 @@ mod tests {
         for raw in ["1e100", "inf", "nan", "0", "-1", "soon"] {
             assert_eq!(
                 parse_idle_time(Some(raw)),
-                Err(format!(
-                    "DJANGO_BOLT_LANE_IDLE_SECONDS must be a number more than 0, got '{raw}'."
-                )),
+                Err(format!("DJANGO_BOLT_LANE_IDLE_SECONDS must be a number more than 0, got '{raw}'.")),
                 "{raw}"
             );
         }

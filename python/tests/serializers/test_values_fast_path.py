@@ -17,10 +17,7 @@ from django.db import connection, models
 from django.db.models.signals import post_init
 
 from freeman import BoltAPI
-from freeman.serialization import (
-    _compile_serializer_values_evaluators,
-    _serializer_values_path_eligible,
-)
+from freeman.serialization import _compile_serializer_values_evaluators, _serializer_values_path_eligible
 from freeman.serializers import Serializer, computed_field
 from freeman.serializers.fields import field
 from freeman.testing import TestClient

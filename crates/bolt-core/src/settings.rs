@@ -43,10 +43,7 @@ impl<'py> DjangoSettings<'py> {
             Ok(value) => Ok(Some(value)),
             Err(err) if is_missing(py, &err, name) => Ok(None),
             Err(err) => {
-                let wrapped = improperly_configured(
-                    py,
-                    format!("Cannot read the Django setting {name}: {err}"),
-                );
+                let wrapped = improperly_configured(py, format!("Cannot read the Django setting {name}: {err}"));
                 wrapped.set_cause(py, Some(err));
                 Err(wrapped)
             }
@@ -58,10 +55,7 @@ impl<'py> DjangoSettings<'py> {
         let Some(value) = self.get(name)? else {
             return Ok(default);
         };
-        value
-            .cast::<PyBool>()
-            .map(|flag| flag.is_true())
-            .map_err(|_| wrong_type(name, "a bool", &value))
+        value.cast::<PyBool>().map(|flag| flag.is_true()).map_err(|_| wrong_type(name, "a bool", &value))
     }
 
     /// Read a flag that Django tests for truth, such as DEBUG. A bool or an
@@ -81,14 +75,8 @@ impl<'py> DjangoSettings<'py> {
     }
 
     /// Read an int setting that is 0 or more.
-    pub fn non_negative_int<T: FromPyObjectOwned<'py>>(
-        &self,
-        name: &str,
-        default: T,
-    ) -> PyResult<T> {
-        Ok(self
-            .int(name, "an int of 0 or more", |_| true)?
-            .unwrap_or(default))
+    pub fn non_negative_int<T: FromPyObjectOwned<'py>>(&self, name: &str, default: T) -> PyResult<T> {
+        Ok(self.int(name, "an int of 0 or more", |_| true)?.unwrap_or(default))
     }
 
     /// Read an int setting that is 1 or more.
@@ -96,19 +84,13 @@ impl<'py> DjangoSettings<'py> {
     where
         T: FromPyObjectOwned<'py> + PartialOrd + From<u8>,
     {
-        Ok(self
-            .int(name, "an int of 1 or more", |value: &T| {
-                *value >= T::from(1)
-            })?
-            .unwrap_or(default))
+        Ok(self.int(name, "an int of 1 or more", |value: &T| *value >= T::from(1))?.unwrap_or(default))
     }
 
     /// Read an int setting from 0 to `max`.
     pub fn int_up_to(&self, name: &str, max: u8, default: u8) -> PyResult<u8> {
         let expected = format!("an int from 0 to {max}");
-        Ok(self
-            .int(name, &expected, |value: &u8| *value <= max)?
-            .unwrap_or(default))
+        Ok(self.int(name, &expected, |value: &u8| *value <= max)?.unwrap_or(default))
     }
 
     /// Read an int setting from 0 to `u32::MAX`, or None when it is missing.
@@ -139,10 +121,7 @@ impl<'py> DjangoSettings<'py> {
         let Some(value) = self.get(name)? else {
             return Ok(None);
         };
-        value
-            .extract::<Vec<String>>()
-            .map(Some)
-            .map_err(|_| wrong_type(name, "a list of str", &value))
+        value.extract::<Vec<String>>().map(Some).map_err(|_| wrong_type(name, "a list of str", &value))
     }
 
     /// Read a str setting, or None when the setting is missing or None.
@@ -153,19 +132,13 @@ impl<'py> DjangoSettings<'py> {
         if value.is_none() {
             return Ok(None);
         }
-        value
-            .extract::<String>()
-            .map(Some)
-            .map_err(|_| wrong_type(name, "a str or None", &value))
+        value.extract::<String>().map(Some).map_err(|_| wrong_type(name, "a str or None", &value))
     }
 
     /// Read an int setting. A bool, a value that is not an int, and a value
     /// that `T` cannot hold or that `valid` rejects raise.
     fn int<T: FromPyObjectOwned<'py>>(
-        &self,
-        name: &str,
-        expected: &str,
-        valid: impl Fn(&T) -> bool,
+        &self, name: &str, expected: &str, valid: impl Fn(&T) -> bool,
     ) -> PyResult<Option<T>> {
         let Some(value) = self.get(name)? else {
             return Ok(None);
@@ -186,10 +159,7 @@ impl<'py> DjangoSettings<'py> {
 /// parse, or that `valid` rejects, gives an error message that names the
 /// variable.
 pub fn parse_env<T: FromStr>(
-    name: &str,
-    raw: Option<&str>,
-    expected: &str,
-    valid: impl Fn(&T) -> bool,
+    name: &str, raw: Option<&str>, expected: &str, valid: impl Fn(&T) -> bool,
 ) -> Result<Option<T>, String> {
     let Some(raw) = raw else {
         return Ok(None);
@@ -207,10 +177,7 @@ pub fn parse_env<T: FromStr>(
 /// Parse a flag variable: 1, 0, true or false, in any case.
 pub fn parse_env_flag(name: &str, raw: Option<&str>) -> Result<Option<bool>, String> {
     let flag = parse_env::<String>(name, raw, "1, 0, true or false", |value| {
-        matches!(
-            value.to_ascii_lowercase().as_str(),
-            "1" | "0" | "true" | "false"
-        )
+        matches!(value.to_ascii_lowercase().as_str(), "1" | "0" | "true" | "false")
     })?;
     Ok(flag.map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true")))
 }
@@ -218,14 +185,10 @@ pub fn parse_env_flag(name: &str, raw: Option<&str>) -> Result<Option<bool>, Str
 /// Read a `DJANGO_BOLT_*` environment variable at startup. See `parse_env`.
 /// An invalid value raises `ImproperlyConfigured`.
 pub fn env_var<T: FromStr>(
-    py: Python<'_>,
-    name: &str,
-    expected: &str,
-    valid: impl Fn(&T) -> bool,
+    py: Python<'_>, name: &str, expected: &str, valid: impl Fn(&T) -> bool,
 ) -> PyResult<Option<T>> {
     let raw = read_env(py, name, expected)?;
-    parse_env(name, raw.as_deref(), expected, valid)
-        .map_err(|message| improperly_configured(py, message))
+    parse_env(name, raw.as_deref(), expected, valid).map_err(|message| improperly_configured(py, message))
 }
 
 /// Read an int variable that is 1 or more.
@@ -233,10 +196,7 @@ pub fn env_positive_int<T>(py: Python<'_>, name: &str, default: T) -> PyResult<T
 where
     T: FromStr + PartialOrd + From<u8>,
 {
-    Ok(env_var(py, name, "an int of 1 or more", |value: &T| {
-        *value >= T::from(1)
-    })?
-    .unwrap_or(default))
+    Ok(env_var(py, name, "an int of 1 or more", |value: &T| *value >= T::from(1))?.unwrap_or(default))
 }
 
 /// Read an int variable that is 0 or more.
@@ -244,18 +204,13 @@ pub fn env_non_negative_int<T>(py: Python<'_>, name: &str, default: T) -> PyResu
 where
     T: FromStr + PartialOrd + From<u8>,
 {
-    Ok(env_var(py, name, "an int of 0 or more", |value: &T| {
-        *value >= T::from(0)
-    })?
-    .unwrap_or(default))
+    Ok(env_var(py, name, "an int of 0 or more", |value: &T| *value >= T::from(0))?.unwrap_or(default))
 }
 
 /// Read a flag variable: 1, 0, true or false.
 pub fn env_flag(py: Python<'_>, name: &str, default: bool) -> PyResult<bool> {
     let raw = read_env(py, name, "1, 0, true or false")?;
-    Ok(parse_env_flag(name, raw.as_deref())
-        .map_err(|message| improperly_configured(py, message))?
-        .unwrap_or(default))
+    Ok(parse_env_flag(name, raw.as_deref()).map_err(|message| improperly_configured(py, message))?.unwrap_or(default))
 }
 
 /// Read the raw value of an environment variable. A value that is not UTF-8
@@ -264,10 +219,9 @@ pub(crate) fn read_env(py: Python<'_>, name: &str, expected: &str) -> PyResult<O
     match std::env::var(name) {
         Ok(raw) => Ok(Some(raw)),
         Err(VarError::NotPresent) => Ok(None),
-        Err(VarError::NotUnicode(_)) => Err(improperly_configured(
-            py,
-            format!("{name} must be {expected}, got a value that is not UTF-8."),
-        )),
+        Err(VarError::NotUnicode(_)) => {
+            Err(improperly_configured(py, format!("{name} must be {expected}, got a value that is not UTF-8.")))
+        }
     }
 }
 
@@ -279,28 +233,14 @@ pub(crate) fn read_env(py: Python<'_>, name: &str, expected: &str) -> PyResult<O
 /// `str.startswith` on STATIC_URL. That is an error.
 fn is_missing(py: Python<'_>, err: &PyErr, name: &str) -> bool {
     err.is_instance_of::<PyAttributeError>(py)
-        && err
-            .value(py)
-            .getattr("name")
-            .and_then(|attr| attr.extract::<String>())
-            .is_ok_and(|attr| attr == name)
+        && err.value(py).getattr("name").and_then(|attr| attr.extract::<String>()).is_ok_and(|attr| attr == name)
 }
 
 /// Make the `ImproperlyConfigured` error for a setting with the wrong type.
 fn wrong_type(name: &str, expected: &str, value: &Bound<'_, PyAny>) -> PyErr {
-    let type_name = value
-        .get_type()
-        .name()
-        .map(|type_name| type_name.to_string())
-        .unwrap_or_else(|_| "?".to_string());
-    let repr = value
-        .repr()
-        .map(|repr| repr.to_string())
-        .unwrap_or_else(|_| "?".to_string());
-    improperly_configured(
-        value.py(),
-        format!("{name} must be {expected}, got {type_name} {repr}."),
-    )
+    let type_name = value.get_type().name().map(|type_name| type_name.to_string()).unwrap_or_else(|_| "?".to_string());
+    let repr = value.repr().map(|repr| repr.to_string()).unwrap_or_else(|_| "?".to_string());
+    improperly_configured(value.py(), format!("{name} must be {expected}, got {type_name} {repr}."))
 }
 
 /// Make a Django `ImproperlyConfigured` error.
@@ -342,14 +282,11 @@ mod tests {
 
     #[test]
     fn positive_int_accepts_1_or_more() {
-        with_settings(
-            c"type('Settings', (), {'ONE': 1, 'ZERO': 0})()",
-            |settings| {
-                assert_eq!(settings.positive_int("ONE", 8u32).unwrap(), 1);
-                assert_eq!(settings.positive_int("ABSENT", 8u32).unwrap(), 8);
-                assert!(settings.positive_int("ZERO", 8u32).is_err());
-            },
-        );
+        with_settings(c"type('Settings', (), {'ONE': 1, 'ZERO': 0})()", |settings| {
+            assert_eq!(settings.positive_int("ONE", 8u32).unwrap(), 1);
+            assert_eq!(settings.positive_int("ABSENT", 8u32).unwrap(), 8);
+            assert!(settings.positive_int("ZERO", 8u32).is_err());
+        });
     }
 
     #[test]
@@ -383,10 +320,7 @@ mod tests {
 
     #[test]
     fn parse_env_reads_a_valid_value() {
-        assert_eq!(
-            parse_env::<u32>("X", Some(" 4 "), "an int", |_| true),
-            Ok(Some(4))
-        );
+        assert_eq!(parse_env::<u32>("X", Some(" 4 "), "an int", |_| true), Ok(Some(4)));
     }
 
     #[test]
@@ -410,19 +344,10 @@ mod tests {
 
     #[test]
     fn parse_env_flag_reads_1_0_true_and_false() {
-        for (raw, expected) in [
-            ("1", true),
-            ("true", true),
-            ("TRUE", true),
-            ("0", false),
-            ("False", false),
-        ] {
+        for (raw, expected) in [("1", true), ("true", true), ("TRUE", true), ("0", false), ("False", false)] {
             assert_eq!(parse_env_flag("X", Some(raw)), Ok(Some(expected)), "{raw}");
         }
         assert_eq!(parse_env_flag("X", None), Ok(None));
-        assert_eq!(
-            parse_env_flag("X", Some("yes")),
-            Err("X must be 1, 0, true or false, got 'yes'.".to_string())
-        );
+        assert_eq!(parse_env_flag("X", Some("yes")), Err("X must be 1, 0, true or false, got 'yes'.".to_string()));
     }
 }

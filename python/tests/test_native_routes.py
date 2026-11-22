@@ -37,8 +37,7 @@ def echo(method="GET", path="/items/a%20b", query="q=1", body=""):
 
 
 @pytest.mark.parametrize(
-    ("method", "content", "expected"),
-    [("GET", None, echo()), ("POST", b"payload", echo("POST", body="payload"))],
+    ("method", "content", "expected"), [("GET", None, echo()), ("POST", b"payload", echo("POST", body="payload"))]
 )
 def test_native_route_gets_the_request_and_sends_the_response(method, content, expected):
     with TestClient(native_api()) as client:
@@ -64,11 +63,7 @@ def test_native_route_gets_the_client_address_after_trusted_proxies(settings):
     assert response.json()["client"] == "198.51.100.7"
 
 
-@pytest.mark.parametrize(
-    "content",
-    [b"too long", iter([b"too", b" long"])],
-    ids=["content-length", "chunked"],
-)
+@pytest.mark.parametrize("content", [b"too long", iter([b"too", b" long"])], ids=["content-length", "chunked"])
 def test_native_route_body_over_the_limit_is_refused(settings, content):
     settings.BOLT_MAX_UPLOAD_SIZE = 4
     with TestClient(native_api()) as client:
@@ -216,9 +211,7 @@ def test_native_route_gets_global_cors_and_compression():
     api = native_api(compression=CompressionConfig(backend="gzip"))
     with TestClient(api, use_http_layer=True, cors_allowed_origins=["https://a.example"]) as client:
         response = client.post(
-            "/items/1",
-            content=b"x" * 2000,
-            headers={"Origin": "https://a.example", "Accept-Encoding": "gzip"},
+            "/items/1", content=b"x" * 2000, headers={"Origin": "https://a.example", "Accept-Encoding": "gzip"}
         )
 
     assert response.headers["access-control-allow-origin"] == "https://a.example"
@@ -247,8 +240,7 @@ def test_native_route_does_not_take_the_cors_config_of_a_python_route():
 def test_cors_preflight_to_a_native_route_gets_the_global_cors_headers():
     with TestClient(native_api(), use_http_layer=True, cors_allowed_origins=["https://a.example"]) as client:
         response = client.options(
-            "/items/1",
-            headers={"Origin": "https://a.example", "Access-Control-Request-Method": "POST"},
+            "/items/1", headers={"Origin": "https://a.example", "Access-Control-Request-Method": "POST"}
         )
 
     assert response.status_code == 204
@@ -279,10 +271,7 @@ def test_automatic_options_includes_native_routes():
     assert response.headers["allow"] == "GET, POST, OPTIONS"
 
 
-@pytest.mark.parametrize(
-    "python_path",
-    ["/items/{id}", "/items/{pk}", "/items/{id:int}"],
-)
+@pytest.mark.parametrize("python_path", ["/items/{id}", "/items/{pk}", "/items/{id:int}"])
 def test_native_route_conflicting_with_a_python_route_stops_startup(python_path):
     api = native_api()
 

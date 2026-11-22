@@ -79,10 +79,7 @@ def test_errors_carry_the_failing_field_in_loc(client):
     """`loc` must locate the field, which is the whole point of `loc`."""
     errors = _register(client).json()["detail"]
 
-    assert [list(e["loc"]) for e in errors] == [
-        ["body", "collage_code"],
-        ["body", "phone_number"],
-    ]
+    assert [list(e["loc"]) for e in errors] == [["body", "collage_code"], ["body", "phone_number"]]
 
 
 def test_messages_are_not_concatenated(client):

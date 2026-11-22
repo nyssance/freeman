@@ -9,10 +9,7 @@ from .helpers import access_log_settings
 
 
 def _run(make_server_project, level: str) -> list[str]:
-    project = make_server_project(
-        api_module=app_module("access_log_levels"),
-        settings_extra=access_log_settings(level),
-    )
+    project = make_server_project(api_module=app_module("access_log_levels"), settings_extra=access_log_settings(level))
     with project.start(startup_path="/health") as server:
         for path in ("/ok", "/gone", "/down", "/teapot"):
             server.request("GET", path)

@@ -222,14 +222,7 @@ def test_parameters_with_no_marker_get_their_source_from_the_type():
     api = BoltAPI()
 
     @api.post("/orders/{order_id}")
-    async def update_order(
-        req,
-        order_id: int,
-        order: OrderUpdate,
-        tags: list[int],
-        ship_on: date,
-        note=None,
-    ):
+    async def update_order(req, order_id: int, order: OrderUpdate, tags: list[int], ship_on: date, note=None):
         return {
             "path": req.path,
             "order_id": order_id,

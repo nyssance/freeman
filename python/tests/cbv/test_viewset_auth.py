@@ -7,12 +7,7 @@ from freeman.auth.guards import AllowAny
 from freeman.auth.jwt_utils import create_jwt_for_user
 from freeman.serializers import Serializer
 from freeman.testing import TestClient
-from freeman.views import (
-    CreateMixin,
-    ListMixin,
-    ReadOnlyModelViewSet,
-    RetrieveMixin,
-)
+from freeman.views import CreateMixin, ListMixin, ReadOnlyModelViewSet, RetrieveMixin
 from tests.test_models import Article
 
 
@@ -35,13 +30,7 @@ class ArticleCreateSchema(Serializer):
     author: str
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (ListMixin, RetrieveMixin, CreateMixin, ViewSet),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(ListMixin, RetrieveMixin, CreateMixin, ViewSet), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_viewset_auth(api, view_classes: list[type]):
     """Test ViewSet using auth and guards."""
@@ -98,14 +87,7 @@ def test_viewset_auth(api, view_classes: list[type]):
         assert len(response.json()) == 2
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (ListMixin, ViewSet),
-        (ReadOnlyModelViewSet,),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(ListMixin, ViewSet), (ReadOnlyModelViewSet,), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_mixed_viewsets_auth(api, view_classes: list[type]):
     """Test multiple ViewSets with different authentication configurations."""

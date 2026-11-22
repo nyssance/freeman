@@ -119,11 +119,7 @@ def test_static_files_config_replaces_the_static_settings(tmp_path):
     (tmp_path / "static" / "app.css").write_text("body {}\n")
     (tmp_path / "assets").mkdir()
     (tmp_path / "assets" / "app.css").write_text("body {}\n")
-    settings = {
-        "STATIC_URL": "/static/",
-        "STATICFILES_DIRS": [str(tmp_path / "static")],
-        "BOLT_STATIC_MAX_AGE": 60,
-    }
+    settings = {"STATIC_URL": "/static/", "STATICFILES_DIRS": [str(tmp_path / "static")], "BOLT_STATIC_MAX_AGE": 60}
     static_files = {"url_prefix": "/assets", "directories": [str(tmp_path / "assets")]}
     with override_settings(**settings), TestClient(api, static_files_config=static_files) as client:
         response = client.get("/assets/app.css")

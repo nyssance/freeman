@@ -1307,10 +1307,7 @@ def test_cursor_pagination_multiple_pages_continuity(sample_articles):
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize(
-    ("ordering", "key"),
-    [("-pk", "id"), ("pk", "id"), ("-id", "pk")],
-)
+@pytest.mark.parametrize(("ordering", "key"), [("-pk", "id"), ("pk", "id"), ("-id", "pk")])
 def test_cursor_pagination_finds_the_primary_key_of_a_values_row_by_each_name(sample_articles, ordering, key):
     """An ordering by the primary key reads it from a values() row as "pk" or as the column name."""
     api = BoltAPI()
@@ -2125,12 +2122,7 @@ def test_pagination_single_result(db):
     api = BoltAPI()
 
     # Create single article
-    Article.objects.create(
-        title="Solo Article",
-        content="Content",
-        author="Author",
-        is_published=True,
-    )
+    Article.objects.create(title="Solo Article", content="Content", author="Author", is_published=True)
 
     class SmallPagePagination(PageNumberPagination):
         page_size = 10

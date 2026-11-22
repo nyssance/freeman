@@ -13,34 +13,25 @@ fuzz_target!(|input: (&str, u16, Option<Vec<SocketAddr>>)| {
     let mut calls = Vec::new();
     let result = resolve_bind_addr_with(host, port, |name| {
         calls.push(name.to_string());
-        answer
-            .clone()
-            .ok_or_else(|| io::Error::other("lookup failed"))
+        answer.clone().ok_or_else(|| io::Error::other("lookup failed"))
     });
 
     let bracketed = host.strip_prefix('[').and_then(|h| h.strip_suffix(']'));
     let literal = host.parse::<IpAddr>().ok();
     let named = if let Some(inner) = bracketed {
         assert!(calls.is_empty(), "{host:?} in brackets was looked up");
-        inner
-            .parse::<Ipv6Addr>()
-            .ok()
-            .map(|ip| SocketAddr::new(ip.into(), port))
+        inner.parse::<Ipv6Addr>().ok().map(|ip| SocketAddr::new(ip.into(), port))
     } else if let Some(ip) = literal {
         assert!(calls.is_empty(), "the address {host:?} was looked up");
         Some(SocketAddr::new(ip, port))
     } else {
         assert_eq!(calls, [host]);
         let addrs = answer.clone().unwrap_or_default();
-        addrs
-            .iter()
-            .find(|a| a.is_ipv4())
-            .or(addrs.first())
-            .map(|a| {
-                let mut a = *a;
-                a.set_port(port);
-                a
-            })
+        addrs.iter().find(|a| a.is_ipv4()).or(addrs.first()).map(|a| {
+            let mut a = *a;
+            a.set_port(port);
+            a
+        })
     };
 
     match (&result, named) {
@@ -50,18 +41,12 @@ fuzz_target!(|input: (&str, u16, Option<Vec<SocketAddr>>)| {
             if addr.ip().is_unspecified() {
                 let from_host = bracketed.unwrap_or(host).parse::<IpAddr>().ok() == Some(addr.ip());
                 let from_resolver = answer.iter().flatten().any(|a| a.ip() == addr.ip());
-                assert!(
-                    from_host || from_resolver,
-                    "{host:?} gave the wildcard {addr}"
-                );
+                assert!(from_host || from_resolver, "{host:?} gave the wildcard {addr}");
             }
         }
         (Err(err), None) => {
             let message = err.to_string();
-            assert!(
-                message.starts_with(&format!("cannot resolve host {host:?}: ")),
-                "{message}"
-            );
+            assert!(message.starts_with(&format!("cannot resolve host {host:?}: ")), "{message}");
             assert!(!message.contains(['\n', '\r']), "{message}");
         }
         (result, named) => panic!("{host:?}: got {result:?}, want {named:?}"),

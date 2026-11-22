@@ -17,11 +17,10 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString};
 use rmcp::RoleServer;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, DiscoverResult,
-    ErrorCode, ErrorData as McpError, GetPromptRequestParams, GetPromptResponse, GetPromptResult,
-    InputRequest, InputRequests, InputRequiredResult, ListPromptsResult,
-    ListResourceTemplatesResult, ListResourcesResult, ListToolsResult, PaginatedRequestParams,
-    ProtocolVersion, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult,
+    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, DiscoverResult, ErrorCode,
+    ErrorData as McpError, GetPromptRequestParams, GetPromptResponse, GetPromptResult, InputRequest, InputRequests,
+    InputRequiredResult, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult, ListToolsResult,
+    PaginatedRequestParams, ProtocolVersion, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult,
     ResultType, ServerConfig, Tool,
 };
 use rmcp::service::RequestContext;
@@ -125,10 +124,9 @@ fn parse_py_result<T: serde::de::DeserializeOwned>(raw: &str, mode: ProtocolMode
     }
     match serde_json::from_str::<T>(raw) {
         Ok(value) => PyOutcome::Ok(value),
-        Err(e) => PyOutcome::Error(McpError::internal_error(
-            format!("MCP dispatch returned invalid result JSON: {e}"),
-            None,
-        )),
+        Err(e) => {
+            PyOutcome::Error(McpError::internal_error(format!("MCP dispatch returned invalid result JSON: {e}"), None))
+        }
     }
 }
 
@@ -139,25 +137,15 @@ fn extract_result_string(result: PyResult<Py<PyAny>>) -> Result<String, McpError
             if let Ok(s) = bound.cast::<PyString>() {
                 Ok(s.to_string_lossy().into_owned())
             } else if let Ok(b) = bound.extract::<Vec<u8>>() {
-                String::from_utf8(b).map_err(|e| {
-                    McpError::internal_error(
-                        format!("MCP dispatch returned non-UTF8 bytes: {e}"),
-                        None,
-                    )
-                })
+                String::from_utf8(b)
+                    .map_err(|e| McpError::internal_error(format!("MCP dispatch returned non-UTF8 bytes: {e}"), None))
             } else {
-                Err(McpError::internal_error(
-                    "MCP dispatch must return str or bytes JSON",
-                    None,
-                ))
+                Err(McpError::internal_error("MCP dispatch must return str or bytes JSON", None))
             }
         }),
         Err(err) => {
             log::error!("MCP Python dispatch raised: {err}");
-            Err(McpError::internal_error(
-                format!("MCP dispatch failed: {err}"),
-                None,
-            ))
+            Err(McpError::internal_error(format!("MCP dispatch failed: {err}"), None))
         }
     }
 }
@@ -198,23 +186,15 @@ impl McpHandler {
     /// `has_middleware` is true, because only middleware reads them.
     /// Otherwise they are `None`, and the request skips that work.
     async fn dispatch_simple<T: serde::de::DeserializeOwned>(
-        &self,
-        dispatch: &Py<PyAny>,
-        fields: Vec<(&'static str, String)>,
-        has_middleware: bool,
+        &self, dispatch: &Py<PyAny>, fields: Vec<(&'static str, String)>, has_middleware: bool,
         ctx: &RequestContext<RoleServer>,
     ) -> Result<T, McpError> {
         let mode = protocol_mode(ctx);
-        let (auth, meta_json) = if has_middleware {
-            (auth_from_ctx(ctx), serde_json::to_string(&ctx.meta).ok())
-        } else {
-            (None, None)
-        };
+        let (auth, meta_json) =
+            if has_middleware { (auth_from_ctx(ctx), serde_json::to_string(&ctx.meta).ok()) } else { (None, None) };
         let (callable, payload) = Python::attach(|py| {
-            let mut fields: Vec<(&str, Py<PyAny>)> = fields
-                .iter()
-                .map(|(k, v)| (*k, PyString::new(py, v).into_any().unbind()))
-                .collect();
+            let mut fields: Vec<(&str, Py<PyAny>)> =
+                fields.iter().map(|(k, v)| (*k, PyString::new(py, v).into_any().unbind())).collect();
             fields.push(("meta_json", meta_py(py, meta_json.as_deref())));
             fields.push(("auth", auth_dict(py, auth.as_deref())?));
             let payload = build_payload(py, &fields)?;
@@ -227,18 +207,14 @@ impl McpHandler {
         match parse_py_result::<T>(&raw, mode) {
             PyOutcome::Ok(value) => Ok(value),
             PyOutcome::Error(err) => Err(err),
-            PyOutcome::InputRequired(_) => Err(McpError::internal_error(
-                "input_required is only supported for tools/call",
-                None,
-            )),
+            PyOutcome::InputRequired(_) => {
+                Err(McpError::internal_error("input_required is only supported for tools/call", None))
+            }
         }
     }
 
     async fn run_tool(
-        &self,
-        entry: &McpToolEntry,
-        params: &CallToolRequestParams,
-        ctx: &RequestContext<RoleServer>,
+        &self, entry: &McpToolEntry, params: &CallToolRequestParams, ctx: &RequestContext<RoleServer>,
         auth: Option<Arc<AuthContext>>,
     ) -> Result<CallToolResponse, McpError> {
         let mode = protocol_mode(ctx);
@@ -275,9 +251,8 @@ impl McpHandler {
 
         // ---- Context wiring ----
         let caps = ctx.client_capabilities();
-        let (caps_elicitation, caps_sampling) = caps
-            .map(|c| (c.elicitation.is_some(), c.sampling.is_some()))
-            .unwrap_or((false, false));
+        let (caps_elicitation, caps_sampling) =
+            caps.map(|c| (c.elicitation.is_some(), c.sampling.is_some())).unwrap_or((false, false));
         let log_gate = match mode {
             ProtocolMode::Live => Some(0),
             #[allow(deprecated)]
@@ -321,10 +296,7 @@ impl McpHandler {
             let payload = build_payload(
                 py,
                 &[
-                    (
-                        "arguments_json",
-                        PyString::new(py, &arguments_json).into_any().unbind(),
-                    ),
+                    ("arguments_json", PyString::new(py, &arguments_json).into_any().unbind()),
                     ("ctx", ctx_obj),
                     ("auth", auth_dict(py, auth.as_deref())?),
                     ("meta_json", meta_py(py, meta_json.as_deref())),
@@ -370,10 +342,7 @@ impl McpHandler {
                 // raises it in modern mode, so reaching this in Live mode is a
                 // bug worth failing loudly on.
                 if mode != ProtocolMode::Mrtr {
-                    return Err(McpError::internal_error(
-                        "input_required produced for a legacy peer",
-                        None,
-                    ));
+                    return Err(McpError::internal_error("input_required produced for a legacy peer", None));
                 }
                 let mut requests: InputRequests = BTreeMap::new();
                 for item in items {
@@ -381,9 +350,7 @@ impl McpHandler {
                         "method": item.method,
                         "params": item.params,
                     }))
-                    .map_err(|e| {
-                        McpError::internal_error(format!("invalid input request: {e}"), None)
-                    })?;
+                    .map_err(|e| McpError::internal_error(format!("invalid input request: {e}"), None))?;
                     requests.insert(item.key, request);
                 }
                 let state = state_codec::McpRequestState {
@@ -392,9 +359,8 @@ impl McpHandler {
                     principal_hash: state_codec::principal_hash(auth.as_deref()),
                     responses,
                 };
-                let sealed = state_codec::seal(&self.registry.codec, &state).map_err(|e| {
-                    McpError::internal_error(format!("failed to seal requestState: {e}"), None)
-                })?;
+                let sealed = state_codec::seal(&self.registry.codec, &state)
+                    .map_err(|e| McpError::internal_error(format!("failed to seal requestState: {e}"), None))?;
                 Ok(InputRequiredResult::new(Some(requests), Some(sealed)).into())
             }
         }
@@ -405,16 +371,11 @@ impl McpHandler {
     /// (legacy, via OriginatingRequestId) — rmcp handles the routing.
     async fn pump_event(&self, ctx: &RequestContext<RoleServer>, event: CtxEvent) {
         match event {
-            CtxEvent::Progress {
-                progress,
-                total,
-                message,
-            } => {
+            CtxEvent::Progress { progress, total, message } => {
                 let Some(progress_token) = ctx.meta.get_progress_token() else {
                     return;
                 };
-                let mut params =
-                    rmcp::model::ProgressNotificationParam::new(progress_token, progress);
+                let mut params = rmcp::model::ProgressNotificationParam::new(progress_token, progress);
                 if let Some(total) = total {
                     params = params.with_total(total);
                 }
@@ -423,15 +384,9 @@ impl McpHandler {
                 }
                 let _ = ctx.peer.notify_progress(params).await;
             }
-            CtxEvent::Log {
-                level,
-                data_json,
-                logger,
-            } => {
+            CtxEvent::Log { level, data_json, logger } => {
                 #[allow(deprecated)]
-                let Ok(level) =
-                    serde_json::from_value::<rmcp::model::LoggingLevel>(Value::String(level))
-                else {
+                let Ok(level) = serde_json::from_value::<rmcp::model::LoggingLevel>(Value::String(level)) else {
                     return;
                 };
                 let data = serde_json::from_str(&data_json).unwrap_or(Value::String(data_json));
@@ -443,11 +398,7 @@ impl McpHandler {
                 #[allow(deprecated)]
                 let _ = ctx.peer.notify_logging_message(params).await;
             }
-            CtxEvent::ServerRequest {
-                method,
-                params_json,
-                reply,
-            } => {
+            CtxEvent::ServerRequest { method, params_json, reply } => {
                 let envelope = self.live_server_request(ctx, method, &params_json).await;
                 crate::context::resolve_reply_future(&reply, &envelope);
             }
@@ -456,12 +407,7 @@ impl McpHandler {
 
     /// Live-path server->client request (legacy peers). Returns the JSON
     /// envelope Python's Context expects: {"result": ...} or {"error": {...}}.
-    async fn live_server_request(
-        &self,
-        ctx: &RequestContext<RoleServer>,
-        method: &str,
-        params_json: &str,
-    ) -> String {
+    async fn live_server_request(&self, ctx: &RequestContext<RoleServer>, method: &str, params_json: &str) -> String {
         let outcome: Result<Value, String> = match method {
             crate::context::METHOD_ELICIT => {
                 match serde_json::from_str::<rmcp::model::ElicitRequestParams>(params_json) {
@@ -501,29 +447,19 @@ impl rmcp::ServerHandler for McpHandler {
     }
 
     fn get_tool(&self, name: &str) -> Option<Tool> {
-        self.registry
-            .tools
-            .get(name)
-            .map(|entry| entry.tool.clone())
+        self.registry.tools.get(name).map(|entry| entry.tool.clone())
     }
 
-    async fn discover(
-        &self,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<DiscoverResult, McpError> {
-        let mut result = DiscoverResult::from_server_info(
-            rmcp::model::ProtocolVersion::KNOWN_VERSIONS.to_vec(),
-            self.get_info(),
-        );
+    async fn discover(&self, _context: RequestContext<RoleServer>) -> Result<DiscoverResult, McpError> {
+        let mut result =
+            DiscoverResult::from_server_info(rmcp::model::ProtocolVersion::KNOWN_VERSIONS.to_vec(), self.get_info());
         result.ttl_ms = self.registry.list_ttl_ms;
         result.cache_scope = self.registry.list_cache_scope;
         Ok(result)
     }
 
     async fn list_tools(
-        &self,
-        _request: Option<PaginatedRequestParams>,
-        context: RequestContext<RoleServer>,
+        &self, _request: Option<PaginatedRequestParams>, context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let auth = auth_from_ctx(&context);
         Ok(ListToolsResult {
@@ -537,18 +473,14 @@ impl rmcp::ServerHandler for McpHandler {
     }
 
     async fn call_tool(
-        &self,
-        request: CallToolRequestParams,
-        context: RequestContext<RoleServer>,
+        &self, request: CallToolRequestParams, context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, McpError> {
         let Some(entry) = self.registry.tools.get(request.name.as_ref()) else {
             // In-band error (parity with bolt-mcp v1): the caller sees the
             // message instead of an opaque protocol error.
-            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
-                "Unknown tool: {}",
-                request.name
-            ))])
-            .into());
+            return Ok(
+                CallToolResult::error(vec![ContentBlock::text(format!("Unknown tool: {}", request.name))]).into()
+            );
         };
         let auth = auth_from_ctx(&context);
         if !entry.guards.is_empty() {
@@ -567,9 +499,7 @@ impl rmcp::ServerHandler for McpHandler {
     }
 
     async fn list_resources(
-        &self,
-        _request: Option<PaginatedRequestParams>,
-        _context: RequestContext<RoleServer>,
+        &self, _request: Option<PaginatedRequestParams>, _context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
         Ok(ListResourcesResult {
             result_type: Some(ResultType::COMPLETE),
@@ -582,9 +512,7 @@ impl rmcp::ServerHandler for McpHandler {
     }
 
     async fn list_resource_templates(
-        &self,
-        _request: Option<PaginatedRequestParams>,
-        _context: RequestContext<RoleServer>,
+        &self, _request: Option<PaginatedRequestParams>, _context: RequestContext<RoleServer>,
     ) -> Result<ListResourceTemplatesResult, McpError> {
         Ok(ListResourceTemplatesResult {
             result_type: Some(ResultType::COMPLETE),
@@ -597,18 +525,11 @@ impl rmcp::ServerHandler for McpHandler {
     }
 
     async fn read_resource(
-        &self,
-        request: ReadResourceRequestParams,
-        context: RequestContext<RoleServer>,
+        &self, request: ReadResourceRequestParams, context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, McpError> {
         let dispatch = Python::attach(|py| self.registry.resource_dispatch.clone_ref(py));
         let mut result: ReadResourceResult = self
-            .dispatch_simple(
-                &dispatch,
-                vec![("uri", request.uri.clone())],
-                self.registry.resource_middleware,
-                &context,
-            )
+            .dispatch_simple(&dispatch, vec![("uri", request.uri.clone())], self.registry.resource_middleware, &context)
             .await?;
         if result.ttl_ms.is_none() {
             result.ttl_ms = Some(self.registry.list_ttl_ms);
@@ -620,9 +541,7 @@ impl rmcp::ServerHandler for McpHandler {
     }
 
     async fn list_prompts(
-        &self,
-        _request: Option<PaginatedRequestParams>,
-        _context: RequestContext<RoleServer>,
+        &self, _request: Option<PaginatedRequestParams>, _context: RequestContext<RoleServer>,
     ) -> Result<ListPromptsResult, McpError> {
         Ok(ListPromptsResult {
             result_type: Some(ResultType::COMPLETE),
@@ -635,9 +554,7 @@ impl rmcp::ServerHandler for McpHandler {
     }
 
     async fn get_prompt(
-        &self,
-        request: GetPromptRequestParams,
-        context: RequestContext<RoleServer>,
+        &self, request: GetPromptRequestParams, context: RequestContext<RoleServer>,
     ) -> Result<GetPromptResponse, McpError> {
         let arguments_json = match &request.arguments {
             Some(args) => serde_json::to_string(args).unwrap_or_else(|_| "null".to_string()),
@@ -647,10 +564,7 @@ impl rmcp::ServerHandler for McpHandler {
         let result: GetPromptResult = self
             .dispatch_simple(
                 &dispatch,
-                vec![
-                    ("name", request.name.to_string()),
-                    ("arguments_json", arguments_json),
-                ],
+                vec![("name", request.name.to_string()), ("arguments_json", arguments_json)],
                 self.registry.prompt_middleware,
                 &context,
             )

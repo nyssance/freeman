@@ -34,11 +34,7 @@ pub struct WebSocketActor {
 
 impl WebSocketActor {
     /// Create the actor of an accepted connection.
-    pub(crate) fn new(
-        to_python_tx: mpsc::Sender<WsMessage>,
-        slot: ConnectionSlot,
-        config: &WsConfig,
-    ) -> Self {
+    pub(crate) fn new(to_python_tx: mpsc::Sender<WsMessage>, slot: ConnectionSlot, config: &WsConfig) -> Self {
         WebSocketActor {
             hb: Instant::now(),
             to_python_tx,
@@ -56,9 +52,7 @@ impl WebSocketActor {
         ctx.run_interval(self.heartbeat_interval, move |act, ctx| {
             if Instant::now().duration_since(act.hb) > timeout {
                 // Send disconnect to Python
-                let _ = act
-                    .to_python_tx
-                    .try_send(WsMessage::Disconnect { code: 1001 });
+                let _ = act.to_python_tx.try_send(WsMessage::Disconnect { code: 1001 });
                 ctx.stop();
                 return;
             }
@@ -123,11 +117,7 @@ impl Handler<SendToClient> for WebSocketActor {
                 self.close_code = Some(code);
                 ctx.close(Some(ws::CloseReason {
                     code: ws::CloseCode::Other(code),
-                    description: if reason.is_empty() {
-                        None
-                    } else {
-                        Some(reason)
-                    },
+                    description: if reason.is_empty() { None } else { Some(reason) },
                 }));
                 ctx.stop();
             }
@@ -165,14 +155,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                     return;
                 }
                 // Forward to Python handler - close connection if channel fails
-                if let Err(e) = self
-                    .to_python_tx
-                    .try_send(WsMessage::Text(text.to_string()))
-                {
-                    self.close_on_channel_error(
-                        ctx,
-                        &format!("Failed to forward text message to Python: {}", e),
-                    );
+                if let Err(e) = self.to_python_tx.try_send(WsMessage::Text(text.to_string())) {
+                    self.close_on_channel_error(ctx, &format!("Failed to forward text message to Python: {}", e));
                 }
             }
             Ok(ws::Message::Binary(bin)) => {
@@ -194,10 +178,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 }
                 // Forward to Python handler - close connection if channel fails
                 if let Err(e) = self.to_python_tx.try_send(WsMessage::Binary(bin.to_vec())) {
-                    self.close_on_channel_error(
-                        ctx,
-                        &format!("Failed to forward binary message to Python: {}", e),
-                    );
+                    self.close_on_channel_error(ctx, &format!("Failed to forward binary message to Python: {}", e));
                 }
             }
             Ok(ws::Message::Close(reason)) => {
@@ -228,9 +209,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
             Err(e) => {
                 eprintln!("[django-bolt] WebSocket protocol error: {}", e);
                 self.close_code = Some(1002); // Protocol error
-                let _ = self
-                    .to_python_tx
-                    .try_send(WsMessage::Disconnect { code: 1002 });
+                let _ = self.to_python_tx.try_send(WsMessage::Disconnect { code: 1002 });
                 ctx.stop();
             }
             _ => {}

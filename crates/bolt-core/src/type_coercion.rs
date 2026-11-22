@@ -19,20 +19,12 @@ static SAFE_UUID_UNKNOWN: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
 #[inline]
 pub fn get_uuid_class(py: Python<'_>) -> &Py<PyAny> {
-    UUID_CLASS.get_or_init(py, || {
-        py.import("uuid").unwrap().getattr("UUID").unwrap().unbind()
-    })
+    UUID_CLASS.get_or_init(py, || py.import("uuid").unwrap().getattr("UUID").unwrap().unbind())
 }
 
 #[inline]
 pub fn get_decimal_class(py: Python<'_>) -> &Py<PyAny> {
-    DECIMAL_CLASS.get_or_init(py, || {
-        py.import("decimal")
-            .unwrap()
-            .getattr("Decimal")
-            .unwrap()
-            .unbind()
-    })
+    DECIMAL_CLASS.get_or_init(py, || py.import("decimal").unwrap().getattr("Decimal").unwrap().unbind())
 }
 
 /// Default maximum allowed length for parameter values (8KB).
@@ -64,13 +56,8 @@ fn parse_max_param_length(value: Option<&str>) -> Result<usize, String> {
 /// [`DEFAULT_MAX_PARAM_LENGTH`]. Any other value that is not an int from 1 to
 /// [`MAX_ALLOWED_PARAM_LENGTH`] raises `ImproperlyConfigured`.
 pub fn resolve_max_param_length(py: Python<'_>) -> PyResult<usize> {
-    let raw = crate::settings::read_env(
-        py,
-        "DJANGO_BOLT_MAX_PARAM_LENGTH",
-        "an int from 1 to 1048576",
-    )?;
-    parse_max_param_length(raw.as_deref())
-        .map_err(|message| crate::settings::improperly_configured(py, message))
+    let raw = crate::settings::read_env(py, "DJANGO_BOLT_MAX_PARAM_LENGTH", "an int from 1 to 1048576")?;
+    parse_max_param_length(raw.as_deref()).map_err(|message| crate::settings::improperly_configured(py, message))
 }
 
 /// Validate a decimal literal without parsing it into a numeric value.
@@ -153,10 +140,7 @@ fn check_python_year(year: i32, kind: &str, value: &str) -> Result<(), String> {
     if (1..=9999).contains(&year) {
         Ok(())
     } else {
-        Err(format!(
-            "Invalid {} '{}': year {} is out of range (1 to 9999)",
-            kind, value, year
-        ))
+        Err(format!("Invalid {} '{}': year {} is out of range (1 to 9999)", kind, value, year))
     }
 }
 
@@ -169,10 +153,7 @@ fn check_python_second(time: NaiveTime, kind: &str, value: &str) -> Result<(), S
     if time.nanosecond() < 1_000_000_000 {
         Ok(())
     } else {
-        Err(format!(
-            "Invalid {} '{}': second 60 is out of range (0 to 59)",
-            kind, value
-        ))
+        Err(format!("Invalid {} '{}': second 60 is out of range (0 to 59)", kind, value))
     }
 }
 
@@ -239,19 +220,12 @@ impl std::fmt::Display for CoerceError {
 /// Coerce a string value to the specified type, with the startup-resolved
 /// length limit (`AppState.max_param_length`) so the hot path never
 /// re-resolves config.
-pub fn coerce_param(
-    value: &str,
-    type_hint: u8,
-    max_length: usize,
-) -> Result<CoercedValue, CoerceError> {
+pub fn coerce_param(value: &str, type_hint: u8, max_length: usize) -> Result<CoercedValue, CoerceError> {
     // Security: Reject excessively long parameters to prevent memory exhaustion.
     // Surfaced as a distinct variant so callers can enforce it as a hard limit
     // without inspecting the error message text.
     if value.len() > max_length {
-        return Err(CoerceError::TooLong {
-            len: value.len(),
-            max: max_length,
-        });
+        return Err(CoerceError::TooLong { len: value.len(), max: max_length });
     }
 
     coerce_typed(value, type_hint).map_err(CoerceError::Invalid)
@@ -261,43 +235,34 @@ pub fn coerce_param(
 /// are wrapped in [`CoerceError::Invalid`] by the public entry points above.
 fn coerce_typed(value: &str, type_hint: u8) -> Result<CoercedValue, String> {
     match type_hint {
-        TYPE_INT => value
-            .parse::<i64>()
-            .map(CoercedValue::Int)
-            .map_err(|e| format!("Invalid integer '{}': {}", value, e)),
+        TYPE_INT => {
+            value.parse::<i64>().map(CoercedValue::Int).map_err(|e| format!("Invalid integer '{}': {}", value, e))
+        }
 
-        TYPE_FLOAT => value
-            .parse::<f64>()
-            .map(CoercedValue::Float)
-            .map_err(|e| format!("Invalid float '{}': {}", value, e)),
+        TYPE_FLOAT => {
+            value.parse::<f64>().map(CoercedValue::Float).map_err(|e| format!("Invalid float '{}': {}", value, e))
+        }
 
         TYPE_BOOL => {
             // Compare without case. This does not allocate a lowercase copy of the value.
-            let is_true = ["true", "1", "yes", "on"]
-                .iter()
-                .any(|token| value.eq_ignore_ascii_case(token));
-            let is_false = !is_true
-                && ["false", "0", "no", "off"]
-                    .iter()
-                    .any(|token| value.eq_ignore_ascii_case(token));
+            let is_true = ["true", "1", "yes", "on"].iter().any(|token| value.eq_ignore_ascii_case(token));
+            let is_false =
+                !is_true && ["false", "0", "no", "off"].iter().any(|token| value.eq_ignore_ascii_case(token));
             if is_true {
                 Ok(CoercedValue::Bool(true))
             } else if is_false {
                 Ok(CoercedValue::Bool(false))
             } else {
                 // Empty string or invalid value - reject (don't silently convert to false)
-                Err(format!(
-                    "Invalid boolean '{}': expected true/false/1/0/yes/no/on/off",
-                    value
-                ))
+                Err(format!("Invalid boolean '{}': expected true/false/1/0/yes/no/on/off", value))
             }
         }
 
         TYPE_STRING => Ok(CoercedValue::String(value.to_string())),
 
-        TYPE_UUID => Uuid::parse_str(value)
-            .map(CoercedValue::Uuid)
-            .map_err(|e| format!("Invalid UUID '{}': {}", value, e)),
+        TYPE_UUID => {
+            Uuid::parse_str(value).map(CoercedValue::Uuid).map_err(|e| format!("Invalid UUID '{}': {}", value, e))
+        }
 
         TYPE_DATETIME => {
             let parsed = parse_datetime(value)?;
@@ -315,18 +280,15 @@ fn coerce_typed(value: &str, type_hint: u8) -> Result<CoercedValue, String> {
             if !is_valid_decimal_literal(value) {
                 Err(format!("Invalid decimal '{}'", value))
             } else if !decimal_exponent_fits(value) {
-                Err(format!(
-                    "Invalid decimal '{}': exponent is out of range",
-                    value
-                ))
+                Err(format!("Invalid decimal '{}': exponent is out of range", value))
             } else {
                 Ok(CoercedValue::Decimal(value.to_string()))
             }
         }
 
         TYPE_DATE => {
-            let date = NaiveDate::parse_from_str(value, "%Y-%m-%d")
-                .map_err(|e| format!("Invalid date '{}': {}", value, e))?;
+            let date =
+                NaiveDate::parse_from_str(value, "%Y-%m-%d").map_err(|e| format!("Invalid date '{}': {}", value, e))?;
             check_python_year(date.year(), "date", value)?;
             Ok(CoercedValue::Date(date))
         }
@@ -359,13 +321,8 @@ fn parse_datetime(value: &str) -> Result<CoercedValue, String> {
     }
 
     // Try naive datetime formats (without timezone)
-    let naive_formats = [
-        "%Y-%m-%dT%H:%M:%S%.f",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%d %H:%M:%S%.f",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d",
-    ];
+    let naive_formats =
+        ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S%.f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"];
 
     for fmt in &naive_formats {
         if let Ok(ndt) = NaiveDateTime::parse_from_str(value, fmt) {
@@ -379,10 +336,7 @@ fn parse_datetime(value: &str) -> Result<CoercedValue, String> {
         return Ok(CoercedValue::NaiveDateTime(ndt));
     }
 
-    Err(format!(
-        "Invalid datetime '{}': expected ISO 8601 format (e.g., 2024-01-15T10:30:00Z)",
-        value
-    ))
+    Err(format!("Invalid datetime '{}': expected ISO 8601 format (e.g., 2024-01-15T10:30:00Z)", value))
 }
 
 /// Parse time string supporting multiple formats
@@ -395,10 +349,7 @@ fn parse_time(value: &str) -> Result<NaiveTime, String> {
         }
     }
 
-    Err(format!(
-        "Invalid time '{}': expected format HH:MM:SS or HH:MM",
-        value
-    ))
+    Err(format!("Invalid time '{}': expected format HH:MM:SS or HH:MM", value))
 }
 
 /// Non-string type hints of one request source, keyed by wire name.
@@ -425,9 +376,7 @@ pub type CoercedValues<'a> = Vec<(&'a str, CoercedValue)>;
 /// `values` can own its strings (headers, cookies) or borrow them (query).
 #[inline]
 pub fn string_map_to_py_dict<'py, K, V>(
-    py: Python<'py>,
-    values: &ahash::AHashMap<K, V>,
-    coerced: &[(&str, CoercedValue)],
+    py: Python<'py>, values: &ahash::AHashMap<K, V>, coerced: &[(&str, CoercedValue)],
 ) -> PyResult<pyo3::Bound<'py, PyDict>>
 where
     K: std::borrow::Borrow<str>,
@@ -488,22 +437,10 @@ pub fn coerced_value_to_py(py: Python<'_>, value: &CoercedValue) -> PyResult<Py<
 #[inline]
 pub fn uuid_to_py(py: Python<'_>, v: uuid::Uuid) -> PyResult<Py<PyAny>> {
     let object_new = OBJECT_NEW.get_or_init(py, || {
-        py.import("builtins")
-            .unwrap()
-            .getattr("object")
-            .unwrap()
-            .getattr("__new__")
-            .unwrap()
-            .unbind()
+        py.import("builtins").unwrap().getattr("object").unwrap().getattr("__new__").unwrap().unbind()
     });
     let safe_unknown = SAFE_UUID_UNKNOWN.get_or_init(py, || {
-        py.import("uuid")
-            .unwrap()
-            .getattr("SafeUUID")
-            .unwrap()
-            .getattr("unknown")
-            .unwrap()
-            .unbind()
+        py.import("uuid").unwrap().getattr("SafeUUID").unwrap().getattr("unknown").unwrap().unbind()
     });
     let value = object_new.bind(py).call1((get_uuid_class(py).bind(py),))?;
     let int = v.as_u128().into_pyobject(py)?;
@@ -515,19 +452,11 @@ pub fn uuid_to_py(py: Python<'_>, v: uuid::Uuid) -> PyResult<Py<PyAny>> {
 /// Set an attribute with the generic setter, as `object.__setattr__` does.
 #[inline]
 fn set_slot(
-    object: &pyo3::Bound<'_, PyAny>,
-    name: &pyo3::Bound<'_, pyo3::types::PyString>,
-    value: &pyo3::Bound<'_, PyAny>,
+    object: &pyo3::Bound<'_, PyAny>, name: &pyo3::Bound<'_, pyo3::types::PyString>, value: &pyo3::Bound<'_, PyAny>,
 ) -> PyResult<()> {
     // SAFETY: the three pointers are valid for the call: the Bound references keep them alive.
-    let status = unsafe {
-        pyo3::ffi::PyObject_GenericSetAttr(object.as_ptr(), name.as_ptr(), value.as_ptr())
-    };
-    if status == 0 {
-        Ok(())
-    } else {
-        Err(pyo3::PyErr::fetch(object.py()))
-    }
+    let status = unsafe { pyo3::ffi::PyObject_GenericSetAttr(object.as_ptr(), name.as_ptr(), value.as_ptr()) };
+    if status == 0 { Ok(()) } else { Err(pyo3::PyErr::fetch(object.py())) }
 }
 
 #[cfg(test)]
@@ -634,14 +563,8 @@ mod tests {
 
     #[test]
     fn test_coerce_int() {
-        assert!(matches!(
-            coerce_param("42", TYPE_INT, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Int(42))
-        ));
-        assert!(matches!(
-            coerce_param("-123", TYPE_INT, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Int(-123))
-        ));
+        assert!(matches!(coerce_param("42", TYPE_INT, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Int(42))));
+        assert!(matches!(coerce_param("-123", TYPE_INT, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Int(-123))));
         assert!(coerce_param("abc", TYPE_INT, DEFAULT_MAX_PARAM_LENGTH).is_err());
     }
 
@@ -662,11 +585,7 @@ mod tests {
             let error = coerce_param(value, TYPE_DATE, DEFAULT_MAX_PARAM_LENGTH).unwrap_err();
             assert!(error.to_string().contains("year"), "{value}: {error}");
         }
-        for value in [
-            "0000-01-01T00:00:00",
-            "0000-01-01T00:00:00Z",
-            "+10000-01-01T00:00:00",
-        ] {
+        for value in ["0000-01-01T00:00:00", "0000-01-01T00:00:00Z", "+10000-01-01T00:00:00"] {
             let error = coerce_param(value, TYPE_DATETIME, DEFAULT_MAX_PARAM_LENGTH).unwrap_err();
             assert!(error.to_string().contains("year"), "{value}: {error}");
         }
@@ -696,83 +615,38 @@ mod tests {
             assert!(error.to_string().contains("exponent"), "{value}: {error}");
         }
         for value in ["1E+2147483648", "1E999999999999999", "-0.5e-7", "12.5"] {
-            assert!(
-                coerce_param(value, TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH).is_ok(),
-                "{value}"
-            );
+            assert!(coerce_param(value, TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH).is_ok(), "{value}");
         }
     }
 
     #[test]
     fn test_coerce_bool() {
-        for (value, expected) in [
-            ("TRUE", true),
-            ("Yes", true),
-            ("ON", true),
-            ("OFF", false),
-            ("No", false),
-        ] {
+        for (value, expected) in [("TRUE", true), ("Yes", true), ("ON", true), ("OFF", false), ("No", false)] {
             assert!(
                 matches!(coerce_param(value, TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(b)) if b == expected),
                 "{value}"
             );
         }
         for value in ["tru", "yess", "", "on "] {
-            assert!(
-                coerce_param(value, TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH).is_err(),
-                "{value}"
-            );
+            assert!(coerce_param(value, TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH).is_err(), "{value}");
         }
-        assert!(matches!(
-            coerce_param("true", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(true))
-        ));
-        assert!(matches!(
-            coerce_param("True", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(true))
-        ));
-        assert!(matches!(
-            coerce_param("1", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(true))
-        ));
-        assert!(matches!(
-            coerce_param("yes", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(true))
-        ));
-        assert!(matches!(
-            coerce_param("on", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(true))
-        ));
+        assert!(matches!(coerce_param("true", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(true))));
+        assert!(matches!(coerce_param("True", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(true))));
+        assert!(matches!(coerce_param("1", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(true))));
+        assert!(matches!(coerce_param("yes", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(true))));
+        assert!(matches!(coerce_param("on", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(true))));
 
-        assert!(matches!(
-            coerce_param("false", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(false))
-        ));
-        assert!(matches!(
-            coerce_param("False", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(false))
-        ));
-        assert!(matches!(
-            coerce_param("0", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(false))
-        ));
-        assert!(matches!(
-            coerce_param("no", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(false))
-        ));
-        assert!(matches!(
-            coerce_param("off", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Bool(false))
-        ));
+        assert!(matches!(coerce_param("false", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(false))));
+        assert!(matches!(coerce_param("False", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(false))));
+        assert!(matches!(coerce_param("0", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(false))));
+        assert!(matches!(coerce_param("no", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(false))));
+        assert!(matches!(coerce_param("off", TYPE_BOOL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Bool(false))));
     }
 
     #[test]
     fn test_coerce_uuid() {
         let uuid_str = "550e8400-e29b-41d4-a716-446655440000";
-        assert!(matches!(
-            coerce_param(uuid_str, TYPE_UUID, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Uuid(_))
-        ));
+        assert!(matches!(coerce_param(uuid_str, TYPE_UUID, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Uuid(_))));
         assert!(coerce_param("not-a-uuid", TYPE_UUID, DEFAULT_MAX_PARAM_LENGTH).is_err());
     }
 
@@ -797,31 +671,19 @@ mod tests {
     fn test_coerce_datetime() {
         // ISO 8601 with Z suffix
         assert!(matches!(
-            coerce_param(
-                "2024-01-15T10:30:00Z",
-                TYPE_DATETIME,
-                DEFAULT_MAX_PARAM_LENGTH
-            ),
+            coerce_param("2024-01-15T10:30:00Z", TYPE_DATETIME, DEFAULT_MAX_PARAM_LENGTH),
             Ok(CoercedValue::DateTime(_))
         ));
 
         // ISO 8601 with timezone offset
         assert!(matches!(
-            coerce_param(
-                "2024-01-15T10:30:00+00:00",
-                TYPE_DATETIME,
-                DEFAULT_MAX_PARAM_LENGTH
-            ),
+            coerce_param("2024-01-15T10:30:00+00:00", TYPE_DATETIME, DEFAULT_MAX_PARAM_LENGTH),
             Ok(CoercedValue::DateTime(_))
         ));
 
         // Naive datetime
         assert!(matches!(
-            coerce_param(
-                "2024-01-15T10:30:00",
-                TYPE_DATETIME,
-                DEFAULT_MAX_PARAM_LENGTH
-            ),
+            coerce_param("2024-01-15T10:30:00", TYPE_DATETIME, DEFAULT_MAX_PARAM_LENGTH),
             Ok(CoercedValue::NaiveDateTime(_))
         ));
 
@@ -830,14 +692,8 @@ mod tests {
 
     #[test]
     fn test_coerce_decimal() {
-        assert!(matches!(
-            coerce_param("123.45", TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Decimal(_))
-        ));
-        assert!(matches!(
-            coerce_param("-99.99", TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH),
-            Ok(CoercedValue::Decimal(_))
-        ));
+        assert!(matches!(coerce_param("123.45", TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Decimal(_))));
+        assert!(matches!(coerce_param("-99.99", TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Decimal(_))));
         assert!(coerce_param("not_decimal", TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH).is_err());
     }
 
@@ -859,17 +715,13 @@ mod tests {
             "1e999999999",
         ] {
             assert!(
-                matches!(
-                    coerce_param(valid, TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH),
-                    Ok(CoercedValue::Decimal(_))
-                ),
+                matches!(coerce_param(valid, TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH), Ok(CoercedValue::Decimal(_))),
                 "expected '{valid}' to be a valid decimal"
             );
         }
-        for invalid in [
-            "", ".", "+", "-", "e5", "1e", "1e+", "--1", "1..2", "1.2.3", "1_000", "NaN", "inf",
-            " 1", "1 ", "0x10",
-        ] {
+        for invalid in
+            ["", ".", "+", "-", "e5", "1e", "1e+", "--1", "1..2", "1.2.3", "1_000", "NaN", "inf", " 1", "1 ", "0x10"]
+        {
             assert!(
                 coerce_param(invalid, TYPE_DECIMAL, DEFAULT_MAX_PARAM_LENGTH).is_err(),
                 "expected '{invalid}' to be rejected"
@@ -893,10 +745,7 @@ mod tests {
     #[test]
     fn test_parse_max_param_length_defaults_when_unset_or_empty() {
         assert_eq!(parse_max_param_length(None), Ok(DEFAULT_MAX_PARAM_LENGTH));
-        assert_eq!(
-            parse_max_param_length(Some("")),
-            Ok(DEFAULT_MAX_PARAM_LENGTH)
-        );
+        assert_eq!(parse_max_param_length(Some("")), Ok(DEFAULT_MAX_PARAM_LENGTH));
     }
 
     #[test]
@@ -906,9 +755,7 @@ mod tests {
         for raw in ["0", "-1", "not-a-number", "999999999999"] {
             assert_eq!(
                 parse_max_param_length(Some(raw)),
-                Err(format!(
-                    "DJANGO_BOLT_MAX_PARAM_LENGTH must be an int from 1 to 1048576, got '{raw}'."
-                )),
+                Err(format!("DJANGO_BOLT_MAX_PARAM_LENGTH must be an int from 1 to 1048576, got '{raw}'.")),
                 "{raw}"
             );
         }
@@ -918,9 +765,6 @@ mod tests {
     fn test_parse_max_param_length_accepts_valid_values() {
         assert_eq!(parse_max_param_length(Some("16384")), Ok(16384));
         // The cap itself is accepted as-is.
-        assert_eq!(
-            parse_max_param_length(Some(&MAX_ALLOWED_PARAM_LENGTH.to_string())),
-            Ok(MAX_ALLOWED_PARAM_LENGTH)
-        );
+        assert_eq!(parse_max_param_length(Some(&MAX_ALLOWED_PARAM_LENGTH.to_string())), Ok(MAX_ALLOWED_PARAM_LENGTH));
     }
 }

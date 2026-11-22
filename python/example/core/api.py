@@ -51,11 +51,7 @@ async def upload_document(
     doc.file.save(file.filename, file.file, save=False)
     await doc.asave()
 
-    return DocumentResponse(
-        id=doc.id,
-        title=doc.title,
-        url=doc.file.url,
-    )
+    return DocumentResponse(id=doc.id, title=doc.title, url=doc.file.url)
 
 
 class MultiUploadResponse(msgspec.Struct):
@@ -81,11 +77,7 @@ async def upload_multiple_files(
         filenames.append(f.filename)
         total_size += f.size
 
-    return MultiUploadResponse(
-        count=len(files),
-        filenames=filenames,
-        total_size=total_size,
-    )
+    return MultiUploadResponse(count=len(files), filenames=filenames, total_size=total_size)
 
 
 api.mount("/files", files_api)

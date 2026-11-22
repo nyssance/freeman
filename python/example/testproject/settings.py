@@ -82,9 +82,9 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "django.template.context_processors.csp",
-            ],
+            ]
         },
-    },
+    }
 ]
 
 WSGI_APPLICATION = "testproject.wsgi.application"
@@ -93,30 +93,17 @@ WSGI_APPLICATION = "testproject.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 
@@ -157,10 +144,7 @@ BOLT_MEDIA_MAX_AGE = 3600  # 1 hour
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Django-Bolt CORS Configuration (django-cors-headers compatible)
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-]
+CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
 
 # CORS_ALLOWED_ORIGIN_REGEXES = [
 #     r"^https://\w+\.example\.com$",  # Allow any subdomain of example.com
@@ -168,14 +152,7 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
+CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 
 CORS_ALLOW_HEADERS = [
     "accept",
@@ -194,17 +171,8 @@ if not DEBUG:
     LOGGING = {
         "version": 1,
         "disable_existing_loggers": False,
-        "formatters": {
-            "standard": {
-                "format": "%(levelname)s %(asctime)s %(name)s %(message)s",
-            },
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "standard",
-            },
-        },
+        "formatters": {"standard": {"format": "%(levelname)s %(asctime)s %(name)s %(message)s"}},
+        "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "standard"}},
         "loggers": {
             "django": {"handlers": ["console"], "level": "ERROR"},
             "django.server": {"handlers": ["console"], "level": "ERROR", "propagate": False},
@@ -217,17 +185,8 @@ else:
     LOGGING = {
         "version": 1,
         "disable_existing_loggers": False,
-        "formatters": {
-            "standard": {
-                "format": "%(levelname)s %(asctime)s %(name)s %(message)s",
-            },
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "standard",
-            },
-        },
+        "formatters": {"standard": {"format": "%(levelname)s %(asctime)s %(name)s %(message)s"}},
+        "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "standard"}},
         "loggers": {
             "django": {"handlers": ["console"], "level": "INFO"},
             "django.server": {"handlers": ["console"], "level": "INFO", "propagate": False},
@@ -240,9 +199,7 @@ else:
 
 BOLT_MAX_SYNC_STREAMING_THREADS = 1000
 
-MIDDLEWARE += [
-    "django.middleware.csp.ContentSecurityPolicyMiddleware",
-]
+MIDDLEWARE += ["django.middleware.csp.ContentSecurityPolicyMiddleware"]
 
 # Content Security Policy for static files (Django 6.0+ format)
 # This is read at server startup and applied to all static file responses

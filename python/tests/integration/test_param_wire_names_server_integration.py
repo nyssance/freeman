@@ -36,10 +36,7 @@ def test_runbolt_converts_aliased_path_and_query(make_server_project):
 def test_runbolt_websocket_converts_aliased_path_and_query(make_server_project):
     project = make_server_project(api_module=app_module("param_wire_names"))
 
-    with (
-        project.start() as server,
-        SimpleWebSocketClient(server.host, server.port, "/ws/rooms/9?p=3") as websocket,
-    ):
+    with project.start() as server, SimpleWebSocketClient(server.host, server.port, "/ws/rooms/9?p=3") as websocket:
         message = json.loads(websocket.receive_text())
 
     assert message == {"room_id": "int", "page": "int"}

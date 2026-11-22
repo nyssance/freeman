@@ -249,10 +249,7 @@ def test_self_referential_struct_does_not_recurse():
     # `anyOf` per OpenAPI 3.1, alongside `default: null`.
     parent = tree_schema["properties"]["parent"]
     assert parent["default"] is None
-    assert parent["anyOf"] == [
-        {"$ref": "#/components/schemas/TreeNode"},
-        {"type": "null"},
-    ]
+    assert parent["anyOf"] == [{"$ref": "#/components/schemas/TreeNode"}, {"type": "null"}]
 
 
 def test_multi_type_union_produces_one_of():

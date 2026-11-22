@@ -223,10 +223,7 @@ def test_method_decorator_passes_auth_and_response_arguments(api, method):
     route = getattr(api, method)
 
     @route(
-        "/guarded",
-        auth=[APIKeyAuthentication(api_keys={"secret"})],
-        guards=[IsAuthenticated()],
-        response_model=_Thing,
+        "/guarded", auth=[APIKeyAuthentication(api_keys={"secret"})], guards=[IsAuthenticated()], response_model=_Thing
     )
     async def guarded() -> dict:
         return {"id": "not a number"}

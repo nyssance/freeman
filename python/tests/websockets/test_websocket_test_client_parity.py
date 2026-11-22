@@ -84,10 +84,7 @@ async def test_a_send_after_the_close_of_the_app_finds_no_client():
     [
         ("/ws/reason-200-bytes", "WebSocket close reason is 200 bytes: the limit is 123 bytes of UTF-8"),
         # The limit counts bytes, not characters.
-        (
-            "/ws/reason-124-bytes-62-characters",
-            "WebSocket close reason is 124 bytes: the limit is 123 bytes of UTF-8",
-        ),
+        ("/ws/reason-124-bytes-62-characters", "WebSocket close reason is 124 bytes: the limit is 123 bytes of UTF-8"),
         ("/ws/code-70000", "WebSocket close code 70000 is not valid: use 1000 to 1003, 1007 to 1014 or 3000 to 4999"),
         ("/ws/code-1006", "WebSocket close code 1006 is not valid: use 1000 to 1003, 1007 to 1014 or 3000 to 4999"),
         # RFC 6455 7.4.1 and 7.4.2: 1004 and 1016 to 2999 are reserved.

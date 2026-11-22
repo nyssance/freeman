@@ -30,17 +30,8 @@ def api():
         settings.configure(
             DEBUG=True,
             SECRET_KEY="test-secret-key-for-middleware",
-            INSTALLED_APPS=[
-                "django.contrib.contenttypes",
-                "django.contrib.auth",
-                "freeman",
-            ],
-            DATABASES={
-                "default": {
-                    "ENGINE": "django.db.backends.sqlite3",
-                    "NAME": ":memory:",
-                }
-            },
+            INSTALLED_APPS=["django.contrib.contenttypes", "django.contrib.auth", "freeman"],
+            DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
             USE_TZ=True,
         )
         django.setup()
@@ -320,7 +311,7 @@ def test_streaming_with_custom_middleware_class():
             return response
 
     api = BoltAPI(
-        middleware=[CustomTestMiddleware],  # Pass CLASS, not instance
+        middleware=[CustomTestMiddleware]  # Pass CLASS, not instance
     )
 
     @api.get("/stream")

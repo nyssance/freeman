@@ -40,13 +40,7 @@ from freeman import BoltAPI, Request, Router
 from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
 from freeman.concurrency import run_orm_blocking
 from freeman.exceptions import HTTPException
-from freeman.middleware import (
-    DjangoMiddleware,
-    DjangoMiddlewareStack,
-    Middleware,
-    TimingMiddleware,
-    skip_middleware,
-)
+from freeman.middleware import DjangoMiddleware, DjangoMiddlewareStack, Middleware, TimingMiddleware, skip_middleware
 from freeman.middleware.django_adapter import _is_django_builtin_middleware, _route_sync_force
 from freeman.middleware_response import MiddlewareResponse
 from freeman.param_functions import Cookie, Header
@@ -152,11 +146,7 @@ class TestSessionMiddlewareHTTPCycle:
 
     def test_session_middleware_basic(self):
         """Test SessionMiddleware runs through HTTP cycle."""
-        api = BoltAPI(
-            django_middleware=[
-                "django.contrib.sessions.middleware.SessionMiddleware",
-            ]
-        )
+        api = BoltAPI(django_middleware=["django.contrib.sessions.middleware.SessionMiddleware"])
 
         @api.get("/test")
         async def test_route():
@@ -169,11 +159,7 @@ class TestSessionMiddlewareHTTPCycle:
 
     def test_session_middleware_with_session_access(self):
         """Test SessionMiddleware sets session attribute on request."""
-        api = BoltAPI(
-            django_middleware=[
-                "django.contrib.sessions.middleware.SessionMiddleware",
-            ]
-        )
+        api = BoltAPI(django_middleware=["django.contrib.sessions.middleware.SessionMiddleware"])
 
         session_accessed = {"accessed": False}
 
@@ -543,10 +529,7 @@ class _ReadBodyMiddleware(MiddlewareMixin):
 
 @pytest.mark.parametrize(
     "middleware",
-    [
-        lambda: DjangoMiddleware(_ReadBodyMiddleware),
-        lambda: DjangoMiddlewareStack([_ReadBodyMiddleware]),
-    ],
+    [lambda: DjangoMiddleware(_ReadBodyMiddleware), lambda: DjangoMiddlewareStack([_ReadBodyMiddleware])],
     ids=["DjangoMiddleware", "DjangoMiddlewareStack"],
 )
 class TestMiddlewareReadsBody:
@@ -557,10 +540,7 @@ class TestMiddlewareReadsBody:
 
         @api.get("/read")
         async def read(request: Request):
-            return {
-                "read": request.state["read_result"].decode(),
-                "body": request.state["body_result"].decode(),
-            }
+            return {"read": request.state["read_result"].decode(), "body": request.state["body_result"].decode()}
 
         with TestClient(api) as client:
             response = client.get("/read")
@@ -572,10 +552,7 @@ class TestMiddlewareReadsBody:
 
         @api.post("/read")
         async def read(request: Request):
-            return {
-                "read": request.state["read_result"].decode(),
-                "body": request.state["body_result"].decode(),
-            }
+            return {"read": request.state["read_result"].decode(), "body": request.state["body_result"].decode()}
 
         with TestClient(api) as client:
             response = client.post("/read", content=b"payload")
@@ -683,8 +660,7 @@ class TestMixedMiddlewareHTTPCycle:
     def test_bolt_and_django_middleware_together(self):
         """Test Bolt middleware and Django middleware work together."""
         api = BoltAPI(
-            django_middleware=["django.contrib.sessions.middleware.SessionMiddleware"],
-            middleware=[TimingMiddleware],
+            django_middleware=["django.contrib.sessions.middleware.SessionMiddleware"], middleware=[TimingMiddleware]
         )
 
         @api.get("/test")
@@ -916,13 +892,11 @@ class TestMiddlewareCategorization:
         """
         api = BoltAPI(
             middleware=[
-                DjangoMiddlewareStack(
-                    [
-                        SessionMiddleware,  # Django built-in (fast path)
-                        HookBasedThirdPartyMiddleware,  # Third-party hooks (safe path)
-                        CallOnlyMiddleware,  # __call__-only (chain path)
-                    ]
-                )
+                DjangoMiddlewareStack([
+                    SessionMiddleware,  # Django built-in (fast path)
+                    HookBasedThirdPartyMiddleware,  # Third-party hooks (safe path)
+                    CallOnlyMiddleware,  # __call__-only (chain path)
+                ])
             ]
         )
 
@@ -1196,13 +1170,11 @@ class TestMiddlewareCategorizationUnit:
         SessionMiddleware is now categorized as third-party (needs sync_to_async)
         because it can do blocking database I/O.
         """
-        stack = DjangoMiddlewareStack(
-            [
-                SessionMiddleware,  # Now third-party (can do blocking I/O)
-                HookBasedThirdPartyMiddleware,  # Third-party with hooks
-                CallOnlyMiddleware,  # __call__-only
-            ]
-        )
+        stack = DjangoMiddlewareStack([
+            SessionMiddleware,  # Now third-party (can do blocking I/O)
+            HookBasedThirdPartyMiddleware,  # Third-party with hooks
+            CallOnlyMiddleware,  # __call__-only
+        ])
 
         # Trigger categorization by creating instances
         def dummy(r):
@@ -1218,12 +1190,10 @@ class TestMiddlewareCategorizationUnit:
 
     def test_stack_no_call_only_middleware(self):
         """Test stack without __call__-only middleware has no chain."""
-        stack = DjangoMiddlewareStack(
-            [
-                SessionMiddleware,  # Django built-in with hooks
-                HookBasedThirdPartyMiddleware,  # Third-party with hooks
-            ]
-        )
+        stack = DjangoMiddlewareStack([
+            SessionMiddleware,  # Django built-in with hooks
+            HookBasedThirdPartyMiddleware,  # Third-party with hooks
+        ])
 
         def dummy(r):
             pass
@@ -1240,11 +1210,7 @@ class TestRequestConversion:
 
     def test_query_params_available(self):
         """Test query params are available in handler."""
-        api = BoltAPI(
-            django_middleware=[
-                "django.contrib.sessions.middleware.SessionMiddleware",
-            ]
-        )
+        api = BoltAPI(django_middleware=["django.contrib.sessions.middleware.SessionMiddleware"])
 
         received_params = {}
 
@@ -1262,11 +1228,7 @@ class TestRequestConversion:
 
     def test_cookies_available(self):
         """Test cookies are available in handler."""
-        api = BoltAPI(
-            django_middleware=[
-                "django.contrib.sessions.middleware.SessionMiddleware",
-            ]
-        )
+        api = BoltAPI(django_middleware=["django.contrib.sessions.middleware.SessionMiddleware"])
 
         @api.get("/test")
         async def test_route(request):
@@ -1279,11 +1241,7 @@ class TestRequestConversion:
 
     def test_headers_available(self):
         """Test headers are available in handler."""
-        api = BoltAPI(
-            django_middleware=[
-                "django.contrib.sessions.middleware.SessionMiddleware",
-            ]
-        )
+        api = BoltAPI(django_middleware=["django.contrib.sessions.middleware.SessionMiddleware"])
 
         received_header = {"value": None}
 
@@ -1299,11 +1257,7 @@ class TestRequestConversion:
 
     def test_body_available(self):
         """Test body is available in handler."""
-        api = BoltAPI(
-            django_middleware=[
-                "django.contrib.sessions.middleware.SessionMiddleware",
-            ]
-        )
+        api = BoltAPI(django_middleware=["django.contrib.sessions.middleware.SessionMiddleware"])
 
         @api.post("/test")
         async def test_route(body: SampleRequestBody):
@@ -1771,10 +1725,7 @@ class TestCSRFMiddleware:
             cookie_token = client.cookies.get("csrftoken")
             assert cookie_token is not None
 
-            match = re.search(
-                r"name=['\"]csrfmiddlewaretoken['\"] value=['\"]([^'\"]+)['\"]",
-                get_response.text,
-            )
+            match = re.search(r"name=['\"]csrfmiddlewaretoken['\"] value=['\"]([^'\"]+)['\"]", get_response.text)
             assert match is not None
             form_token = match.group(1)
 
@@ -1804,10 +1755,7 @@ class TestCSRFMiddleware:
 
     @pytest.mark.parametrize(
         ("content_type", "body"),
-        [
-            ("multipart/form-data", b"no boundary"),
-            ("application/x-www-form-urlencoded; charset=utf-16", b"a=1"),
-        ],
+        [("multipart/form-data", b"no boundary"), ("application/x-www-form-urlencoded; charset=utf-16", b"a=1")],
         ids=["multipart-without-boundary", "urlencoded-with-utf-16"],
     )
     def test_csrf_rejects_an_unreadable_form_with_a_400(self, content_type, body):
@@ -1819,9 +1767,7 @@ class TestCSRFMiddleware:
 
         with TestClient(api, raise_server_exceptions=False) as client:
             response = client.post(
-                "/submit",
-                content=body,
-                headers={"content-type": content_type, "Cookie": f"csrftoken={_CSRF_SECRET}"},
+                "/submit", content=body, headers={"content-type": content_type, "Cookie": f"csrftoken={_CSRF_SECRET}"}
             )
 
         assert response.status_code == 400
@@ -2483,9 +2429,7 @@ class TestStackShapes:
             assert client.get("/empty-stack").json() == {"ok": True}
 
     @pytest.mark.parametrize(
-        "outer_classes",
-        [[_MarkerCallOnly], [_RequestHook, _MarkerCallOnly]],
-        ids=["call-only", "mixed"],
+        "outer_classes", [[_MarkerCallOnly], [_RequestHook, _MarkerCallOnly]], ids=["call-only", "mixed"]
     )
     def test_wrapper_after_a_stack_gets_the_django_request_of_the_stack(self, outer_classes):
         _MarkerReader.seen = []
@@ -2588,10 +2532,7 @@ class _DjangoFileAnswer(MiddlewareMixin):
 
 @pytest.mark.parametrize(
     "layout",
-    [
-        lambda middleware: DjangoMiddleware(middleware),
-        lambda middleware: DjangoMiddlewareStack([middleware]),
-    ],
+    [lambda middleware: DjangoMiddleware(middleware), lambda middleware: DjangoMiddlewareStack([middleware])],
     ids=["wrapper", "stack"],
 )
 class TestDjangoStreamingResponseFromMiddleware:
@@ -3193,10 +3134,7 @@ class CookieAttributesMiddleware:
 
 @pytest.mark.parametrize(
     "layout",
-    [
-        lambda: DjangoMiddleware(CookieAttributesMiddleware),
-        lambda: DjangoMiddlewareStack([CookieAttributesMiddleware]),
-    ],
+    [lambda: DjangoMiddleware(CookieAttributesMiddleware), lambda: DjangoMiddlewareStack([CookieAttributesMiddleware])],
     ids=["wrapper", "stack"],
 )
 def test_django_cookie_attributes_reach_the_client(layout):
@@ -3240,30 +3178,15 @@ class TestHandlerCookiesWithDjangoMiddleware:
 
     def test_handler_cookies_preserved_through_locale_middleware(self):
         api = BoltAPI(
-            django_middleware=[
-                "django.middleware.locale.LocaleMiddleware",
-                "django.middleware.common.CommonMiddleware",
-            ]
+            django_middleware=["django.middleware.locale.LocaleMiddleware", "django.middleware.common.CommonMiddleware"]
         )
 
         @api.post("/login")
         async def login():
             return (
                 JSON({"ok": True})
-                .set_cookie(
-                    name="access_token",
-                    value="access-abc",
-                    max_age=3600,
-                    secure=True,
-                    httponly=True,
-                )
-                .set_cookie(
-                    name="refresh_token",
-                    value="refresh-xyz",
-                    max_age=86400,
-                    secure=True,
-                    httponly=True,
-                )
+                .set_cookie(name="access_token", value="access-abc", max_age=3600, secure=True, httponly=True)
+                .set_cookie(name="refresh_token", value="refresh-xyz", max_age=86400, secure=True, httponly=True)
             )
 
         with TestClient(api) as client:
@@ -3284,17 +3207,11 @@ class TestHandlerCookiesWithDjangoMiddleware:
             )
 
     def test_handler_cookies_preserved_with_single_django_middleware(self):
-        api = BoltAPI(
-            middleware=[DjangoMiddleware("django.middleware.common.CommonMiddleware")],
-        )
+        api = BoltAPI(middleware=[DjangoMiddleware("django.middleware.common.CommonMiddleware")])
 
         @api.post("/login")
         async def login():
-            return JSON({"ok": True}).set_cookie(
-                name="session",
-                value="single-mw-cookie",
-                httponly=True,
-            )
+            return JSON({"ok": True}).set_cookie(name="session", value="single-mw-cookie", httponly=True)
 
         with TestClient(api) as client:
             response = client.post("/login")
@@ -3373,8 +3290,7 @@ class TestAuserSetter:
         async def test_alogin_handler(request):
             # Create or get a test user
             user, _ = await User.objects.aget_or_create(
-                username="test_alogin_user",
-                defaults={"email": "test@example.com"},
+                username="test_alogin_user", defaults={"email": "test@example.com"}
             )
 
             # This should NOT raise AttributeError anymore
@@ -3464,13 +3380,11 @@ def _order_recording_middleware(name: str, calls: list[str], *, short_circuit: b
 def test_short_circuit_runs_process_response_of_entered_middleware_only(handler_kind):
     """The async flow (one hop for each phase) and the lane flow keep Django's hook order."""
     calls: list[str] = []
-    stack = DjangoMiddlewareStack(
-        [
-            _order_recording_middleware("a", calls),
-            _order_recording_middleware("b", calls, short_circuit=True),
-            _order_recording_middleware("c", calls),
-        ]
-    )
+    stack = DjangoMiddlewareStack([
+        _order_recording_middleware("a", calls),
+        _order_recording_middleware("b", calls, short_circuit=True),
+        _order_recording_middleware("c", calls),
+    ])
     api = BoltAPI(middleware=[stack])
 
     if handler_kind == "async":
@@ -3479,6 +3393,7 @@ def test_short_circuit_runs_process_response_of_entered_middleware_only(handler_
         async def x():
             calls.append("handler")
             return {"ok": True}
+
     else:
 
         @api.get("/x")
@@ -3505,6 +3420,7 @@ def test_full_pass_runs_hooks_in_declared_and_reverse_order(handler_kind):
         async def x():
             calls.append("handler")
             return {"ok": True}
+
     else:
 
         @api.get("/x")
@@ -3524,10 +3440,7 @@ class RawValuesRecorder(MiddlewareMixin):
     seen: dict = {}
 
     def process_request(self, request):
-        RawValuesRecorder.seen = {
-            "cookie": request.COOKIES.get("n"),
-            "header": request.META.get("HTTP_X_COUNT"),
-        }
+        RawValuesRecorder.seen = {"cookie": request.COOKIES.get("n"), "header": request.META.get("HTTP_X_COUNT")}
 
 
 class TestTypedParamsKeepRawStringsForDjango:
@@ -3687,10 +3600,7 @@ class OwnUnknownTypeResponse(OwnHtmlResponse):
 
 @pytest.mark.parametrize(
     ("middleware", "content_type"),
-    [
-        (OwnHtmlResponse, "text/html; charset=utf-8"),
-        (OwnUnknownTypeResponse, "application/octet-stream"),
-    ],
+    [(OwnHtmlResponse, "text/html; charset=utf-8"), (OwnUnknownTypeResponse, "application/octet-stream")],
     ids=["html", "unknown-type"],
 )
 def test_django_middleware_keeps_the_content_type_of_a_middleware_response_type(middleware, content_type):
@@ -3731,10 +3641,7 @@ class MemoryViewBody(BytesLikeBody):
 @pytest.mark.parametrize("middleware", [BytesLikeBody, MemoryViewBody], ids=["bytearray", "memoryview"])
 def test_django_middleware_keeps_a_bytes_like_body(middleware):
     """A bytearray or memoryview body reaches the client as its bytes, not as its repr."""
-    api = BoltAPI(
-        middleware=[middleware],
-        django_middleware=["django.middleware.clickjacking.XFrameOptionsMiddleware"],
-    )
+    api = BoltAPI(middleware=[middleware], django_middleware=["django.middleware.clickjacking.XFrameOptionsMiddleware"])
 
     @api.get("/page")
     async def page() -> dict:
@@ -3801,12 +3708,7 @@ _BOLT_RESPONSE_CASES = {
         b"<p>x</p>",
     ),
     "plain": (lambda: PlainText("hi", status_code=201), 201, "text/plain; charset=utf-8", b"hi"),
-    "json": (
-        lambda: JSON({"a": 1}, status_code=201, headers={"X-Own": "1"}),
-        201,
-        "application/json",
-        b'{"a":1}',
-    ),
+    "json": (lambda: JSON({"a": 1}, status_code=201, headers={"X-Own": "1"}), 201, "application/json", b'{"a":1}'),
     "json-subclass": (lambda: _TeapotJSON({"a": 1}), 418, "application/json", b'{"a":1}'),
     "media-type": (
         lambda: Response("<b>2</b>", status_code=203, media_type="application/xml", headers={"X-Own": "1"}),
@@ -3865,7 +3767,7 @@ def test_django_middleware_keeps_a_bolt_response_of_a_middleware(wrapper, case):
 def test_django_middleware_keeps_the_cookies_of_a_bolt_response(wrapper, make_response, content_type):
     """A cookie on a Bolt response object reaches the client behind Django middleware."""
     api = BoltAPI(
-        middleware=[wrapper(), _answers_with(lambda: make_response().set_cookie("sid", "abc", httponly=True))],
+        middleware=[wrapper(), _answers_with(lambda: make_response().set_cookie("sid", "abc", httponly=True))]
     )
 
     @api.get("/page")
@@ -3893,7 +3795,7 @@ def test_django_middleware_streams_a_streaming_response_of_a_middleware(wrapper)
     Before, the client got the repr of the generator as JSON.
     """
     api = BoltAPI(
-        middleware=[wrapper(), _answers_with(lambda: StreamingResponse(_two_chunks(), media_type="text/plain"))],
+        middleware=[wrapper(), _answers_with(lambda: StreamingResponse(_two_chunks(), media_type="text/plain"))]
     )
 
     @api.get("/page")
@@ -3919,10 +3821,7 @@ class StrBody(Middleware):
 
 def test_django_middleware_keeps_a_str_body():
     """A str body reaches the client as its UTF-8 bytes."""
-    api = BoltAPI(
-        middleware=[StrBody],
-        django_middleware=["django.middleware.clickjacking.XFrameOptionsMiddleware"],
-    )
+    api = BoltAPI(middleware=[StrBody], django_middleware=["django.middleware.clickjacking.XFrameOptionsMiddleware"])
 
     @api.get("/page")
     async def page() -> dict:

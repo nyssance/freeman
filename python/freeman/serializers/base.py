@@ -45,18 +45,9 @@ from freeman._response_dump import compile_field_dumpers
 from freeman._serializer_before import PLAN_NOT_BUILT, RAW_VALIDATED, before_plan, run_before_validators
 from freeman._serializer_input import INPUT_MODE, input_has_read_only_fields
 from freeman.error_handlers import msgspec_validation_error_to_dict
-from freeman.exceptions import (
-    RequestValidationError,
-    SerializationError,
-    UnloadedRelationError,
-)
+from freeman.exceptions import RequestValidationError, SerializationError, UnloadedRelationError
 
-from .decorators import (
-    ComputedFieldConfig,
-    collect_computed_fields,
-    collect_field_validators,
-    collect_model_validators,
-)
+from .decorators import ComputedFieldConfig, collect_computed_fields, collect_field_validators, collect_model_validators
 from .fields import FieldConfig, _FieldMarker, field
 from .loading import LoadingPlan, build_loading_plan
 from .nested import resolve_nested_config, validate_nested_field
@@ -255,10 +246,7 @@ def _get_model_output_nested(field_type: Any) -> _ModelOutputNested | None:
     if nested_config is None:
         return None
 
-    return _ModelOutputNested(
-        serializer_class=nested_config.serializer_class,
-        many=nested_config.many,
-    )
+    return _ModelOutputNested(serializer_class=nested_config.serializer_class, many=nested_config.many)
 
 
 def _dump_nested_one(value: Any) -> Any:
@@ -392,22 +380,12 @@ def _get_django_relation_info(model_cls: type, attr_name: str) -> _DjangoRelatio
             model_cache[attr_name] = info
             return info
 
-        info = _DjangoRelationInfo(
-            name=attr_name,
-            kind="many",
-            cache_name=attr_name,
-            related_model=related_model,
-        )
+        info = _DjangoRelationInfo(name=attr_name, kind="many", cache_name=attr_name, related_model=related_model)
         model_cache[attr_name] = info
         return info
 
     if getattr(field, "many_to_many", False):
-        info = _DjangoRelationInfo(
-            name=attr_name,
-            kind="many",
-            cache_name=attr_name,
-            related_model=related_model,
-        )
+        info = _DjangoRelationInfo(name=attr_name, kind="many", cache_name=attr_name, related_model=related_model)
         model_cache[attr_name] = info
         return info
 
@@ -1202,13 +1180,11 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
                 except (ValueError, TypeError) as e:
                     # Collect error instead of raising immediately. The loc has the
                     # wire name of the field, as a msgspec error has.
-                    errors.append(
-                        {
-                            "loc": ["body", _class.__rename_map__.get(field_name, field_name)],
-                            "msg": str(e),
-                            "type": "value_error",
-                        }
-                    )
+                    errors.append({
+                        "loc": ["body", _class.__rename_map__.get(field_name, field_name)],
+                        "msg": str(e),
+                        "type": "value_error",
+                    })
 
         return errors
 
@@ -1286,25 +1262,21 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
                 if validated_value is not current_value:
                     _setattr(self, field_name, validated_value)
             except (ValueError, TypeError) as e:
-                errors.append(
-                    {
-                        "loc": ["body", rename_map.get(field_name, field_name)],
-                        "msg": str(e),
-                        "type": "value_error",
-                    }
-                )
+                errors.append({
+                    "loc": ["body", rename_map.get(field_name, field_name)],
+                    "msg": str(e),
+                    "type": "value_error",
+                })
 
         # Validate literal (choice) fields (now with O(1) frozenset lookup - optimization #3)
         for field_name, allowed_values in self.__literal_fields__.items():
             current_value = getattr(self, field_name)
             if current_value not in allowed_values:
-                errors.append(
-                    {
-                        "loc": ["body", rename_map.get(field_name, field_name)],
-                        "msg": f"invalid value {current_value!r}. Expected one of: {', '.join(repr(v) for v in allowed_values)}",
-                        "type": "value_error",
-                    }
-                )
+                errors.append({
+                    "loc": ["body", rename_map.get(field_name, field_name)],
+                    "msg": f"invalid value {current_value!r}. Expected one of: {', '.join(repr(v) for v in allowed_values)}",
+                    "type": "value_error",
+                })
 
         return errors
 
@@ -1325,13 +1297,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
                     # This shouldn't happen with proper usage, but handle it gracefully
                     pass
             except (ValueError, TypeError) as e:
-                errors.append(
-                    {
-                        "loc": ["body"],
-                        "msg": str(e),
-                        "type": "value_error",
-                    }
-                )
+                errors.append({"loc": ["body"], "msg": str(e), "type": "value_error"})
 
         return errors
 
@@ -1423,13 +1389,11 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
                 default_idx = idx - default_offset
                 is_required = default_idx < 0 or defaults[default_idx] is msgspec.NODEFAULT
                 if is_required:
-                    errors.append(
-                        {
-                            "loc": ("body", data_key),
-                            "msg": f"Object missing required field `{data_key}`",
-                            "type": "missing",
-                        }
-                    )
+                    errors.append({
+                        "loc": ("body", data_key),
+                        "msg": f"Object missing required field `{data_key}`",
+                        "type": "missing",
+                    })
                 continue
 
             try:
@@ -1451,13 +1415,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
                     continue
 
                 # The loc has one item for each step of the path, also for a list index.
-                errors.append(
-                    {
-                        "loc": ("body", *entries[0]["loc"]),
-                        "msg": str(e),
-                        "type": "validation_error",
-                    }
-                )
+                errors.append({"loc": ("body", *entries[0]["loc"]), "msg": str(e), "type": "validation_error"})
 
         return errors
 
@@ -1622,10 +1580,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
     @classmethod
     def _get_dump_field_specs(
-        cls,
-        *,
-        include_fields: frozenset[str] | None = None,
-        exclude_fields: frozenset[str] | None = None,
+        cls, *, include_fields: frozenset[str] | None = None, exclude_fields: frozenset[str] | None = None
     ) -> tuple[_DumpFieldSpec, ...]:
         """Return cached dump field specs for the requested field filter."""
         cls._ensure_dump_ready()
@@ -1646,10 +1601,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
     @classmethod
     def _get_computed_dump_specs(
-        cls,
-        *,
-        include_fields: frozenset[str] | None = None,
-        exclude_fields: frozenset[str] | None = None,
+        cls, *, include_fields: frozenset[str] | None = None, exclude_fields: frozenset[str] | None = None
     ) -> tuple[_ComputedDumpSpec, ...]:
         """Return cached computed-field specs for the requested field filter."""
         cls._ensure_dump_ready()
@@ -1670,10 +1622,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
     @classmethod
     def _get_cached_view(
-        cls: type[T],
-        *,
-        include_fields: frozenset[str] | None = None,
-        exclude_fields: frozenset[str] | None = None,
+        cls: type[T], *, include_fields: frozenset[str] | None = None, exclude_fields: frozenset[str] | None = None
     ) -> SerializerView[T]:
         """Return a cached SerializerView for a given field-selection pair."""
         cls._ensure_dump_ready()
@@ -1692,13 +1641,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
         return f"select_related('{relation.name}')"
 
     @classmethod
-    def _raise_unloaded_relation_error(
-        cls,
-        *,
-        field_name: str,
-        relation: _UnloadedRelation,
-        instance: Any,
-    ) -> None:
+    def _raise_unloaded_relation_error(cls, *, field_name: str, relation: _UnloadedRelation, instance: Any) -> None:
         """Raise a descriptive error when sync from_model() would need ORM I/O."""
         raise UnloadedRelationError(
             f"{cls.__name__}.{field_name} requires loaded relation '{relation.source}' on "
@@ -1797,11 +1740,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
     @classmethod
     async def _get_or_load_relation_async(
-        cls,
-        obj: DjangoModel,
-        relation: _DjangoRelationInfo,
-        *,
-        relation_tasks: _RelationTaskCache,
+        cls, obj: DjangoModel, relation: _DjangoRelationInfo, *, relation_tasks: _RelationTaskCache
     ) -> Any:
         """Reuse in-flight relation loads so gathered field extraction doesn't duplicate queries."""
         loaded_value = cls._get_loaded_relation_sync(obj, relation)
@@ -1822,13 +1761,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
             raise
 
     @classmethod
-    def _resolve_source_sync(
-        cls,
-        obj: Any,
-        source: str,
-        *,
-        nested_output: _ModelOutputNested | None,
-    ) -> Any:
+    def _resolve_source_sync(cls, obj: Any, source: str, *, nested_output: _ModelOutputNested | None) -> Any:
         """Resolve a dot-path without triggering ORM I/O."""
         parts = source.split(".")
         current = obj
@@ -1856,9 +1789,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
                 loaded_value = cls._get_loaded_relation_sync(current, relation)
                 if loaded_value is _MISSING:
                     return _UnloadedRelation(
-                        source=".".join(parts[: idx + 1]),
-                        relation_name=relation.name,
-                        relation_kind=relation.kind,
+                        source=".".join(parts[: idx + 1]), relation_name=relation.name, relation_kind=relation.kind
                     )
                 current = loaded_value
                 continue
@@ -1880,12 +1811,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
     @classmethod
     async def _resolve_source_async(
-        cls,
-        obj: Any,
-        source: str,
-        *,
-        nested_output: _ModelOutputNested | None,
-        relation_tasks: _RelationTaskCache,
+        cls, obj: Any, source: str, *, nested_output: _ModelOutputNested | None, relation_tasks: _RelationTaskCache
     ) -> Any:
         """Resolve a dot-path, loading relations through Django's async ORM as needed."""
         parts = source.split(".")
@@ -1914,9 +1840,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
                 loaded_value = cls._get_loaded_relation_sync(current, relation)
                 if loaded_value is _MISSING:
                     loaded_value = await cls._get_or_load_relation_async(
-                        current,
-                        relation,
-                        relation_tasks=relation_tasks,
+                        current, relation, relation_tasks=relation_tasks
                     )
                 current = loaded_value
                 continue
@@ -1959,12 +1883,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
     @classmethod
     def _convert_nested_from_model_value(
-        cls,
-        value: Any,
-        *,
-        nested_output: _ModelOutputNested,
-        _depth: int,
-        max_depth: int,
+        cls, value: Any, *, nested_output: _ModelOutputNested, _depth: int, max_depth: int
     ) -> Any:
         """Convert nested model values for sync from_model()."""
         serializer_class = nested_output.serializer_class
@@ -1997,12 +1916,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
     @classmethod
     async def _convert_nested_from_model_value_async(
-        cls,
-        value: Any,
-        *,
-        nested_output: _ModelOutputNested,
-        _depth: int,
-        max_depth: int,
+        cls, value: Any, *, nested_output: _ModelOutputNested, _depth: int, max_depth: int
     ) -> Any:
         """Convert nested model values for async afrom_model()."""
         serializer_class = nested_output.serializer_class
@@ -2033,14 +1947,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
         return value
 
     @classmethod
-    def _extract_model_field_sync(
-        cls,
-        instance: Any,
-        spec: _ModelFieldSpec,
-        *,
-        _depth: int,
-        max_depth: int,
-    ) -> Any:
+    def _extract_model_field_sync(cls, instance: Any, spec: _ModelFieldSpec, *, _depth: int, max_depth: int) -> Any:
         """Extract one serializer field from a model/object without ORM I/O."""
         source = spec.source or spec.field_name
         value = cls._resolve_source_sync(instance, source, nested_output=spec.nested)
@@ -2055,31 +1962,19 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
         if spec.nested is not None:
             return cls._convert_nested_from_model_value(
-                value,
-                nested_output=spec.nested,
-                _depth=_depth,
-                max_depth=max_depth,
+                value, nested_output=spec.nested, _depth=_depth, max_depth=max_depth
             )
 
         return cls._convert_regular_from_model_value(value, field_name=spec.field_name)
 
     @classmethod
     async def _extract_model_field_async(
-        cls,
-        instance: Any,
-        spec: _ModelFieldSpec,
-        *,
-        _depth: int,
-        max_depth: int,
-        relation_tasks: _RelationTaskCache,
+        cls, instance: Any, spec: _ModelFieldSpec, *, _depth: int, max_depth: int, relation_tasks: _RelationTaskCache
     ) -> Any:
         """Extract one serializer field from a model/object with async ORM support."""
         source = spec.source or spec.field_name
         value = await cls._resolve_source_async(
-            instance,
-            source,
-            nested_output=spec.nested,
-            relation_tasks=relation_tasks,
+            instance, source, nested_output=spec.nested, relation_tasks=relation_tasks
         )
 
         if value is _MISSING:
@@ -2087,22 +1982,13 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
 
         if spec.nested is not None:
             return await cls._convert_nested_from_model_value_async(
-                value,
-                nested_output=spec.nested,
-                _depth=_depth,
-                max_depth=max_depth,
+                value, nested_output=spec.nested, _depth=_depth, max_depth=max_depth
             )
 
         return cls._convert_regular_from_model_value(value, field_name=spec.field_name)
 
     @classmethod
-    def from_model(
-        cls: type[T],
-        instance: Model,
-        *,
-        _depth: int = 0,
-        max_depth: int = 10,
-    ) -> T:
+    def from_model(cls: type[T], instance: Model, *, _depth: int = 0, max_depth: int = 10) -> T:
         """
         Create a serializer instance from a Django model instance.
 
@@ -2189,13 +2075,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
         return [cls.from_model(obj) for obj in objects]
 
     @classmethod
-    async def afrom_model(
-        cls: type[T],
-        instance: Model,
-        *,
-        _depth: int = 0,
-        max_depth: int = 10,
-    ) -> T:
+    async def afrom_model(cls: type[T], instance: Model, *, _depth: int = 0, max_depth: int = 10) -> T:
         """Async variant of from_model() that may lazy-load relations safely."""
         if _depth > max_depth:
             raise ValueError(
@@ -2211,11 +2091,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
         values = await asyncio.gather(
             *(
                 cls._extract_model_field_async(
-                    instance,
-                    spec,
-                    _depth=_depth,
-                    max_depth=max_depth,
-                    relation_tasks=relation_tasks,
+                    instance, spec, _depth=_depth, max_depth=max_depth, relation_tasks=relation_tasks
                 )
                 for spec in cls.__model_field_specs__
             )
@@ -2887,10 +2763,7 @@ class Serializer(msgspec.Struct, metaclass=_SerializerMeta):
             JSON bytes representation
         """
         data = self.dump(
-            exclude_none=exclude_none,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            by_alias=by_alias,
+            exclude_none=exclude_none, exclude_unset=exclude_unset, exclude_defaults=exclude_defaults, by_alias=by_alias
         )
         return _json.encode(data)
 
@@ -3033,12 +2906,10 @@ class SerializerView(Iterable[T]):
         self._include_fields = include_fields
         self._exclude_fields = exclude_fields
         self._field_specs = serializer_class._get_dump_field_specs(
-            include_fields=include_fields,
-            exclude_fields=exclude_fields,
+            include_fields=include_fields, exclude_fields=exclude_fields
         )
         self._computed_specs = serializer_class._get_computed_dump_specs(
-            include_fields=include_fields,
-            exclude_fields=exclude_fields,
+            include_fields=include_fields, exclude_fields=exclude_fields
         )
 
     def __iter__(self):
@@ -3051,20 +2922,14 @@ class SerializerView(Iterable[T]):
         if self._include_fields is not None:
             # Intersection with existing include
             new_include = self._include_fields & new_include
-        return self._serializer_class._get_cached_view(
-            include_fields=new_include,
-            exclude_fields=self._exclude_fields,
-        )
+        return self._serializer_class._get_cached_view(include_fields=new_include, exclude_fields=self._exclude_fields)
 
     def exclude(self, *fields: str) -> SerializerView[T]:
         """Exclude additional fields."""
         new_exclude = frozenset(fields)
         if self._exclude_fields is not None:
             new_exclude = self._exclude_fields | new_exclude
-        return self._serializer_class._get_cached_view(
-            include_fields=self._include_fields,
-            exclude_fields=new_exclude,
-        )
+        return self._serializer_class._get_cached_view(include_fields=self._include_fields, exclude_fields=new_exclude)
 
     def from_model(self, instance: Model, **kwargs) -> T:
         """Create a serializer instance from a Django model."""

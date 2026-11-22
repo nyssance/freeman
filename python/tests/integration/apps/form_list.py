@@ -29,8 +29,4 @@ class TagsForm(msgspec.Struct):
 
 @api.post("/form-list")
 async def handle_form_list(data: Annotated[TagsForm, Form()]):
-    return {
-        "name": data.name,
-        "tags": data.tags,
-        "counts": data.counts,
-    }
+    return {"name": data.name, "tags": data.tags, "counts": data.counts}

@@ -258,18 +258,8 @@ def test_invalid_struct_fields_each_get_one_error(client, path, send, source):
 
     assert response.status_code == 422
     assert response.json()["detail"] == [
-        {
-            "type": "validation_error",
-            "loc": [source, "size"],
-            "msg": "Expected `int` >= 1",
-            "input": 0,
-        },
-        {
-            "type": "validation_error",
-            "loc": [source, "t"],
-            "msg": "Expected `str` of length >= 2",
-            "input": "x",
-        },
+        {"type": "validation_error", "loc": [source, "size"], "msg": "Expected `int` >= 1", "input": 0},
+        {"type": "validation_error", "loc": [source, "t"], "msg": "Expected `str` of length >= 2", "input": "x"},
     ]
 
 

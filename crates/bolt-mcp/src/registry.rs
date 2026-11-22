@@ -13,8 +13,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
 use rmcp::model::{
-    CacheScope, Implementation, Prompt, ProtocolVersion, RequestStateCodec, Resource,
-    ResourceTemplate, ServerCapabilities, ServerConfig, Tool,
+    CacheScope, Implementation, Prompt, ProtocolVersion, RequestStateCodec, Resource, ResourceTemplate,
+    ServerCapabilities, ServerConfig, Tool,
 };
 use serde::Deserialize;
 
@@ -85,9 +85,8 @@ fn parse_guard_list(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<GuardSet> {
     if obj.is_none() {
         return Ok(GuardSet::default());
     }
-    let dicts: Vec<HashMap<String, Py<PyAny>>> = obj
-        .extract()
-        .map_err(|e| PyValueError::new_err(format!("Invalid MCP guards metadata: {e}")))?;
+    let dicts: Vec<HashMap<String, Py<PyAny>>> =
+        obj.extract().map_err(|e| PyValueError::new_err(format!("Invalid MCP guards metadata: {e}")))?;
     let mut guards: Vec<Guard> = Vec::with_capacity(dicts.len());
     for dict in &dicts {
         guards.push(parse_guard(dict, py)?);
@@ -102,62 +101,40 @@ impl McpRegistry {
     /// bool, "guards": [guard metadata dicts]}. Every tool in the catalog must
     /// have a config entry; registration fails loudly otherwise (never leave a
     /// tool callable-less or guard-less by accident).
-    pub fn from_python(
-        py: Python<'_>,
-        catalog_json: &str,
-        config: &Bound<'_, PyDict>,
-    ) -> PyResult<Self> {
+    pub fn from_python(py: Python<'_>, catalog_json: &str, config: &Bound<'_, PyDict>) -> PyResult<Self> {
         let catalog: CatalogWire = serde_json::from_str(catalog_json)
             .map_err(|e| PyValueError::new_err(format!("Invalid MCP catalog JSON: {e}")))?;
 
-        let tools_cfg = config
-            .get_item("tools")?
-            .ok_or_else(|| PyValueError::new_err("MCP mount config missing 'tools'"))?;
-        let tools_cfg = tools_cfg.cast::<PyDict>().map_err(|_| {
-            PyValueError::new_err("MCP mount config 'tools' must be a dict keyed by tool name")
-        })?;
+        let tools_cfg =
+            config.get_item("tools")?.ok_or_else(|| PyValueError::new_err("MCP mount config missing 'tools'"))?;
+        let tools_cfg = tools_cfg
+            .cast::<PyDict>()
+            .map_err(|_| PyValueError::new_err("MCP mount config 'tools' must be a dict keyed by tool name"))?;
 
         let mut tool_order = Vec::with_capacity(catalog.tools.len());
-        let mut tools: AHashMap<String, McpToolEntry> =
-            AHashMap::with_capacity(catalog.tools.len());
+        let mut tools: AHashMap<String, McpToolEntry> = AHashMap::with_capacity(catalog.tools.len());
         for tool in catalog.tools {
             let name = tool.name.to_string();
             let cfg = tools_cfg.get_item(&name)?.ok_or_else(|| {
-                PyValueError::new_err(format!(
-                    "MCP catalog tool '{name}' has no entry in the mount config"
-                ))
+                PyValueError::new_err(format!("MCP catalog tool '{name}' has no entry in the mount config"))
             })?;
-            let cfg = cfg.cast::<PyDict>().map_err(|_| {
-                PyValueError::new_err(format!("MCP tool config for '{name}' must be a dict"))
-            })?;
+            let cfg = cfg
+                .cast::<PyDict>()
+                .map_err(|_| PyValueError::new_err(format!("MCP tool config for '{name}' must be a dict")))?;
             let dispatch: Py<PyAny> = cfg
                 .get_item("dispatch")?
-                .ok_or_else(|| {
-                    PyValueError::new_err(format!("MCP tool '{name}' config missing 'dispatch'"))
-                })?
+                .ok_or_else(|| PyValueError::new_err(format!("MCP tool '{name}' config missing 'dispatch'")))?
                 .unbind();
             let needs_context: bool = cfg
                 .get_item("needs_context")?
-                .ok_or_else(|| {
-                    PyValueError::new_err(format!(
-                        "MCP tool '{name}' config missing 'needs_context'"
-                    ))
-                })?
+                .ok_or_else(|| PyValueError::new_err(format!("MCP tool '{name}' config missing 'needs_context'")))?
                 .extract()?;
-            let guards_obj = cfg.get_item("guards")?.ok_or_else(|| {
-                PyValueError::new_err(format!("MCP tool '{name}' config missing 'guards'"))
-            })?;
+            let guards_obj = cfg
+                .get_item("guards")?
+                .ok_or_else(|| PyValueError::new_err(format!("MCP tool '{name}' config missing 'guards'")))?;
             let guards = parse_guard_list(py, &guards_obj)?;
             tool_order.push(name.clone());
-            tools.insert(
-                name,
-                McpToolEntry {
-                    tool,
-                    guards,
-                    dispatch,
-                    needs_context,
-                },
-            );
+            tools.insert(name, McpToolEntry { tool, guards, dispatch, needs_context });
         }
 
         let resource_dispatch: Py<PyAny> = config
@@ -195,12 +172,8 @@ impl McpRegistry {
         // Logging capability is deprecated in 2026-07-28 but stays advertised
         // for legacy session clients that use `ctx.log()` streams.
         #[allow(deprecated)]
-        let capabilities = ServerCapabilities::builder()
-            .enable_tools()
-            .enable_resources()
-            .enable_prompts()
-            .enable_logging()
-            .build();
+        let capabilities =
+            ServerCapabilities::builder().enable_tools().enable_resources().enable_prompts().enable_logging().build();
         let mut server_info = ServerConfig::new(capabilities);
         // Pin the advertised revision. The rmcp default is its LATEST, and a
         // minor release of rmcp can change LATEST. `initialize` falls back
@@ -227,10 +200,7 @@ impl McpRegistry {
     }
 
     /// Tools visible to this request's principal, in registration order.
-    pub fn visible_tools(
-        &self,
-        auth_ctx: Option<&bolt_core::middleware::auth::AuthContext>,
-    ) -> Vec<Tool> {
+    pub fn visible_tools(&self, auth_ctx: Option<&bolt_core::middleware::auth::AuthContext>) -> Vec<Tool> {
         self.tool_order
             .iter()
             .filter_map(|name| self.tools.get(name))

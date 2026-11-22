@@ -33,9 +33,7 @@ def api():
 
     @api.get("/search")
     async def search(
-        name: str = Query(min_length=3),
-        category: str = Query(default="all"),
-        page: int = Query(ge=1, default=1),
+        name: str = Query(min_length=3), category: str = Query(default="all"), page: int = Query(ge=1, default=1)
     ):
         return {"name": name, "category": category, "page": page}
 

@@ -47,11 +47,7 @@ async def _other_async_dep() -> int:
 
 
 async def _async_dep_with_sources(
-    request,
-    a: Count,
-    b: Count,
-    x_c: Annotated[Count, Header()],
-    d: Annotated[Count, Cookie()],
+    request, a: Count, b: Count, x_c: Annotated[Count, Header()], d: Annotated[Count, Cookie()]
 ) -> dict:
     return {"method": request.method, "a": a, "b": b, "c": x_c, "d": d}
 
@@ -326,11 +322,7 @@ def dependency_client():
         yield test_client
 
 
-FLAVOURS = [
-    ("/sync-dep-sync-handler", 10),
-    ("/sync-dep-async-handler", 10),
-    ("/async-dep-async-handler", 20),
-]
+FLAVOURS = [("/sync-dep-sync-handler", 10), ("/sync-dep-async-handler", 10), ("/async-dep-async-handler", 20)]
 
 
 @pytest.mark.parametrize(("prefix", "dep"), FLAVOURS)

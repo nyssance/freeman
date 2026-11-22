@@ -20,22 +20,13 @@ pub fn format_cookie_date(value: &Bound<'_, PyDateTime>) -> PyResult<String> {
     let month = value.getattr(pyo3::intern!(py, "month"))?.extract::<u8>()?;
     let day = value.getattr(pyo3::intern!(py, "day"))?.extract::<u8>()?;
     let hour = value.getattr(pyo3::intern!(py, "hour"))?.extract::<u8>()?;
-    let minute = value
-        .getattr(pyo3::intern!(py, "minute"))?
-        .extract::<u8>()?;
-    let second = value
-        .getattr(pyo3::intern!(py, "second"))?
-        .extract::<u8>()?;
-    let date = Date::from_calendar_date(
-        year,
-        Month::try_from(month).map_err(|e| PyValueError::new_err(e.to_string()))?,
-        day,
-    )
-    .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let minute = value.getattr(pyo3::intern!(py, "minute"))?.extract::<u8>()?;
+    let second = value.getattr(pyo3::intern!(py, "second"))?.extract::<u8>()?;
+    let date =
+        Date::from_calendar_date(year, Month::try_from(month).map_err(|e| PyValueError::new_err(e.to_string()))?, day)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
     const DAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const MONTHS: [&str; 12] = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
+    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     Ok(format!(
         "{}, {:02} {} {:04} {:02}:{:02}:{:02} GMT",
         DAYS[date.weekday().number_days_from_monday() as usize],
@@ -73,10 +64,7 @@ const SYMLINK_LOOP: i32 = libc::ELOOP;
 fn file_lookup_error(error: std::io::Error, path: &Path, allowed: Option<&[PathBuf]>) -> PyErr {
     let names_no_file = matches!(
         error.kind(),
-        ErrorKind::NotFound
-            | ErrorKind::NotADirectory
-            | ErrorKind::InvalidInput
-            | ErrorKind::InvalidFilename
+        ErrorKind::NotFound | ErrorKind::NotADirectory | ErrorKind::InvalidInput | ErrorKind::InvalidFilename
     ) || error.raw_os_error() == Some(SYMLINK_LOOP);
     let denied = error.kind() == ErrorKind::PermissionDenied;
     if !names_no_file && !denied {
@@ -87,11 +75,7 @@ fn file_lookup_error(error: std::io::Error, path: &Path, allowed: Option<&[PathB
     if looked_up && allowed.is_some_and(|roots| !within(&lookup_target(path), roots)) {
         return not_allowed(path);
     }
-    if names_no_file {
-        file_not_found(path)
-    } else {
-        PyErr::from(error)
-    }
+    if names_no_file { file_not_found(path) } else { PyErr::from(error) }
 }
 
 /// The maximum number of links in one lookup, as the kernel allows.
@@ -162,9 +146,7 @@ fn real_names(reached: PathBuf) -> PathBuf {
 /// On macOS and Windows, a real name can differ in case, and an 8.3 short name has a long form.
 #[cfg(not(target_os = "linux"))]
 fn real_names(reached: PathBuf) -> PathBuf {
-    std::fs::canonicalize(&reached)
-        .map(|real| comparable(&real).into_owned())
-        .unwrap_or(reached)
+    std::fs::canonicalize(&reached).map(|real| comparable(&real).into_owned()).unwrap_or(reached)
 }
 
 /// Walk the parts of `path` in sequence, as `realpath` does on Linux.
@@ -253,9 +235,7 @@ fn comparable(path: &Path) -> Cow<'_, Path> {
 }
 
 fn within(resolved: &Path, roots: &[PathBuf]) -> bool {
-    roots
-        .iter()
-        .any(|root| resolved.starts_with(comparable(root)))
+    roots.iter().any(|root| resolved.starts_with(comparable(root)))
 }
 
 fn file_not_found(path: &Path) -> PyErr {
@@ -273,8 +253,7 @@ fn not_allowed(path: &Path) -> PyErr {
 #[pyfunction]
 pub fn resolve_response_file(path: PathBuf, allowed: Option<Vec<PathBuf>>) -> PyResult<OsString> {
     let roots = allowed.as_deref();
-    let resolved =
-        std::fs::canonicalize(&path).map_err(|error| file_lookup_error(error, &path, roots))?;
+    let resolved = std::fs::canonicalize(&path).map_err(|error| file_lookup_error(error, &path, roots))?;
     if let Some(roots) = roots {
         // macOS `realpath` accepts `..` after a file, where the lookup on Linux fails.
         // Walk such a path as on Linux, so that its status cannot show whether the file exists.
@@ -293,9 +272,7 @@ pub fn resolve_response_file(path: PathBuf, allowed: Option<Vec<PathBuf>>) -> Py
             return Err(not_allowed(&path));
         }
     }
-    let metadata = resolved
-        .metadata()
-        .map_err(|error| file_lookup_error(error, &path, roots))?;
+    let metadata = resolved.metadata().map_err(|error| file_lookup_error(error, &path, roots))?;
     if !metadata.is_file() {
         return Err(file_not_found(&path));
     }
@@ -304,10 +281,7 @@ pub fn resolve_response_file(path: PathBuf, allowed: Option<Vec<PathBuf>>) -> Py
 
 /// Validate attributes in one native loop, then populate ordinary Django morsels.
 #[pyfunction]
-pub fn populate_response_cookies(
-    cookies: &Bound<'_, PyAny>,
-    rows: &Bound<'_, PyAny>,
-) -> PyResult<()> {
+pub fn populate_response_cookies(cookies: &Bound<'_, PyAny>, rows: &Bound<'_, PyAny>) -> PyResult<()> {
     for row in rows.try_iter()? {
         let row = row?;
         let row = row.cast::<PyTuple>()?;
@@ -329,23 +303,16 @@ pub fn populate_response_cookies(
             (8, "samesite"),
         ] {
             let value = row.get_item(index)?;
-            let present = if index == 3 {
-                !value.is_none()
-            } else {
-                value.is_truthy()?
-            };
+            let present = if index == 3 { !value.is_none() } else { value.is_truthy()? };
             if !present {
                 continue;
             }
             let text = value.str()?;
             if text.to_str()?.bytes().any(|b| b < 32 || b == 127) {
-                let error = cookies
-                    .py()
-                    .import("http.cookies")?
-                    .getattr("CookieError")?;
-                return Err(PyErr::from_value(error.call1((format!(
-                    "Control characters are not allowed in cookies {key:?}"
-                ),))?));
+                let error = cookies.py().import("http.cookies")?.getattr("CookieError")?;
+                return Err(PyErr::from_value(
+                    error.call1((format!("Control characters are not allowed in cookies {key:?}"),))?,
+                ));
             }
             // PyDict_SetItem bypasses Morsel's repeated checks after validation above.
             if index == 6 || index == 7 {

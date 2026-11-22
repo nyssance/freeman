@@ -34,12 +34,7 @@ async def crunch(n: int, ctx: Context) -> dict:
     return {"done": n}
 
 
-@mcp.resource(
-    "config://app",
-    name="app-config",
-    mime_type="application/json",
-    description="Static app configuration",
-)
+@mcp.resource("config://app", name="app-config", mime_type="application/json", description="Static app configuration")
 async def app_config() -> str:
     return '{"env": "itest"}'
 

@@ -127,10 +127,7 @@ async def t_thread():
 @api.get("/t-subprocess")
 async def t_subprocess():
     process = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-c",
-        "print('from-subprocess')",
-        stdout=asyncio.subprocess.PIPE,
+        sys.executable, "-c", "print('from-subprocess')", stdout=asyncio.subprocess.PIPE
     )
     stdout, _ = await process.communicate()
     return {"value": stdout.decode().strip(), "returncode": process.returncode}
@@ -294,10 +291,7 @@ async def t_fd_watcher():
 
     try:
         loop.add_reader(read_fd, readable)
-        loop.add_writer(
-            write_sock,
-            lambda: writable.set_result(True) if not writable.done() else None,
-        )
+        loop.add_writer(write_sock, lambda: writable.set_result(True) if not writable.done() else None)
         os.write(write_fd, b"fd-ready")
         data = await asyncio.wait_for(received, 1)
         await asyncio.wait_for(writable, 1)

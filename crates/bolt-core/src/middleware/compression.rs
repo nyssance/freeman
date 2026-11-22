@@ -90,10 +90,7 @@ fn encode_response<B: MessageBody>(res: Outcome<B>) -> Outcome<Encoder<B>> {
     // Special case: `identity` is our internal "skip compression"
     // marker — strip it so clients don't see it. Any other value
     // (br, gzip, zstd) is preserved as-is.
-    let pre_set = res
-        .headers()
-        .get(CONTENT_ENCODING)
-        .and_then(|v| v.to_str().ok());
+    let pre_set = res.headers().get(CONTENT_ENCODING).and_then(|v| v.to_str().ok());
 
     if let Some(encoding) = pre_set {
         let is_identity = encoding.eq_ignore_ascii_case("identity");
@@ -103,16 +100,12 @@ fn encode_response<B: MessageBody>(res: Outcome<B>) -> Outcome<Encoder<B>> {
         }
         return Ok(ServiceResponse::new(
             req,
-            response
-                .map_body(|head, body| Encoder::response(ContentEncoding::Identity, head, body)),
+            response.map_body(|head, body| Encoder::response(ContentEncoding::Identity, head, body)),
         ));
     }
 
     let request = res.request();
-    let accept_encoding = request
-        .headers()
-        .get(ACCEPT_ENCODING)
-        .and_then(|v| v.to_str().ok());
+    let accept_encoding = request.headers().get(ACCEPT_ENCODING).and_then(|v| v.to_str().ok());
     let config = request
         .app_data::<actix_web::web::Data<Arc<AppState>>>()
         .and_then(|state| state.global_compression_config.as_deref());
@@ -121,10 +114,7 @@ fn encode_response<B: MessageBody>(res: Outcome<B>) -> Outcome<Encoder<B>> {
     // When the encoder compresses the body, it sets Content-Encoding
     // and appends `Vary: accept-encoding` after a Vary of the handler.
     let (req, response) = res.into_parts();
-    Ok(ServiceResponse::new(
-        req,
-        response.map_body(|head, body| Encoder::response(encoding, head, body)),
-    ))
+    Ok(ServiceResponse::new(req, response.map_body(|head, body| Encoder::response(encoding, head, body))))
 }
 
 #[cfg(test)]
@@ -138,12 +128,7 @@ mod bypass_tests {
         // The body must be >= minimum_size (default 500 bytes) to trigger the
         // compression path in the middleware. With a short body the middleware
         // skips compression regardless, which would hide the bug we are testing.
-        let large_body: Vec<u8> = b"already-compressed-bytes-"
-            .iter()
-            .cycle()
-            .take(600)
-            .cloned()
-            .collect();
+        let large_body: Vec<u8> = b"already-compressed-bytes-".iter().cycle().take(600).cloned().collect();
         let large_body_clone = large_body.clone();
 
         let app = test::init_service(App::new().wrap(CompressionMiddleware::new()).route(
@@ -162,26 +147,16 @@ mod bypass_tests {
         ))
         .await;
 
-        let req = TestRequest::get()
-            .uri("/")
-            .insert_header(("accept-encoding", "br, gzip, zstd"))
-            .to_request();
+        let req = TestRequest::get().uri("/").insert_header(("accept-encoding", "br, gzip, zstd")).to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 200);
 
-        let ce = resp
-            .headers()
-            .get("content-encoding")
-            .map(|v| v.to_str().unwrap().to_string());
+        let ce = resp.headers().get("content-encoding").map(|v| v.to_str().unwrap().to_string());
         assert_eq!(ce, Some(pre_set_encoding.to_string()));
 
         let body = test::read_body(resp).await;
-        assert_eq!(
-            body.as_ref(),
-            large_body.as_slice(),
-            "body was re-encoded; expected pass-through"
-        );
+        assert_eq!(body.as_ref(), large_body.as_slice(), "body was re-encoded; expected pass-through");
     }
 
     #[actix_web::test]
@@ -200,9 +175,7 @@ mod bypass_tests {
     }
 
     /// Call a middleware app that answers with 600 bytes and `headers`.
-    async fn call_with_headers(
-        headers: &'static [(&'static str, &'static str)],
-    ) -> ServiceResponse<impl MessageBody> {
+    async fn call_with_headers(headers: &'static [(&'static str, &'static str)]) -> ServiceResponse<impl MessageBody> {
         let app = test::init_service(App::new().wrap(CompressionMiddleware::new()).route(
             "/",
             web::get().to(move || async move {
@@ -214,10 +187,7 @@ mod bypass_tests {
             }),
         ))
         .await;
-        let req = TestRequest::get()
-            .uri("/")
-            .insert_header(("accept-encoding", "br, gzip, zstd"))
-            .to_request();
+        let req = TestRequest::get().uri("/").insert_header(("accept-encoding", "br, gzip, zstd")).to_request();
         test::call_service(&app, req).await
     }
 
@@ -250,10 +220,7 @@ mod bypass_tests {
 /// - the request omitted `Accept-Encoding`,
 /// - `compression=None` (no `CompressionConfig` on the app),
 /// - the client rejects every supported coding.
-fn select_encoding(
-    accept_encoding: Option<&str>,
-    config: Option<&CompressionConfig>,
-) -> ContentEncoding {
+fn select_encoding(accept_encoding: Option<&str>, config: Option<&CompressionConfig>) -> ContentEncoding {
     let ae = match accept_encoding {
         Some(ae) => ae,
         None => return ContentEncoding::Identity,
@@ -283,14 +250,10 @@ fn select_encoding(
 /// minimum size of the config gets `Identity`. A body of unknown size gets
 /// the coding of `select_encoding`.
 fn response_encoding(
-    accept_encoding: Option<&str>,
-    config: Option<&CompressionConfig>,
-    size: BodySize,
+    accept_encoding: Option<&str>, config: Option<&CompressionConfig>, size: BodySize,
 ) -> ContentEncoding {
     match (config, size) {
-        (Some(cfg), BodySize::Sized(size)) if size < cfg.minimum_size as u64 => {
-            ContentEncoding::Identity
-        }
+        (Some(cfg), BodySize::Sized(size)) if size < cfg.minimum_size as u64 => ContentEncoding::Identity,
         _ => select_encoding(accept_encoding, config),
     }
 }
@@ -307,78 +270,48 @@ mod select_encoding_tests {
     }
 
     fn cfg_gzip() -> CompressionConfig {
-        CompressionConfig {
-            backend: "gzip".to_string(),
-            ..Default::default()
-        }
+        CompressionConfig { backend: "gzip".to_string(), ..Default::default() }
     }
 
     fn cfg_zstd() -> CompressionConfig {
-        CompressionConfig {
-            backend: "zstd".to_string(),
-            ..Default::default()
-        }
+        CompressionConfig { backend: "zstd".to_string(), ..Default::default() }
     }
 
     #[test]
     fn missing_accept_encoding_returns_identity() {
-        assert_eq!(
-            select_encoding(None, Some(&cfg_brotli())),
-            ContentEncoding::Identity
-        );
+        assert_eq!(select_encoding(None, Some(&cfg_brotli())), ContentEncoding::Identity);
     }
 
     #[test]
     fn missing_config_returns_identity() {
         // `compression=None` on BoltAPI → AppState.global_compression_config = None.
         // Buffered middleware must not silently compress in that case.
-        assert_eq!(
-            select_encoding(Some("br, gzip"), None),
-            ContentEncoding::Identity
-        );
+        assert_eq!(select_encoding(Some("br, gzip"), None), ContentEncoding::Identity);
     }
 
     #[test]
     fn picks_preferred_backend_when_accepted() {
-        assert_eq!(
-            select_encoding(Some("br, gzip"), Some(&cfg_brotli())),
-            ContentEncoding::Brotli
-        );
-        assert_eq!(
-            select_encoding(Some("gzip, br"), Some(&cfg_gzip())),
-            ContentEncoding::Gzip
-        );
-        assert_eq!(
-            select_encoding(Some("zstd, gzip"), Some(&cfg_zstd())),
-            ContentEncoding::Zstd
-        );
+        assert_eq!(select_encoding(Some("br, gzip"), Some(&cfg_brotli())), ContentEncoding::Brotli);
+        assert_eq!(select_encoding(Some("gzip, br"), Some(&cfg_gzip())), ContentEncoding::Gzip);
+        assert_eq!(select_encoding(Some("zstd, gzip"), Some(&cfg_zstd())), ContentEncoding::Zstd);
     }
 
     #[test]
     fn falls_back_to_gzip_when_backend_rejected() {
         // Brotli configured, client only accepts gzip.
-        assert_eq!(
-            select_encoding(Some("gzip"), Some(&cfg_brotli())),
-            ContentEncoding::Gzip
-        );
+        assert_eq!(select_encoding(Some("gzip"), Some(&cfg_brotli())), ContentEncoding::Gzip);
     }
 
     #[test]
     fn skips_fallback_when_disabled() {
         let mut cfg = cfg_brotli();
         cfg.gzip_fallback = false;
-        assert_eq!(
-            select_encoding(Some("gzip"), Some(&cfg)),
-            ContentEncoding::Identity
-        );
+        assert_eq!(select_encoding(Some("gzip"), Some(&cfg)), ContentEncoding::Identity);
     }
 
     #[test]
     fn no_negotiable_coding_returns_identity() {
-        assert_eq!(
-            select_encoding(Some("deflate, identity"), Some(&cfg_brotli())),
-            ContentEncoding::Identity
-        );
+        assert_eq!(select_encoding(Some("deflate, identity"), Some(&cfg_brotli())), ContentEncoding::Identity);
     }
 
     // ─── RFC 7231 §5.3.4 conformance (regressions vs. old substring matcher)
@@ -387,36 +320,24 @@ mod select_encoding_tests {
     fn q0_rejects_preferred_and_falls_back() {
         // `br;q=0` explicitly rejects brotli; old substring matcher missed
         // this and still picked Brotli because the string contained "br".
-        assert_eq!(
-            select_encoding(Some("br;q=0, gzip"), Some(&cfg_brotli())),
-            ContentEncoding::Gzip
-        );
+        assert_eq!(select_encoding(Some("br;q=0, gzip"), Some(&cfg_brotli())), ContentEncoding::Gzip);
     }
 
     #[test]
     fn q0_on_all_returns_identity() {
-        assert_eq!(
-            select_encoding(Some("br;q=0, gzip;q=0"), Some(&cfg_brotli())),
-            ContentEncoding::Identity
-        );
+        assert_eq!(select_encoding(Some("br;q=0, gzip;q=0"), Some(&cfg_brotli())), ContentEncoding::Identity);
     }
 
     #[test]
     fn star_accepts_preferred_backend() {
         // Plain `*` accepts any unmentioned coding.
-        assert_eq!(
-            select_encoding(Some("*"), Some(&cfg_brotli())),
-            ContentEncoding::Brotli
-        );
+        assert_eq!(select_encoding(Some("*"), Some(&cfg_brotli())), ContentEncoding::Brotli);
     }
 
     #[test]
     fn star_q0_rejects_unmentioned_codings() {
         // `gzip, *;q=0` means: gzip only, everything else rejected.
-        assert_eq!(
-            select_encoding(Some("gzip, *;q=0"), Some(&cfg_brotli())),
-            ContentEncoding::Gzip
-        );
+        assert_eq!(select_encoding(Some("gzip, *;q=0"), Some(&cfg_brotli())), ContentEncoding::Gzip);
     }
 
     #[test]
@@ -431,14 +352,8 @@ mod select_encoding_tests {
 
     #[test]
     fn case_insensitive_coding_names() {
-        assert_eq!(
-            select_encoding(Some("BR"), Some(&cfg_brotli())),
-            ContentEncoding::Brotli
-        );
-        assert_eq!(
-            select_encoding(Some("GZip;Q=0.5"), Some(&cfg_gzip())),
-            ContentEncoding::Gzip
-        );
+        assert_eq!(select_encoding(Some("BR"), Some(&cfg_brotli())), ContentEncoding::Brotli);
+        assert_eq!(select_encoding(Some("GZip;Q=0.5"), Some(&cfg_gzip())), ContentEncoding::Gzip);
     }
 
     #[test]
@@ -449,10 +364,7 @@ mod select_encoding_tests {
         // since `x-gzip-old` ≠ `gzip`).
         let mut cfg = cfg_brotli();
         cfg.gzip_fallback = false;
-        assert_eq!(
-            select_encoding(Some("x-gzip-old"), Some(&cfg)),
-            ContentEncoding::Identity
-        );
+        assert_eq!(select_encoding(Some("x-gzip-old"), Some(&cfg)), ContentEncoding::Identity);
     }
 
     // ─── response_encoding ────────────────────────────────────────────
@@ -474,54 +386,29 @@ mod select_encoding_tests {
     fn a_body_under_the_minimum_size_is_not_compressed() {
         let cfg = cfg_brotli();
         let size = cfg.minimum_size as u64 - 1;
-        assert_eq!(
-            response_encoding(Some("br"), Some(&cfg), BodySize::Sized(size)),
-            ContentEncoding::Identity
-        );
+        assert_eq!(response_encoding(Some("br"), Some(&cfg), BodySize::Sized(size)), ContentEncoding::Identity);
     }
 
     #[test]
     fn a_body_of_unknown_size_is_compressed() {
         // A stream has no size, so the minimum size does not apply.
-        let cfg = CompressionConfig {
-            minimum_size: 1 << 20,
-            ..cfg_gzip()
-        };
-        assert_eq!(
-            response_encoding(Some("gzip"), Some(&cfg), BodySize::Stream),
-            ContentEncoding::Gzip
-        );
+        let cfg = CompressionConfig { minimum_size: 1 << 20, ..cfg_gzip() };
+        assert_eq!(response_encoding(Some("gzip"), Some(&cfg), BodySize::Stream), ContentEncoding::Gzip);
     }
 
     #[test]
     fn a_large_body_follows_the_accept_encoding() {
         let cfg = cfg_zstd();
         let size = BodySize::Sized(cfg.minimum_size as u64 * 2);
-        assert_eq!(
-            response_encoding(None, Some(&cfg), size),
-            ContentEncoding::Identity
-        );
-        assert_eq!(
-            response_encoding(Some("identity"), Some(&cfg), size),
-            ContentEncoding::Identity
-        );
-        assert_eq!(
-            response_encoding(Some("zstd"), Some(&cfg), size),
-            ContentEncoding::Zstd
-        );
+        assert_eq!(response_encoding(None, Some(&cfg), size), ContentEncoding::Identity);
+        assert_eq!(response_encoding(Some("identity"), Some(&cfg), size), ContentEncoding::Identity);
+        assert_eq!(response_encoding(Some("zstd"), Some(&cfg), size), ContentEncoding::Zstd);
     }
 
     #[test]
     fn no_config_is_never_compressed() {
-        for size in [
-            BodySize::Sized(0),
-            BodySize::Sized(1 << 20),
-            BodySize::Stream,
-        ] {
-            assert_eq!(
-                response_encoding(Some("br, gzip, zstd"), None, size),
-                ContentEncoding::Identity
-            );
+        for size in [BodySize::Sized(0), BodySize::Sized(1 << 20), BodySize::Stream] {
+            assert_eq!(response_encoding(Some("br, gzip, zstd"), None, size), ContentEncoding::Identity);
         }
     }
 }

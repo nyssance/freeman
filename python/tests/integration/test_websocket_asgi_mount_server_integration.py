@@ -17,10 +17,7 @@ def _make_project(make_server_project) -> ServerProject:
 def test_mounted_asgi_app_serves_websocket(make_server_project):
     project = _make_project(make_server_project)
 
-    with (
-        project.start() as server,
-        SimpleWebSocketClient(server.host, server.port, "/mounted/ws") as websocket,
-    ):
+    with project.start() as server, SimpleWebSocketClient(server.host, server.port, "/mounted/ws") as websocket:
         websocket.receive_text()
         websocket.send_text("hello")
         assert websocket.receive_text() == "echo:hello"
@@ -37,10 +34,7 @@ def test_mounted_asgi_websocket_scope_follows_spec(make_server_project):
     with (
         project.start() as server,
         SimpleWebSocketClient(
-            server.host,
-            server.port,
-            "/mounted/ws?token=abc",
-            headers={"Authorization": "Bearer secret-token"},
+            server.host, server.port, "/mounted/ws?token=abc", headers={"Authorization": "Bearer secret-token"}
         ) as websocket,
     ):
         scope = json.loads(websocket.receive_text())
@@ -57,12 +51,7 @@ def test_mounted_asgi_websocket_scope_decodes_path_and_keeps_utf8_headers(make_s
 
     with (
         project.start() as server,
-        SimpleWebSocketClient(
-            server.host,
-            server.port,
-            "/mounted/caf%C3%A9/",
-            headers={"X-Name": "café"},
-        ) as websocket,
+        SimpleWebSocketClient(server.host, server.port, "/mounted/caf%C3%A9/", headers={"X-Name": "café"}) as websocket,
     ):
         scope = json.loads(websocket.receive_text())
 
@@ -89,10 +78,7 @@ def test_mounted_asgi_websocket_scheme_follows_x_forwarded_proto_only_from_a_tru
     with (
         project.start() as server,
         SimpleWebSocketClient(
-            server.host,
-            server.port,
-            "/mounted/ws",
-            headers={"X-Forwarded-Proto": "https"},
+            server.host, server.port, "/mounted/ws", headers={"X-Forwarded-Proto": "https"}
         ) as websocket,
     ):
         assert json.loads(websocket.receive_text())["scheme"] == scheme
@@ -101,20 +87,14 @@ def test_mounted_asgi_websocket_scheme_follows_x_forwarded_proto_only_from_a_tru
 def test_registered_route_still_wins_over_mounts(make_server_project):
     project = _make_project(make_server_project)
 
-    with (
-        project.start() as server,
-        SimpleWebSocketClient(server.host, server.port, "/ws/direct") as websocket,
-    ):
+    with project.start() as server, SimpleWebSocketClient(server.host, server.port, "/ws/direct") as websocket:
         assert websocket.receive_text() == "route"
 
 
 def test_django_mount_does_not_take_websocket_connections(make_server_project):
     project = _make_project(make_server_project)
 
-    with (
-        project.start() as server,
-        SimpleWebSocketClient(server.host, server.port, "/django/ws") as websocket,
-    ):
+    with project.start() as server, SimpleWebSocketClient(server.host, server.port, "/django/ws") as websocket:
         code, reason = websocket.receive_close()
 
     # Django serves HTTP only, so the path stays unmatched.

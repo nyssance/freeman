@@ -239,17 +239,15 @@ class TestCookieAttributesInSetCookieHeader:
         )
         parts = self._set_cookie_parts(cookie)
         assert parts[0] == "session=abc123"
-        assert sorted(parts[1:]) == sorted(
-            [
-                "Max-Age=3600",
-                "Expires=Wed, 31 Dec 2025 23:59:59 GMT",
-                "Path=/api",
-                "Domain=example.com",
-                "Secure",
-                "HttpOnly",
-                "SameSite=Strict",
-            ]
-        )
+        assert sorted(parts[1:]) == sorted([
+            "Max-Age=3600",
+            "Expires=Wed, 31 Dec 2025 23:59:59 GMT",
+            "Path=/api",
+            "Domain=example.com",
+            "Secure",
+            "HttpOnly",
+            "SameSite=Strict",
+        ])
 
     def test_expires_string_reaches_the_header(self):
         """An expires string appears in the header."""

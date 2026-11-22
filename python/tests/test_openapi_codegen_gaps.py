@@ -26,15 +26,7 @@ from freeman import BoltAPI, ModelViewSet
 from freeman.openapi import OpenAPIConfig
 from freeman.openapi.schema_generator import OpenAPIStrictError, SchemaGenerator
 from freeman.pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, paginate
-from freeman.responses import (
-    HTML,
-    EventSourceResponse,
-    File,
-    FileResponse,
-    PlainText,
-    Redirect,
-    StreamingResponse,
-)
+from freeman.responses import HTML, EventSourceResponse, File, FileResponse, PlainText, Redirect, StreamingResponse
 from freeman.serializers import Serializer
 from freeman.testing import TestClient
 
@@ -104,10 +96,7 @@ def test_generic_serializer_response_renders_named_component():
     assert component["title"] == "Page[UserRead]"
     assert component["description"] == "A page of results."
     assert component["properties"]["count"] == {"type": "integer"}
-    assert component["properties"]["results"] == {
-        "type": "array",
-        "items": {"$ref": "#/components/schemas/UserRead"},
-    }
+    assert component["properties"]["results"] == {"type": "array", "items": {"$ref": "#/components/schemas/UserRead"}}
     assert set(component["required"]) == {"count", "results"}
     # The item type is registered as its own component too.
     assert schema["components"]["schemas"]["UserRead"]["properties"]["name"] == {"type": "string"}
@@ -170,10 +159,7 @@ def test_paginated_route_documents_the_envelope_not_a_bare_list():
     assert body == {"$ref": "#/components/schemas/PaginatedResponse_UserRead_"}
 
     envelope = schema["components"]["schemas"]["PaginatedResponse_UserRead_"]
-    assert envelope["properties"]["items"] == {
-        "type": "array",
-        "items": {"$ref": "#/components/schemas/UserRead"},
-    }
+    assert envelope["properties"]["items"] == {"type": "array", "items": {"$ref": "#/components/schemas/UserRead"}}
     assert envelope["properties"]["total"] == {"type": "integer"}
     assert {"items", "total", "has_next", "has_previous"} <= set(envelope["required"])
 
@@ -280,32 +266,14 @@ def _integer(**keywords) -> dict:
     [
         (
             PageNumberPagination,
-            {
-                "page": _integer(minimum=1, default=1),
-                "page_size": _integer(minimum=1, maximum=1000, default=100),
-            },
+            {"page": _integer(minimum=1, default=1), "page_size": _integer(minimum=1, maximum=1000, default=100)},
         ),
-        (
-            SmallPages,
-            {
-                "page": _integer(minimum=1, default=1),
-                "size": _integer(minimum=1, maximum=50, default=10),
-            },
-        ),
+        (SmallPages, {"page": _integer(minimum=1, default=1), "size": _integer(minimum=1, maximum=50, default=10)}),
         (
             LimitOffsetPagination,
-            {
-                "limit": _integer(minimum=1, maximum=1000, default=100),
-                "offset": _integer(minimum=0, default=0),
-            },
+            {"limit": _integer(minimum=1, maximum=1000, default=100), "offset": _integer(minimum=0, default=0)},
         ),
-        (
-            CursorPagination,
-            {
-                "cursor": {"type": "string"},
-                "page_size": _integer(minimum=1, maximum=1000, default=100),
-            },
-        ),
+        (CursorPagination, {"cursor": {"type": "string"}, "page_size": _integer(minimum=1, maximum=1000, default=100)}),
         (FixedPageSize, {"cursor": {"type": "string"}}),
     ],
 )

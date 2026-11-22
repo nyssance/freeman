@@ -62,9 +62,7 @@ async def _call_tool(tool: ToolDef, mcp: MCP, payload: dict[str, Any], raw: Any)
         kwargs["request"] = McpRequest(payload["auth"])
     if tool.ctx_param is not None:
         kwargs[tool.ctx_param] = Context(
-            payload["ctx"],
-            request=McpRequest(payload["auth"]),
-            resolver=partial(_resolve_resource, mcp),
+            payload["ctx"], request=McpRequest(payload["auth"]), resolver=partial(_resolve_resource, mcp)
         )
     return await execute_tool(tool, kwargs, mask_error_details=mcp.mask_error_details)
 
@@ -91,12 +89,7 @@ async def _run_tool(tool: ToolDef, mcp: MCP, payload: dict[str, Any]) -> bytes:
     call_tool = partial(_call_tool, tool, mcp, payload, raw)
     try:
         if mcp._tool_middleware:
-            call = ToolCall(
-                name=tool.name,
-                arguments=raw,
-                meta=_request_meta(payload),
-                principal=payload["auth"] or {},
-            )
+            call = ToolCall(name=tool.name, arguments=raw, meta=_request_meta(payload), principal=payload["auth"] or {})
             try:
                 result = await _call_through_middleware(mcp._tool_middleware, call, call_tool)
             except Exception as exc:
@@ -106,17 +99,9 @@ async def _run_tool(tool: ToolDef, mcp: MCP, payload: dict[str, Any]) -> bytes:
         else:
             result = await call_tool()
     except _InputRequired as pending:
-        return json_encode(
-            {
-                "__inputRequired__": [
-                    {
-                        "key": pending.key,
-                        "method": _KIND_METHOD[pending.kind],
-                        "params": pending.params,
-                    }
-                ]
-            }
-        )
+        return json_encode({
+            "__inputRequired__": [{"key": pending.key, "method": _KIND_METHOD[pending.kind], "params": pending.params}]
+        })
     return json_encode(result)
 
 

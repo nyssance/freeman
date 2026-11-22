@@ -49,11 +49,7 @@ Usage:
 
 from .compression import CompressionConfig
 from .django_adapter import DjangoMiddleware, DjangoMiddlewareStack
-from .django_loader import (
-    DEFAULT_EXCLUDED_MIDDLEWARE,
-    get_django_middleware_setting,
-    load_django_middleware,
-)
+from .django_loader import DEFAULT_EXCLUDED_MIDDLEWARE, get_django_middleware_setting, load_django_middleware
 from .middleware import (
     BaseMiddleware,
     ErrorHandlerMiddleware,

@@ -39,11 +39,7 @@ def child_pids(parent_pid: int) -> set[int]:
     ``ps --ppid`` option is not: macOS ``ps`` rejects it, and the set came
     back empty. ``pgrep`` exits 1 when there is no child, with empty output.
     """
-    result = subprocess.run(
-        ["pgrep", "-P", str(parent_pid)],
-        capture_output=True,
-        text=True,
-    )
+    result = subprocess.run(["pgrep", "-P", str(parent_pid)], capture_output=True, text=True)
     if result.returncode not in (0, 1):
         result.check_returncode()
     return {int(token) for token in result.stdout.split()}
@@ -169,12 +165,7 @@ def generate_load(
         if tick_thread is not None:
             tick_thread.join()
 
-    return LoadResult(
-        ok=counters["ok"],
-        failed=counters["failed"],
-        retried=counters["retried"],
-        errors=dict(errors),
-    )
+    return LoadResult(ok=counters["ok"], failed=counters["failed"], retried=counters["retried"], errors=dict(errors))
 
 
 # Under pytest-xdist, each worker takes server ports from its own block of this
@@ -582,25 +573,20 @@ class ServerProject:
         return path
 
     def write_project_api(self) -> Path:
-        source = "\n".join(
-            [
-                "from __future__ import annotations",
-                "",
-                "from freeman import BoltAPI",
-                "",
-                "api = BoltAPI()",
-                "",
-                "",
-                '@api.get("/health")',
-                "async def health():",
-                '    return {"status": "ok"}',
-            ]
-        )
+        source = "\n".join([
+            "from __future__ import annotations",
+            "",
+            "from freeman import BoltAPI",
+            "",
+            "api = BoltAPI()",
+            "",
+            "",
+            '@api.get("/health")',
+            "async def health():",
+            '    return {"status": "ok"}',
+        ])
         source = f"{source}\n"
-        return self.write_file(
-            f"{self.package_name}/api.py",
-            source,
-        )
+        return self.write_file(f"{self.package_name}/api.py", source)
 
     def install_api(self, source: Path | str) -> Path:
         """Install a real, self-contained module as the project's ``api.py``.
@@ -646,15 +632,7 @@ class ServerProject:
             )
 
         port = get_free_port(host) if port is None else port
-        command = [
-            self.python_executable,
-            str(self.path("manage.py")),
-            "runbolt",
-            "--host",
-            host,
-            "--port",
-            str(port),
-        ]
+        command = [self.python_executable, str(self.path("manage.py")), "runbolt", "--host", host, "--port", str(port)]
         if dev:
             command.append("--dev")
         if processes != 1:
@@ -701,21 +679,9 @@ class ServerProject:
         timeout: float = DEFAULT_TIMEOUT,
         env: dict[str, str] | None = None,
     ) -> RunningServer:
-        process, port = self.spawn(
-            dev=dev,
-            processes=processes,
-            extra_args=extra_args,
-            host=host,
-            port=port,
-            env=env,
-        )
+        process, port = self.spawn(dev=dev, processes=processes, extra_args=extra_args, host=host, port=port, env=env)
         return RunningServer(
-            project=self,
-            process=process,
-            host=host,
-            port=port,
-            startup_path=startup_path,
-            timeout=timeout,
+            project=self, process=process, host=host, port=port, startup_path=startup_path, timeout=timeout
         )
 
 
@@ -797,12 +763,7 @@ def create_server_project(
     installed_apps = installed_apps or []
     middleware = middleware or []
     templates = templates or []
-    all_installed_apps = [
-        "django.contrib.contenttypes",
-        "django.contrib.auth",
-        "freeman",
-        *installed_apps,
-    ]
+    all_installed_apps = ["django.contrib.contenttypes", "django.contrib.auth", "freeman", *installed_apps]
 
     project.write_file(f"{package_name}/__init__.py", "")
     settings_lines = [
@@ -833,10 +794,7 @@ def create_server_project(
     if normalized_settings_extra:
         settings_source = f"{settings_source}\n\n{normalized_settings_extra}"
     settings_source = f"{settings_source}\n"
-    project.write_file(
-        f"{package_name}/settings.py",
-        settings_source,
-    )
+    project.write_file(f"{package_name}/settings.py", settings_source)
     project.write_file(f"{package_name}/urls.py", urls_content)
     if api_module is not None:
         # Load the app by import path via ``BOLT_API`` — no file copy. Put the
@@ -877,19 +835,17 @@ def attempt_ws_upgrade(
     asserting a 101 handshake.
     """
     key = base64.b64encode(secrets.token_bytes(16)).decode()
-    request = "\r\n".join(
-        [
-            f"GET {path} HTTP/1.1",
-            f"Host: {host}:{port}",
-            "Upgrade: websocket",
-            "Connection: Upgrade",
-            f"Sec-WebSocket-Key: {key}",
-            "Sec-WebSocket-Version: 13",
-            *(f"{name}: {value}" for name, value in (headers or {}).items()),
-            "",
-            "",
-        ]
-    )
+    request = "\r\n".join([
+        f"GET {path} HTTP/1.1",
+        f"Host: {host}:{port}",
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        f"Sec-WebSocket-Key: {key}",
+        "Sec-WebSocket-Version: 13",
+        *(f"{name}: {value}" for name, value in (headers or {}).items()),
+        "",
+        "",
+    ])
 
     with socket.create_connection((host, port), timeout=timeout) as sock:
         sock.settimeout(timeout)
@@ -924,13 +880,7 @@ def attempt_ws_upgrade(
 
 class SimpleWebSocketClient:
     def __init__(
-        self,
-        host: str,
-        port: int,
-        path: str,
-        *,
-        headers: dict[str, str] | None = None,
-        timeout: float = 5.0,
+        self, host: str, port: int, path: str, *, headers: dict[str, str] | None = None, timeout: float = 5.0
     ) -> None:
         self.host = host
         self.port = port

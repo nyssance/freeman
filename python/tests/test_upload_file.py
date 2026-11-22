@@ -142,12 +142,7 @@ class TestUploadFileClass:
 
     def test_create_upload_file(self, make_upload):
         """Test creating an UploadFile instance."""
-        upload = make_upload(
-            filename="test.txt",
-            content_type="text/plain",
-            size=12,
-            file_data=b"Hello World!",
-        )
+        upload = make_upload(filename="test.txt", content_type="text/plain", size=12, file_data=b"Hello World!")
 
         assert upload.filename == "test.txt"
         assert upload.content_type == "text/plain"
@@ -156,12 +151,7 @@ class TestUploadFileClass:
 
     def test_from_file_info(self):
         """Test creating UploadFile from file_info dict."""
-        file_info = {
-            "filename": "image.png",
-            "content": b"fake image data",
-            "content_type": "image/png",
-            "size": 15,
-        }
+        file_info = {"filename": "image.png", "content": b"fake image data", "content_type": "image/png", "size": 15}
 
         upload = UploadFileClass.from_file_info(file_info)
 
@@ -171,12 +161,7 @@ class TestUploadFileClass:
 
     def test_sync_read(self, make_upload):
         """Test sync read via .file property."""
-        upload = make_upload(
-            filename="test.txt",
-            content_type="text/plain",
-            size=5,
-            file_data=b"Hello",
-        )
+        upload = make_upload(filename="test.txt", content_type="text/plain", size=5, file_data=b"Hello")
 
         content = upload.file.read()
         assert content == b"Hello"
@@ -190,12 +175,7 @@ class TestUploadFileClass:
         """Test async read method."""
 
         async def do_test():
-            upload = make_upload(
-                filename="test.txt",
-                content_type="text/plain",
-                size=5,
-                file_data=b"Hello",
-            )
+            upload = make_upload(filename="test.txt", content_type="text/plain", size=5, file_data=b"Hello")
 
             content = await upload.read()
             assert content == b"Hello"
@@ -210,12 +190,7 @@ class TestUploadFileClass:
         """Test async close method."""
 
         async def do_test():
-            upload = make_upload(
-                filename="test.txt",
-                content_type="text/plain",
-                size=5,
-                file_data=b"Hello",
-            )
+            upload = make_upload(filename="test.txt", content_type="text/plain", size=5, file_data=b"Hello")
 
             await upload.close()
             assert upload.file.closed
@@ -224,12 +199,7 @@ class TestUploadFileClass:
 
     def test_repr(self, make_upload):
         """Test string representation."""
-        upload = make_upload(
-            filename="test.txt",
-            content_type="text/plain",
-            size=100,
-            file_data=b"x" * 100,
-        )
+        upload = make_upload(filename="test.txt", content_type="text/plain", size=100, file_data=b"x" * 100)
 
         repr_str = repr(upload)
         assert "test.txt" in repr_str
@@ -239,10 +209,7 @@ class TestUploadFileClass:
     def test_file_is_django_file(self, make_upload):
         """Test that .file returns a Django File object."""
         upload = make_upload(
-            filename="document.pdf",
-            content_type="application/pdf",
-            size=15,
-            file_data=b"fake pdf content",
+            filename="document.pdf", content_type="application/pdf", size=15, file_data=b"fake pdf content"
         )
 
         django_file = upload.file
@@ -271,24 +238,25 @@ class TestUploadFileFileHandling:
         """Build an UploadFile that Rust spooled to disk."""
         path = tmp_path / "spooled.bin"
         path.write_bytes(self.CONTENT)
-        upload = UploadFileClass.from_file_info(
-            {
-                "filename": "spooled.bin",
-                "content_type": "application/x-test",
-                "size": len(self.CONTENT),
-                "content": None,
-                "temp_path": str(path),
-            }
-        )
+        upload = UploadFileClass.from_file_info({
+            "filename": "spooled.bin",
+            "content_type": "application/x-test",
+            "size": len(self.CONTENT),
+            "content": None,
+            "temp_path": str(path),
+        })
         uploads.append(upload)
         return upload
 
     @pytest.fixture
     def memory_upload(self, uploads):
         """Build an UploadFile that stays in memory."""
-        upload = UploadFileClass.from_file_info(
-            {"filename": "memory.bin", "content_type": "text/plain", "size": len(self.CONTENT), "content": self.CONTENT}
-        )
+        upload = UploadFileClass.from_file_info({
+            "filename": "memory.bin",
+            "content_type": "text/plain",
+            "size": len(self.CONTENT),
+            "content": self.CONTENT,
+        })
         uploads.append(upload)
         return upload
 
@@ -327,15 +295,13 @@ class TestUploadFileFileHandling:
 
     def test_from_file_info_in_memory_copies_every_field(self, uploads):
         """A memory-backed file_info gives an UploadFile with all its fields."""
-        upload = UploadFileClass.from_file_info(
-            {
-                "filename": "image.png",
-                "content_type": "image/png",
-                "size": 3,
-                "headers": {"x-part": "1"},
-                "content": b"abc",
-            }
-        )
+        upload = UploadFileClass.from_file_info({
+            "filename": "image.png",
+            "content_type": "image/png",
+            "size": 3,
+            "headers": {"x-part": "1"},
+            "content": b"abc",
+        })
         uploads.append(upload)
 
         assert upload.filename == "image.png"
@@ -361,15 +327,13 @@ class TestUploadFileFileHandling:
         """A disk-backed file_info gives an UploadFile with all its fields."""
         path = tmp_path / "spooled.bin"
         path.write_bytes(b"abc")
-        upload = UploadFileClass.from_file_info(
-            {
-                "filename": "big.bin",
-                "content_type": "application/x-big",
-                "size": 3,
-                "headers": {"x-part": "2"},
-                "temp_path": str(path),
-            }
-        )
+        upload = UploadFileClass.from_file_info({
+            "filename": "big.bin",
+            "content_type": "application/x-big",
+            "size": 3,
+            "headers": {"x-part": "2"},
+            "temp_path": str(path),
+        })
         uploads.append(upload)
 
         assert upload.filename == "big.bin"
@@ -621,10 +585,7 @@ class TestUploadFileValidation:
             return {"filename": avatar.filename, "size": avatar.size}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("small.txt", b"x" * 100, "text/plain")},
-        )
+        response = client.post("/upload", files={"avatar": ("small.txt", b"x" * 100, "text/plain")})
 
         assert response.status_code == 200
         assert response.json()["size"] == 100
@@ -638,10 +599,7 @@ class TestUploadFileValidation:
             return {"filename": avatar.filename}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("large.txt", b"x" * 200, "text/plain")},
-        )
+        response = client.post("/upload", files={"avatar": ("large.txt", b"x" * 200, "text/plain")})
 
         assert response.status_code == 422
         errors = response.json()["detail"]
@@ -661,10 +619,7 @@ class TestUploadFileValidation:
             return {"filename": avatar.filename}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("file.txt", b"x" * 100, "text/plain")},
-        )
+        response = client.post("/upload", files={"avatar": ("file.txt", b"x" * 100, "text/plain")})
 
         assert response.status_code == 200
 
@@ -677,10 +632,7 @@ class TestUploadFileValidation:
             return {"filename": avatar.filename}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("small.txt", b"x" * 50, "text/plain")},
-        )
+        response = client.post("/upload", files={"avatar": ("small.txt", b"x" * 50, "text/plain")})
 
         assert response.status_code == 422
         errors = response.json()["detail"]
@@ -702,18 +654,12 @@ class TestUploadFileValidation:
         client = TestClient(api)
 
         # Valid type
-        response = client.post(
-            "/upload",
-            files={"doc": ("doc.pdf", b"pdf content", "application/pdf")},
-        )
+        response = client.post("/upload", files={"doc": ("doc.pdf", b"pdf content", "application/pdf")})
         assert response.status_code == 200
         assert response.json()["content_type"] == "application/pdf"
 
         # Invalid type
-        response = client.post(
-            "/upload",
-            files={"doc": ("doc.txt", b"text content", "text/plain")},
-        )
+        response = client.post("/upload", files={"doc": ("doc.txt", b"text content", "text/plain")})
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert len(errors) == 1
@@ -735,17 +681,11 @@ class TestUploadFileValidation:
 
         # Valid image types
         for content_type in ["image/png", "image/jpeg", "image/gif", "image/webp"]:
-            response = client.post(
-                "/upload",
-                files={"avatar": ("img.png", b"image data", content_type)},
-            )
+            response = client.post("/upload", files={"avatar": ("img.png", b"image data", content_type)})
             assert response.status_code == 200, f"Failed for {content_type}"
 
         # Invalid type
-        response = client.post(
-            "/upload",
-            files={"avatar": ("doc.pdf", b"pdf content", "application/pdf")},
-        )
+        response = client.post("/upload", files={"avatar": ("doc.pdf", b"pdf content", "application/pdf")})
         assert response.status_code == 422
 
     def test_max_files_validation(self):
@@ -844,8 +784,7 @@ class TestUploadFileValidation:
         one = client.post("/upload", files={"files": ("a.txt", b"a", "text/plain")})
         assert one.json() == {"names": ["a.txt"]}
         two = client.post(
-            "/upload",
-            files=[("files", ("a.txt", b"a", "text/plain")), ("files", ("b.txt", b"b", "text/plain"))],
+            "/upload", files=[("files", ("a.txt", b"a", "text/plain")), ("files", ("b.txt", b"b", "text/plain"))]
         )
         assert two.json() == {"names": ["a.txt", "b.txt"]}
 
@@ -868,8 +807,7 @@ class TestUploadFileValidation:
 
         client = TestClient(api)
         response = client.post(
-            "/upload",
-            files=[("doc", ("a.txt", b"a", "text/plain")), ("doc", ("b.txt", b"b", "text/plain"))],
+            "/upload", files=[("doc", ("a.txt", b"a", "text/plain")), ("doc", ("b.txt", b"b", "text/plain"))]
         )
         assert response.json() == {"filename": "a.txt"}
 
@@ -891,10 +829,7 @@ class TestUploadFileValidation:
         assert response.json()["has_file"] is False
 
         # With file
-        response = client.post(
-            "/upload",
-            files={"avatar": ("photo.jpg", b"image", "image/jpeg")},
-        )
+        response = client.post("/upload", files={"avatar": ("photo.jpg", b"image", "image/jpeg")})
         assert response.status_code == 200
         assert response.json()["has_file"] is True
 
@@ -1000,9 +935,7 @@ class TestFileConstraintsByPartName:
         assert response.json()["detail"][0]["loc"] == ["body", "avatar"]
 
         response = client.post(
-            "/profile",
-            data={"name": "Jane"},
-            files={"avatar": ("photo.png", b"\x89PNG", "image/png")},
+            "/profile", data={"name": "Jane"}, files={"avatar": ("photo.png", b"\x89PNG", "image/png")}
         )
         assert response.status_code == 200
         assert response.json() == {"name": "Jane", "content_type": "image/png"}
@@ -1033,10 +966,7 @@ class TestFileConstraintsByPartName:
             return {"docs": len(data.docs)}
 
         client = TestClient(api)
-        small_docs = [
-            ("docs", ("a.txt", b"a", "text/plain")),
-            ("docs", ("b.txt", b"b", "text/plain")),
-        ]
+        small_docs = [("docs", ("a.txt", b"a", "text/plain")), ("docs", ("b.txt", b"b", "text/plain"))]
 
         response = client.post("/upload", files=[("avatar", ("big.png", b"x" * 11, "image/png")), *small_docs])
         assert response.status_code == 422
@@ -1045,11 +975,7 @@ class TestFileConstraintsByPartName:
 
         response = client.post(
             "/upload",
-            files=[
-                ("avatar", ("ok.png", b"x", "image/png")),
-                *small_docs,
-                ("docs", ("c.txt", b"c", "text/plain")),
-            ],
+            files=[("avatar", ("ok.png", b"x", "image/png")), *small_docs, ("docs", ("c.txt", b"c", "text/plain"))],
         )
         assert response.status_code == 422
         assert response.json()["detail"][0]["type"] == "file_too_many"
@@ -1087,8 +1013,7 @@ class TestFileConstraintsByPartName:
 
             @api.post("/upload")
             async def upload(
-                data: Annotated[PdfDocForm, Form()],
-                other: Annotated[UploadFile, File(alias="doc", max_size=1000)],
+                data: Annotated[PdfDocForm, Form()], other: Annotated[UploadFile, File(alias="doc", max_size=1000)]
             ):
                 return {}
 
@@ -1102,10 +1027,7 @@ class TestUploadFileMultiple:
 
         @api.post("/upload")
         async def upload(docs: Annotated[list[UploadFile], File()]):
-            return {
-                "count": len(docs),
-                "filenames": [d.filename for d in docs],
-            }
+            return {"count": len(docs), "filenames": [d.filename for d in docs]}
 
         client = TestClient(api)
         response = client.post(
@@ -1131,10 +1053,7 @@ class TestUploadFileMultiple:
             return {"count": len(docs)}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"docs": ("single.pdf", b"content", "application/pdf")},
-        )
+        response = client.post("/upload", files={"docs": ("single.pdf", b"content", "application/pdf")})
 
         assert response.status_code == 200
         assert response.json()["count"] == 1
@@ -1178,17 +1097,11 @@ class TestFormStructWithUploadFile:
         @api.post("/profile")
         async def update_profile(data: Annotated[ProfileForm, Form()]):
             content = await data.avatar.read()
-            return {
-                "name": data.name,
-                "avatar_filename": data.avatar.filename,
-                "avatar_size": len(content),
-            }
+            return {"name": data.name, "avatar_filename": data.avatar.filename, "avatar_size": len(content)}
 
         client = TestClient(api)
         response = client.post(
-            "/profile",
-            data={"name": "John Doe"},
-            files={"avatar": ("photo.jpg", b"image data here", "image/jpeg")},
+            "/profile", data={"name": "John Doe"}, files={"avatar": ("photo.jpg", b"image data here", "image/jpeg")}
         )
 
         assert response.status_code == 200
@@ -1242,11 +1155,7 @@ class TestFormStructWithUploadFile:
         client = TestClient(api)
         response = client.post(
             "/register",
-            data={
-                "username": "johndoe",
-                "email": "john@example.com",
-                "age": "30",
-            },
+            data={"username": "johndoe", "email": "john@example.com", "age": "30"},
             files=[
                 ("profile_photo", ("photo.jpg", b"image", "image/jpeg")),
                 ("resume", ("resume.pdf", b"pdf", "application/pdf")),
@@ -1267,10 +1176,7 @@ class TestFormStructWithUploadFile:
 
         @api.post("/profile")
         async def update_profile(data: Annotated[ProfileFormOptional, Form()]):
-            return {
-                "name": data.name,
-                "has_avatar": data.avatar is not None,
-            }
+            return {"name": data.name, "has_avatar": data.avatar is not None}
 
         client = TestClient(api)
 
@@ -1281,9 +1187,7 @@ class TestFormStructWithUploadFile:
 
         # With avatar
         response = client.post(
-            "/profile",
-            data={"name": "John"},
-            files={"avatar": ("photo.jpg", b"image", "image/jpeg")},
+            "/profile", data={"name": "John"}, files={"avatar": ("photo.jpg", b"image", "image/jpeg")}
         )
         assert response.status_code == 200
         assert response.json()["has_avatar"] is True
@@ -1316,9 +1220,7 @@ class TestFormStructWithUploadFile:
 
         client = TestClient(api)
         response = client.post(
-            "/register",
-            data={"username": "john", "age": "12"},
-            files={"resume": ("cv.pdf", b"pdf", "application/pdf")},
+            "/register", data={"username": "john", "age": "12"}, files={"resume": ("cv.pdf", b"pdf", "application/pdf")}
         )
 
         assert response.status_code == 422, response.text
@@ -1411,9 +1313,7 @@ class TestFormStructWithUploadFile:
 
         client = TestClient(api)
         response = client.post(
-            "/profile",
-            data={"name": "Jane"},
-            files={"avatar": ("photo.png", b"image bytes", "image/png")},
+            "/profile", data={"name": "Jane"}, files={"avatar": ("photo.png", b"image bytes", "image/png")}
         )
 
         assert response.status_code == 200, response.text
@@ -1436,11 +1336,7 @@ class TestFormStructWithUploadFile:
             }
 
         client = TestClient(api)
-        response = client.post(
-            "/profile",
-            data={"name": "Jane"},
-            files={"avatar": ("photo.png", b"x", "image/png")},
-        )
+        response = client.post("/profile", data={"name": "Jane"}, files={"avatar": ("photo.png", b"x", "image/png")})
 
         assert response.status_code == 200, response.text
         body = response.json()
@@ -1483,10 +1379,7 @@ class TestFormStructWithUploadFile:
             return {"name": data.name}
 
         client = TestClient(api)
-        response = client.post(
-            "/profile",
-            data={"name": "Jane", "avatar": "not-a-file.pdf"},
-        )
+        response = client.post("/profile", data={"name": "Jane", "avatar": "not-a-file.pdf"})
 
         assert response.status_code == 422, response.text
         errors = response.json()["detail"]
@@ -1503,17 +1396,10 @@ class TestBackwardCompatibility:
 
         @api.post("/upload")
         async def upload(avatar: Annotated[dict, File()]):
-            return {
-                "filename": avatar["filename"],
-                "content_type": avatar["content_type"],
-                "size": avatar["size"],
-            }
+            return {"filename": avatar["filename"], "content_type": avatar["content_type"], "size": avatar["size"]}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("test.png", b"image data", "image/png")},
-        )
+        response = client.post("/upload", files={"avatar": ("test.png", b"image data", "image/png")})
 
         assert response.status_code == 200
         data = response.json()
@@ -1531,10 +1417,7 @@ class TestBackwardCompatibility:
         client = TestClient(api)
         response = client.post(
             "/upload",
-            files=[
-                ("files", ("a.txt", b"content a", "text/plain")),
-                ("files", ("b.txt", b"content b", "text/plain")),
-            ],
+            files=[("files", ("a.txt", b"content a", "text/plain")), ("files", ("b.txt", b"content b", "text/plain"))],
         )
 
         assert response.status_code == 200
@@ -1558,10 +1441,7 @@ class TestSyncHandler:
             return {"size": len(content), "filename": avatar.filename}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("photo.jpg", b"sync image data", "image/jpeg")},
-        )
+        response = client.post("/upload", files={"avatar": ("photo.jpg", b"sync image data", "image/jpeg")})
 
         assert response.status_code == 200
         assert response.json()["size"] == 15
@@ -1579,25 +1459,16 @@ class TestDjangoFileFieldIntegration:
         api = BoltAPI()
 
         @api.post("/documents")
-        def create_document(
-            title: Annotated[str, Form()],
-            file: Annotated[UploadFile, File()],
-        ):
+        def create_document(title: Annotated[str, Form()], file: Annotated[UploadFile, File()]):
             doc = Document(title=title)
             # Save using Django File - this is the key test
             doc.file.save(file.filename, file.file, save=True)
-            return {
-                "id": doc.id,
-                "title": doc.title,
-                "filename": doc.file.name,
-            }
+            return {"id": doc.id, "title": doc.title, "filename": doc.file.name}
 
         client = TestClient(api)
         file_content = b"Test document content for FileField"
         response = client.post(
-            "/documents",
-            data={"title": "Test Document"},
-            files={"file": ("test_doc.txt", file_content, "text/plain")},
+            "/documents", data={"title": "Test Document"}, files={"file": ("test_doc.txt", file_content, "text/plain")}
         )
 
         assert response.status_code == 200
@@ -1618,19 +1489,12 @@ class TestDjangoFileFieldIntegration:
         api = BoltAPI()
 
         @api.post("/documents")
-        async def create_document(
-            title: Annotated[str, Form()],
-            file: Annotated[UploadFile, File()],
-        ):
+        async def create_document(title: Annotated[str, Form()], file: Annotated[UploadFile, File()]):
             doc = Document(title=title)
             # Use Django's native async save - file.save() with save=False, then asave()
             doc.file.save(file.filename, file.file, save=False)
             await doc.asave()
-            return {
-                "id": doc.id,
-                "title": doc.title,
-                "filename": doc.file.name,
-            }
+            return {"id": doc.id, "title": doc.title, "filename": doc.file.name}
 
         client = TestClient(api)
         file_content = b"Async test document content"
@@ -1655,25 +1519,16 @@ class TestDjangoFileFieldIntegration:
         api = BoltAPI()
 
         @api.post("/documents")
-        def create_document(
-            title: Annotated[str, Form()],
-            file: Annotated[UploadFile, File()],
-        ):
+        def create_document(title: Annotated[str, Form()], file: Annotated[UploadFile, File()]):
             doc = Document(title=title)
             doc.file = file.file
             doc.save()
-            return {
-                "id": doc.id,
-                "title": doc.title,
-                "filename": doc.file.name,
-            }
+            return {"id": doc.id, "title": doc.title, "filename": doc.file.name}
 
         client = TestClient(api)
         file_content = b"Direct assignment test content"
         response = client.post(
-            "/documents",
-            data={"title": "Direct Assign"},
-            files={"file": ("direct.txt", file_content, "text/plain")},
+            "/documents", data={"title": "Direct Assign"}, files={"file": ("direct.txt", file_content, "text/plain")}
         )
 
         assert response.status_code == 200
@@ -1694,18 +1549,11 @@ class TestDjangoFileFieldIntegration:
         api = BoltAPI()
 
         @api.post("/documents")
-        async def create_document(
-            title: Annotated[str, Form()],
-            file: Annotated[UploadFile, File()],
-        ):
+        async def create_document(title: Annotated[str, Form()], file: Annotated[UploadFile, File()]):
             doc = Document(title=title)
             doc.file = file.file
             await doc.asave()
-            return {
-                "id": doc.id,
-                "title": doc.title,
-                "filename": doc.file.name,
-            }
+            return {"id": doc.id, "title": doc.title, "filename": doc.file.name}
 
         client = TestClient(api)
         file_content = b"Async direct assignment content"
@@ -1741,10 +1589,7 @@ class TestAutoCleanup:
             return {"filename": avatar.filename}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("test.jpg", b"image data", "image/jpeg")},
-        )
+        response = client.post("/upload", files={"avatar": ("test.jpg", b"image data", "image/jpeg")})
 
         assert response.status_code == 200
         assert len(tracked_files) == 1
@@ -1763,10 +1608,7 @@ class TestAutoCleanup:
             raise ValueError("Intentional error in handler")
 
         client = TestClient(api, raise_server_exceptions=False)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("test.jpg", b"image data", "image/jpeg")},
-        )
+        response = client.post("/upload", files={"avatar": ("test.jpg", b"image data", "image/jpeg")})
 
         # Handler raised an exception - should get 500
         assert response.status_code == 500
@@ -1860,9 +1702,7 @@ class TestAutoCleanup:
 
         client = TestClient(api)
         response = client.post(
-            "/profile",
-            data={"name": "John"},
-            files={"avatar": ("photo.jpg", b"image data", "image/jpeg")},
+            "/profile", data={"name": "John"}, files={"avatar": ("photo.jpg", b"image data", "image/jpeg")}
         )
 
         assert response.status_code == 200
@@ -1882,10 +1722,7 @@ class TestAutoCleanup:
             return {"size": len(content)}
 
         client = TestClient(api)
-        response = client.post(
-            "/upload",
-            files={"avatar": ("test.txt", b"sync content", "text/plain")},
-        )
+        response = client.post("/upload", files={"avatar": ("test.txt", b"sync content", "text/plain")})
 
         assert response.status_code == 200
         assert len(tracked_files) == 1

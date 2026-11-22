@@ -170,8 +170,7 @@ CASES = (
         json_equals({"uploaded": 2, "files": [{"name": "test1.txt", "size": 27}, {"name": "test2.txt", "size": 27}]}),
         MULTIPART,
         multipart(
-            ("file", "This is test file content 1", "test1.txt"),
-            ("file", "This is test file content 2", "test2.txt"),
+            ("file", "This is test file content 1", "test1.txt"), ("file", "This is test file content 2", "test2.txt")
         ),
     ),
     Case(

@@ -37,62 +37,43 @@ def compile_catalog(mcp: MCP) -> str:
     rmcp's own model types — the catalog cannot drift from the spec.
     """
     tools = [
-        _drop_none(
-            {
-                "name": t.name,
-                "title": t.title,
-                "description": t.description,
-                "inputSchema": t.input_schema,
-                "outputSchema": t.output_schema,
-                "annotations": t.annotations,
-                "icons": t.icons,
-                "_meta": t.meta,
-            }
-        )
+        _drop_none({
+            "name": t.name,
+            "title": t.title,
+            "description": t.description,
+            "inputSchema": t.input_schema,
+            "outputSchema": t.output_schema,
+            "annotations": t.annotations,
+            "icons": t.icons,
+            "_meta": t.meta,
+        })
         for t in mcp._tools.values()
     ]
     resources = [
-        _drop_none(
-            {
-                "uri": r.uri,
-                "name": r.name,
-                "description": r.description,
-                "mimeType": r.mime_type,
-            }
-        )
+        _drop_none({"uri": r.uri, "name": r.name, "description": r.description, "mimeType": r.mime_type})
         for r in mcp._resources.values()
     ]
     templates = [
-        _drop_none(
-            {
-                "uriTemplate": t.uri_template,
-                "name": t.name,
-                "description": t.description,
-                "mimeType": t.mime_type,
-            }
-        )
+        _drop_none({
+            "uriTemplate": t.uri_template,
+            "name": t.name,
+            "description": t.description,
+            "mimeType": t.mime_type,
+        })
         for t in mcp._resource_templates.values()
     ]
     prompts = [
-        _drop_none(
-            {
-                "name": p.name,
-                "description": p.description,
-                "arguments": p.arguments,
-            }
-        )
+        _drop_none({"name": p.name, "description": p.description, "arguments": p.arguments})
         for p in mcp._prompts.values()
     ]
     catalog = {
-        "serverInfo": _drop_none(
-            {
-                "name": mcp.name,
-                "title": mcp.title,
-                "version": mcp.version,
-                "websiteUrl": mcp.website_url,
-                "icons": mcp.icons,
-            }
-        ),
+        "serverInfo": _drop_none({
+            "name": mcp.name,
+            "title": mcp.title,
+            "version": mcp.version,
+            "websiteUrl": mcp.website_url,
+            "icons": mcp.icons,
+        }),
         "instructions": mcp.instructions,
         "tools": tools,
         "resources": resources,

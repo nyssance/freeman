@@ -107,10 +107,7 @@ def test_request_get_with_auth_context():
         auth_no_default = request.get("auth")
         auth_with_default = request.get("auth", {"default": "should_be_ignored"})
 
-        return {
-            "auth_no_default": auth_no_default,
-            "auth_with_default": auth_with_default,
-        }
+        return {"auth_no_default": auth_no_default, "auth_with_default": auth_with_default}
 
     with TestClient(api) as client:
         # Create a valid JWT token

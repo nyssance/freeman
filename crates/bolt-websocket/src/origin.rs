@@ -50,10 +50,7 @@ fn is_origin_allowed(origin: &str, cors_config: &CorsConfig) -> bool {
         return true;
     }
 
-    cors_config
-        .compiled_origin_regexes
-        .iter()
-        .any(|re| re.is_match(origin))
+    cors_config.compiled_origin_regexes.iter().any(|re| re.is_match(origin))
 }
 
 #[cfg(test)]
@@ -83,10 +80,7 @@ mod tests {
     #[test]
     fn validate_origin_allows_a_handshake_with_no_origin_header() {
         assert!(validate_origin(None, None));
-        assert!(validate_origin(
-            None,
-            Some(&cors(&["https://a.example"], &[], false))
-        ));
+        assert!(validate_origin(None, Some(&cors(&["https://a.example"], &[], false))));
     }
 
     #[test]
@@ -97,14 +91,8 @@ mod tests {
     #[test]
     fn validate_origin_checks_the_origin_against_the_cors_config() {
         let config = cors(&["https://a.example"], &[], false);
-        assert!(validate_origin(
-            Some(&origin("https://a.example")),
-            Some(&config)
-        ));
-        assert!(!validate_origin(
-            Some(&origin("https://b.example")),
-            Some(&config)
-        ));
+        assert!(validate_origin(Some(&origin("https://a.example")), Some(&config)));
+        assert!(!validate_origin(Some(&origin("https://b.example")), Some(&config)));
     }
 
     #[test]

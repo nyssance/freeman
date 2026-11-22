@@ -23,12 +23,7 @@ SECRET = "test-secret"
 
 
 def create_token(user_id="user123", **extra):
-    payload = {
-        "sub": user_id,
-        "exp": int(time.time()) + 3600,
-        "iat": int(time.time()),
-        **extra,
-    }
+    payload = {"sub": user_id, "exp": int(time.time()) + 3600, "iat": int(time.time()), **extra}
     return jwt.encode(payload, SECRET, algorithm="HS256")
 
 
@@ -37,11 +32,7 @@ def cookie_api():
     """API using cookie-based JWT extraction."""
     api = BoltAPI()
 
-    @api.get(
-        "/whoami",
-        auth=[JWTAuthentication(secret=SECRET, cookie="access_token")],
-        guards=[IsAuthenticated()],
-    )
+    @api.get("/whoami", auth=[JWTAuthentication(secret=SECRET, cookie="access_token")], guards=[IsAuthenticated()])
     async def whoami(request):
         return {"user_id": request["context"]["user_id"]}
 
@@ -61,10 +52,7 @@ class TestJWTCookieAuth:
     def test_valid_token_in_cookie_among_others(self, cookie_api):
         token = create_token(user_id="cookie-user")
         with TestClient(cookie_api) as client:
-            response = client.get(
-                "/whoami",
-                headers={"Cookie": f"csrftoken=abc; access_token={token}; theme=dark"},
-            )
+            response = client.get("/whoami", headers={"Cookie": f"csrftoken=abc; access_token={token}; theme=dark"})
             assert response.status_code == 200
             assert response.json()["user_id"] == "cookie-user"
 
@@ -117,11 +105,7 @@ class TestJWTCookieAuth:
         header_token = create_token(user_id="from-header")
         with TestClient(cookie_api) as client:
             response = client.get(
-                "/whoami",
-                headers={
-                    "Cookie": f"access_token={cookie_token}",
-                    "Authorization": f"Bearer {header_token}",
-                },
+                "/whoami", headers={"Cookie": f"access_token={cookie_token}", "Authorization": f"Bearer {header_token}"}
             )
             assert response.status_code == 200
             assert response.json()["user_id"] == "from-cookie"
@@ -132,10 +116,7 @@ class TestJWTCookieAuth:
 
         @api.get(
             "/dual",
-            auth=[
-                JWTAuthentication(secret=SECRET, cookie="access_token"),
-                JWTAuthentication(secret=SECRET),
-            ],
+            auth=[JWTAuthentication(secret=SECRET, cookie="access_token"), JWTAuthentication(secret=SECRET)],
             guards=[IsAuthenticated()],
         )
         async def dual(request):
@@ -159,11 +140,7 @@ class TestJWTCookieAuth:
         """Default backend (no cookie=) must NOT read tokens from cookies."""
         api = BoltAPI()
 
-        @api.get(
-            "/header-only",
-            auth=[JWTAuthentication(secret=SECRET)],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/header-only", auth=[JWTAuthentication(secret=SECRET)], guards=[IsAuthenticated()])
         async def header_only(request):
             return {"ok": True}
 
@@ -189,11 +166,7 @@ class TestJWTCookieAuth:
 
         api = BoltAPI()
 
-        @api.get(
-            "/combo-me",
-            auth=[CustomQueryJWT(secret=SECRET, cookie="access_token")],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/combo-me", auth=[CustomQueryJWT(secret=SECRET, cookie="access_token")], guards=[IsAuthenticated()])
         async def combo_me(request):
             u = request.user
             return {"username": u.username if u else None}
@@ -227,11 +200,7 @@ class TestGetUserOverrideResolution:
 
         api = BoltAPI()
 
-        @api.get(
-            "/async-override",
-            auth=[UsernameJWT(secret=SECRET)],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/async-override", auth=[UsernameJWT(secret=SECRET)], guards=[IsAuthenticated()])
         async def me(request):
             u = await request.auser()
             return {"username": u.username if u else None, "same": request.user == u}
@@ -273,11 +242,7 @@ class TestGetUserOverrideResolution:
 
         api = BoltAPI()
 
-        @api.get(
-            "/sync-override",
-            auth=[UsernameSyncJWT(secret=SECRET)],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/sync-override", auth=[UsernameSyncJWT(secret=SECRET)], guards=[IsAuthenticated()])
         async def me(request):
             u = request.user
             return {"username": u.username if u else None}
@@ -359,11 +324,7 @@ class TestGetUserOverrideResolution:
         user = User.objects.create(username="plainuser")
         api = BoltAPI()
 
-        @api.get(
-            "/plain-me",
-            auth=[JWTAuthentication(secret=SECRET)],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/plain-me", auth=[JWTAuthentication(secret=SECRET)], guards=[IsAuthenticated()])
         async def me(request):
             u = request.user
             return {"username": u.username if u else None}

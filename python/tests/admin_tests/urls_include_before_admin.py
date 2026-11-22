@@ -12,7 +12,4 @@ def report(request):
     return HttpResponse("report")
 
 
-urlpatterns = [
-    path("reports/", include([path("", report)])),
-    path("backoffice/", admin.site.urls),
-]
+urlpatterns = [path("reports/", include([path("", report)])), path("backoffice/", admin.site.urls)]

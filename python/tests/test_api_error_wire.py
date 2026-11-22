@@ -15,9 +15,7 @@ from freeman.api import _wire_from_error_parts
 )
 def test_wire_from_error_parts_infers_response_type_from_content_type(content_type, expected_response_type):
     status, meta, body_kind, body = _wire_from_error_parts(
-        500,
-        [("content-type", content_type), ("x-extra", "1")],
-        b"payload",
+        500, [("content-type", content_type), ("x-extra", "1")], b"payload"
     )
 
     response_type, custom_content_type, custom_headers, cookies = meta

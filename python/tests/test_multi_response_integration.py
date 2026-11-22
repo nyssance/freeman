@@ -237,11 +237,7 @@ def test_post_201_created():
     """POST with explicit status_code=201 and tuple return."""
     api = BoltAPI()
 
-    @api.post(
-        "/items",
-        response_model={201: CreatedSchema, 400: ErrorSchema},
-        status_code=201,
-    )
+    @api.post("/items", response_model={201: CreatedSchema, 400: ErrorSchema}, status_code=201)
     async def create_item():
         return 201, {"id": 1, "name": "New Item", "created": True}
 

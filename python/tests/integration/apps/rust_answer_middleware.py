@@ -31,8 +31,7 @@ class TenantMiddleware(MiddlewareMixin):
 
 
 api = BoltAPI(
-    middleware=[DjangoMiddleware(TenantMiddleware)],
-    logging_config=LoggingConfig(skip_paths={"/health", "/skipped"}),
+    middleware=[DjangoMiddleware(TenantMiddleware)], logging_config=LoggingConfig(skip_paths={"/health", "/skipped"})
 )
 
 

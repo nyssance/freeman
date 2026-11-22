@@ -218,10 +218,7 @@ def computed_field(
         return decorator(func)
 
 
-def field_validator(
-    field_name: str,
-    mode: ValidatorMode = "after",
-) -> Callable[[DecoratedT], DecoratedT]:
+def field_validator(field_name: str, mode: ValidatorMode = "after") -> Callable[[DecoratedT], DecoratedT]:
     """
     Decorator to validate a specific field in a Serializer.
 
@@ -274,14 +271,12 @@ def model_validator(func: ModelValidatorFunc, mode: ValidatorMode = "after") -> 
 
 @overload
 def model_validator(
-    func: None = None,
-    mode: ValidatorMode = "after",
+    func: None = None, mode: ValidatorMode = "after"
 ) -> Callable[[ModelValidatorFunc], ModelValidatorFunc]: ...
 
 
 def model_validator(
-    func: ModelValidatorFunc | None = None,
-    mode: ValidatorMode = "after",
+    func: ModelValidatorFunc | None = None, mode: ValidatorMode = "after"
 ) -> ModelValidatorFunc | Callable[[ModelValidatorFunc], ModelValidatorFunc]:
     """
     Decorator to validate an entire Serializer.
@@ -314,9 +309,7 @@ def model_validator(
     """
     _check_validator_mode("model_validator", mode)
 
-    def decorator(
-        validator_func: ModelValidatorFunc,
-    ) -> ModelValidatorFunc:
+    def decorator(validator_func: ModelValidatorFunc) -> ModelValidatorFunc:
         # Mark the underlying function; the collector rejects descriptors.
         typed_validator = cast(_ModelValidatorCallable, _unwrap_descriptor(validator_func))
         typed_validator.__model_validator__ = True

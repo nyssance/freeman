@@ -43,10 +43,7 @@ from .analysis import analyze_dependency_tree, analyze_handler, annotation_globa
 from .auth import register_auth_backend
 from .auth.backends import revocation_takes_claims
 from .auth.session import auth_without_session, build_session_guard_check, session_middleware, uses_session
-from .auth.user_loader import (
-    LazyUser,
-    resolve_user_loader,
-)
+from .auth.user_loader import LazyUser, resolve_user_loader
 from .concurrency import (
     LaneAffinityError,
     _drop_broken_connections_after_error,
@@ -386,10 +383,7 @@ def _routes_and_native_routes(api: BoltAPI) -> list[tuple[Any, ...]]:
 
 
 def _validate_asgi_mount_conflicts(
-    routes: list[tuple[Any, ...]],
-    asgi_mounts: list[tuple[str, Any]],
-    *,
-    error_cls: type[Exception] = ValueError,
+    routes: list[tuple[Any, ...]], asgi_mounts: list[tuple[str, Any]], *, error_cls: type[Exception] = ValueError
 ) -> None:
     """Reject duplicate ASGI mount prefixes and exact collisions with HTTP routes."""
     if not asgi_mounts:
@@ -669,10 +663,7 @@ async def run_lifespans(source_lifespans: list[tuple[BoltAPI, Callable]]) -> Asy
         yield
 
 
-async def serve_with_lifespan(
-    source_lifespans: list[tuple[BoltAPI, Callable]],
-    server_fn: Callable,
-) -> None:
+async def serve_with_lifespan(source_lifespans: list[tuple[BoltAPI, Callable]], server_fn: Callable) -> None:
     """Run *server_fn* inside every lifespan context in *source_lifespans*.
 
     *server_fn* is executed in a thread so the async event-loop stays free
@@ -1493,11 +1484,7 @@ class BoltAPI:
             # Note: api.view() doesn't have base path context for @action decorator
             # Custom actions with @action should use api.viewset() instead
             self._register_custom_actions(
-                view_cls,
-                base_path=None,
-                lookup_field=None,
-                base_name=None,
-                include_in_schema=merged_include_in_schema,
+                view_cls, base_path=None, lookup_field=None, base_name=None, include_in_schema=merged_include_in_schema
             )
 
             return view_cls
@@ -1659,8 +1646,7 @@ class BoltAPI:
                 # don't let dynamic runtime selection crash registration.
                 if method_response_model is _RESPONSE_MODEL_UNSET:
                     inferred_serializer = self._infer_viewset_serializer_class(
-                        viewset_cls,
-                        action_name if action_name == "list" else "retrieve",
+                        viewset_cls, action_name if action_name == "list" else "retrieve"
                     )
                     if inferred_serializer is not _RESPONSE_MODEL_UNSET:
                         if action_name == "list":
@@ -1856,6 +1842,7 @@ class BoltAPI:
                             )
                             view_instance = __view_cls(**__view_kwargs)
                             return await __unbound_fn(view_instance, *args[_skip:], **kwargs)
+
                     else:
 
                         def custom_action_handler(
@@ -2044,9 +2031,7 @@ class BoltAPI:
             # Normalize route-level middleware declared via @middleware / @cors / @rate_limit.
             # Validation happens at registration time to fail fast and deterministically.
             route_middleware = normalize_middleware_specs(
-                getattr(fn, "__bolt_middleware__", []),
-                context="route",
-                allow_function_middleware=True,
+                getattr(fn, "__bolt_middleware__", []), context="route", allow_function_middleware=True
             )
             if route_middleware or hasattr(fn, "__bolt_middleware__"):
                 fn.__bolt_middleware__ = route_middleware
@@ -2283,12 +2268,7 @@ class BoltAPI:
 
             # Compile middleware metadata for this handler (including guards and auth)
             middleware_meta = compile_middleware_meta(
-                fn,
-                method,
-                full_path,
-                [*self._middleware, *router_middleware],
-                guards=guards,
-                auth=auth,
+                fn, method, full_path, [*self._middleware, *router_middleware], guards=guards, auth=auth
             )
 
             # Add optimization flags to middleware metadata
@@ -2466,6 +2446,7 @@ class BoltAPI:
                 if pa is not None:
                     return pa, st.pop("_bolt_prebound_kwargs")
                 return injector(request)
+
         else:
             _get_args = injector
 
@@ -2652,6 +2633,7 @@ class BoltAPI:
                                 if isinstance(result, _fast_type):
                                     return _encode(result)
                                 return _finish(result)
+
                         else:
 
                             def execute_trivial_async_sync(
@@ -2673,6 +2655,7 @@ class BoltAPI:
                                     result = _convert_serializers(result)
                                     return _encode(result)
                                 return _finish(result)
+
                     else:
                         if _skip_convert:
 
@@ -2693,6 +2676,7 @@ class BoltAPI:
                                 if isinstance(result, _fast_type):
                                     return _encode(result)
                                 return _finish(result)
+
                         else:
 
                             def execute_trivial_async_sync(
@@ -2726,6 +2710,7 @@ class BoltAPI:
                             if isinstance(result, _fast_type):
                                 return (default_status, _meta_json, _BODY_BYTES, _encode(result))
                             return await serialize_response(result, meta)
+
                     else:
 
                         async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
@@ -2736,6 +2721,7 @@ class BoltAPI:
                                 result = _convert_serializers(result)
                                 return (default_status, _meta_json, _BODY_BYTES, _encode(result))
                             return await serialize_response(result, meta)
+
                 else:
                     if _skip_convert:
 
@@ -2745,6 +2731,7 @@ class BoltAPI:
                             if isinstance(result, _fast_type):
                                 return (default_status, _meta_json, _BODY_BYTES, _encode(result))
                             return await serialize_response(result, meta)
+
                     else:
 
                         async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
@@ -2804,6 +2791,7 @@ class BoltAPI:
                                 if isinstance(result, _match_types):
                                     return _encode(result)
                                 return _finish(result)
+
                         else:
 
                             def execute_trivial_async_sync_validated(
@@ -2835,6 +2823,7 @@ class BoltAPI:
                             if isinstance(result, _match_types):
                                 return (default_status, _meta_json, _BODY_BYTES, _encode(result))
                             return await serialize_response(result, meta)
+
                     else:
 
                         async def execute_async_inline_validated(
@@ -2884,6 +2873,7 @@ class BoltAPI:
                                     return serialize_response_sync(result, meta)
                                 return _encode(validated)
                             return _finish(result)
+
                     else:
 
                         def execute_trivial_async_sync_validated(
@@ -2937,6 +2927,7 @@ class BoltAPI:
                                 return await serialize_response(result, meta)
                             return (default_status, _meta_json, _BODY_BYTES, _encode(validated))
                         return await serialize_response(result, meta)
+
                 else:
 
                     async def execute_async_inline_validated(
@@ -2967,6 +2958,7 @@ class BoltAPI:
                 async def execute_async_no_prebound(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
                     result = await handler()
                     return await serialize_response(result, meta)
+
             else:
 
                 async def execute_async_no_prebound(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
@@ -3016,6 +3008,7 @@ class BoltAPI:
                             if isinstance(result, _fast_type):
                                 return _encode(result)
                             return _finish(result)
+
                     else:
 
                         def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
@@ -3026,6 +3019,7 @@ class BoltAPI:
                                 result = _convert_serializers(result)
                                 return _encode(result)
                             return _finish(result)
+
                 else:
                     if _skip_convert:
 
@@ -3035,6 +3029,7 @@ class BoltAPI:
                             if isinstance(result, _fast_type):
                                 return _encode(result)
                             return _finish(result)
+
                     else:
 
                         def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
@@ -3059,6 +3054,7 @@ class BoltAPI:
                             if isinstance(result, QuerySet):
                                 return await run_in_orm_executor(serialize_response_sync, result, meta)
                             return serialize_response_sync(result, meta)
+
                     else:
 
                         async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
@@ -3071,6 +3067,7 @@ class BoltAPI:
                             if isinstance(result, QuerySet):
                                 return await run_in_orm_executor(serialize_response_sync, result, meta)
                             return serialize_response_sync(result, meta)
+
                 else:
                     if _skip_convert:
 
@@ -3082,6 +3079,7 @@ class BoltAPI:
                             if isinstance(result, QuerySet):
                                 return await run_in_orm_executor(serialize_response_sync, result, meta)
                             return serialize_response_sync(result, meta)
+
                     else:
 
                         async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
@@ -3121,6 +3119,7 @@ class BoltAPI:
                             if isinstance(result, _match_types):
                                 return _encode(result)
                             return _finish(result)
+
                     else:
 
                         def execute_sync_inline_validated_plain(
@@ -3145,6 +3144,7 @@ class BoltAPI:
                             if isinstance(result, QuerySet):
                                 return await run_in_orm_executor(serialize_response_sync, result, meta)
                             return serialize_response_sync(result, meta)
+
                     else:
 
                         async def execute_sync_inline_validated(
@@ -3184,6 +3184,7 @@ class BoltAPI:
                                 return serialize_response_sync(result, meta)
                             return _encode(validated)
                         return _finish(result)
+
                 else:
 
                     def execute_sync_inline_validated_plain(
@@ -3232,6 +3233,7 @@ class BoltAPI:
                         if isinstance(result, QuerySet):
                             return await run_in_orm_executor(serialize_response_sync, result, meta)
                         return serialize_response_sync(result, meta)
+
                 else:
 
                     async def execute_sync_inline_validated(
@@ -3498,11 +3500,7 @@ class BoltAPI:
         )
 
     def _wrap_middleware_spec(
-        self,
-        middleware_spec: Any,
-        get_response: Callable[[Any], Any],
-        *,
-        clone_wrapper: bool = False,
+        self, middleware_spec: Any, get_response: Callable[[Any], Any], *, clone_wrapper: bool = False
     ) -> Callable[[Any], Any]:
         """Wrap a get_response callable with a normalized middleware spec."""
         if isinstance(middleware_spec, FunctionMiddlewareSpec):
@@ -3580,20 +3578,13 @@ class BoltAPI:
         return chain
 
     async def _execute_handler_as_middleware_response(
-        self,
-        handler: Callable,
-        request: dict[str, Any],
-        meta: dict[str, Any],
+        self, handler: Callable, request: dict[str, Any], meta: dict[str, Any]
     ) -> MiddlewareResponse:
         """Execute handler using middleware semantics and return MiddlewareResponse."""
         response_tuple = await meta["_handler_executor"](handler, request)
         return MiddlewareResponse.from_tuple(response_tuple)
 
-    def _build_route_executor(
-        self,
-        handler: Callable,
-        meta: dict[str, Any],
-    ) -> Callable[[Any], Any]:
+    def _build_route_executor(self, handler: Callable, meta: dict[str, Any]) -> Callable[[Any], Any]:
         """Build the route executor of one route (router+route middleware + handler)."""
         # Registration normalized both lists.
         route_specs = [*meta["_router_middleware"], *meta["_route_middleware"]]
@@ -3636,11 +3627,7 @@ class BoltAPI:
 
         return chain
 
-    def _get_route_executor(
-        self,
-        handler: Callable,
-        meta: dict[str, Any],
-    ) -> Callable[[Any], Any]:
+    def _get_route_executor(self, handler: Callable, meta: dict[str, Any]) -> Callable[[Any], Any]:
         """Get or lazily build the cached route executor of a route.
 
         The key is the metadata of the route, not the handler. The route keeps
@@ -3692,11 +3679,7 @@ class BoltAPI:
         )
 
     async def _dispatch_with_middleware(
-        self,
-        handler: Callable,
-        request: dict[str, Any],
-        api: BoltAPI,
-        meta: dict[str, Any],
+        self, handler: Callable, request: dict[str, Any], api: BoltAPI, meta: dict[str, Any]
     ) -> Response:
         """
         Execute global middleware + per-handler route executor.
@@ -3736,9 +3719,7 @@ class BoltAPI:
         return await serialize_response(middleware_response, meta)
 
     async def _check_revocation(
-        self,
-        auth_context: dict[str, Any],
-        revocation_handlers: tuple[tuple[Callable, bool] | None, ...],
+        self, auth_context: dict[str, Any], revocation_handlers: tuple[tuple[Callable, bool] | None, ...]
     ) -> None:
         """Reject the request if the authenticated token is revoked."""
         entry = revocation_handlers[auth_context["auth_backend_index"]]
@@ -3756,10 +3737,7 @@ class BoltAPI:
             # Rejecting is safer than silently honoring. Rust already rejects
             # such a token when its backend has revocation, so no test reaches this.
             # pragma: no mutate start
-            raise HTTPException(
-                status_code=401,
-                detail="Token missing 'jti' claim required for revocation",
-            )
+            raise HTTPException(status_code=401, detail="Token missing 'jti' claim required for revocation")
             # pragma: no mutate end
         revoked = await handler(jti, claims) if takes_claims else await handler(jti)
         if revoked:
@@ -3767,9 +3745,7 @@ class BoltAPI:
             raise HTTPException(status_code=401, detail="Token has been revoked")
 
     async def _websocket_token_revoked(
-        self,
-        revocation_handlers: tuple[tuple[Callable, bool] | None, ...],
-        auth_context: dict[str, Any],
+        self, revocation_handlers: tuple[tuple[Callable, bool] | None, ...], auth_context: dict[str, Any]
     ) -> bool:
         """Whether the token of a WebSocket handshake is revoked.
 

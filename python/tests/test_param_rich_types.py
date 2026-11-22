@@ -1185,12 +1185,7 @@ def test_a_constraint_on_an_optional_type_applies_to_its_value(optional_constrai
 
 @pytest.mark.parametrize(
     ("url", "headers"),
-    [
-        ("/marker?page=0", {}),
-        ("/default?page=0", {}),
-        ("/header", {"X-Limit": "11"}),
-        ("/tags?tag=1&tag=2&tag=3", {}),
-    ],
+    [("/marker?page=0", {}), ("/default?page=0", {}), ("/header", {"X-Limit": "11"}), ("/tags?tag=1&tag=2&tag=3", {})],
 )
 def test_a_value_outside_the_constraint_of_an_optional_type_is_a_422(optional_constraint_client, url, headers):
     response = optional_constraint_client.get(url, headers=headers)

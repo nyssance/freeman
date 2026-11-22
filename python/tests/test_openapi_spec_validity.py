@@ -265,9 +265,7 @@ class _TagList(list):
 
 @pytest.mark.parametrize("marker", [Path, Header, Cookie])
 @pytest.mark.parametrize(
-    "default",
-    [["a", "b"], ("a", "b"), {"a", "b"}, _TagList(["a", "b"])],
-    ids=["list", "tuple", "set", "list-subclass"],
+    "default", [["a", "b"], ("a", "b"), {"a", "b"}, _TagList(["a", "b"])], ids=["list", "tuple", "set", "list-subclass"]
 )
 def test_one_value_list_parameter_refuses_a_default_of_two_items(marker, default) -> None:
     """A path, header or cookie list gets at most one item, so a default of two items fails at registration (#871)."""
@@ -299,10 +297,7 @@ def test_one_value_pair_parameter_names_its_type_before_its_default(marker) -> N
 @pytest.mark.parametrize("marker", [Header, Cookie])
 @pytest.mark.parametrize(
     "annotation",
-    [
-        Annotated[list[str], msgspec.Meta(min_length=0)],
-        Annotated[list[str], msgspec.Meta(min_length=0)] | None,
-    ],
+    [Annotated[list[str], msgspec.Meta(min_length=0)], Annotated[list[str], msgspec.Meta(min_length=0)] | None],
     ids=["constrained", "optional-constrained"],
 )
 def test_constrained_one_value_list_refuses_a_default_of_two_items(marker, annotation) -> None:

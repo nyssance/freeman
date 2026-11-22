@@ -16,23 +16,14 @@ import pytest
 from django.contrib.auth.models import User
 
 from freeman import BoltAPI, CurrentUser
-from freeman.auth import (
-    APIKeyAuthentication,
-    IsAuthenticated,
-    JWTAuthentication,
-)
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
 from freeman.exceptions import HTTPException
 from freeman.testing import TestClient
 
 
 def create_jwt_token(user_id="testuser", **kwargs):
     """Helper to create JWT tokens with user_id in sub claim."""
-    payload = {
-        "sub": user_id,
-        "exp": int(time.time()) + 3600,
-        "iat": int(time.time()),
-        **kwargs,
-    }
+    payload = {"sub": user_id, "exp": int(time.time()) + 3600, "iat": int(time.time()), **kwargs}
     return jwt.encode(payload, "test-secret", algorithm="HS256")
 
 
@@ -48,11 +39,7 @@ def jwt_api():
         # If user didn't load from database, return 401 like unauthenticated request
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
-        return {
-            "user_loaded": True,
-            "user_id": user.id,
-            "username": user.username,
-        }
+        return {"user_loaded": True, "user_id": user.id, "username": user.username}
 
     @api.get("/profile")
     async def get_profile(request):
@@ -68,19 +55,12 @@ def api_key_api():
     """Create API with API key authentication."""
     api = BoltAPI()
 
-    @api.get(
-        "/api/data",
-        auth=[APIKeyAuthentication(api_keys={"valid-key-123"})],
-        guards=[IsAuthenticated()],
-    )
+    @api.get("/api/data", auth=[APIKeyAuthentication(api_keys={"valid-key-123"})], guards=[IsAuthenticated()])
     async def get_api_data(request):
         """API endpoint that requires API key."""
         user = request.user
         # APIKeyAuthentication doesn't provide user mapping by default
-        return {
-            "data": "sensitive",
-            "user_loaded": bool(user),
-        }
+        return {"data": "sensitive", "user_loaded": bool(user)}
 
     return api
 
@@ -103,17 +83,11 @@ def custom_auth_api():
 
     api = BoltAPI()
 
-    @api.get(
-        "/admin/data",
-        auth=[CustomAPIKeyAuth(api_keys={"admin-key"})],
-        guards=[IsAuthenticated()],
-    )
+    @api.get("/admin/data", auth=[CustomAPIKeyAuth(api_keys={"admin-key"})], guards=[IsAuthenticated()])
     async def get_admin_data(request):
         """Admin endpoint with custom user mapping."""
         # Guard ensures user loaded, so safe to access
-        return {
-            "message": "admin access granted",
-        }
+        return {"message": "admin access granted"}
 
     return api
 
@@ -133,11 +107,7 @@ class TestJWTUserLoading:
         async def get_async_me(request):
             user = await request.auser()
             again = await request.auser()
-            return {
-                "username": user.username,
-                "user_id": user.pk,
-                "same_user": user == request.user and again is user,
-            }
+            return {"username": user.username, "user_id": user.pk, "same_user": user == request.user and again is user}
 
         user = User.objects.create(username="async_jwt_user")
         token = create_jwt_token(user_id=str(user.pk))
@@ -286,6 +256,7 @@ class TestJWTUserLoading:
             @api.get("/me", auth=backends)
             async def me(request):
                 return {"user": request.user.username, "auser": (await request.auser()).username}
+
         else:
 
             @api.get("/me", auth=backends)
@@ -417,14 +388,7 @@ class TestJWTUserLoading:
         """Test that invalid token is rejected."""
         with TestClient(jwt_api) as client:
             # Invalid token (wrong secret)
-            token = jwt.encode(
-                {
-                    "sub": "999",
-                    "exp": int(time.time()) + 3600,
-                },
-                "wrong-secret",
-                algorithm="HS256",
-            )
+            token = jwt.encode({"sub": "999", "exp": int(time.time()) + 3600}, "wrong-secret", algorithm="HS256")
             response = client.get("/me", headers={"Authorization": f"Bearer {token}"})
             assert response.status_code == 401
 
@@ -522,17 +486,11 @@ class TestRequestUserSyncHandlers:
 
         api = BoltAPI()
 
-        @api.get(
-            "/sync-me",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/sync-me", auth=[JWTAuthentication(secret="test-secret")], guards=[IsAuthenticated()])
         def sync_get_me(request):
             """Synchronous handler."""
             user = request.user
-            return {
-                "user_loaded": user is not None,
-            }
+            return {"user_loaded": user is not None}
 
         with TestClient(api) as client:
             token = create_jwt_token(user_id=str(user.id))
@@ -545,11 +503,7 @@ class TestRequestUserSyncHandlers:
         """Test that sync handler rejects unauthenticated requests."""
         api = BoltAPI()
 
-        @api.get(
-            "/sync-protected",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/sync-protected", auth=[JWTAuthentication(secret="test-secret")], guards=[IsAuthenticated()])
         def sync_protected(request):
             return {"data": "protected"}
 
@@ -579,18 +533,11 @@ class TestSyncHandlerWithCustomBackend:
 
         api = BoltAPI()
 
-        @api.get(
-            "/sync-custom",
-            auth=[CustomSyncKeyAuth(api_keys={"test-key"})],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/sync-custom", auth=[CustomSyncKeyAuth(api_keys={"test-key"})], guards=[IsAuthenticated()])
         def sync_custom_handler(request):
             """Sync handler with custom backend."""
             user = request.user
-            return {
-                "user_loaded": user is not None,
-                "username": user.username if user else None,
-            }
+            return {"user_loaded": user is not None, "username": user.username if user else None}
 
         # Create test user
         User.objects.create(username="testuser")
@@ -621,23 +568,14 @@ class TestSyncHandlerWithCustomBackend:
 
         api = BoltAPI()
 
-        @api.get(
-            "/async-custom",
-            auth=[CustomAsyncKeyAuth(api_keys={"async-key"})],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/async-custom", auth=[CustomAsyncKeyAuth(api_keys={"async-key"})], guards=[IsAuthenticated()])
         async def async_custom_handler(request):
             """Async handler with custom backend."""
             user = await request.auser()
-            return {
-                "user_loaded": user is not None,
-                "username": user.username if user else None,
-            }
+            return {"user_loaded": user is not None, "username": user.username if user else None}
 
         @api.get(
-            "/async-custom-sync-read",
-            auth=[CustomAsyncKeyAuth(api_keys={"async-key"})],
-            guards=[IsAuthenticated()],
+            "/async-custom-sync-read", auth=[CustomAsyncKeyAuth(api_keys={"async-key"})], guards=[IsAuthenticated()]
         )
         async def async_custom_sync_read(request):
             """A sync read cannot run the async get_user, so it raises and names the fix."""
@@ -671,11 +609,7 @@ class TestRequestUserGuardBehavior:
 
         handler_called = {"called": False}
 
-        @api.get(
-            "/guarded",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/guarded", auth=[JWTAuthentication(secret="test-secret")], guards=[IsAuthenticated()])
         async def guarded_handler(request):
             handler_called["called"] = True
             return {"status": "ok"}
@@ -697,11 +631,7 @@ class TestRequestUserGuardBehavior:
 
         handler_called = {"called": False}
 
-        @api.get(
-            "/allowed",
-            auth=[JWTAuthentication(secret="test-secret")],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/allowed", auth=[JWTAuthentication(secret="test-secret")], guards=[IsAuthenticated()])
         async def allowed_handler(request):
             handler_called["called"] = True
             user = request.user

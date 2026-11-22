@@ -106,12 +106,7 @@ class OpenAPIRouteRegistrar:
 
         for path, handler in self._handlers.items():
             self.api._route_decorator(
-                "GET",
-                path,
-                guards=guards,
-                auth=auth,
-                _skip_prefix=True,
-                _router_middleware=self._middleware,
+                "GET", path, guards=guards, auth=auth, _skip_prefix=True, _router_middleware=self._middleware
             )(handler)
 
         self.api._openapi_routes_registered = True

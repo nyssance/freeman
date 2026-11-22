@@ -99,10 +99,7 @@ class SSELoadTest:
         try:
             mem_info = self.process.memory_info()
             # Use interval=0 to get instantaneous CPU usage (non-blocking)
-            return {
-                "memory_mb": mem_info.rss / 1024 / 1024,
-                "cpu_percent": self.process.cpu_percent(interval=0),
-            }
+            return {"memory_mb": mem_info.rss / 1024 / 1024, "cpu_percent": self.process.cpu_percent(interval=0)}
         except Exception:
             return {"memory_mb": 0, "cpu_percent": 0}
 

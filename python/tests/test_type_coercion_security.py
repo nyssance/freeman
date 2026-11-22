@@ -116,11 +116,7 @@ def api():
 
     # Route for testing multiple params
     @api.get("/multi")
-    async def multi_params(
-        a: str = Query(),
-        b: str = Query(),
-        c: str = Query(),
-    ):
+    async def multi_params(a: str = Query(), b: str = Query(), c: str = Query()):
         return {"a": a, "b": b, "c": c}
 
     return api
@@ -1105,14 +1101,7 @@ class TestValidationErrorBodyIsJson:
 
     @pytest.mark.parametrize(
         ("raw", "decoded"),
-        [
-            ("%0A", "\n"),
-            ("%09", "\t"),
-            ("%0D", "\r"),
-            ("%00", "\x00"),
-            ("%1F", "\x1f"),
-            ("%22%5C", '"\\'),
-        ],
+        [("%0A", "\n"), ("%09", "\t"), ("%0D", "\r"), ("%00", "\x00"), ("%1F", "\x1f"), ("%22%5C", '"\\')],
     )
     def test_query_int_error_with_special_char(self, client, raw, decoded):
         response = client.get(f"/query/int?value={raw}")

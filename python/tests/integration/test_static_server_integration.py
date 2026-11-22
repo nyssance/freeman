@@ -49,9 +49,7 @@ def test_static_files_include_csp_header(make_server_project):
             "script-src": ["'self'"],
         }
         """,
-        extra_files={
-            "staticassets/test.css": "body { color: blue; }\n",
-        },
+        extra_files={"staticassets/test.css": "body { color: blue; }\n"},
     )
 
     with project.start() as server:
@@ -74,9 +72,7 @@ def test_static_cache_control_header_from_max_age_setting(make_server_project):
         STATICFILES_DIRS = [str(BASE_DIR / "staticassets")]
         BOLT_STATIC_MAX_AGE = 31536000
         """,
-        extra_files={
-            "staticassets/app.js": "console.log(1);\n",
-        },
+        extra_files={"staticassets/app.js": "console.log(1);\n"},
     )
 
     with project.start() as server:
@@ -103,9 +99,7 @@ def test_static_dirs_as_path_objects_are_served(make_server_project):
         STATIC_URL = "/static/"
         STATICFILES_DIRS = [BASE_DIR / "staticassets"]
         """,
-        extra_files={
-            "staticassets/app.css": "body { color: green; }\n",
-        },
+        extra_files={"staticassets/app.css": "body { color: green; }\n"},
     )
 
     with project.start() as server:
@@ -127,9 +121,7 @@ def test_static_supports_head_requests(make_server_project):
         STATIC_URL = "/static/"
         STATICFILES_DIRS = [str(BASE_DIR / "staticassets")]
         """,
-        extra_files={
-            "staticassets/test.css": "body { color: blue; }\n",
-        },
+        extra_files={"staticassets/test.css": "body { color: blue; }\n"},
     )
 
     with project.start() as server:
@@ -167,10 +159,7 @@ def test_static_response_includes_nosniff(make_server_project):
     )
 
 
-@pytest.mark.parametrize(
-    "dotfile_path",
-    [".env", ".git/config", ".htaccess", "css/.hidden"],
-)
+@pytest.mark.parametrize("dotfile_path", [".env", ".git/config", ".htaccess", "css/.hidden"])
 def test_static_dotfile_paths_return_404(make_server_project, dotfile_path):
     """Dotfile paths under STATIC_ROOT/STATICFILES_DIRS must not be served.
 

@@ -73,22 +73,14 @@ DETAIL_SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "type": {
-                        "type": "string",
-                        "description": "Error type",
-                        "example": "validation_error",
-                    },
+                    "type": {"type": "string", "description": "Error type", "example": "validation_error"},
                     "loc": {
                         "type": "array",
                         "description": "Location of the error (field path)",
                         "items": {"oneOf": [{"type": "string"}, {"type": "integer"}]},
                         "example": ["body", "is_active"],
                     },
-                    "msg": {
-                        "type": "string",
-                        "description": "Error message",
-                        "example": "Expected `bool`, got `int`",
-                    },
+                    "msg": {"type": "string", "description": "Error message", "example": "Expected `bool`, got `int`"},
                     "input": {"description": "The input value that caused the error (optional)"},
                 },
                 "required": ["type", "loc", "msg"],
@@ -116,8 +108,7 @@ PROBLEM_REF = {"$ref": "#/components/schemas/ProblemDetails"}
 
 def _api(formatter=None, *, strict: bool = False) -> BoltAPI:
     api = BoltAPI(
-        error_formatter=formatter,
-        openapi_config=OpenAPIConfig(title="Errors", version="1.0.0", strict=strict),
+        error_formatter=formatter, openapi_config=OpenAPIConfig(title="Errors", version="1.0.0", strict=strict)
     )
 
     @api.post("/items", response_model={200: Item, 409: Conflict})
@@ -184,10 +175,7 @@ def test_problem_details_documents_the_422_that_the_client_gets():
 
 
 def _parameter_api(formatter=None) -> BoltAPI:
-    api = BoltAPI(
-        error_formatter=formatter,
-        openapi_config=OpenAPIConfig(title="Errors", version="1.0.0", strict=True),
-    )
+    api = BoltAPI(error_formatter=formatter, openapi_config=OpenAPIConfig(title="Errors", version="1.0.0", strict=True))
 
     @api.get("/ping")
     async def ping() -> Item:
@@ -431,7 +419,7 @@ def test_error_schema_media_type_is_json_by_default():
 def test_formatter_without_error_schema_documents_no_422_body():
     """Bolt cannot know the body of the formatter, so it does not guess one."""
     assert _responses(_spec(_api(plain_error)))["422"] == {
-        "description": "Validation Error - Request data failed validation",
+        "description": "Validation Error - Request data failed validation"
     }
 
 

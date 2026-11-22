@@ -4,12 +4,7 @@ from django.db import models
 
 
 class Mission(models.Model):
-    STATUS_CHOICES = [
-        ("planned", "Planned"),
-        ("active", "Active"),
-        ("completed", "Completed"),
-        ("aborted", "Aborted"),
-    ]
+    STATUS_CHOICES = [("planned", "Planned"), ("active", "Active"), ("completed", "Completed"), ("aborted", "Aborted")]
 
     name = models.CharField(max_length=100)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planned")

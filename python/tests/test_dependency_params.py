@@ -32,13 +32,7 @@ def _values(
     theme: Annotated[str, Cookie()] = "light",
     page: Annotated[int, Query()] = 1,
 ) -> dict:
-    return {
-        "session": x_session_token,
-        "token": token,
-        "version": x_api_version,
-        "theme": theme,
-        "page": page,
-    }
+    return {"session": x_session_token, "token": token, "version": x_api_version, "theme": theme, "page": page}
 
 
 def sync_values(
@@ -638,15 +632,13 @@ async def async_wrap_b(ticket: int = Depends(async_ticket)) -> dict:
 
 
 def sync_pair(
-    first: int = Depends(sync_ticket, use_cache=False),
-    second: int = Depends(sync_ticket, use_cache=False),
+    first: int = Depends(sync_ticket, use_cache=False), second: int = Depends(sync_ticket, use_cache=False)
 ) -> dict:
     return {"first": first, "second": second}
 
 
 async def async_pair(
-    first: int = Depends(async_ticket, use_cache=False),
-    second: int = Depends(async_ticket, use_cache=False),
+    first: int = Depends(async_ticket, use_cache=False), second: int = Depends(async_ticket, use_cache=False)
 ) -> dict:
     return {"first": first, "second": second}
 
@@ -1099,11 +1091,7 @@ def mixed_client():
     api = BoltAPI()
 
     @api.get("/mixed")
-    async def mixed(
-        values=Depends(async_values),
-        method=Depends(sync_method),
-        keyword_only=Depends(sync_keyword_only),
-    ):
+    async def mixed(values=Depends(async_values), method=Depends(sync_method), keyword_only=Depends(sync_keyword_only)):
         return {"values": values, "method": method, "keyword_only": keyword_only}
 
     @api.get("/async/nested-request/{item_id}")

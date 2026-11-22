@@ -16,13 +16,7 @@ import jwt
 import pytest
 
 from freeman import BoltAPI
-from freeman.auth import (
-    IsAuthenticated,
-    JWTAuthentication,
-    TokenRotationError,
-    create_token_pair,
-    rotate_refresh_token,
-)
+from freeman.auth import IsAuthenticated, JWTAuthentication, TokenRotationError, create_token_pair, rotate_refresh_token
 from freeman.auth import tokens as tokens_module
 from freeman.auth.revocation import InMemoryRevocation
 from freeman.testing import TestClient
@@ -112,12 +106,7 @@ class TestRotation:
         store = InMemoryRevocation()
         pair = create_token_pair("u", secret=SECRET)
 
-        rotated = await rotate_refresh_token(
-            pair.refresh_claims,
-            store=store,
-            secret=SECRET,
-            kid="replacement-key",
-        )
+        rotated = await rotate_refresh_token(pair.refresh_claims, store=store, secret=SECRET, kid="replacement-key")
 
         assert jwt.get_unverified_header(rotated.access_token)["kid"] == "replacement-key"
         assert jwt.get_unverified_header(rotated.refresh_token)["kid"] == "replacement-key"
@@ -192,12 +181,7 @@ class TestRotation:
         pair = create_token_pair("u", secret=SECRET)
         pair.refresh_claims["exp"] = now
 
-        await rotate_refresh_token(
-            pair.refresh_claims,
-            store=SpyStore(),
-            secret=SECRET,
-            leeway=90,
-        )
+        await rotate_refresh_token(pair.refresh_claims, store=SpyStore(), secret=SECRET, leeway=90)
 
         assert recorded["exp"] >= now + 90
 
@@ -375,11 +359,7 @@ class TestRotation:
         pair.refresh_claims["oat"] = oat
 
         rotated = await rotate_refresh_token(
-            pair.refresh_claims,
-            store=store,
-            secret=SECRET,
-            access_ttl=900,
-            max_session_lifetime=3600,
+            pair.refresh_claims, store=store, secret=SECRET, access_ttl=900, max_session_lifetime=3600
         )
         assert rotated.access_claims["exp"] <= oat + 3600
 
@@ -391,12 +371,7 @@ class TestRotation:
         pair.refresh_claims["oat"] = oat
 
         rotated = await rotate_refresh_token(
-            pair.refresh_claims,
-            store=store,
-            secret=SECRET,
-            access_ttl=900,
-            max_session_lifetime=3600,
-            rotate=False,
+            pair.refresh_claims, store=store, secret=SECRET, access_ttl=900, max_session_lifetime=3600, rotate=False
         )
         assert rotated.access_claims["exp"] <= oat + 3600
 
@@ -406,11 +381,7 @@ class TestRotation:
         pair = create_token_pair("u", secret=SECRET)
 
         rotated = await rotate_refresh_token(
-            pair.refresh_claims,
-            store=store,
-            secret=SECRET,
-            access_ttl=900,
-            max_session_lifetime=3600,
+            pair.refresh_claims, store=store, secret=SECRET, access_ttl=900, max_session_lifetime=3600
         )
         # Fresh session: the full access TTL (within clock-tick tolerance).
         assert rotated.access_claims["exp"] - rotated.access_claims["iat"] >= 899
@@ -519,12 +490,7 @@ class TestRotationDetails:
         pair = create_token_pair("u", secret=SECRET, method="pwd", oat=oat, claims={"stale": "old"})
 
         rotated = await rotate_refresh_token(
-            pair.refresh_claims,
-            store=store,
-            secret=SECRET,
-            algorithm="HS512",
-            kid="key-2",
-            claims={"role": "editor"},
+            pair.refresh_claims, store=store, secret=SECRET, algorithm="HS512", kid="key-2", claims={"role": "editor"}
         )
 
         assert rotated.refresh_claims["fam"] == pair.refresh_claims["fam"]
@@ -637,10 +603,7 @@ class TestRotationDetails:
 
     @pytest.mark.parametrize(
         ("kwargs", "message"),
-        [
-            ({"leeway": -1}, "leeway must be >= 0"),
-            ({"max_session_lifetime": -1}, "max_session_lifetime must be >= 0"),
-        ],
+        [({"leeway": -1}, "leeway must be >= 0"), ({"max_session_lifetime": -1}, "max_session_lifetime must be >= 0")],
         ids=["leeway", "max_session_lifetime"],
     )
     @pytest.mark.asyncio
@@ -660,11 +623,7 @@ class TestRotationDetails:
         pair = create_token_pair("u", secret=SECRET)
         pair.refresh_claims["oat"] = frozen_now - age
         call = rotate_refresh_token(
-            pair.refresh_claims,
-            store=InMemoryRevocation(),
-            secret=SECRET,
-            access_ttl=900,
-            max_session_lifetime=100,
+            pair.refresh_claims, store=InMemoryRevocation(), secret=SECRET, access_ttl=900, max_session_lifetime=100
         )
 
         if not allowed:
@@ -884,11 +843,7 @@ class TestAccessTokenWithRevocationStore:
         store = InMemoryRevocation()
         api = BoltAPI()
 
-        @api.get(
-            "/me",
-            auth=[JWTAuthentication(secret=SECRET, revocation_store=store)],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/me", auth=[JWTAuthentication(secret=SECRET, revocation_store=store)], guards=[IsAuthenticated()])
         async def me(request):
             return {"sub": request["context"]["auth_claims"]["sub"]}
 
@@ -902,11 +857,7 @@ class TestAccessTokenWithRevocationStore:
         store = InMemoryRevocation()
         api = BoltAPI()
 
-        @api.get(
-            "/me",
-            auth=[JWTAuthentication(secret=SECRET, revocation_store=store)],
-            guards=[IsAuthenticated()],
-        )
+        @api.get("/me", auth=[JWTAuthentication(secret=SECRET, revocation_store=store)], guards=[IsAuthenticated()])
         async def me(request):
             return {"ok": True}
 
@@ -939,11 +890,7 @@ class TestRefreshEndpointTypEnforcement:
         async def api_route(request: dict):
             return {"user_id": request["context"]["user_id"]}
 
-        @api.post(
-            "/refresh",
-            auth=[JWTAuthentication(secret=SECRET, token_type="refresh")],
-            guards=[IsAuthenticated()],
-        )
+        @api.post("/refresh", auth=[JWTAuthentication(secret=SECRET, token_type="refresh")], guards=[IsAuthenticated()])
         async def refresh_route(request: dict):
             claims = request["context"]["auth_claims"]
             return {"typ": claims["typ"], "amr": claims.get("amr")}

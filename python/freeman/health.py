@@ -37,34 +37,22 @@ class HealthCheck:
 
     async def _run(self) -> tuple[bool, dict[str, Any]]:
         # Give the aggregate result as a bool too, so a caller does not compare strings.
-        results_list = await asyncio.gather(
-            *(check() for check in self._checks),
-            return_exceptions=True,
-        )
+        results_list = await asyncio.gather(*(check() for check in self._checks), return_exceptions=True)
 
         results = {}
         all_healthy = True
 
         for check, result in zip(self._checks, results_list, strict=True):
             if isinstance(result, Exception):
-                results[check.__name__] = {
-                    "healthy": False,
-                    "message": f"Check failed: {result!s}",
-                }
+                results[check.__name__] = {"healthy": False, "message": f"Check failed: {result!s}"}
                 all_healthy = False
             else:
                 is_healthy, message = result
-                results[check.__name__] = {
-                    "healthy": is_healthy,
-                    "message": message,
-                }
+                results[check.__name__] = {"healthy": is_healthy, "message": message}
                 if not is_healthy:
                     all_healthy = False
 
-        return all_healthy, {
-            "status": "healthy" if all_healthy else "unhealthy",
-            "checks": results,
-        }
+        return all_healthy, {"status": "healthy" if all_healthy else "unhealthy", "checks": results}
 
 
 def _ensure_connection() -> None:

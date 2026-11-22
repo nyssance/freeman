@@ -213,11 +213,7 @@ def test_rust_gets_the_exact_binding_plan():
     api = BoltAPI()
 
     @api.get("/items/{item_id}")
-    async def item(
-        item_id: int,
-        x_token: Annotated[str, Header()],
-        q: str | None = None,
-    ):
+    async def item(item_id: int, x_token: Annotated[str, Header()], q: str | None = None):
         return {}
 
     assert api._handler_middleware[0]["rust_arg_bindings"] == [
@@ -354,8 +350,7 @@ def test_the_largest_max_size_is_the_read_limit_when_each_file_has_one():
 
     @api.post("/upload")
     async def upload(
-        small: Annotated[UploadFile, File(max_size=100)],
-        large: Annotated[UploadFile, File(max_size=300)],
+        small: Annotated[UploadFile, File(max_size=100)], large: Annotated[UploadFile, File(max_size=300)]
     ):
         return {}
 
@@ -367,10 +362,7 @@ def test_a_form_field_that_is_not_a_struct_keeps_the_max_size_read_limit():
     api = BoltAPI()
 
     @api.post("/upload")
-    async def upload(
-        file: Annotated[UploadFile, File(max_size=100)],
-        name: Annotated[str, Form()],
-    ):
+    async def upload(file: Annotated[UploadFile, File(max_size=100)], name: Annotated[str, Form()]):
         return {}
 
     assert api._handler_middleware[0]["max_upload_size"] == 100

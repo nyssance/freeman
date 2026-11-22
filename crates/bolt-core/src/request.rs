@@ -10,11 +10,7 @@ use std::sync::OnceLock;
 /// Returns (hostname, port_string) - port defaults to "443" for HTTPS, else "80"
 #[inline]
 fn parse_host_port<'a>(host: &'a str, scheme: &str) -> (&'a str, u16) {
-    let default_port = if scheme.eq_ignore_ascii_case("https") {
-        443
-    } else {
-        80
-    };
+    let default_port = if scheme.eq_ignore_ascii_case("https") { 443 } else { 80 };
 
     // IPv6 with brackets: [::1]:8080 or [::1]
     if let Some(bracket_end) = host.find(']') {
@@ -94,11 +90,7 @@ impl PyRequest {
     /// resolved scheme is "http", because Bolt does not end TLS.
     #[inline]
     fn resolved_scheme(&self) -> &'static str {
-        if self.conn_scheme.is_empty() {
-            "http"
-        } else {
-            self.conn_scheme
-        }
+        if self.conn_scheme.is_empty() { "http" } else { self.conn_scheme }
     }
 
     #[inline]
@@ -349,10 +341,8 @@ impl PyRequest {
         meta.set_item("wsgi.url_scheme", self.resolved_scheme())?;
 
         // REMOTE_ADDR comes from `middleware::client_ip::resolve`.
-        let remote_addr = self
-            .conn_remote_addr
-            .map(|address| address.to_string())
-            .unwrap_or_else(|| "127.0.0.1".to_string());
+        let remote_addr =
+            self.conn_remote_addr.map(|address| address.to_string()).unwrap_or_else(|| "127.0.0.1".to_string());
         meta.set_item("REMOTE_ADDR", &remote_addr)?;
         meta.set_item("REMOTE_HOST", &remote_addr)?;
 
@@ -443,11 +433,7 @@ impl PyRequest {
     /// This matches Django's HttpRequest.get_full_path() method.
     /// The query stays encoded, as the client sent it.
     fn get_full_path(&self) -> String {
-        if self.query_string.is_empty() {
-            self.path.clone()
-        } else {
-            format!("{}?{}", self.path, self.query_string)
-        }
+        if self.query_string.is_empty() { self.path.clone() } else { format!("{}?{}", self.path, self.query_string) }
     }
 
     /// Build absolute URI (Django-compatible).
@@ -466,13 +452,7 @@ impl PyRequest {
         let scheme = self.resolved_scheme();
         py.import("freeman._absolute_uri")?
             .getattr("build_absolute_uri")?
-            .call1((
-                self.META(py)?,
-                &self.path,
-                self.get_full_path(),
-                scheme,
-                location,
-            ))?
+            .call1((self.META(py)?, &self.path, self.get_full_path(), scheme, location))?
             .extract()
     }
 
@@ -538,12 +518,7 @@ impl PyRequest {
     }
 
     #[pyo3(signature = (key, /, default=None))]
-    fn setdefault<'py>(
-        &self,
-        py: Python<'py>,
-        key: &str,
-        default: Option<Py<PyAny>>,
-    ) -> PyResult<Py<PyAny>> {
+    fn setdefault<'py>(&self, py: Python<'py>, key: &str, default: Option<Py<PyAny>>) -> PyResult<Py<PyAny>> {
         if key == "state" {
             return Ok(self.get_or_init_state(py).into_any());
         }

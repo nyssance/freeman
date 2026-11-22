@@ -42,18 +42,9 @@ impl WebSocketRouter {
     }
 
     pub fn register(
-        &mut self,
-        path: &str,
-        handler_id: usize,
-        handler: Py<PyAny>,
-        injector: Option<Py<PyAny>>,
+        &mut self, path: &str, handler_id: usize, handler: Py<PyAny>, injector: Option<Py<PyAny>>,
     ) -> PyResult<()> {
-        let route = WebSocketRoute {
-            path: path.to_string(),
-            handler_id,
-            handler,
-            injector,
-        };
+        let route = WebSocketRoute { path: path.to_string(), handler_id, handler, injector };
 
         // Actix matches the decoded request path, so it gets the path as it
         // was written.
@@ -68,10 +59,7 @@ impl WebSocketRouter {
         } else {
             let converted = bolt_core::router::convert_path(path);
             self.dynamic_router.insert(&converted, route).map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!(
-                    "Failed to register WebSocket route: {}",
-                    e
-                ))
+                pyo3::exceptions::PyValueError::new_err(format!("Failed to register WebSocket route: {}", e))
             })?;
             self.has_dynamic_routes = true;
         }
@@ -144,22 +132,12 @@ mod tests {
                 (route.handler_id, route.path.clone(), params)
             })
         };
-        assert_eq!(
-            found("/ws/%C3%BC%20b"),
-            Some((0, "/ws/\u{fc} b".to_string(), vec![]))
-        );
+        assert_eq!(found("/ws/%C3%BC%20b"), Some((0, "/ws/\u{fc} b".to_string(), vec![])));
         assert_eq!(
             found("/ws/%C3%BC%20b/x%20y"),
-            Some((
-                1,
-                "/ws/\u{fc} b/{room}".to_string(),
-                vec![("room".to_string(), "x y".to_string())]
-            ))
+            Some((1, "/ws/\u{fc} b/{room}".to_string(), vec![("room".to_string(), "x y".to_string())]))
         );
-        assert_eq!(
-            found("/ws/plain"),
-            Some((2, "/ws/plain".to_string(), vec![]))
-        );
+        assert_eq!(found("/ws/plain"), Some((2, "/ws/plain".to_string(), vec![])));
         assert_eq!(found("/ws/\u{fc} b"), None);
     }
 
@@ -168,16 +146,11 @@ mod tests {
         let router = router_with(&["/ws/\u{fc}", "/ws/a:b/{room}"]);
         let found = |path: &str| {
             let path = bolt_core::router::normalize_request_path(path);
-            router
-                .find(&path)
-                .map(|(route, params)| (route.handler_id, params.get("room").cloned()))
+            router.find(&path).map(|(route, params)| (route.handler_id, params.get("room").cloned()))
         };
         assert_eq!(found("/ws/%c3%bc"), Some((0, None)));
         assert_eq!(found("/ws/%C3%bC"), Some((0, None)));
-        assert_eq!(
-            found("/ws/%61%3ab/x%2fy"),
-            Some((1, Some("x/y".to_string())))
-        );
+        assert_eq!(found("/ws/%61%3ab/x%2fy"), Some((1, Some("x/y".to_string()))));
         // An escaped `/` is data of one segment.
         assert_eq!(found("/ws/a:b%2Fx"), None);
     }

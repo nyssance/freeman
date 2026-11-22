@@ -468,10 +468,5 @@ class EventSourceResponse(StreamingResponse):
         headers: dict[str, str] | None = None,
         ping_interval: float | None = SSE_DEFAULT_PING_INTERVAL,
     ):
-        super().__init__(
-            content,
-            status_code=status_code,
-            media_type="text/event-stream",
-            headers=headers,
-        )
+        super().__init__(content, status_code=status_code, media_type="text/event-stream", headers=headers)
         self.ping_interval = ping_interval

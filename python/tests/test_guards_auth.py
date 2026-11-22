@@ -14,13 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
 from freeman import BoltAPI
-from freeman.auth import (
-    AllowAny,
-    APIKeyAuthentication,
-    IsAuthenticated,
-    JWTAuthentication,
-    Requires,
-)
+from freeman.auth import AllowAny, APIKeyAuthentication, IsAuthenticated, JWTAuthentication, Requires
 
 
 class TestAuthenticationClasses:
@@ -411,9 +405,7 @@ class TestAuthBackendEntries:
     """An auth entry that is not a backend stops registration. Bolt does not drop it."""
 
     @pytest.mark.parametrize(
-        "entry",
-        ["freeman.auth.JWTAuthentication", JWTAuthentication, object()],
-        ids=["dotted-path", "class", "object"],
+        "entry", ["freeman.auth.JWTAuthentication", JWTAuthentication, object()], ids=["dotted-path", "class", "object"]
     )
     def test_route_auth_entry_that_is_not_a_backend_fails_loudly(self, entry):
         api = BoltAPI()

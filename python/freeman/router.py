@@ -58,16 +58,7 @@ class Router:
         Execution order: App -> Router -> Route -> Handler
     """
 
-    __slots__ = (
-        "prefix",
-        "tags",
-        "middleware",
-        "auth",
-        "guards",
-        "_routes",
-        "_parent",
-        "_children",
-    )
+    __slots__ = ("prefix", "tags", "middleware", "auth", "guards", "_routes", "_parent", "_children")
 
     def __init__(
         self,
@@ -192,11 +183,7 @@ class Router:
 
         return dec
 
-    def include_router(
-        self,
-        router: "Router",
-        prefix: str = "",
-    ) -> None:
+    def include_router(self, router: "Router", prefix: str = "") -> None:
         """
         Include another router as a child.
 

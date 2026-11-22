@@ -6,10 +6,7 @@ class Blog(models.Model):
 
     description = models.TextField()
 
-    statuses = (
-        ("published", "published"),
-        ("draft", "draft"),
-    )
+    statuses = (("published", "published"), ("draft", "draft"))
 
     status = models.CharField(choices=statuses, max_length=100, default="draft")
 

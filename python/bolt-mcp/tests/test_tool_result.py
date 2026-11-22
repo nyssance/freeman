@@ -26,9 +26,7 @@ def _server():
     def forecast(city: str) -> ToolResult:
         days = [Day("2026-10-27", 12), Day("2026-10-28", 14)]
         return ToolResult(
-            content=f"{len(days)} days of forecast for {city}.",
-            structured={"days": days},
-            meta={"ui/source": "test"},
+            content=f"{len(days)} days of forecast for {city}.", structured={"days": days}, meta={"ui/source": "test"}
         )
 
     @mcp.tool

@@ -339,11 +339,7 @@ class MCP:
         return register
 
     def prompt(
-        self,
-        name_or_fn: Callable | str | None = None,
-        *,
-        name: str | None = None,
-        description: str | None = None,
+        self, name_or_fn: Callable | str | None = None, *, name: str | None = None, description: str | None = None
     ):
         def register(fn: Callable) -> Callable:
             prompt_name = name or getattr(fn, "__name__", "prompt")

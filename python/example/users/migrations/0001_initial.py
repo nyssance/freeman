@@ -20,8 +20,6 @@ class Migration(migrations.Migration):
                 ("is_active", models.BooleanField(default=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
-            options={
-                "ordering": ["username"],
-            },
-        ),
+            options={"ordering": ["username"]},
+        )
     ]

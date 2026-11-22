@@ -79,13 +79,7 @@ def login_page(server: AuthorizationServer, params: dict[str, Any], *, error: st
     return _PAGE.format(title="Sign in", body=body)
 
 
-def consent_page(
-    server: AuthorizationServer,
-    params: dict[str, Any],
-    *,
-    client_name: str,
-    username: str,
-) -> str:
+def consent_page(server: AuthorizationServer, params: dict[str, Any], *, client_name: str, username: str) -> str:
     action = escape(server.path("authorize"))
     scopes = (params.get("scope") or "").split()
     scope_html = "".join(f'<span class="scope">{escape(s)}</span>' for s in scopes) or "<em>(no scopes)</em>"

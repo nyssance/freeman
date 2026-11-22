@@ -171,12 +171,7 @@ class BoltTestTransport(httpx.BaseTransport):
 
         if self.exceptions is not None and (error := self.exceptions.take(resp_headers)) is not None:
             raise error
-        return Response(
-            status_code=status_code,
-            headers=resp_headers,
-            content=resp_body,
-            request=request,
-        )
+        return Response(status_code=status_code, headers=resp_headers, content=resp_body, request=request)
 
 
 class AsyncBoltTestTransport(httpx.AsyncBaseTransport):
@@ -247,12 +242,7 @@ class AsyncBoltTestTransport(httpx.AsyncBaseTransport):
 
         if self.exceptions is not None and (error := self.exceptions.take(resp_headers)) is not None:
             raise error
-        return Response(
-            status_code=status_code,
-            headers=resp_headers,
-            content=resp_body,
-            request=request,
-        )
+        return Response(status_code=status_code, headers=resp_headers, content=resp_body, request=request)
 
 
 def _close_server_connections() -> None:
@@ -300,9 +290,7 @@ class TestClient(httpx.Client):
     def _validate_mcp_mount_conflicts(api: BoltAPI) -> None:
         """Validate MCP paths against routes and ASGI mounts, like production."""
         _validate_mcp_mount_conflicts(
-            _routes_and_native_routes(api),
-            getattr(api, "_asgi_mounts", []),
-            getattr(api, "_mcp_mounts", []),
+            _routes_and_native_routes(api), getattr(api, "_asgi_mounts", []), getattr(api, "_mcp_mounts", [])
         )
 
     @staticmethod

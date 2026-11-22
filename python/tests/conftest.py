@@ -146,7 +146,7 @@ def pytest_configure(config):
                             ),
                         ],
                     },
-                },
+                }
             ],
             DATABASES={
                 "default": {

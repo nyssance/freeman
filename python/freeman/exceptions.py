@@ -381,12 +381,7 @@ def parse_msgspec_decode_error(error: Exception, body_bytes: bytes) -> dict[str,
             "loc": ("body", line_num, col_num),
             "msg": msg,
             "input": body_bytes.decode("utf-8", errors="replace")[:200] if body_bytes else "",
-            "ctx": {
-                "line": line_num,
-                "column": col_num,
-                "byte_position": byte_pos,
-                "error": error_msg,
-            },
+            "ctx": {"line": line_num, "column": col_num, "byte_position": byte_pos, "error": error_msg},
         }
 
     # Fallback if we can't parse the byte position

@@ -15,12 +15,7 @@ from django.test import override_settings
 
 from freeman import WebSocket
 from freeman.api import BoltAPI as RealBoltAPI
-from freeman.nanodjango import (
-    BoltAPI,
-    convert_build_app_api,
-    convert_build_settings,
-    django_pre_setup,
-)
+from freeman.nanodjango import BoltAPI, convert_build_app_api, convert_build_settings, django_pre_setup
 
 
 @pytest.fixture(autouse=True)

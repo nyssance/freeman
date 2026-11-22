@@ -101,11 +101,7 @@ def _stream_errors(caplog) -> list[logging.LogRecord]:
 
 @pytest.mark.parametrize(
     ("path", "message"),
-    [
-        ("/sync", "boom in sync body"),
-        ("/async", "boom in async body"),
-        ("/iterator", "boom in iterator"),
-    ],
+    [("/sync", "boom in sync body"), ("/async", "boom in async body"), ("/iterator", "boom in iterator")],
 )
 def test_body_error_ends_the_body_and_is_logged(api, caplog, path, message):
     with caplog.at_level(logging.ERROR, logger=STREAM_LOGGER), TestClient(api, raise_server_exceptions=False) as client:
@@ -120,8 +116,7 @@ def test_body_error_ends_the_body_and_is_logged(api, caplog, path, message):
 
 
 @pytest.mark.parametrize(
-    ("path", "message"),
-    [("/iter-fails", "boom in __iter__"), ("/aiter-fails", "boom in __aiter__")],
+    ("path", "message"), [("/iter-fails", "boom in __iter__"), ("/aiter-fails", "boom in __aiter__")]
 )
 def test_an_error_before_the_first_chunk_gives_an_empty_body_and_is_logged(api, caplog, path, message):
     with caplog.at_level(logging.ERROR, logger=STREAM_LOGGER), TestClient(api, raise_server_exceptions=False) as client:

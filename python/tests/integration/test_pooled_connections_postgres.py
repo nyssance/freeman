@@ -70,10 +70,7 @@ def pooled(postgres_database, monkeypatch, django_db_blocker):
         "PASSWORD": postgres_database.get("password", ""),
         "HOST": postgres_database.get("host", ""),
         "PORT": postgres_database.get("port", ""),
-        "OPTIONS": {
-            "application_name": application_name,
-            "pool": {"min_size": SIZE, "max_size": SIZE, "timeout": 5},
-        },
+        "OPTIONS": {"application_name": application_name, "pool": {"min_size": SIZE, "max_size": SIZE, "timeout": 5}},
     }
     configured = connections.configure_settings({"default": connections.settings["default"], ALIAS: database})
     monkeypatch.setitem(connections.settings, ALIAS, configured[ALIAS])
@@ -109,11 +106,7 @@ def persistent(pooled, monkeypatch):
     the ``application_name`` of the connections of this database.
     """
     application_name = f"bolt-persistent-{secrets.token_hex(4)}"
-    database = {
-        **connections.settings[ALIAS],
-        "CONN_MAX_AGE": 600,
-        "OPTIONS": {"application_name": application_name},
-    }
+    database = {**connections.settings[ALIAS], "CONN_MAX_AGE": 600, "OPTIONS": {"application_name": application_name}}
     monkeypatch.setitem(connections.settings, PERSISTENT, database)
     concurrency.configure_connection_checks()
     try:

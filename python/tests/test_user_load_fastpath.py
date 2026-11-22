@@ -109,12 +109,7 @@ def test_loads_a_user_with_a_uuid_primary_key():
 
 
 def test_loads_same_user_as_orm_get():
-    user = User.objects.create(
-        username="fastpath",
-        email="fast@example.com",
-        first_name="Fast",
-        is_staff=True,
-    )
+    user = User.objects.create(username="fastpath", email="fast@example.com", first_name="Fast", is_staff=True)
     orm_user = User.objects.get(pk=user.pk)
 
     loaded = load_user_by_pk_sync(User, str(user.pk))

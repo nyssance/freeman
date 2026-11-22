@@ -36,22 +36,18 @@ async def echo_app(scope, receive, send):
     await send({"type": "websocket.accept", "subprotocol": None})
 
     headers = {name.decode(): value.decode() for name, value in scope["headers"]}
-    await send(
-        {
-            "type": "websocket.send",
-            "text": json.dumps(
-                {
-                    "scheme": scope["scheme"],
-                    "path": scope["path"],
-                    "raw_path": scope["raw_path"].decode(),
-                    "root_path": scope["root_path"],
-                    "query_string": scope["query_string"].decode(),
-                    "authorization": headers.get("authorization"),
-                    "x_name": headers.get("x-name"),
-                }
-            ),
-        }
-    )
+    await send({
+        "type": "websocket.send",
+        "text": json.dumps({
+            "scheme": scope["scheme"],
+            "path": scope["path"],
+            "raw_path": scope["raw_path"].decode(),
+            "root_path": scope["root_path"],
+            "query_string": scope["query_string"].decode(),
+            "authorization": headers.get("authorization"),
+            "x_name": headers.get("x-name"),
+        }),
+    })
 
     while True:
         message = await receive()

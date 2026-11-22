@@ -13,31 +13,14 @@ import test_data
 from django.conf import settings
 from django.contrib.auth import aauthenticate, get_user_model
 
-from freeman import (
-    BoltAPI,
-    WebSocket,
-)
+from freeman import BoltAPI, WebSocket
 from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user, get_current_user
-from freeman.exceptions import (
-    HTTPException,
-    NotFound,
-    RequestValidationError,
-    Unauthorized,
-    UnprocessableEntity,
-)
+from freeman.exceptions import HTTPException, NotFound, RequestValidationError, Unauthorized, UnprocessableEntity
 from freeman.health import add_health_check
 from freeman.middleware import no_compress
 from freeman.openapi import OpenAPIConfig
 from freeman.param_functions import Cookie, Depends, File, Form, Header
-from freeman.responses import (
-    HTML,
-    JSON,
-    EventSourceResponse,
-    FileResponse,
-    PlainText,
-    Redirect,
-    StreamingResponse,
-)
+from freeman.responses import HTML, JSON, EventSourceResponse, FileResponse, PlainText, Redirect, StreamingResponse
 from freeman.types import Request
 from freeman.views import APIView
 
@@ -69,11 +52,7 @@ api = BoltAPI(
     # Run only the debug toolbar middleware on Bolt routes, so they show up in
     # its History panel. The full settings.MIDDLEWARE would add CSRF checks.
     django_middleware=DEBUG_TOOLBAR_MIDDLEWARE,
-    openapi_config=OpenAPIConfig(
-        title="My API",
-        version="1.0.0",
-        enabled=True,
-    ),
+    openapi_config=OpenAPIConfig(title="My API", version="1.0.0", enabled=True),
 )
 
 
@@ -169,11 +148,7 @@ async def feed_item(item_id: int) -> FeedItem:
             created_at="2026-05-24T10:05:00Z",
         )
     return LikeActivity(
-        id=item_id,
-        actor="carol",
-        target_id=item_id - 2,
-        target_kind="post",
-        created_at="2026-05-24T10:10:00Z",
+        id=item_id, actor="carol", target_id=item_id - 2, target_kind="post", created_at="2026-05-24T10:10:00Z"
     )
 
 
@@ -205,11 +180,7 @@ async def feed() -> list[FeedItem]:
         else:
             out.append(
                 LikeActivity(
-                    id=i,
-                    actor=f"user{i}",
-                    target_id=i - 2,
-                    target_kind="post",
-                    created_at="2026-05-24T10:10:00Z",
+                    id=i, actor=f"user{i}", target_id=i - 2, target_kind="post", created_at="2026-05-24T10:10:00Z"
                 )
             )
     return out
@@ -247,13 +218,7 @@ async def asgi_mount_demo(scope, receive, send):
     }
     body = json.dumps(payload).encode("utf-8")
 
-    await send(
-        {
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [(b"content-type", b"application/json")],
-        }
-    )
+    await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
     await send({"type": "http.response.body", "body": body, "more_body": False})
 
 
@@ -562,15 +527,7 @@ async def cookies_valid():
         Set-Cookie: session=abc123; Path=/; Max-Age=3600; Secure; HttpOnly; SameSite=Lax
     """
     response = JSON({"message": "Cookie set successfully", "cookie_name": "session"})
-    response.set_cookie(
-        "session",
-        "abc123",
-        max_age=3600,
-        path="/",
-        secure=False,
-        httponly=True,
-        samesite="Lax",
-    )
+    response.set_cookie("session", "abc123", max_age=3600, path="/", secure=False, httponly=True, samesite="Lax")
     return response
 
 
@@ -717,31 +674,17 @@ async def error_validation(user: UserCreate):
     errors = []
 
     if len(user.username) < 3:
-        errors.append(
-            {
-                "loc": ["body", "username"],
-                "msg": "Username must be at least 3 characters",
-                "type": "value_error.min_length",
-            }
-        )
+        errors.append({
+            "loc": ["body", "username"],
+            "msg": "Username must be at least 3 characters",
+            "type": "value_error.min_length",
+        })
 
     if "@" not in user.email:
-        errors.append(
-            {
-                "loc": ["body", "email"],
-                "msg": "Invalid email format",
-                "type": "value_error.email",
-            }
-        )
+        errors.append({"loc": ["body", "email"], "msg": "Invalid email format", "type": "value_error.email"})
 
     if user.age < 0 or user.age > 150:
-        errors.append(
-            {
-                "loc": ["body", "age"],
-                "msg": "Age must be between 0 and 150",
-                "type": "value_error.range",
-            }
-        )
+        errors.append({"loc": ["body", "age"], "msg": "Age must be between 0 and 150", "type": "value_error.range"})
 
     if errors:
         raise RequestValidationError(errors, body=user)

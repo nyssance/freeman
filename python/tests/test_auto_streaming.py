@@ -179,10 +179,7 @@ def test_plain_iterator_streams_raw_under_a_bare_or_bytes_stream_annotation():
             assert response.content == b"ab", path
 
 
-@pytest.mark.parametrize(
-    "path",
-    ["/iterable", "/async-iterable", "/anext-only", "/next-only"],
-)
+@pytest.mark.parametrize("path", ["/iterable", "/async-iterable", "/anext-only", "/next-only"])
 def test_stream_protocol_object_streams_under_a_stream_annotation(path):
     api = BoltAPI()
 

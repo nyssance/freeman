@@ -46,9 +46,7 @@ pub fn convert_python_chunk(value: &Bound<'_, PyAny>) -> Option<Bytes> {
         return Some(Bytes::from_owner(backed));
     }
     let py = value.py();
-    if value
-        .hasattr(pyo3::intern!(py, "__bytes__"))
-        .unwrap_or(false)
+    if value.hasattr(pyo3::intern!(py, "__bytes__")).unwrap_or(false)
         && let Ok(buffer) = value.call_method0(pyo3::intern!(py, "__bytes__"))
         && let Ok(backed) = buffer.extract::<PyBackedBytes>()
     {
@@ -63,8 +61,7 @@ pub fn convert_python_chunk(value: &Bound<'_, PyAny>) -> Option<Bytes> {
 
 /// Logger of errors that a streaming body raises after the response started.
 const STREAM_LOGGER: &str = "freeman.streaming";
-const STREAM_ERROR_MESSAGE: &str =
-    "The body of a streaming response raised an error. The response body ends here.";
+const STREAM_ERROR_MESSAGE: &str = "The body of a streaming response raised an error. The response body ends here.";
 
 /// Log an error of a streaming body with its traceback.
 ///
@@ -72,16 +69,11 @@ const STREAM_ERROR_MESSAGE: &str =
 /// The log is the only record of the error.
 fn log_stream_error(py: Python<'_>, err: &PyErr) {
     let logged = (|| -> PyResult<()> {
-        let logger = py
-            .import(pyo3::intern!(py, "logging"))?
-            .call_method1(pyo3::intern!(py, "getLogger"), (STREAM_LOGGER,))?;
+        let logger =
+            py.import(pyo3::intern!(py, "logging"))?.call_method1(pyo3::intern!(py, "getLogger"), (STREAM_LOGGER,))?;
         let kwargs = PyDict::new(py);
         kwargs.set_item(pyo3::intern!(py, "exc_info"), err.value(py))?;
-        logger.call_method(
-            pyo3::intern!(py, "error"),
-            (STREAM_ERROR_MESSAGE,),
-            Some(&kwargs),
-        )?;
+        logger.call_method(pyo3::intern!(py, "error"), (STREAM_ERROR_MESSAGE,), Some(&kwargs))?;
         Ok(())
     })();
     if let Err(log_err) = logged {
@@ -127,10 +119,7 @@ async def forward(gen, sender):
 #[pyclass]
 struct AsyncStreamSender {
     locals: TaskLocals,
-    #[expect(
-        clippy::type_complexity,
-        reason = "the Option lets close() drop the sender, which ends the stream"
-    )]
+    #[expect(clippy::type_complexity, reason = "the Option lets close() drop the sender, which ends the stream")]
     tx: Arc<Mutex<Option<mpsc::Sender<Result<Bytes, std::io::Error>>>>>,
 }
 
@@ -153,11 +142,9 @@ impl AsyncStreamSender {
             match tx.try_send(Ok(bytes)) {
                 Ok(()) => true.into_py_any(py),
                 Err(TrySendError::Full(Ok(bytes))) => {
-                    pyo3_async_runtimes::tokio::future_into_py_with_locals(
-                        py,
-                        self.locals.clone(),
-                        async move { Ok(tx.send(Ok(bytes)).await.is_ok()) },
-                    )
+                    pyo3_async_runtimes::tokio::future_into_py_with_locals(py, self.locals.clone(), async move {
+                        Ok(tx.send(Ok(bytes)).await.is_ok())
+                    })
                     .map(Bound::unbind)
                 }
                 Err(TrySendError::Full(_) | TrySendError::Closed(_)) => false.into_py_any(py),
@@ -177,20 +164,14 @@ fn get_async_stream_forwarder(py: Python<'_>) -> PyResult<&Bound<'_, PyAny>> {
         let code = CString::new(ASYNC_STREAM_FORWARDER).expect("valid async stream forwarder");
         let file = CString::new("freeman/async_stream_forwarder.py").expect("valid filename");
         let name = CString::new("freeman_async_stream_forwarder").expect("valid module name");
-        Ok(
-            PyModule::from_code(py, code.as_c_str(), file.as_c_str(), name.as_c_str())?
-                .into_any()
-                .unbind(),
-        )
+        Ok(PyModule::from_code(py, code.as_c_str(), file.as_c_str(), name.as_c_str())?.into_any().unbind())
     })?;
 
     Ok(module.bind(py))
 }
 
 fn schedule_async_stream_forwarder(
-    py: Python<'_>,
-    content: &Py<PyAny>,
-    tx: mpsc::Sender<Result<Bytes, std::io::Error>>,
+    py: Python<'_>, content: &Py<PyAny>, tx: mpsc::Sender<Result<Bytes, std::io::Error>>,
 ) -> PyResult<()> {
     // The forwarder MUST run on this thread's WorkerLoop — the loop that
     // runs async HTTP dispatch — not on the selector/compat loop. A streaming
@@ -202,25 +183,15 @@ fn schedule_async_stream_forwarder(
     // SSE tool's future lived on uvloop, the client's reply POST ran on the
     // WorkerLoop.)
     let locals = bolt_loop::worker_task_locals(py)?;
-    let sender = Py::new(
-        py,
-        AsyncStreamSender {
-            locals: locals.clone(),
-            tx: Arc::new(Mutex::new(Some(tx))),
-        },
-    )?;
+    let sender = Py::new(py, AsyncStreamSender { locals: locals.clone(), tx: Arc::new(Mutex::new(Some(tx))) })?;
     let forwarder = get_async_stream_forwarder(py)?;
-    let coroutine =
-        forwarder.call_method1(pyo3::intern!(py, "forward"), (content.bind(py), sender))?;
+    let coroutine = forwarder.call_method1(pyo3::intern!(py, "forward"), (content.bind(py), sender))?;
     let event_loop = locals.event_loop(py);
     let kwargs = PyDict::new(py);
     kwargs.set_item(pyo3::intern!(py, "context"), locals.context(py))?;
     event_loop.call_method(
         pyo3::intern!(py, "call_soon_threadsafe"),
-        (
-            event_loop.getattr(pyo3::intern!(py, "create_task"))?,
-            coroutine,
-        ),
+        (event_loop.getattr(pyo3::intern!(py, "create_task"))?, coroutine),
         Some(&kwargs),
     )?;
     Ok(())
@@ -247,15 +218,11 @@ impl StreamConfig {
     /// 3. Default: 1000
     pub fn read(settings: &DjangoSettings<'_>) -> PyResult<Self> {
         let py = settings.py();
-        let max_sync_threads = match env_var(
-            py,
-            "DJANGO_BOLT_MAX_SYNC_STREAMING_THREADS",
-            "an int of 1 or more",
-            |n: &u64| *n >= 1,
-        )? {
-            Some(n) => n,
-            None => settings.positive_int("BOLT_MAX_SYNC_STREAMING_THREADS", 1000)?,
-        };
+        let max_sync_threads =
+            match env_var(py, "DJANGO_BOLT_MAX_SYNC_STREAMING_THREADS", "an int of 1 or more", |n: &u64| *n >= 1)? {
+                Some(n) => n,
+                None => settings.positive_int("BOLT_MAX_SYNC_STREAMING_THREADS", 1000)?,
+            };
         Ok(Self {
             sync_batch_size: env_positive_int(py, "DJANGO_BOLT_STREAM_SYNC_BATCH_SIZE", 5)?,
             channel_capacity: env_positive_int(py, "DJANGO_BOLT_STREAM_CHANNEL_CAPACITY", 32)?,
@@ -266,9 +233,7 @@ impl StreamConfig {
 
 /// Create a stream with the configured batch size
 pub fn create_python_stream(
-    content: Py<PyAny>,
-    is_async_generator: bool,
-    config: StreamConfig,
+    content: Py<PyAny>, is_async_generator: bool, config: StreamConfig,
 ) -> Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>> {
     create_python_stream_with_config(content, is_async_generator, config)
 }
@@ -277,23 +242,16 @@ pub fn create_python_stream(
 /// with optional keep-alive pings when idle and optional per-event
 /// compression (any codec from [`StreamCodec`]).
 pub fn create_sse_stream(
-    content: Py<PyAny>,
-    is_async_generator: bool,
-    ping_interval: Option<f64>,
-    codec: Option<crate::streaming_compression::StreamCodec>,
-    config: StreamConfig,
+    content: Py<PyAny>, is_async_generator: bool, ping_interval: Option<f64>,
+    codec: Option<crate::streaming_compression::StreamCodec>, config: StreamConfig,
 ) -> Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>> {
-    let sse_config = StreamConfig {
-        sync_batch_size: 1,
-        ..config
-    };
+    let sse_config = StreamConfig { sync_batch_size: 1, ..config };
     let inner = create_python_stream_with_config(content, is_async_generator, sse_config);
 
-    let with_keepalive: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>> =
-        match ping_interval {
-            Some(interval) if interval > 0.0 => Box::pin(keepalive_stream(inner, interval)),
-            _ => inner,
-        };
+    let with_keepalive: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>> = match ping_interval {
+        Some(interval) if interval > 0.0 => Box::pin(keepalive_stream(inner, interval)),
+        _ => inner,
+    };
 
     maybe_wrap_codec(with_keepalive, codec)
 }
@@ -314,38 +272,25 @@ pub fn maybe_wrap_codec(
 /// Wrap a stream with keep-alive ping injection.
 /// Emits `: ping\n\n` when the inner stream is idle for `interval_secs`.
 fn keepalive_stream(
-    inner: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
-    interval_secs: f64,
+    inner: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>, interval_secs: f64,
 ) -> impl Stream<Item = Result<Bytes, std::io::Error>> + Send {
     let duration = std::time::Duration::from_secs_f64(interval_secs);
     let keepalive_bytes: Bytes = Bytes::from_static(b": ping\n\n");
 
-    stream::unfold(
-        (inner, duration, keepalive_bytes),
-        |(mut inner, duration, keepalive_bytes)| async move {
-            match tokio::time::timeout(duration, inner.next()).await {
-                Ok(Some(item)) => Some((item, (inner, duration, keepalive_bytes))),
-                Ok(None) => None,
-                Err(_) => Some((
-                    Ok(keepalive_bytes.clone()),
-                    (inner, duration, keepalive_bytes),
-                )),
-            }
-        },
-    )
+    stream::unfold((inner, duration, keepalive_bytes), |(mut inner, duration, keepalive_bytes)| async move {
+        match tokio::time::timeout(duration, inner.next()).await {
+            Ok(Some(item)) => Some((item, (inner, duration, keepalive_bytes))),
+            Ok(None) => None,
+            Err(_) => Some((Ok(keepalive_bytes.clone()), (inner, duration, keepalive_bytes))),
+        }
+    })
 }
 
 /// Internal function with configurable batch sizes
 fn create_python_stream_with_config(
-    content: Py<PyAny>,
-    is_async_from_metadata: bool,
-    config: StreamConfig,
+    content: Py<PyAny>, is_async_from_metadata: bool, config: StreamConfig,
 ) -> Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>> {
-    let StreamConfig {
-        sync_batch_size,
-        channel_capacity,
-        max_sync_threads,
-    } = config;
+    let StreamConfig { sync_batch_size, channel_capacity, max_sync_threads } = config;
     // Note: content is guaranteed to be a generator instance (not a callable)
     // because StreamingResponse validates this in Python at instantiation time.
     // The is_async_generator flag was pre-computed from Python's inspect.
@@ -357,19 +302,14 @@ fn create_python_stream_with_config(
     let is_async_final = is_async_iter;
 
     if is_async_final {
-        let start_result = Python::attach(|py| {
-            schedule_async_stream_forwarder(py, &resolved_target_final, tx.clone())
-        });
+        let start_result = Python::attach(|py| schedule_async_stream_forwarder(py, &resolved_target_final, tx.clone()));
         if let Err(err) = start_result {
-            let _ = tx.try_send(Err(std::io::Error::other(format!(
-                "Failed to initialize async stream forwarder: {err}"
-            ))));
+            let _ =
+                tx.try_send(Err(std::io::Error::other(format!("Failed to initialize async stream forwarder: {err}"))));
         }
         drop(tx);
 
-        let s = stream::unfold(rx, |mut rx| async move {
-            rx.recv().await.map(|item| (item, rx))
-        });
+        let s = stream::unfold(rx, |mut rx| async move { rx.recv().await.map(|item| (item, rx)) });
         Box::pin(s)
     } else {
         let sync_batch = sync_batch_size;
@@ -385,10 +325,7 @@ fn create_python_stream_with_config(
         let current_threads = ACTIVE_SYNC_STREAMING_THREADS.load(Ordering::Relaxed);
 
         if current_threads >= max_sync_threads {
-            eprintln!(
-                "[SSE WARNING] Sync streaming thread limit reached: {} >= {}",
-                current_threads, max_sync_threads
-            );
+            eprintln!("[SSE WARNING] Sync streaming thread limit reached: {} >= {}", current_threads, max_sync_threads);
             // Spawn async task to send retry directive (can't use blocking_send from runtime)
             tokio::spawn({
                 let tx_clone = tx.clone();
@@ -399,9 +336,7 @@ fn create_python_stream_with_config(
                 }
             });
             drop(tx);
-            let s = stream::unfold(rx, |mut rx| async move {
-                rx.recv().await.map(|item| (item, rx))
-            });
+            let s = stream::unfold(rx, |mut rx| async move { rx.recv().await.map(|item| (item, rx)) });
             return Box::pin(s);
         }
 
@@ -541,9 +476,7 @@ fn create_python_stream_with_config(
         }
 
         // Create simple stream without error state in closure (keeps Stream trait bounds clean)
-        let s = stream::unfold(rx, |mut rx| async move {
-            rx.recv().await.map(|item| (item, rx))
-        });
+        let s = stream::unfold(rx, |mut rx| async move { rx.recv().await.map(|item| (item, rx)) });
         Box::pin(s)
     }
 }

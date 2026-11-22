@@ -28,11 +28,7 @@ def test_single_file_upload_roundtrips_bytes(make_server_project):
     payload = b"\x89PNG\r\n\x1a\n" + b"pixels" * 2048
 
     with project.start() as server:
-        response = server.request(
-            "POST",
-            "/upload/single",
-            files={"file": ("photo.png", payload, "image/png")},
-        )
+        response = server.request("POST", "/upload/single", files={"file": ("photo.png", payload, "image/png")})
 
     assert response.status_code == 200, response.text
     body = response.json()
@@ -44,11 +40,7 @@ def test_single_file_upload_roundtrips_bytes(make_server_project):
 
 def test_multiple_files_upload_preserves_each_payload(make_server_project):
     project = make_server_project(api_module=app_module("upload"))
-    files_payload = [
-        ("a.bin", b"first-file-contents" * 64),
-        ("b.bin", b"second-file" * 128),
-        ("c.bin", b"third"),
-    ]
+    files_payload = [("a.bin", b"first-file-contents" * 64), ("b.bin", b"second-file" * 128), ("c.bin", b"third")]
 
     with project.start() as server:
         response = server.request(
@@ -72,10 +64,7 @@ def test_struct_form_with_file_and_text_fields(make_server_project):
 
     with project.start() as server:
         response = server.request(
-            "POST",
-            "/upload/profile",
-            data={"name": "Jane"},
-            files={"avatar": ("me.png", payload, "image/png")},
+            "POST", "/upload/profile", data={"name": "Jane"}, files={"avatar": ("me.png", payload, "image/png")}
         )
 
     assert response.status_code == 200, response.text
@@ -92,9 +81,7 @@ def test_upload_exceeding_max_size_is_rejected(make_server_project):
 
     with project.start() as server:
         response = server.request(
-            "POST",
-            "/upload/size-capped",
-            files={"file": ("big.bin", oversized, "application/octet-stream")},
+            "POST", "/upload/size-capped", files={"file": ("big.bin", oversized, "application/octet-stream")}
         )
 
     assert response.status_code == 422, response.text

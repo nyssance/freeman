@@ -77,51 +77,37 @@ def api():
 
     # Handler with Depends that reads request.query — handler itself ignores request
     @api.get("/filter-query")
-    async def filter_query(
-        filters: Annotated[dict, Depends(dep_reads_query)],
-    ):
+    async def filter_query(filters: Annotated[dict, Depends(dep_reads_query)]):
         return {"filters": filters}
 
     # Handler with Depends reading headers
     @api.get("/dep-headers")
-    async def dep_headers(
-        hdrs: Annotated[dict, Depends(dep_reads_headers)],
-    ):
+    async def dep_headers(hdrs: Annotated[dict, Depends(dep_reads_headers)]):
         return {"headers": hdrs}
 
     # Handler with Depends reading cookies
     @api.get("/dep-cookies")
-    async def dep_cookies(
-        cookies: Annotated[dict, Depends(dep_reads_cookies)],
-    ):
+    async def dep_cookies(cookies: Annotated[dict, Depends(dep_reads_cookies)]):
         return {"cookies": cookies}
 
     # Handler with Depends reading body
     @api.post("/dep-body")
-    async def dep_body(
-        body: Annotated[str, Depends(dep_reads_body)],
-    ):
+    async def dep_body(body: Annotated[str, Depends(dep_reads_body)]):
         return {"body": body}
 
     # Dep with 'req' alias instead of 'request'
     @api.get("/dep-req-alias")
-    async def dep_req_alias(
-        filters: Annotated[dict, Depends(dep_reads_query_req_alias)],
-    ):
+    async def dep_req_alias(filters: Annotated[dict, Depends(dep_reads_query_req_alias)]):
         return {"filters": filters}
 
     # Class-callable dep (BoltFilterBackend pattern from the issue)
     @api.get("/users")
-    async def list_users(
-        filters: Annotated[dict, Depends(FilterBackend(fields=("pk", "is_active")))],
-    ):
+    async def list_users(filters: Annotated[dict, Depends(FilterBackend(fields=("pk", "is_active")))]):
         return {"filters": filters}
 
     # Baseline control: typed Query() in the dep — already works today
     @api.get("/typed-dep")
-    async def typed_dep(
-        pagination: Annotated[dict, Depends(dep_with_typed_query_param)],
-    ):
+    async def typed_dep(pagination: Annotated[dict, Depends(dep_with_typed_query_param)]):
         return pagination
 
     return api
@@ -140,9 +126,7 @@ class TestDependsReadsRequestQuery:
         """Dep that reads request.query sees the parsed params."""
         response = client.get("/filter-query?is_active=false&pk=42")
         assert response.status_code == 200
-        assert response.json() == {
-            "filters": {"is_active": "false", "pk": "42"},
-        }
+        assert response.json() == {"filters": {"is_active": "false", "pk": "42"}}
 
     def test_function_dep_reads_query_empty(self, client):
         """Dep still works when there are no query params."""
@@ -172,28 +156,18 @@ class TestDependsReadsRequestQuery:
 
 class TestDependsReadsOtherRequestComponents:
     def test_dep_reads_headers(self, client):
-        response = client.get(
-            "/dep-headers",
-            headers={"X-Custom-Thing": "abc"},
-        )
+        response = client.get("/dep-headers", headers={"X-Custom-Thing": "abc"})
         assert response.status_code == 200
         assert response.json()["headers"].get("x-custom-thing") == "abc"
 
     def test_dep_reads_cookies(self, client):
-        response = client.get(
-            "/dep-cookies",
-            headers={"Cookie": "session=xyz; theme=dark"},
-        )
+        response = client.get("/dep-cookies", headers={"Cookie": "session=xyz; theme=dark"})
         assert response.status_code == 200
         cookies = response.json()["cookies"]
         assert cookies.get("session") == "xyz"
         assert cookies.get("theme") == "dark"
 
     def test_dep_reads_body(self, client):
-        response = client.post(
-            "/dep-body",
-            content=b'{"key":"value"}',
-            headers={"Content-Type": "application/json"},
-        )
+        response = client.post("/dep-body", content=b'{"key":"value"}', headers={"Content-Type": "application/json"})
         assert response.status_code == 200
         assert response.json() == {"body": '{"key":"value"}'}

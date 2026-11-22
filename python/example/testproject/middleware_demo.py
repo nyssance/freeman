@@ -119,10 +119,7 @@ class DocsRouterMiddleware(Middleware):
         return response
 
 
-docs_router = Router(
-    prefix="/docs/router",
-    middleware=[DocsRouterMiddleware],
-)
+docs_router = Router(prefix="/docs/router", middleware=[DocsRouterMiddleware])
 
 
 @docs_router.get("/users")
@@ -165,11 +162,7 @@ async def docs_class_route_middleware_example(request: Request):
 @middleware_api.get("/docs/class-global")
 async def docs_class_global_middleware_example(request: Request):
     """Class-based global middleware usage example (from BoltAPI middleware list)."""
-    return {
-        "ok": True,
-        "request_id": request.state.get("request_id"),
-        "tenant_id": request.state.get("tenant_id"),
-    }
+    return {"ok": True, "request_id": request.state.get("request_id"), "tenant_id": request.state.get("tenant_id")}
 
 
 @middleware_api.get("/demo")

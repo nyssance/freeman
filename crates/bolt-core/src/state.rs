@@ -44,9 +44,7 @@ impl AsgiMount {
         }
 
         let prefix_len = self.prefix.len();
-        path.len() > prefix_len
-            && path.starts_with(&self.prefix)
-            && path.as_bytes().get(prefix_len) == Some(&b'/')
+        path.len() > prefix_len && path.starts_with(&self.prefix) && path.as_bytes().get(prefix_len) == Some(&b'/')
     }
 }
 
@@ -58,14 +56,9 @@ fn find_mount_in_slice<'a>(mounts: &'a [AsgiMount], path: &str) -> Option<&'a As
 
 /// Find the mounted ASGI app for a WebSocket path. Skip HTTP-only mounts.
 #[inline]
-pub fn find_websocket_mount_in_slice<'a>(
-    mounts: &'a [AsgiMount],
-    path: &str,
-) -> Option<&'a AsgiMount> {
+pub fn find_websocket_mount_in_slice<'a>(mounts: &'a [AsgiMount], path: &str) -> Option<&'a AsgiMount> {
     // Mounts are pre-sorted by descending prefix length.
-    mounts
-        .iter()
-        .find(|mount| mount.websocket && mount.matches_path(path))
+    mounts.iter().find(|mount| mount.websocket && mount.matches_path(path))
 }
 
 /// Which security policy a file-serving scope uses.

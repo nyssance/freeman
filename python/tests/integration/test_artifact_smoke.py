@@ -74,9 +74,7 @@ def pool_without_drain_python(tmp_path_factory, artifact_path: Path) -> Path:
 
 def test_installed_artifact_runs_runbolt(make_server_project, installed_artifact_python: Path):
     project = make_server_project(
-        python_executable=str(installed_artifact_python),
-        preserve_pythonpath=False,
-        api_source=app_source("artifact"),
+        python_executable=str(installed_artifact_python), preserve_pythonpath=False, api_source=app_source("artifact")
     )
 
     with project.start() as server:
@@ -88,9 +86,7 @@ def test_installed_artifact_runs_runbolt(make_server_project, installed_artifact
 
 def test_installed_artifact_runs_runbolt_dev(make_server_project, installed_artifact_python: Path):
     project = make_server_project(
-        python_executable=str(installed_artifact_python),
-        preserve_pythonpath=False,
-        api_source=app_source("artifact"),
+        python_executable=str(installed_artifact_python), preserve_pythonpath=False, api_source=app_source("artifact")
     )
 
     with project.start(dev=True) as server:
@@ -114,9 +110,7 @@ def test_installed_artifact_prints_its_version(installed_artifact_python: Path):
     ).stdout.strip()
 
     result = subprocess.run(
-        [str(_venv_script(installed_artifact_python, "freeman")), "version"],
-        capture_output=True,
-        text=True,
+        [str(_venv_script(installed_artifact_python, "freeman")), "version"], capture_output=True, text=True
     )
 
     assert result.returncode == 0, result.stderr

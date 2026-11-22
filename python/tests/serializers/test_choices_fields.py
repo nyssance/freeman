@@ -77,12 +77,7 @@ class TestChoicesFieldDetection:
 
         # Create a mock CharField with choices
         field = models.CharField(
-            max_length=20,
-            choices=[
-                ("draft", "Draft"),
-                ("published", "Published"),
-                ("archived", "Archived"),
-            ],
+            max_length=20, choices=[("draft", "Draft"), ("published", "Published"), ("archived", "Archived")]
         )
 
         # Get the msgspec type
@@ -148,13 +143,7 @@ class TestChoicesFieldDetection:
     def test_integerfield_with_choices_generates_literal(self):
         """Test that IntegerField with choices generates Literal type."""
 
-        field = models.IntegerField(
-            choices=[
-                (1, "Low"),
-                (2, "Medium"),
-                (3, "High"),
-            ],
-        )
+        field = models.IntegerField(choices=[(1, "Low"), (2, "Medium"), (3, "High")])
 
         field_type = get_msgspec_type_for_django_field(field)
 
@@ -259,19 +248,13 @@ class TestChoicesIntegrationWithArticleModel:
 
         # Valid article with draft status
         article_data = ArticleSerializer(
-            title="Test Article",
-            content="Content here",
-            status="draft",
-            author="John Doe",
+            title="Test Article", content="Content here", status="draft", author="John Doe"
         )
         assert article_data.status == "draft"
 
         # Valid article with published status
         article_data2 = ArticleSerializer(
-            title="Published Article",
-            content="Published content",
-            status="published",
-            author="Jane Doe",
+            title="Published Article", content="Published content", status="published", author="Jane Doe"
         )
         assert article_data2.status == "published"
 
@@ -281,10 +264,7 @@ class TestChoicesIntegrationWithArticleModel:
         from tests.test_models import Article  # noqa: PLC0415
 
         # Create serializer using helper
-        ArticleSerializer = create_serializer(
-            Article,
-            fields=["id", "title", "status", "author"],
-        )
+        ArticleSerializer = create_serializer(Article, fields=["id", "title", "status", "author"])
 
         # Check the status field annotation
         annotations = ArticleSerializer.__annotations__
@@ -363,9 +343,7 @@ class TestChoicesFromModelSerialization:
     def test_from_model_coerces_choice_members_from_created_instance(self, enum_choice_article_table):
         """create() should not require refresh_from_db() before serialization."""
         article = enum_choice_article_table.objects.create(
-            title="Hello",
-            status=StatusEnum.PUBLISHED,
-            priority=PriorityEnum.HIGH,
+            title="Hello", status=StatusEnum.PUBLISHED, priority=PriorityEnum.HIGH
         )
 
         assert isinstance(article.status, StatusEnum)
@@ -389,9 +367,7 @@ class TestChoicesFromModelSerialization:
     async def test_afrom_model_coerces_choice_members_from_acreated_instance(self, enum_choice_article_table):
         """acreate() should keep working without a refresh round-trip too."""
         article = await enum_choice_article_table.objects.acreate(
-            title="Async Hello",
-            status=StatusEnum.PUBLISHED,
-            priority=PriorityEnum.HIGH,
+            title="Async Hello", status=StatusEnum.PUBLISHED, priority=PriorityEnum.HIGH
         )
 
         assert isinstance(article.status, StatusEnum)

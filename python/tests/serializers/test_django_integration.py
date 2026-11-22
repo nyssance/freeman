@@ -45,24 +45,11 @@ from freeman.serializers import (
     field_validator,
     model_validator,
 )
-from freeman.serializers.types import (
-    Latitude,
-    Longitude,
-    Percentage,
-    Username,
-)
+from freeman.serializers.types import Latitude, Longitude, Percentage, Username
 from freeman.testing import TestClient
 
 # Import test models
-from tests.test_models import (  # noqa: PLC0415
-    Article,
-    Author,
-    BlogPost,
-    Comment,
-    Tag,
-    User,
-    UserProfile,
-)
+from tests.test_models import Article, Author, BlogPost, Comment, Tag, User, UserProfile  # noqa: PLC0415
 
 
 class Invoice(models.Model):
@@ -231,11 +218,7 @@ class TestFromModelWithDjango:
     @pytest.mark.django_db
     def test_from_model_simple(self):
         """Test basic from_model with Author."""
-        author = Author.objects.create(
-            name="John Doe",
-            email="john@example.com",
-            bio="A test author",
-        )
+        author = Author.objects.create(name="John Doe", email="john@example.com", bio="A test author")
 
         serializer = AuthorSerializer.from_model(author)
 
@@ -247,10 +230,7 @@ class TestFromModelWithDjango:
     @pytest.mark.django_db
     def test_from_model_with_computed_field(self):
         """Test from_model includes computed fields in dump."""
-        author = Author.objects.create(
-            name="Jane Smith",
-            email="jane@example.com",
-        )
+        author = Author.objects.create(name="Jane Smith", email="jane@example.com")
 
         serializer = AuthorSerializer.from_model(author)
         result = serializer.dump()
@@ -261,11 +241,7 @@ class TestFromModelWithDjango:
     def test_from_model_with_nested_fk(self):
         """Test from_model with ForeignKey relationship."""
         author = Author.objects.create(name="Alice", email="alice@example.com")
-        post = BlogPost.objects.create(
-            title="Test Post",
-            content="Test content",
-            author=author,
-        )
+        post = BlogPost.objects.create(title="Test Post", content="Test content", author=author)
 
         # Fetch with select_related for efficient query
         post = BlogPost.objects.select_related("author").get(id=post.id)
@@ -297,9 +273,7 @@ class TestFromModelWithDjango:
         tag2 = Tag.objects.create(name="django", description="Django framework")
 
         post = BlogPost.objects.create(
-            title="Python Django Tutorial",
-            content="Learn Django with Python",
-            author=author,
+            title="Python Django Tutorial", content="Learn Django with Python", author=author
         )
         post.tags.add(tag1, tag2)
 
@@ -358,11 +332,7 @@ class TestToModelWithDjango:
             email: Email
             bio: str = ""
 
-        serializer = AuthorCreateSerializer(
-            name="New Author",
-            email="new@example.com",
-            bio="A new author bio",
-        )
+        serializer = AuthorCreateSerializer(name="New Author", email="new@example.com", bio="A new author bio")
 
         author = serializer.to_model(Author)
 
@@ -374,12 +344,7 @@ class TestToModelWithDjango:
     @pytest.mark.django_db
     def test_to_model_and_save(self):
         """Test creating and saving a model from serializer."""
-        serializer = AuthorSerializer(
-            id=0,
-            name="Saved Author",
-            email="saved@example.com",
-            bio="Will be saved",
-        )
+        serializer = AuthorSerializer(id=0, name="Saved Author", email="saved@example.com", bio="Will be saved")
 
         author = serializer.to_model(Author)
         author.save()
@@ -391,11 +356,7 @@ class TestToModelWithDjango:
     @pytest.mark.django_db
     def test_to_model_excludes_computed_fields(self):
         """Test that computed fields are not set on the model."""
-        serializer = AuthorSerializer(
-            id=0,
-            name="Author With Computed",
-            email="computed@example.com",
-        )
+        serializer = AuthorSerializer(id=0, name="Author With Computed", email="computed@example.com")
 
         author = serializer.to_model(Author)
 
@@ -441,17 +402,9 @@ class TestUpdateInstanceWithDjango:
     @pytest.mark.django_db
     def test_update_instance_basic(self):
         """Test updating model instance fields."""
-        author = Author.objects.create(
-            name="Original Name",
-            email="original@example.com",
-        )
+        author = Author.objects.create(name="Original Name", email="original@example.com")
 
-        update_data = AuthorSerializer(
-            id=author.id,
-            name="Updated Name",
-            email="updated@example.com",
-            bio="New bio",
-        )
+        update_data = AuthorSerializer(id=author.id, name="Updated Name", email="updated@example.com", bio="New bio")
 
         updated_author = update_data.update_instance(author)
 
@@ -478,16 +431,9 @@ class TestUpdateInstanceWithDjango:
     @pytest.mark.django_db
     def test_update_instance_and_save(self):
         """Test updating and saving model instance."""
-        author = Author.objects.create(
-            name="Original",
-            email="original@example.com",
-        )
+        author = Author.objects.create(name="Original", email="original@example.com")
 
-        update_data = AuthorSerializer(
-            id=author.id,
-            name="Updated",
-            email="updated@example.com",
-        )
+        update_data = AuthorSerializer(id=author.id, name="Updated", email="updated@example.com")
 
         updated_author = update_data.update_instance(author)
         updated_author.save()
@@ -516,11 +462,7 @@ class TestFieldValidatorsWithDjango:
     @pytest.mark.django_db
     def test_field_validator_transforms_value(self):
         """Test field validators transform values during from_model."""
-        user = User.objects.create(
-            username="MixedCase",
-            email="UPPER@CASE.COM",
-            password_hash="hash",
-        )
+        user = User.objects.create(username="MixedCase", email="UPPER@CASE.COM", password_hash="hash")
 
         serializer = UserSerializer.from_model(user)
 
@@ -562,10 +504,7 @@ class TestModelValidatorsWithDjango:
     def test_model_validator_passes(self):
         """Test model validator passes when valid."""
         user_create = UserCreateSerializer(
-            username="validuser",
-            email="valid@example.com",
-            password="secret123",
-            password_confirm="secret123",
+            username="validuser", email="valid@example.com", password="secret123", password_confirm="secret123"
         )
 
         # Should not raise
@@ -576,10 +515,7 @@ class TestModelValidatorsWithDjango:
         # Model validators raise msgspec.ValidationError (wrapping the ValueError)
         with pytest.raises(RequestValidationError, match="Passwords do not match"):
             UserCreateSerializer(
-                username="user",
-                email="user@example.com",
-                password="secret123",
-                password_confirm="different",
+                username="user", email="user@example.com", password="secret123", password_confirm="different"
             )
 
     def test_model_validator_via_json_parse(self):
@@ -623,10 +559,7 @@ class TestComputedFieldsWithDjango:
         tag_serializers = [TagSerializer.from_model(t) for t in post.tags.all()]
         comment_serializers = [
             CommentSerializer(
-                id=c.id,
-                text=c.text,
-                author=AuthorSerializer.from_model(c.author),
-                created_at=c.created_at,
+                id=c.id, text=c.text, author=AuthorSerializer.from_model(c.author), created_at=c.created_at
             )
             for c in post.comments.all()
         ]
@@ -694,11 +627,7 @@ class TestDynamicFieldSelectionWithDjango:
     @pytest.mark.django_db
     def test_exclude_with_django_model(self):
         """Test exclude() with Django model data."""
-        user = User.objects.create(
-            username="testuser",
-            email="test@example.com",
-            password_hash="secret_hash",
-        )
+        user = User.objects.create(username="testuser", email="test@example.com", password_hash="secret_hash")
 
         serializer = UserSerializer.from_model(user)
 
@@ -713,12 +642,7 @@ class TestDynamicFieldSelectionWithDjango:
     def test_use_field_set_with_django(self):
         """Test use() with predefined field sets."""
         author = Author.objects.create(name="Bob", email="bob@example.com")
-        post = BlogPost.objects.create(
-            title="Test Post",
-            content="Content here",
-            author=author,
-            published=True,
-        )
+        post = BlogPost.objects.create(title="Test Post", content="Content here", author=author, published=True)
 
         author_serializer = AuthorSerializer.from_model(author)
         serializer = BlogPostSerializer(
@@ -765,12 +689,7 @@ class TestSubsetWithDjango:
     @pytest.mark.django_db
     def test_subset_from_model(self):
         """Test subset class works with from_model."""
-        user = User.objects.create(
-            username="testuser",
-            email="test@example.com",
-            password_hash="hash",
-            is_staff=True,
-        )
+        user = User.objects.create(username="testuser", email="test@example.com", password_hash="hash", is_staff=True)
 
         # Create a mini serializer
         UserMini = UserSerializer.subset("id", "username", "email")
@@ -787,11 +706,7 @@ class TestSubsetWithDjango:
     @pytest.mark.django_db
     def test_fields_from_field_set_with_django(self):
         """Test fields() creates proper subset from field_sets."""
-        user = User.objects.create(
-            username="listuser",
-            email="list@example.com",
-            password_hash="hash",
-        )
+        user = User.objects.create(username="listuser", email="list@example.com", password_hash="hash")
 
         # Create list serializer from field set
         UserListSerializer = UserSerializer.fields("list")
@@ -807,11 +722,7 @@ class TestSubsetWithDjango:
         UserMini = UserSerializer.subset("id", "username", "email")
 
         # Validators should still run
-        mini = UserMini(
-            id=1,
-            username="UPPERCASE",
-            email="UPPER@EXAMPLE.COM",
-        )
+        mini = UserMini(id=1, username="UPPERCASE", email="UPPER@EXAMPLE.COM")
 
         assert mini.username == "uppercase"
         assert mini.email == "upper@example.com"
@@ -842,11 +753,7 @@ class TestSubsetWithDjango:
     @pytest.mark.django_db
     def test_subset_with_computed_field(self):
         """Test subset includes computed fields."""
-        user = User.objects.create(
-            username="compute",
-            email="compute@example.com",
-            password_hash="hash",
-        )
+        user = User.objects.create(username="compute", email="compute@example.com", password_hash="hash")
 
         # Include computed field in subset
         UserWithDisplay = UserSerializer.subset("id", "username", "display_name")
@@ -859,12 +766,7 @@ class TestSubsetWithDjango:
     @pytest.mark.django_db
     def test_subset_from_parent(self):
         """Test creating subset instance from parent instance."""
-        user = User.objects.create(
-            username="parent",
-            email="parent@example.com",
-            password_hash="hash",
-            is_staff=True,
-        )
+        user = User.objects.create(username="parent", email="parent@example.com", password_hash="hash", is_staff=True)
 
         full_user = UserSerializer.from_model(user)
         UserMini = UserSerializer.subset("id", "username")
@@ -956,12 +858,7 @@ class TestDumpOptionsWithDjango:
         _ = AuthorWithOptional.from_model(author)  # verify from_model works
         # bio is empty string from Django, not None
         # Let's manually set it to None
-        serializer_with_none = AuthorWithOptional(
-            id=author.id,
-            name=author.name,
-            email=author.email,
-            bio=None,
-        )
+        serializer_with_none = AuthorWithOptional(id=author.id, name=author.name, email=author.email, bio=None)
 
         result = serializer_with_none.dump(exclude_none=True)
 
@@ -1016,11 +913,7 @@ class TestNestedSerializersWithDjango:
     def test_nested_foreignkey(self):
         """Test nested serializer with ForeignKey."""
         author = Author.objects.create(name="Author", email="author@example.com")
-        post = BlogPost.objects.create(
-            title="Nested Test",
-            content="Testing nested FK",
-            author=author,
-        )
+        post = BlogPost.objects.create(title="Nested Test", content="Testing nested FK", author=author)
 
         post = BlogPost.objects.select_related("author").get(id=post.id)
 
@@ -1084,10 +977,7 @@ class TestNestedSerializersWithDjango:
         author_serializer = AuthorSerializer.from_model(post.author)
         comment_serializers = [
             CommentSerializer(
-                id=c.id,
-                text=c.text,
-                author=AuthorSerializer.from_model(c.author),
-                created_at=c.created_at,
+                id=c.id, text=c.text, author=AuthorSerializer.from_model(c.author), created_at=c.created_at
             )
             for c in post.comments.all()
         ]
@@ -1112,16 +1002,8 @@ class TestNestedSerializersWithDjango:
     @pytest.mark.django_db
     def test_onetoone_relationship(self):
         """Test nested serializer with OneToOne relationship."""
-        user = User.objects.create(
-            username="profileuser",
-            email="profile@example.com",
-            password_hash="hash",
-        )
-        profile = UserProfile.objects.create(
-            user=user,
-            bio="Test bio",
-            location="NYC",
-        )
+        user = User.objects.create(username="profileuser", email="profile@example.com", password_hash="hash")
+        profile = UserProfile.objects.create(user=user, bio="Test bio", location="NYC")
 
         profile = UserProfile.objects.select_related("user").get(id=profile.id)
 
@@ -1148,11 +1030,7 @@ class TestWriteOnlyFieldsWithDjango:
     @pytest.mark.django_db
     def test_write_only_excluded_from_dump(self):
         """Test write_only fields are excluded from dump."""
-        user = User.objects.create(
-            username="secureuser",
-            email="secure@example.com",
-            password_hash="super_secret_hash",
-        )
+        user = User.objects.create(username="secureuser", email="secure@example.com", password_hash="super_secret_hash")
 
         serializer = UserSerializer.from_model(user)
         result = serializer.dump()
@@ -1164,11 +1042,7 @@ class TestWriteOnlyFieldsWithDjango:
     @pytest.mark.django_db
     def test_write_only_in_various_views(self):
         """Test write_only fields excluded across field sets."""
-        user = User.objects.create(
-            username="viewuser",
-            email="view@example.com",
-            password_hash="hash",
-        )
+        user = User.objects.create(username="viewuser", email="view@example.com", password_hash="hash")
 
         serializer = UserSerializer.from_model(user)
 
@@ -1185,10 +1059,7 @@ class TestCreateSerializerHelpersWithDjango:
         """Test creating serializer from Django model."""
         from django.contrib.auth.models import User as DjangoUser  # noqa: PLC0415
 
-        UserSerializer = create_serializer(
-            DjangoUser,
-            fields=["id", "username", "email", "is_active"],
-        )
+        UserSerializer = create_serializer(DjangoUser, fields=["id", "username", "email", "is_active"])
 
         assert "id" in UserSerializer.__annotations__
         assert "username" in UserSerializer.__annotations__
@@ -1242,11 +1113,7 @@ class TestCreateSerializerHelpersWithDjango:
             serializer_name="UserGeneratedSerializer",
         )
 
-        user = User.objects.create(
-            username="helperuser",
-            email="helper@example.com",
-            password_hash="super-secret",
-        )
+        user = User.objects.create(username="helperuser", email="helper@example.com", password_hash="super-secret")
 
         serializer = UserGeneratedSerializer.from_model(user)
         dumped = serializer.dump()
@@ -1371,10 +1238,7 @@ class TestComplexDjangoScenarios:
         created_posts = []
         for i in range(5):
             post = BlogPost.objects.create(
-                title=f"Post {i + 1}",
-                content=f"Content for post {i + 1}",
-                author=author,
-                published=i % 2 == 0,
+                title=f"Post {i + 1}", content=f"Content for post {i + 1}", author=author, published=i % 2 == 0
             )
             created_posts.append(post.id)
 
@@ -1387,12 +1251,7 @@ class TestComplexDjangoScenarios:
         results = []
         for post in posts:
             # For list view, we don't need all nested data
-            s = BlogPostList(
-                id=post.id,
-                title=post.title,
-                published=post.published,
-                created_at=post.created_at,
-            )
+            s = BlogPostList(id=post.id, title=post.title, published=post.published, created_at=post.created_at)
             results.append(s.dump())
 
         assert len(results) == 5
@@ -1407,10 +1266,7 @@ class TestComplexDjangoScenarios:
         tag2 = Tag.objects.create(name="detail-tag-2")
 
         post = BlogPost.objects.create(
-            title="Detailed Post",
-            content="Full content here",
-            author=author,
-            published=True,
+            title="Detailed Post", content="Full content here", author=author, published=True
         )
         post.tags.add(tag1, tag2)
 
@@ -1424,10 +1280,7 @@ class TestComplexDjangoScenarios:
         tag_serializers = [TagSerializer.from_model(t) for t in post.tags.all()]
         comment_serializers = [
             CommentSerializer(
-                id=c.id,
-                text=c.text,
-                author=AuthorSerializer.from_model(c.author),
-                created_at=c.created_at,
+                id=c.id, text=c.text, author=AuthorSerializer.from_model(c.author), created_at=c.created_at
             )
             for c in post.comments.all()
         ]
@@ -1466,10 +1319,7 @@ class TestComplexDjangoScenarios:
         """Test the DRF-replacement pattern: one serializer, multiple views."""
         # Create user
         user = User.objects.create(
-            username="multiview",
-            email="multi@example.com",
-            password_hash="secret_hash",
-            is_staff=True,
+            username="multiview", email="multi@example.com", password_hash="secret_hash", is_staff=True
         )
 
         full_serializer = UserSerializer.from_model(user)
@@ -1492,11 +1342,7 @@ class TestComplexDjangoScenarios:
         UserPublic = UserSerializer.subset("id", "username", "display_name")
         public_user = UserPublic.from_parent(full_serializer)
         public_result = public_user.dump()
-        assert public_result == {
-            "id": user.id,
-            "username": "multiview",
-            "display_name": "@multiview",
-        }
+        assert public_result == {"id": user.id, "username": "multiview", "display_name": "@multiview"}
 
 
 # =============================================================================
@@ -1546,9 +1392,7 @@ class ComprehensiveProductSerializer(Serializer):
     # 4. Field with alias (JSON uses different name)
     # -------------------------------------------------------------------------
     description: Annotated[str, Meta(max_length=2000)] = field(
-        alias="desc",
-        default="",
-        description="Product description",
+        alias="desc", default="", description="Product description"
     )
 
     # -------------------------------------------------------------------------
@@ -1804,12 +1648,7 @@ class TestComprehensiveSerializer:
     def test_computed_field_no_discount(self):
         """Test computed discounted_price is None when no discount."""
         product = ComprehensiveProductSerializer(
-            id=1,
-            name="Regular Item",
-            sku="RI-5555",
-            price=50.0,
-            quantity=10,
-            discount_percent=0.0,
+            id=1, name="Regular Item", sku="RI-5555", price=50.0, quantity=10, discount_percent=0.0
         )
 
         result = product.dump()
@@ -1840,12 +1679,7 @@ class TestComprehensiveSerializer:
         """Test read_only fields appear in output."""
         now = datetime.now()
         product = ComprehensiveProductSerializer(
-            id=42,
-            name="Product",
-            sku="PR-4242",
-            price=10.0,
-            quantity=1,
-            created_at=now,
+            id=42, name="Product", sku="PR-4242", price=10.0, quantity=1, created_at=now
         )
 
         result = product.dump()
@@ -1858,13 +1692,7 @@ class TestComprehensiveSerializer:
     def test_optional_fields_none(self):
         """Test optional fields can be None."""
         product = ComprehensiveProductSerializer(
-            id=1,
-            name="Basic",
-            sku="BA-0001",
-            price=5.0,
-            quantity=1,
-            website=None,
-            manufacturer_email=None,
+            id=1, name="Basic", sku="BA-0001", price=5.0, quantity=1, website=None, manufacturer_email=None
         )
 
         result = product.dump()
@@ -1905,20 +1733,10 @@ class TestComprehensiveSerializer:
     # -------------------------------------------------------------------------
     def test_nested_serializer_single(self):
         """Test nested serializer for single object."""
-        supplier = AuthorSerializer(
-            id=100,
-            name="ACME Corp",
-            email="sales@acme.com",
-            bio="Leading supplier",
-        )
+        supplier = AuthorSerializer(id=100, name="ACME Corp", email="sales@acme.com", bio="Leading supplier")
 
         product = ComprehensiveProductSerializer(
-            id=1,
-            name="ACME Widget",
-            sku="AW-1000",
-            price=50.0,
-            quantity=100,
-            supplier=supplier,
+            id=1, name="ACME Widget", sku="AW-1000", price=50.0, quantity=100, supplier=supplier
         )
 
         result = product.dump()
@@ -1935,12 +1753,7 @@ class TestComprehensiveSerializer:
         ]
 
         product = ComprehensiveProductSerializer(
-            id=1,
-            name="Tagged Product",
-            sku="TP-1111",
-            price=75.0,
-            quantity=50,
-            related_tags=tags,
+            id=1, name="Tagged Product", sku="TP-1111", price=75.0, quantity=50, related_tags=tags
         )
 
         result = product.dump()
@@ -1954,13 +1767,7 @@ class TestComprehensiveSerializer:
     def test_only_specific_fields(self):
         """Test only() returns specific fields."""
         product = ComprehensiveProductSerializer(
-            id=1,
-            name="Selective",
-            sku="SL-1111",
-            price=100.0,
-            quantity=10,
-            is_active=True,
-            is_featured=True,
+            id=1, name="Selective", sku="SL-1111", price=100.0, quantity=10, is_active=True, is_featured=True
         )
 
         result = ComprehensiveProductSerializer.only("id", "name", "price").dump(product)
@@ -1974,13 +1781,7 @@ class TestComprehensiveSerializer:
     # -------------------------------------------------------------------------
     def test_exclude_specific_fields(self):
         """Test exclude() removes specific fields."""
-        product = ComprehensiveProductSerializer(
-            id=1,
-            name="Exclusion Test",
-            sku="EX-1111",
-            price=50.0,
-            quantity=5,
-        )
+        product = ComprehensiveProductSerializer(id=1, name="Exclusion Test", sku="EX-1111", price=50.0, quantity=5)
 
         result = ComprehensiveProductSerializer.exclude(
             "created_at",
@@ -2007,12 +1808,7 @@ class TestComprehensiveSerializer:
     def test_use_list_field_set(self):
         """Test use() with 'list' field set."""
         product = ComprehensiveProductSerializer(
-            id=1,
-            name="List View",
-            sku="LV-1111",
-            price=25.0,
-            quantity=100,
-            is_active=True,
+            id=1, name="List View", sku="LV-1111", price=25.0, quantity=100, is_active=True
         )
 
         result = ComprehensiveProductSerializer.use("list").dump(product)
@@ -2115,12 +1911,7 @@ class TestComprehensiveSerializer:
         PostList = BlogPostSerializer.fields("list")
 
         # Instantiate with required fields
-        list_item = PostList(
-            id=1,
-            title="Post Title",
-            published=True,
-            created_at=datetime.now(),
-        )
+        list_item = PostList(id=1, title="Post Title", published=True, created_at=datetime.now())
 
         result = list_item.dump()
         assert set(result.keys()) == {"id", "title", "published", "created_at"}
@@ -2130,12 +1921,7 @@ class TestComprehensiveSerializer:
     # -------------------------------------------------------------------------
     def test_from_parent_with_simple_serializer(self):
         """Test from_parent() creates subset from parent instance."""
-        full_author = AuthorSerializer(
-            id=42,
-            name="Full Author",
-            email="full@example.com",
-            bio="Full bio text",
-        )
+        full_author = AuthorSerializer(id=42, name="Full Author", email="full@example.com", bio="Full bio text")
 
         # For computed fields that depend on other fields, include all required fields
         AuthorMini = AuthorSerializer.subset("id", "name", "email", "display_name")
@@ -2332,13 +2118,7 @@ class TestComprehensiveSerializer:
         NOTE: to_dict() returns only struct fields, NOT computed fields.
         Use dump() if you need computed fields in output.
         """
-        product = ComprehensiveProductSerializer(
-            id=1,
-            name="To Dict",
-            sku="TD-0001",
-            price=25.0,
-            quantity=5,
-        )
+        product = ComprehensiveProductSerializer(id=1, name="To Dict", sku="TD-0001", price=25.0, quantity=5)
 
         data = product.to_dict()
 
@@ -2357,12 +2137,7 @@ class TestComprehensiveSerializer:
     def test_chained_field_selection(self):
         """Test chaining use() with exclude()."""
         product = ComprehensiveProductSerializer(
-            id=1,
-            name="Chained",
-            sku="CH-0001",
-            price=100.0,
-            quantity=10,
-            is_active=True,
+            id=1, name="Chained", sku="CH-0001", price=100.0, quantity=10, is_active=True
         )
 
         # Start with list field set, then exclude some
@@ -2438,11 +2213,7 @@ class TestComprehensiveSerializer:
     def test_full_integration_with_django_models(self):
         """Test full integration scenario with Django models."""
         # Create related models
-        supplier = Author.objects.create(
-            name="Django Supplier",
-            email="supplier@django.test",
-            bio="Test supplier",
-        )
+        supplier = Author.objects.create(name="Django Supplier", email="supplier@django.test", bio="Test supplier")
 
         tag1 = Tag.objects.create(name="integration")
         tag2 = Tag.objects.create(name="django")
@@ -2552,10 +2323,7 @@ class TestFromModelWithSource:
             name: str
             email_address: str = field(source="email")  # API uses email_address, model uses email
 
-        author = Author.objects.create(
-            name="Test Author",
-            email="test@example.com",
-        )
+        author = Author.objects.create(name="Test Author", email="test@example.com")
 
         # from_model should use 'email' attribute (source) to populate 'email_address' field
         serializer = AuthorWithRenamedEmail.from_model(author)
@@ -2575,11 +2343,7 @@ class TestFromModelWithSource:
             username: str
             mail: str = field(source="email", read_only=True)  # Renamed + read_only
 
-        user = User.objects.create(
-            username="testuser",
-            email="test@example.com",
-            password_hash="hash",
-        )
+        user = User.objects.create(username="testuser", email="test@example.com", password_hash="hash")
 
         serializer = UserWithSourceAndReadOnly.from_model(user)
 
@@ -2603,11 +2367,7 @@ class TestFromModelWithSource:
             body: str = field(source="content")  # content -> body
             writer: str = field(source="author")  # author -> writer
 
-        article = Article.objects.create(
-            title="Original Title",
-            content="Original Content",
-            author="John Doe",
-        )
+        article = Article.objects.create(title="Original Title", content="Original Content", author="John Doe")
 
         serializer = ArticleRenamedFields.from_model(article)
 
@@ -2627,15 +2387,8 @@ class TestFromModelWithSource:
             title: str
             author_name: str = field(source="author.name")  # Nested path
 
-        author = Author.objects.create(
-            name="Nested Author",
-            email="nested@example.com",
-        )
-        post = BlogPost.objects.create(
-            title="Test Post",
-            content="Content",
-            author=author,
-        )
+        author = Author.objects.create(name="Nested Author", email="nested@example.com")
+        post = BlogPost.objects.create(title="Test Post", content="Content", author=author)
         post = BlogPost.objects.select_related("author").get(id=post.id)
 
         serializer = PostWithAuthorName.from_model(post)
@@ -2657,19 +2410,13 @@ class TestFromModelWithSource:
 
         # Author with bio
         author_with_bio = Author.objects.create(
-            name="Author With Bio",
-            email="bio@example.com",
-            bio="A detailed biography",
+            name="Author With Bio", email="bio@example.com", bio="A detailed biography"
         )
         serializer = AuthorWithOptionalRename.from_model(author_with_bio)
         assert serializer.biography == "A detailed biography"
 
         # Author without bio (empty string)
-        author_no_bio = Author.objects.create(
-            name="Author Without Bio",
-            email="nobio@example.com",
-            bio="",
-        )
+        author_no_bio = Author.objects.create(name="Author Without Bio", email="nobio@example.com", bio="")
         serializer = AuthorWithOptionalRename.from_model(author_no_bio)
         assert serializer.biography == ""
 
@@ -2684,11 +2431,7 @@ class TestFromModelWithSource:
             username: str
             secret_hash: str = field(source="password_hash", write_only=True)
 
-        user = User.objects.create(
-            username="testuser",
-            email="test@example.com",
-            password_hash="supersecret",
-        )
+        user = User.objects.create(username="testuser", email="test@example.com", password_hash="supersecret")
 
         serializer = UserWithWriteOnlySource.from_model(user)
 
@@ -2710,12 +2453,7 @@ class TestFromModelWithSource:
             username: str
             activated: bool = field(source="is_active")
 
-        user = User.objects.create(
-            username="testuser",
-            email="test@example.com",
-            password_hash="hash",
-            is_active=True,
-        )
+        user = User.objects.create(username="testuser", email="test@example.com", password_hash="hash", is_active=True)
 
         serializer = UserWithBooleanSource.from_model(user)
 

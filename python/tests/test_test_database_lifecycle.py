@@ -54,12 +54,7 @@ os._exit(0)
 def test_each_session_removes_its_database_directory(tmp_path):
     env = {**os.environ, "TMPDIR": str(tmp_path)}
     result = subprocess.run(
-        [sys.executable, "-c", _TWO_SESSIONS],
-        cwd=ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=120,
+        [sys.executable, "-c", _TWO_SESSIONS], cwd=ROOT, env=env, capture_output=True, text=True, timeout=120
     )
     assert result.returncode == 0, result.stdout + result.stderr
     sessions = json.loads(result.stdout.strip().splitlines()[-1])

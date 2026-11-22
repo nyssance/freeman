@@ -586,10 +586,9 @@ def test_a_path_out_of_the_allowed_dirs_that_the_server_cannot_read_is_a_403(
     # A client that walks out of the allowed dirs gets a 403, also into a dir that the server cannot read.
     locked_dir(tmp_path / "locked")
     (allowed_dir / "escape").symlink_to(tmp_path, target_is_directory=True)
-    path = {
-        "walk-out": f"{allowed_dir}/../locked/data.txt",
-        "through-a-link": f"{allowed_dir}/escape/locked/data.txt",
-    }[route]
+    path = {"walk-out": f"{allowed_dir}/../locked/data.txt", "through-a-link": f"{allowed_dir}/escape/locked/data.txt"}[
+        route
+    ]
     api = BoltAPI()
 
     @api.get("/file")

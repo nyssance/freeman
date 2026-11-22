@@ -314,10 +314,7 @@ def test_response_struct_reference_field_with_default_none():
     assert outer["required"] == ["name"]
     inner = outer["properties"]["inner"]
     assert inner["default"] is None
-    assert inner["anyOf"] == [
-        {"$ref": "#/components/schemas/Inner"},
-        {"type": "null"},
-    ]
+    assert inner["anyOf"] == [{"$ref": "#/components/schemas/Inner"}, {"type": "null"}]
 
 
 # ---------- operations: responses, request body, parameters ----------
@@ -432,9 +429,7 @@ def test_request_body_is_required_when_the_route_needs_a_value():
 
     @api.post("/form")
     async def form_body(
-        title: Annotated[str, Form()],
-        note: Annotated[str | None, Form()],
-        tag: Annotated[str, Form()] = "x",
+        title: Annotated[str, Form()], note: Annotated[str | None, Form()], tag: Annotated[str, Form()] = "x"
     ):
         pass
 
@@ -488,8 +483,7 @@ def test_parameters_list_each_struct_field_and_each_path_parameter_of_the_url():
 
 
 @pytest.mark.parametrize(
-    ("module_name", "expected_tags"),
-    [("shop.orders", ["Orders"]), ("shop.users.api", ["Users"]), ("api", None)],
+    ("module_name", "expected_tags"), [("shop.orders", ["Orders"]), ("shop.users.api", ["Users"]), ("api", None)]
 )
 def test_operation_tag_comes_from_the_module_of_the_handler(monkeypatch, module_name, expected_tags):
     """The tag is the last part of the module name. A module with the name ``api`` gives the part before it."""
@@ -1200,10 +1194,7 @@ def test_dict_str_optional_value_renders_anyof_with_null():
         maybe: dict[str, int | None]
 
     props = _get_response_component_schema(OptMap)["properties"]
-    assert props["maybe"]["additionalProperties"]["anyOf"] == [
-        {"type": "integer"},
-        {"type": "null"},
-    ]
+    assert props["maybe"]["additionalProperties"]["anyOf"] == [{"type": "integer"}, {"type": "null"}]
 
 
 class MaybeItem(msgspec.Struct):
@@ -1628,10 +1619,7 @@ def test_nullable_named_enum_field_refs_inside_anyof():
 
     schema = _get_response_component_schema(FeatureState)
     reason = schema["properties"]["reason"]
-    assert reason["anyOf"] == [
-        {"$ref": "#/components/schemas/GateReason"},
-        {"type": "null"},
-    ]
+    assert reason["anyOf"] == [{"$ref": "#/components/schemas/GateReason"}, {"type": "null"}]
     assert reason["default"] is None
 
 

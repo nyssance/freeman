@@ -56,16 +56,14 @@ for t in threads:
     t.join()
 elapsed = time.perf_counter() - start
 print(
-    json.dumps(
-        {
-            "python": sys.version.split()[0],
-            "gil": getattr(sys, "_is_gil_enabled", lambda: True)(),
-            "mode": a.mode,
-            "threads": a.threads,
-            "rps": round(sum(x[0] for x in results) / elapsed),
-            "cpu_cores": round(sum(x[1] for x in results) / elapsed, 2),
-            "seconds": round(elapsed, 3),
-            "payload_bytes": len(encoder.encode(payload)),
-        }
-    )
+    json.dumps({
+        "python": sys.version.split()[0],
+        "gil": getattr(sys, "_is_gil_enabled", lambda: True)(),
+        "mode": a.mode,
+        "threads": a.threads,
+        "rps": round(sum(x[0] for x in results) / elapsed),
+        "cpu_cores": round(sum(x[1] for x in results) / elapsed, 2),
+        "seconds": round(elapsed, 3),
+        "payload_bytes": len(encoder.encode(payload)),
+    })
 )

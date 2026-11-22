@@ -25,11 +25,7 @@ from freeman.testing import TestClient
 
 def create_test_user():
     """Create a test user inside a test."""
-    return User.objects.create_user(
-        username="sessionuser",
-        email="session@test.com",
-        password="testpass123",
-    )
+    return User.objects.create_user(username="sessionuser", email="session@test.com", password="testpass123")
 
 
 @pytest.fixture
@@ -62,11 +58,7 @@ def session_api():
         """Get current user info."""
         user = await request.auser()
         if user.is_authenticated:
-            return {
-                "authenticated": True,
-                "username": user.username,
-                "user_id": user.id,
-            }
+            return {"authenticated": True, "username": user.username, "user_id": user.id}
         return {"authenticated": False}
 
     @api.post("/session/set")
@@ -103,9 +95,7 @@ def session_api():
     @api.get("/session/info")
     async def session_info(request: Request):
         """Get session info."""
-        return {
-            "session_key": request.session.session_key,
-        }
+        return {"session_key": request.session.session_key}
 
     return api
 
@@ -120,10 +110,7 @@ class TestSessionLogin:
 
         with TestClient(session_api) as client:
             # Login
-            response = client.post(
-                "/login",
-                params={"username": "sessionuser", "password": "testpass123"},
-            )
+            response = client.post("/login", params={"username": "sessionuser", "password": "testpass123"})
             assert response.status_code == 200
             assert response.json()["status"] == "ok"
             assert response.json()["username"] == "sessionuser"
@@ -141,10 +128,7 @@ class TestSessionLogin:
         create_test_user()
 
         with TestClient(session_api) as client:
-            response = client.post(
-                "/login",
-                params={"username": "sessionuser", "password": "wrongpass"},
-            )
+            response = client.post("/login", params={"username": "sessionuser", "password": "wrongpass"})
             assert response.status_code == 200
             assert response.json()["status"] == "error"
 
@@ -159,10 +143,7 @@ class TestSessionLogin:
 
         with TestClient(session_api) as client:
             # Login first
-            client.post(
-                "/login",
-                params={"username": "sessionuser", "password": "testpass123"},
-            )
+            client.post("/login", params={"username": "sessionuser", "password": "testpass123"})
 
             # Verify logged in
             response = client.get("/me")
@@ -193,10 +174,7 @@ class TestSessionData:
         """Test setting and getting session values."""
         with TestClient(session_api) as client:
             # Set a value
-            response = client.post(
-                "/session/set",
-                params={"key": "theme", "value": "dark"},
-            )
+            response = client.post("/session/set", params={"key": "theme", "value": "dark"})
             assert response.status_code == 200
             assert response.json()["value"] == "dark"
 
@@ -209,10 +187,7 @@ class TestSessionData:
     def test_session_get_default(self, session_api):
         """Test getting non-existent key returns default."""
         with TestClient(session_api) as client:
-            response = client.get(
-                "/session/get",
-                params={"key": "nonexistent", "default": "fallback"},
-            )
+            response = client.get("/session/get", params={"key": "nonexistent", "default": "fallback"})
             assert response.status_code == 200
             assert response.json()["value"] == "fallback"
 
@@ -329,10 +304,7 @@ class TestSessionWithAuth:
             client.post("/session/set", params={"key": "prefs", "value": "saved"})
 
             # Login
-            client.post(
-                "/login",
-                params={"username": "sessionuser", "password": "testpass123"},
-            )
+            client.post("/login", params={"username": "sessionuser", "password": "testpass123"})
 
             # Session data should still be there
             response = client.get("/session/get", params={"key": "prefs"})
@@ -349,10 +321,7 @@ class TestSessionWithAuth:
 
         with TestClient(session_api) as client:
             # Login and set data
-            client.post(
-                "/login",
-                params={"username": "sessionuser", "password": "testpass123"},
-            )
+            client.post("/login", params={"username": "sessionuser", "password": "testpass123"})
             client.post("/session/set", params={"key": "user_data", "value": "test"})
 
             # Logout (this flushes the session in Django)
@@ -451,10 +420,7 @@ class TestDjangoDecorators:
         # Create user with permission
         user = create_test_user()
         content_type = ContentType.objects.get_for_model(User)
-        permission = Permission.objects.get(
-            codename="view_user",
-            content_type=content_type,
-        )
+        permission = Permission.objects.get(codename="view_user", content_type=content_type)
         user.user_permissions.add(permission)
 
         with TestClient(decorator_api) as client:

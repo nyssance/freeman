@@ -12,10 +12,7 @@ from django.core.management.base import CommandError
 from django.test import override_settings
 
 from freeman import BoltAPI
-from freeman.api import (
-    _rewrite_django_mount_redirect_message,
-    _rewrite_scope_for_django_mount,
-)
+from freeman.api import _rewrite_django_mount_redirect_message, _rewrite_scope_for_django_mount
 from freeman.exceptions import HTTPException
 from freeman.management.commands.runbolt import Command
 from freeman.testing import TestClient
@@ -38,23 +35,15 @@ def test_mount_asgi_scope_root_path_and_subpath():
 
     async def asgi_app(scope, receive, send):
         event = await receive()
-        captured.append(
-            {
-                "root_path": scope["root_path"],
-                "path": scope["path"],
-                "query_string": scope["query_string"],
-                "event_type": event["type"],
-            }
-        )
+        captured.append({
+            "root_path": scope["root_path"],
+            "path": scope["path"],
+            "query_string": scope["query_string"],
+            "event_type": event["type"],
+        })
 
         payload = json.dumps({"path": scope["path"], "root_path": scope["root_path"]}).encode("utf-8")
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"application/json")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
         await send({"type": "http.response.body", "body": payload, "more_body": False})
 
     api.mount_asgi("/django", asgi_app)
@@ -66,10 +55,7 @@ def test_mount_asgi_scope_root_path_and_subpath():
 
         nested_response = client.get("/django/accounts/login/?next=%2Fadmin%2F")
         assert nested_response.status_code == 200
-        assert nested_response.json() == {
-            "path": "/accounts/login/",
-            "root_path": "/django",
-        }
+        assert nested_response.json() == {"path": "/accounts/login/", "root_path": "/django"}
 
     assert captured[0]["root_path"] == "/django"
     assert captured[0]["path"] == "/"
@@ -136,22 +122,13 @@ def test_mount_asgi_scope_scheme_follows_x_forwarded_proto_only_from_a_trusted_p
         override_settings(BOLT_TRUSTED_PROXIES=trusted_proxies, SECURE_PROXY_SSL_HEADER=proxy_ssl_header),
         TestClient(api) as client,
     ):
-        response = client.get(
-            "/secure",
-            headers={
-                "Host": "example.com",
-                "X-Forwarded-Proto": "https",
-            },
-        )
+        response = client.get("/secure", headers={"Host": "example.com", "X-Forwarded-Proto": "https"})
 
     assert response.status_code == 204
     assert captured == {"scheme": scheme, "server": ("example.com", port), "is_secure": is_secure}
 
 
-@pytest.mark.parametrize(
-    "forwarded_host",
-    [{"X-Forwarded-Host": "evil.example"}, {"Forwarded": "host=evil.example"}],
-)
+@pytest.mark.parametrize("forwarded_host", [{"X-Forwarded-Host": "evil.example"}, {"Forwarded": "host=evil.example"}])
 def test_mount_asgi_scope_server_comes_from_the_host_header(forwarded_host):
     """A client cannot set scope["server"]. Django reads X-Forwarded-Host from the headers itself."""
     api = BoltAPI()
@@ -201,24 +178,12 @@ def test_mount_asgi_longest_prefix_wins():
 
     async def short_app(scope, receive, send):
         await receive()
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"application/json")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
         await send({"type": "http.response.body", "body": b'{"source":"short"}', "more_body": False})
 
     async def long_app(scope, receive, send):
         await receive()
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"application/json")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
         await send({"type": "http.response.body", "body": b'{"source":"long"}', "more_body": False})
 
     api.mount_asgi("/d", short_app)
@@ -231,8 +196,7 @@ def test_mount_asgi_longest_prefix_wins():
 
 
 @pytest.mark.parametrize(
-    ("child_mount", "url", "root_path"),
-    [("/legacy", "/v2/legacy/page", "/v2/legacy"), ("/", "/v2/page", "/v2")],
+    ("child_mount", "url", "root_path"), [("/legacy", "/v2/legacy/page", "/v2/legacy"), ("/", "/v2/page", "/v2")]
 )
 def test_mount_copies_the_asgi_mounts_of_the_mounted_api(child_mount, url, root_path):
     """An ASGI mount of a mounted API answers below the mount path of that API."""
@@ -241,13 +205,7 @@ def test_mount_copies_the_asgi_mounts_of_the_mounted_api(child_mount, url, root_
 
     async def asgi_app(scope, receive, send):
         await receive()
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"application/json")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
         body = json.dumps({"root_path": scope["root_path"]}).encode()
         await send({"type": "http.response.body", "body": body, "more_body": False})
 
@@ -269,13 +227,11 @@ def test_mount_asgi_chunked_response_body_is_combined():
 
     async def asgi_app(scope, receive, send):
         await receive()
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"text/plain; charset=utf-8")],
-            }
-        )
+        await send({
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [(b"content-type", b"text/plain; charset=utf-8")],
+        })
         await send({"type": "http.response.body", "body": b"hello ", "more_body": True})
         await send({"type": "http.response.body", "body": b"world", "more_body": False})
 
@@ -297,13 +253,7 @@ def test_mount_asgi_post_body_is_buffered_single_event():
         captured_body["body"] = event.get("body", b"")
         captured_body["more_body"] = event.get("more_body")
 
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 201,
-                "headers": [(b"content-type", b"application/json")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 201, "headers": [(b"content-type", b"application/json")]})
         await send({"type": "http.response.body", "body": b'{"ok":true}', "more_body": False})
 
     api.mount_asgi("/upload", asgi_app)
@@ -361,13 +311,7 @@ def test_mount_asgi_does_not_hijack_api_trailing_slash_redirects():
 
     async def fallback_asgi(scope, receive, send):
         await receive()
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"application/json")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
         await send({"type": "http.response.body", "body": b'{"source":"asgi"}', "more_body": False})
 
     api.mount_asgi("/", fallback_asgi)
@@ -384,13 +328,7 @@ def test_mount_django_with_custom_app_forwards_to_mount_asgi():
 
     async def custom_asgi(scope, receive, send):
         await receive()
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"application/json")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
         await send({"type": "http.response.body", "body": b'{"source":"django"}', "more_body": False})
 
     api.mount_django("/django", app=custom_asgi)
@@ -414,8 +352,7 @@ def _scope_echo_app(captured: list):
 
 
 @pytest.mark.parametrize(
-    ("mount", "url", "root_path"),
-    [("/legacy", "/api/legacy/page", "/api/legacy"), ("/", "/api/page", "/api")],
+    ("mount", "url", "root_path"), [("/legacy", "/api/legacy/page", "/api/legacy"), ("/", "/api/page", "/api")]
 )
 def test_mount_asgi_applies_the_prefix_of_the_api(mount, url, root_path):
     """The prefix of the API comes before the mount path, and a second mount there is an error."""
@@ -490,24 +427,16 @@ def test_mount_django_redirect_keeps_mount_prefix():
         # Simulate Django APPEND_SLASH behavior.
         if not path.endswith("/"):
             location = f"{path}/"
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": 308,
-                    "headers": [(b"location", location.encode("utf-8"))],
-                }
-            )
+            await send({
+                "type": "http.response.start",
+                "status": 308,
+                "headers": [(b"location", location.encode("utf-8"))],
+            })
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
 
         body = json.dumps({"path": path}).encode("utf-8")
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"application/json")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
         await send({"type": "http.response.body", "body": body, "more_body": False})
 
     api.mount_django("/django", app=django_like_app)
@@ -531,13 +460,7 @@ def test_mount_django_rewrites_root_relative_redirect_location():
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
 
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 302,
-                "headers": [(b"location", b"/accounts/")],
-            }
-        )
+        await send({"type": "http.response.start", "status": 302, "headers": [(b"location", b"/accounts/")]})
         await send({"type": "http.response.body", "body": b"", "more_body": False})
 
     api.mount_django("/django", app=redirecting_app)
@@ -551,18 +474,11 @@ def test_mount_django_rewrites_root_relative_redirect_location():
 
 @pytest.mark.parametrize(
     ("header_name", "header_value", "expected_value"),
-    [
-        (b"location", b"/accounts/", b"/django/accounts/"),
-        ("location", "/accounts/", "/django/accounts/"),
-    ],
+    [(b"location", b"/accounts/", b"/django/accounts/"), ("location", "/accounts/", "/django/accounts/")],
     ids=["bytes", "str"],
 )
 def test_rewrite_django_mount_redirect_message_handles_location_value_types(header_name, header_value, expected_value):
-    message = {
-        "type": "http.response.start",
-        "status": 302,
-        "headers": [(header_name, header_value)],
-    }
+    message = {"type": "http.response.start", "status": 302, "headers": [(header_name, header_value)]}
 
     rewritten = _rewrite_django_mount_redirect_message(message, "/django")
 
@@ -571,12 +487,7 @@ def test_rewrite_django_mount_redirect_message_handles_location_value_types(head
 
 
 def test_rewrite_scope_for_django_mount_prepends_root_path_to_subpath():
-    scope = {
-        "type": "http",
-        "root_path": "/django",
-        "path": "/accounts/login/",
-        "raw_path": b"/accounts/login/",
-    }
+    scope = {"type": "http", "root_path": "/django", "path": "/accounts/login/", "raw_path": b"/accounts/login/"}
 
     rewritten = _rewrite_scope_for_django_mount(scope)
 

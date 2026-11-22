@@ -52,10 +52,7 @@ def test_django_hook_threadlocal_is_isolated_between_concurrent_async_requests()
     @api.get("/tenant/{tenant}")
     async def tenant(tenant: str, request: Request):
         await sync_to_thread(both_arrived.wait)
-        return {
-            "expected": tenant,
-            "actual": await run_in_orm_executor(lambda: local.tenant),
-        }
+        return {"expected": tenant, "actual": await run_in_orm_executor(lambda: local.tenant)}
 
     async def run_requests():
         async with AsyncTestClient(api) as client:
@@ -109,10 +106,7 @@ def _sync_to_thread_api(middleware: list) -> BoltAPI:
 @pytest.mark.parametrize("build_api", [_sync_orm_api, _sync_to_thread_api])
 @pytest.mark.parametrize(
     "middleware",
-    [
-        lambda: [DjangoMiddlewareStack([_TenantMixinMiddleware])],
-        lambda: [DjangoMiddleware(_TenantMixinMiddleware)],
-    ],
+    [lambda: [DjangoMiddlewareStack([_TenantMixinMiddleware])], lambda: [DjangoMiddleware(_TenantMixinMiddleware)]],
     ids=["stack", "single_wrapper"],
 )
 def test_threadlocal_follows_each_concurrent_request(build_api, middleware):
@@ -583,6 +577,7 @@ def test_test_client_exit_closes_the_connections_of_its_lanes(handler_is_async):
         async def users():
             await asyncio.sleep(0)
             return {"count": await sync_to_thread(User.objects.count)}
+
     else:
 
         @api.get("/users")
@@ -930,6 +925,7 @@ def test_auser_awaited_on_the_event_loop_loads_on_the_lane_of_its_request(handle
         async def endpoint(tenant: str, request: Request):
             await asyncio.sleep(0)
             return {"expected": tenant, "handler_saw": request.user.tenant}
+
     else:
 
         @api.get("/tenant/{tenant}", auth=[auth])
@@ -1035,6 +1031,7 @@ def test_sync_access_to_the_user_of_an_async_only_get_user_raises(handler_is_asy
         @api.get("/tenant/{tenant}", auth=[auth])
         async def endpoint(tenant: str, request: Request):
             return await sync_to_thread(force_user, request)
+
     else:
 
         @api.get("/tenant/{tenant}", auth=[auth])
@@ -1224,9 +1221,7 @@ def _sync_only_header_factory(get_response):
 
 
 @pytest.mark.parametrize(
-    "middleware_class",
-    [_SyncOnlyHeaderMiddleware, f"{__name__}._sync_only_header_factory"],
-    ids=["class", "factory"],
+    "middleware_class", [_SyncOnlyHeaderMiddleware, f"{__name__}._sync_only_header_factory"], ids=["class", "factory"]
 )
 def test_single_wrapper_gives_a_sync_only_middleware_a_sync_get_response(middleware_class):
     """A sync-only middleware must get a response from ``get_response``, not a coroutine.

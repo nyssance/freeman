@@ -11,25 +11,13 @@ import inspect
 import mimetypes
 import types
 import uuid
-from collections.abc import (
-    AsyncGenerator as AsyncGeneratorABC,
-)
-from collections.abc import (
-    AsyncIterable as AsyncIterableABC,
-)
-from collections.abc import (
-    AsyncIterator as AsyncIteratorABC,
-)
+from collections.abc import AsyncGenerator as AsyncGeneratorABC
+from collections.abc import AsyncIterable as AsyncIterableABC
+from collections.abc import AsyncIterator as AsyncIteratorABC
 from collections.abc import Callable
-from collections.abc import (
-    Generator as GeneratorABC,
-)
-from collections.abc import (
-    Iterable as IterableABC,
-)
-from collections.abc import (
-    Iterator as IteratorABC,
-)
+from collections.abc import Generator as GeneratorABC
+from collections.abc import Iterable as IterableABC
+from collections.abc import Iterator as IteratorABC
 from functools import cache
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, Union, get_args, get_origin
 
@@ -95,9 +83,7 @@ ResponseWireV1 = tuple[int, ResponseMetaTuple | int, BodyKind, bytes | Streaming
 
 
 def _build_response_meta(
-    response_type: str,
-    custom_headers: dict[str, str] | None,
-    cookies: list[Cookie] | None,
+    response_type: str, custom_headers: dict[str, str] | None, cookies: list[Cookie] | None
 ) -> ResponseMetaTuple:
     """Build metadata tuple for Rust header construction.
 
@@ -210,14 +196,7 @@ _STATIC_RESPONSE_META = {
     "octetstream": _RESPONSE_META_OCTETSTREAM,
     "html": _RESPONSE_META_HTML,
 }
-_VALIDATION_NOOP_TYPES = {
-    dict,
-    list,
-    str,
-    bytes,
-    bytearray,
-    type(None),
-}
+_VALIDATION_NOOP_TYPES = {dict, list, str, bytes, bytearray, type(None)}
 # The scalar results that Bolt sends as JSON. A bool is an int. A str is
 # text/plain and bytes are application/octet-stream. None is JSON only when
 # the response type allows it (see _allows_none).
@@ -338,9 +317,7 @@ def _raise_response_validation_error(exc: Exception) -> NoReturn:
 
 
 def _build_wire_meta(
-    response_type: str,
-    custom_headers: dict[str, str] | None,
-    cookies: list[Cookie] | None,
+    response_type: str, custom_headers: dict[str, str] | None, cookies: list[Cookie] | None
 ) -> ResponseMetaTuple | int:
     if not custom_headers and not cookies:
         # The tuple below gives the same response for the types of the table. The
@@ -399,9 +376,7 @@ _STATIC_MEDIA_TYPE_META = {
 
 
 def _response_class_wire_meta(
-    media_type: str,
-    headers: dict[str, str] | None,
-    cookies: list[Cookie] | None,
+    media_type: str, headers: dict[str, str] | None, cookies: list[Cookie] | None
 ) -> ResponseMetaTuple | int:
     """Build the wire meta for a Response, using its media type as content-type.
 
@@ -779,10 +754,7 @@ def _is_stream_protocol_instance(value: Any) -> bool:
     )
 
 
-def _serialize_stream_chunk_sync(
-    chunk: Any,
-    validator: Any | None,
-) -> bytes | str | bytearray | memoryview:
+def _serialize_stream_chunk_sync(chunk: Any, validator: Any | None) -> bytes | str | bytearray | memoryview:
     """Serialize one stream chunk for sync generators."""
     if isinstance(chunk, _RAW_STREAM_CHUNK_TYPES):
         return chunk
@@ -793,10 +765,7 @@ def _serialize_stream_chunk_sync(
     return _json.encode(chunk) + b"\n"
 
 
-async def _serialize_stream_chunk_async(
-    chunk: Any,
-    validator: Any | None,
-) -> bytes | str | bytearray | memoryview:
+async def _serialize_stream_chunk_async(chunk: Any, validator: Any | None) -> bytes | str | bytearray | memoryview:
     """Serialize one stream chunk for async generators."""
     if isinstance(chunk, _RAW_STREAM_CHUNK_TYPES):
         return chunk
@@ -869,7 +838,7 @@ def _to_stream_wire(stream_response: StreamingResponse) -> ResponseWireV1:
     # The meta builder finds the content type in any letter case. With a content
     # type set, Rust does not use the response type.
     custom_headers: dict[str, str] = {
-        "content-type": stream_response.media_type,  # pragma: no mutate
+        "content-type": stream_response.media_type  # pragma: no mutate
     }
     if stream_response.headers:
         custom_headers.update(stream_response.headers)
@@ -936,9 +905,7 @@ def _union_of_plain_structs(t: Any) -> tuple[type, ...] | None:
     return tuple(args)
 
 
-def _compile_inline_response_validator(
-    meta: HandlerMetadata | dict[str, Any],
-) -> tuple[str, Any] | None:
+def _compile_inline_response_validator(meta: HandlerMetadata | dict[str, Any]) -> tuple[str, Any] | None:
     """Pre-classify the response annotation for the inline-encoding fast path.
 
     Returns a descriptor consumed by the dispatcher in ``api.py``:
@@ -1369,11 +1336,7 @@ def serialize_response_sync(result: Any, meta: HandlerMetadata | dict[str, Any])
     return meta["_default_response_handler_sync"](result)
 
 
-async def _serialize_json_payload_async(
-    result: Any,
-    status_code: int,
-    validator: Any,
-) -> ResponseWireV1:
+async def _serialize_json_payload_async(result: Any, status_code: int, validator: Any) -> ResponseWireV1:
     if validator is not None:
         try:
             result = await validator(result)
@@ -1384,11 +1347,7 @@ async def _serialize_json_payload_async(
     return _wire_bytes(status_code, _RESPONSE_META_JSON, _json.encode(result))
 
 
-def _serialize_json_payload_sync(
-    result: Any,
-    status_code: int,
-    validator: Any,
-) -> ResponseWireV1:
+def _serialize_json_payload_sync(result: Any, status_code: int, validator: Any) -> ResponseWireV1:
     if validator is not None:
         try:
             result = validator(result)
@@ -1461,19 +1420,17 @@ def django_cookie_tuples(response: DjangoHttpResponse) -> list[CookieTuple] | No
     raw_cookies = []
     for morsel in response.cookies.values():
         max_age = morsel.get("max-age")
-        raw_cookies.append(
-            (
-                morsel.key,
-                morsel.value,
-                morsel.get("path") or "/",
-                int(max_age) if max_age else None,
-                morsel.get("expires") or None,
-                morsel.get("domain") or None,
-                bool(morsel.get("secure")),
-                bool(morsel.get("httponly")),
-                morsel.get("samesite") or None,
-            )
-        )
+        raw_cookies.append((
+            morsel.key,
+            morsel.value,
+            morsel.get("path") or "/",
+            int(max_age) if max_age else None,
+            morsel.get("expires") or None,
+            morsel.get("domain") or None,
+            bool(morsel.get("secure")),
+            bool(morsel.get("httponly")),
+            morsel.get("samesite") or None,
+        ))
     return raw_cookies
 
 
@@ -1496,7 +1453,7 @@ def serialize_django_response(result: DjangoHttpResponse) -> ResponseWireV1:
     if isinstance(result, DjangoHttpResponseRedirect):
         # Rust lowercases header names, and the loop skips each Location from Django.
         headers: dict[str, str] = {
-            "location": result.url,  # pragma: no mutate
+            "location": result.url  # pragma: no mutate
         }
         # Copy other headers from Django response
         for key, value in result.items():
@@ -1535,7 +1492,7 @@ def serialize_file_response(result: File) -> ResponseWireV1:
     # The meta builder finds the content type in any letter case. With a content
     # type set, Rust does not use the response type.
     custom_headers: dict[str, str] = {
-        "content-type": ctype,  # pragma: no mutate
+        "content-type": ctype  # pragma: no mutate
     }
     if result.filename:
         custom_headers["content-disposition"] = f'attachment; filename="{result.filename}"'
@@ -1561,7 +1518,7 @@ def serialize_file_streaming_response(result: FileResponse) -> ResponseWireV1:
     # The meta builder finds the content type in any letter case. With a content
     # type set, Rust does not use the response type.
     custom_headers: dict[str, str] = {
-        "content-type": ctype,  # pragma: no mutate
+        "content-type": ctype  # pragma: no mutate
     }
     if result.filename:
         custom_headers["content-disposition"] = f'attachment; filename="{result.filename}"'

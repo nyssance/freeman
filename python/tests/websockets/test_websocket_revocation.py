@@ -34,6 +34,7 @@ async def test_a_revoked_token_fails_the_websocket_handshake(takes_claims):
         async def handler(jti: str, claims: dict) -> bool:
             seen.append(claims)
             return claims["sid"] in revoked
+
     else:
 
         async def handler(jti: str) -> bool:

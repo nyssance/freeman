@@ -27,12 +27,7 @@ STATIC_MEDIA_TYPES = [
 ]
 
 # Media types that take the meta-tuple path.
-TUPLE_MEDIA_TYPES = [
-    "text/plain",
-    "text/html",
-    "application/vnd.api+json",
-    "text/csv",
-]
+TUPLE_MEDIA_TYPES = ["text/plain", "text/html", "application/vnd.api+json", "text/csv"]
 
 ALL_MEDIA_TYPES = STATIC_MEDIA_TYPES + TUPLE_MEDIA_TYPES
 

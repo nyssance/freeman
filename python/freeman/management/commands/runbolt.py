@@ -36,11 +36,7 @@ from freeman.middleware.middleware import refuse_unread_route_config
 from freeman.workers import MIB, WORKER_BOOT_ERROR, WorkerSupervisor
 
 try:
-    from freeman.logging.config import (
-        restart_queue_listener_after_fork,
-        setup_django_logging,
-        stop_queue_listener,
-    )
+    from freeman.logging.config import restart_queue_listener_after_fork, setup_django_logging, stop_queue_listener
     from freeman.responses import initialize_file_response_settings
 except ImportError:
     restart_queue_listener_after_fork = None
@@ -181,9 +177,7 @@ def _dev_worker_main_module(main_module=_UNSET) -> str | None:
 
 
 def _build_dev_worker_command(
-    argv: list[str] | None = None,
-    executable: str | None = None,
-    main_module: str | None = None,
+    argv: list[str] | None = None, executable: str | None = None, main_module: str | None = None
 ) -> list[str]:
     """Rebuild this process's command line for the dev worker.
 
@@ -632,9 +626,7 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
-            "--no-admin",
-            action="store_true",
-            help="Disable Django admin integration (admin enabled by default)",
+            "--no-admin", action="store_true", help="Disable Django admin integration (admin enabled by default)"
         )
         parser.add_argument("--dev", action="store_true", help="Enable auto-reload on file changes (development mode)")
         parser.add_argument(
@@ -1012,9 +1004,7 @@ class Command(BaseCommand):
         # Validate ASGI mount conflicts after all framework/admin/docs routes are added.
         self.validate_asgi_mount_conflicts(_routes_and_native_routes(merged_api), merged_api._asgi_mounts)
         self.validate_mcp_mount_conflicts(
-            _routes_and_native_routes(merged_api),
-            merged_api._asgi_mounts,
-            merged_api._mcp_mounts,
+            _routes_and_native_routes(merged_api), merged_api._asgi_mounts, merged_api._mcp_mounts
         )
         # A config decorator above a route decorator has no effect.
         refuse_unread_route_config(merged_api._routes, merged_api._websocket_routes)
@@ -1025,16 +1015,14 @@ class Command(BaseCommand):
         # single-arg vectorcall instead of a 3-tuple of conversions.
         rust_routes = []
         for method, path, handler_id, handler in merged_api._routes:
-            rust_routes.append(
-                (
-                    method,
-                    path,
-                    handler_id,
-                    handler,
-                    make_bound_dispatch(merged_api._dispatch, handler, handler_id),
-                    make_bound_dispatch(merged_api._dispatch_sync, handler, handler_id),
-                )
-            )
+            rust_routes.append((
+                method,
+                path,
+                handler_id,
+                handler,
+                make_bound_dispatch(merged_api._dispatch, handler, handler_id),
+                make_bound_dispatch(merged_api._dispatch_sync, handler, handler_id),
+            ))
 
         try:
             _core.register_routes(rust_routes, list(merged_api._native_routes), merged_api._rust_no_route())
@@ -1242,12 +1230,7 @@ class Command(BaseCommand):
         if not _gil_enabled():
             worker_bits.append("free-threaded")
 
-        meta_rows = [
-            ("Mode", mode),
-            ("Routes", sep.join(route_bits)),
-            ("Workers", sep.join(worker_bits)),
-            *meta_rows,
-        ]
+        meta_rows = [("Mode", mode), ("Routes", sep.join(route_bits)), ("Workers", sep.join(worker_bits)), *meta_rows]
 
         header = f"  {g['bolt']}{c.bold}{c.cyan}Django Bolt{c.reset} {c.cyan}v{version}{c.reset}"
         elapsed = self._startup_elapsed_ms()
@@ -1509,10 +1492,7 @@ class Command(BaseCommand):
                 merged._mcp_mounts.append(mcp_mount)
 
         _validate_mcp_mount_conflicts(
-            _routes_and_native_routes(merged),
-            merged._asgi_mounts,
-            merged._mcp_mounts,
-            error_cls=CommandError,
+            _routes_and_native_routes(merged), merged._asgi_mounts, merged._mcp_mounts, error_cls=CommandError
         )
 
         # The server has one error formatter. Rust uses it for a route miss,

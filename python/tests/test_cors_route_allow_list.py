@@ -68,8 +68,7 @@ def test_a_path_with_repeated_slashes_keeps_the_route_origins(global_cors):
         )
         assert _origin_headers(client, "/api//admin", "https://global.test") == (None, None)
         preflight = client.options(
-            "/api//admin",
-            headers={"Origin": "https://admin.example.com", "Access-Control-Request-Method": "GET"},
+            "/api//admin", headers={"Origin": "https://admin.example.com", "Access-Control-Request-Method": "GET"}
         )
         assert preflight.headers.get(ALLOW_ORIGIN) == "https://admin.example.com"
         assert preflight.headers.get(ALLOW_CREDENTIALS) == "true"
@@ -90,8 +89,7 @@ def test_route_origin_regexes_allow_matching_origins(global_cors):
         assert _origin_headers(client, "/tenant", "https://shop.example.com")[0] is None
 
         preflight = client.options(
-            "/tenant",
-            headers={"Origin": "https://acme.tenant.test", "Access-Control-Request-Method": "GET"},
+            "/tenant", headers={"Origin": "https://acme.tenant.test", "Access-Control-Request-Method": "GET"}
         )
         assert preflight.headers.get(ALLOW_ORIGIN) == "https://acme.tenant.test"
         assert "GET" in preflight.headers.get("Access-Control-Allow-Methods", "")
@@ -404,10 +402,7 @@ def test_a_function_with_the_cors_of_another_route_gets_a_clear_error():
         cors(origins=["https://b.test"])(shared)
 
 
-@pytest.mark.parametrize(
-    "kwargs",
-    [{}, {"origins": []}, {"origin_regexes": []}, {"origins": [], "origin_regexes": []}],
-)
+@pytest.mark.parametrize("kwargs", [{}, {"origins": []}, {"origin_regexes": []}, {"origins": [], "origin_regexes": []}])
 def test_cors_needs_an_origin_or_a_pattern(kwargs):
     with pytest.raises(ValueError, match="requires an 'origins' or 'origin_regexes' argument"):
         cors(**kwargs)(lambda: None)

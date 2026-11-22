@@ -47,11 +47,7 @@ impl Bucket {
     fn new(quota: Quota) -> Self {
         let limiter = RateLimiter::direct(quota);
         let created = limiter.clock().now();
-        Self {
-            limiter,
-            created,
-            log: AtomicU64::new(0),
-        }
+        Self { limiter, created, log: AtomicU64::new(0) }
     }
 
     /// Take one request. The limiter reads its own clock, because a new clock
@@ -61,10 +57,7 @@ impl Bucket {
     fn take(&self) -> Result<(), Rejection> {
         self.limiter.check().map_err(|not_until| {
             let now = self.limiter.clock().now();
-            Rejection {
-                wait: not_until.wait_time_from(now),
-                log: self.log_at(now),
-            }
+            Rejection { wait: not_until.wait_time_from(now), log: self.log_at(now) }
         })
     }
 
@@ -80,10 +73,7 @@ impl Bucket {
         let line = (second + 1) << 32;
         let mut state = self.log.load(Ordering::Relaxed);
         while state < line {
-            match self
-                .log
-                .compare_exchange_weak(state, line, Ordering::Relaxed, Ordering::Relaxed)
-            {
+            match self.log.compare_exchange_weak(state, line, Ordering::Relaxed, Ordering::Relaxed) {
                 Ok(_) => return Some(state & UNLOGGED),
                 Err(actual) => state = actual,
             }
@@ -193,60 +183,33 @@ const MAX_LIMITERS: usize = 100_000;
 /// flood never pays for token verification. Identity keys return `None` here.
 #[inline]
 pub fn check_before_auth(
-    limiters: &RateLimiters,
-    handler_id: usize,
-    headers: &AHashMap<String, String>,
-    client_ip: Option<&IpAddr>,
-    config: &RateLimitConfig,
-    method: &str,
-    path: &str,
+    limiters: &RateLimiters, handler_id: usize, headers: &AHashMap<String, String>, client_ip: Option<&IpAddr>,
+    config: &RateLimitConfig, method: &str, path: &str,
 ) -> Option<HttpResponse> {
     if config.key.needs_identity() {
         return None;
     }
-    check_rate_limit(
-        limiters, handler_id, headers, client_ip, None, config, method, path,
-    )
+    check_rate_limit(limiters, handler_id, headers, client_ip, None, config, method, path)
 }
 
 /// The check for identity keys. Runs after authentication, with the
 /// `AuthContext` of the request. Other keys return `None` here.
 #[inline]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "the hot path passes borrowed request parts, with no struct to build"
-)]
+#[expect(clippy::too_many_arguments, reason = "the hot path passes borrowed request parts, with no struct to build")]
 pub fn check_after_auth(
-    limiters: &RateLimiters,
-    handler_id: usize,
-    headers: &AHashMap<String, String>,
-    client_ip: Option<&IpAddr>,
-    auth_ctx: Option<&AuthContext>,
-    config: &RateLimitConfig,
-    method: &str,
-    path: &str,
+    limiters: &RateLimiters, handler_id: usize, headers: &AHashMap<String, String>, client_ip: Option<&IpAddr>,
+    auth_ctx: Option<&AuthContext>, config: &RateLimitConfig, method: &str, path: &str,
 ) -> Option<HttpResponse> {
     if !config.key.needs_identity() {
         return None;
     }
-    check_rate_limit(
-        limiters, handler_id, headers, client_ip, auth_ctx, config, method, path,
-    )
+    check_rate_limit(limiters, handler_id, headers, client_ip, auth_ctx, config, method, path)
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "the hot path passes borrowed request parts, with no struct to build"
-)]
+#[expect(clippy::too_many_arguments, reason = "the hot path passes borrowed request parts, with no struct to build")]
 pub fn check_rate_limit(
-    limiters: &RateLimiters,
-    handler_id: usize,
-    headers: &AHashMap<String, String>,
-    client_ip: Option<&IpAddr>,
-    auth_ctx: Option<&AuthContext>,
-    config: &RateLimitConfig,
-    method: &str,
-    path: &str,
+    limiters: &RateLimiters, handler_id: usize, headers: &AHashMap<String, String>, client_ip: Option<&IpAddr>,
+    auth_ctx: Option<&AuthContext>, config: &RateLimitConfig, method: &str, path: &str,
 ) -> Option<HttpResponse> {
     // Config is already parsed at startup - no GIL needed!
     let rps = config.rps;
@@ -260,9 +223,7 @@ pub fn check_rate_limit(
         // RateLimitConfig was parsed (headers map stores lowercase names).
         // The value is hashed rather than stored, so its length is not capped:
         // `key="authorization"` with a JWT works.
-        RateLimitKey::Header(name) => headers
-            .get(name)
-            .map(|value| KeySource::Header(value.as_str())),
+        RateLimitKey::Header(name) => headers.get(name).map(|value| KeySource::Header(value.as_str())),
         // Identity keys run after authentication. A caller with no identity
         // is limited per client address, so an unauthenticated flood cannot
         // pick a fresh bucket per request.
@@ -318,15 +279,12 @@ pub fn check_rate_limit(
                 burst,
                 responses::get_rate_limit_body(retry_after),
             );
-            Some(crate::error::with_error_info(response, || {
-                crate::error::ErrorInfo::Core {
-                    kind: "rate_limited",
-                    detail: format!("Rate limit exceeded. Try again in {} seconds.", retry_after)
-                        .into(),
-                    errors: None,
-                    extra: Some(serde_json::json!({ "retry_after": retry_after })),
-                    reason: None,
-                }
+            Some(crate::error::with_error_info(response, || crate::error::ErrorInfo::Core {
+                kind: "rate_limited",
+                detail: format!("Rate limit exceeded. Try again in {} seconds.", retry_after).into(),
+                errors: None,
+                extra: Some(serde_json::json!({ "retry_after": retry_after })),
+                reason: None,
             }))
         }
     }
@@ -334,14 +292,8 @@ pub fn check_rate_limit(
 
 /// The authenticated identity when `accept` admits the backend.
 #[inline]
-fn identity(
-    auth_ctx: Option<&AuthContext>,
-    accept: impl Fn(&AuthContext) -> bool,
-) -> Option<KeySource<'_>> {
-    auth_ctx
-        .filter(|ctx| accept(ctx))
-        .and_then(|ctx| ctx.user_id.as_deref())
-        .map(KeySource::Identity)
+fn identity(auth_ctx: Option<&AuthContext>, accept: impl Fn(&AuthContext) -> bool) -> Option<KeySource<'_>> {
+    auth_ctx.filter(|ctx| accept(ctx)).and_then(|ctx| ctx.user_id.as_deref()).map(KeySource::Identity)
 }
 
 impl RateLimiters {
@@ -368,10 +320,9 @@ impl RateLimiters {
     #[inline]
     fn client(&self, ip: IpAddr) -> KeySource<'static> {
         match ip {
-            IpAddr::V6(v6) if self.ipv6_prefix < 128 => KeySource::Ipv6Network(
-                Ipv6Addr::from(u128::from(v6) & self.ipv6_mask),
-                self.ipv6_prefix,
-            ),
+            IpAddr::V6(v6) if self.ipv6_prefix < 128 => {
+                KeySource::Ipv6Network(Ipv6Addr::from(u128::from(v6) & self.ipv6_mask), self.ipv6_prefix)
+            }
             ip => KeySource::Ip(ip),
         }
     }
@@ -405,31 +356,16 @@ mod tests {
 
     #[test]
     fn same_key_material_lands_in_one_bucket() {
-        assert_eq!(
-            KeySource::Header("tenant-a").bucket(),
-            KeySource::Header("tenant-a").bucket()
-        );
-        assert_eq!(
-            KeySource::Ip(ip("203.0.113.7")).bucket(),
-            KeySource::Ip(ip("203.0.113.7")).bucket()
-        );
+        assert_eq!(KeySource::Header("tenant-a").bucket(), KeySource::Header("tenant-a").bucket());
+        assert_eq!(KeySource::Ip(ip("203.0.113.7")).bucket(), KeySource::Ip(ip("203.0.113.7")).bucket());
         assert_eq!(KeySource::Unknown.bucket(), KeySource::Unknown.bucket());
     }
 
     #[test]
     fn different_key_material_lands_in_different_buckets() {
-        assert_ne!(
-            KeySource::Header("tenant-a").bucket(),
-            KeySource::Header("tenant-b").bucket()
-        );
-        assert_ne!(
-            KeySource::Ip(ip("203.0.113.7")).bucket(),
-            KeySource::Ip(ip("203.0.113.8")).bucket()
-        );
-        assert_ne!(
-            KeySource::Identity("7").bucket(),
-            KeySource::Identity("8").bucket()
-        );
+        assert_ne!(KeySource::Header("tenant-a").bucket(), KeySource::Header("tenant-b").bucket());
+        assert_ne!(KeySource::Ip(ip("203.0.113.7")).bucket(), KeySource::Ip(ip("203.0.113.8")).bucket());
+        assert_ne!(KeySource::Identity("7").bucket(), KeySource::Identity("8").bucket());
     }
 
     #[test]
@@ -437,18 +373,9 @@ mod tests {
         // An identity-keyed route falls back to the address, so both sources
         // reach one map. An identity that reads like an address must not join
         // that address bucket.
-        assert_ne!(
-            KeySource::Identity("203.0.113.7").bucket(),
-            KeySource::Ip(ip("203.0.113.7")).bucket()
-        );
-        assert_ne!(
-            KeySource::Header("203.0.113.7").bucket(),
-            KeySource::Ip(ip("203.0.113.7")).bucket()
-        );
-        assert_ne!(
-            KeySource::Header("unknown").bucket(),
-            KeySource::Unknown.bucket()
-        );
+        assert_ne!(KeySource::Identity("203.0.113.7").bucket(), KeySource::Ip(ip("203.0.113.7")).bucket());
+        assert_ne!(KeySource::Header("203.0.113.7").bucket(), KeySource::Ip(ip("203.0.113.7")).bucket());
+        assert_ne!(KeySource::Header("unknown").bucket(), KeySource::Unknown.bucket());
     }
 
     #[test]
@@ -457,14 +384,8 @@ mod tests {
         // `key="authorization"` with a JWT goes through here.
         let long_a = "t".repeat(4096);
         let long_b = format!("{}x", "t".repeat(4095));
-        assert_eq!(
-            KeySource::Header(&long_a).bucket(),
-            KeySource::Header(&long_a).bucket()
-        );
-        assert_ne!(
-            KeySource::Header(&long_a).bucket(),
-            KeySource::Header(&long_b).bucket()
-        );
+        assert_eq!(KeySource::Header(&long_a).bucket(), KeySource::Header(&long_a).bucket());
+        assert_ne!(KeySource::Header(&long_a).bucket(), KeySource::Header(&long_b).bucket());
     }
 
     #[test]
@@ -475,14 +396,8 @@ mod tests {
         let secret = "sk-live-DO-NOT-LOG-4f2b9c";
 
         let identity = KeySource::Identity(&format!("apikey:{secret}")).to_string();
-        assert!(
-            !identity.contains(secret),
-            "identity label leaked: {identity}"
-        );
-        assert!(
-            identity.starts_with("identity:"),
-            "unexpected label: {identity}"
-        );
+        assert!(!identity.contains(secret), "identity label leaked: {identity}");
+        assert!(identity.starts_with("identity:"), "unexpected label: {identity}");
 
         let header = KeySource::Header(&format!("Bearer {secret}")).to_string();
         assert!(!header.contains(secret), "header label leaked: {header}");
@@ -506,14 +421,8 @@ mod tests {
     #[test]
     fn concatenation_does_not_collide() {
         // "ab" + "c" must not hash like "a" + "bc".
-        assert_ne!(
-            KeySource::Header("ab").bucket(),
-            KeySource::Header("a").bucket()
-        );
-        assert_ne!(
-            KeySource::Identity("ab").bucket(),
-            KeySource::Identity("a").bucket()
-        );
+        assert_ne!(KeySource::Header("ab").bucket(), KeySource::Header("a").bucket());
+        assert_ne!(KeySource::Identity("ab").bucket(), KeySource::Identity("a").bucket());
     }
 
     #[test]
@@ -542,31 +451,17 @@ mod tests {
     #[test]
     fn a_full_map_drops_a_fifth_of_its_limiters() {
         let limiters = RateLimiters::default();
-        let config = RateLimitConfig {
-            rps: 100,
-            burst: 100,
-            key: RateLimitKey::Ip,
-        };
+        let config = RateLimitConfig { rps: 100, burst: 100, key: RateLimitKey::Ip };
         // Fill the map. The entries share one limiter, so the fill stays fast.
         let quota = Quota::per_second(std::num::NonZeroU32::new(100).unwrap());
         let shared = Arc::new(Bucket::new(quota));
         for n in 0..MAX_LIMITERS as u64 {
-            limiters
-                .limiters
-                .insert((1, 100, 100, LimiterKey(n)), Arc::clone(&shared));
+            limiters.limiters.insert((1, 100, 100, LimiterKey(n)), Arc::clone(&shared));
         }
         limiters.count.store(MAX_LIMITERS, Ordering::Relaxed);
 
         let address = ip("203.0.113.7");
-        let response = check_before_auth(
-            &limiters,
-            0,
-            &AHashMap::new(),
-            Some(&address),
-            &config,
-            "GET",
-            "/",
-        );
+        let response = check_before_auth(&limiters, 0, &AHashMap::new(), Some(&address), &config, "GET", "/");
         assert!(response.is_none());
         // The new key found the map full. The cleanup dropped 20 000 limiters first.
         let expected = MAX_LIMITERS - MAX_LIMITERS / 5 + 1;
@@ -591,32 +486,13 @@ mod tests {
     /// One request from `address` through both checks of a route that allows
     /// one request, as the handler runs them. Returns the rejection.
     fn request(
-        limiters: &RateLimiters,
-        key: &RateLimitKey,
-        address: &str,
-        auth_ctx: Option<&AuthContext>,
+        limiters: &RateLimiters, key: &RateLimitKey, address: &str, auth_ctx: Option<&AuthContext>,
     ) -> Option<HttpResponse> {
-        let config = RateLimitConfig {
-            rps: 1,
-            burst: 1,
-            key: key.clone(),
-        };
+        let config = RateLimitConfig { rps: 1, burst: 1, key: key.clone() };
         let headers = AHashMap::new();
         let address = ip(address);
-        check_before_auth(limiters, 0, &headers, Some(&address), &config, "GET", "/").or_else(
-            || {
-                check_after_auth(
-                    limiters,
-                    0,
-                    &headers,
-                    Some(&address),
-                    auth_ctx,
-                    &config,
-                    "GET",
-                    "/",
-                )
-            },
-        )
+        check_before_auth(limiters, 0, &headers, Some(&address), &config, "GET", "/")
+            .or_else(|| check_after_auth(limiters, 0, &headers, Some(&address), auth_ctx, &config, "GET", "/"))
     }
 
     #[test]
@@ -630,11 +506,7 @@ mod tests {
         let rejected = request(&limiters, &key, "203.0.113.7", Some(&alice))
             .expect("the second request of one identity is limited");
         assert_eq!(rejected.status(), 429);
-        for (name, value) in [
-            ("retry-after", "1"),
-            ("x-ratelimit-limit", "1"),
-            ("x-ratelimit-burst", "1"),
-        ] {
+        for (name, value) in [("retry-after", "1"), ("x-ratelimit-limit", "1"), ("x-ratelimit-burst", "1")] {
             assert_eq!(rejected.headers().get(name).unwrap(), value, "{name}");
         }
 
@@ -651,11 +523,7 @@ mod tests {
     #[test]
     fn each_check_runs_only_its_own_keys() {
         let limiters = RateLimiters::default();
-        let config = |key| RateLimitConfig {
-            rps: 1,
-            burst: 1,
-            key,
-        };
+        let config = |key| RateLimitConfig { rps: 1, burst: 1, key };
         let headers = AHashMap::new();
         let address = ip("203.0.113.7");
         let alice = identity("jwt", "7");
@@ -664,25 +532,13 @@ mod tests {
             // it never counts the request a second time.
             let by_address = config(RateLimitKey::Ip);
             assert!(
-                check_after_auth(
-                    &limiters,
-                    0,
-                    &headers,
-                    Some(&address),
-                    Some(&alice),
-                    &by_address,
-                    "GET",
-                    "/"
-                )
-                .is_none()
+                check_after_auth(&limiters, 0, &headers, Some(&address), Some(&alice), &by_address, "GET", "/")
+                    .is_none()
             );
             // An identity key needs the context, so the check before
             // authentication leaves it alone.
             let by_user = config(RateLimitKey::User);
-            assert!(
-                check_before_auth(&limiters, 1, &headers, Some(&address), &by_user, "GET", "/")
-                    .is_none()
-            );
+            assert!(check_before_auth(&limiters, 1, &headers, Some(&address), &by_user, "GET", "/").is_none());
         }
         assert_eq!(limiters.limiters.len(), 0);
     }
@@ -738,10 +594,7 @@ mod tests {
     fn the_log_label_names_the_ipv6_network() {
         let limiters = RateLimiters::default();
         let label = |limiters: &RateLimiters, address| limiters.client(ip(address)).to_string();
-        assert_eq!(
-            label(&limiters, "2001:db8:1:2:3:4:5:6"),
-            "2001:db8:1:2::/64"
-        );
+        assert_eq!(label(&limiters, "2001:db8:1:2:3:4:5:6"), "2001:db8:1:2::/64");
         assert_eq!(label(&limiters, "203.0.113.7"), "203.0.113.7");
         assert_eq!(label(&RateLimiters::new(128), "2001:db8::1"), "2001:db8::1");
     }

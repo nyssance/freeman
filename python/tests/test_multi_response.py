@@ -18,10 +18,7 @@ from freeman import BoltAPI, Depends
 from freeman.openapi.config import OpenAPIConfig
 from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.responses import HTML, JSON, PlainText
-from freeman.serialization import (
-    serialize_response,
-    serialize_response_sync,
-)
+from freeman.serialization import serialize_response, serialize_response_sync
 from freeman.serializers import Serializer
 from freeman.testing import TestClient
 from tests.test_models import Article
@@ -367,11 +364,7 @@ def test_multi_response_explicit_status_code():
     """Explicit status_code param overrides auto-detection."""
     api = BoltAPI()
 
-    @api.post(
-        "/items",
-        response_model={201: CreatedSchema, 400: ErrorSchema},
-        status_code=201,
-    )
+    @api.post("/items", response_model={201: CreatedSchema, 400: ErrorSchema}, status_code=201)
     async def create_item():
         pass
 
@@ -595,10 +588,7 @@ def test_mismatched_body_is_not_validated():
 
 @pytest.mark.parametrize(
     ("path", "content_type", "body"),
-    [
-        ("/text", "text/plain; charset=utf-8", b"teapot"),
-        ("/dict", "application/json", b'{"a":1}'),
-    ],
+    [("/text", "text/plain; charset=utf-8", b"teapot"), ("/dict", "application/json", b'{"a":1}')],
 )
 def test_a_tuple_with_an_undeclared_status_keeps_that_status(path, content_type, body):
     """The catch-all entry encodes the data, and the tuple status stays.

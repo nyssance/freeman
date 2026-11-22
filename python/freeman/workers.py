@@ -62,12 +62,7 @@ def get_rss_bytes(pid: int) -> int | None:
         pass
 
     try:
-        result = subprocess.run(
-            ["ps", "-o", "rss=", "-p", str(pid)],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
+        result = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)], capture_output=True, text=True, timeout=5)
         value = result.stdout.strip()
         if result.returncode == 0 and value:
             return int(value) * 1024  # ps reports RSS in KiB

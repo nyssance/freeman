@@ -33,18 +33,12 @@ def _api() -> BoltAPI:
     api = BoltAPI()
 
     @api.post(
-        "/cookie-write",
-        auth=[JWTAuthentication(secret=SECRET, cookie="access_token")],
-        guards=[IsAuthenticated()],
+        "/cookie-write", auth=[JWTAuthentication(secret=SECRET, cookie="access_token")], guards=[IsAuthenticated()]
     )
     async def cookie_write(request: dict):
         return {"ok": True}
 
-    @api.get(
-        "/cookie-read",
-        auth=[JWTAuthentication(secret=SECRET, cookie="access_token")],
-        guards=[IsAuthenticated()],
-    )
+    @api.get("/cookie-read", auth=[JWTAuthentication(secret=SECRET, cookie="access_token")], guards=[IsAuthenticated()])
     async def cookie_read(request: dict):
         return {"ok": True}
 
@@ -56,20 +50,13 @@ def _api() -> BoltAPI:
     async def cookie_write_nocsrf(request: dict):
         return {"ok": True}
 
-    @api.post(
-        "/header-write",
-        auth=[JWTAuthentication(secret=SECRET)],
-        guards=[IsAuthenticated()],
-    )
+    @api.post("/header-write", auth=[JWTAuthentication(secret=SECRET)], guards=[IsAuthenticated()])
     async def header_write(request: dict):
         return {"ok": True}
 
     @api.post(
         "/mixed-write",
-        auth=[
-            JWTAuthentication(secret=SECRET, cookie="access_token"),
-            JWTAuthentication(secret=SECRET),
-        ],
+        auth=[JWTAuthentication(secret=SECRET, cookie="access_token"), JWTAuthentication(secret=SECRET)],
         guards=[IsAuthenticated()],
     )
     async def mixed_write(request: dict):
@@ -107,17 +94,13 @@ class TestCookieCsrf:
 
     def test_origin_fallback_same_host_allowed(self, client):
         r = client.request(
-            "POST",
-            "/cookie-write",
-            headers=cookie_hdr({"Origin": "http://testserver", "Host": "testserver"}),
+            "POST", "/cookie-write", headers=cookie_hdr({"Origin": "http://testserver", "Host": "testserver"})
         )
         assert r.status_code == 200
 
     def test_origin_fallback_foreign_host_rejected(self, client):
         r = client.request(
-            "POST",
-            "/cookie-write",
-            headers=cookie_hdr({"Origin": "http://evil.example", "Host": "testserver"}),
+            "POST", "/cookie-write", headers=cookie_hdr({"Origin": "http://evil.example", "Host": "testserver"})
         )
         assert r.status_code == 403
 
@@ -149,9 +132,7 @@ class TestCookieCsrf:
         # Header-sourced tokens are not auto-attached by the browser, so CSRF
         # does not apply even on unsafe methods.
         r = client.request(
-            "POST",
-            "/header-write",
-            headers={"Authorization": f"Bearer {make_token()}", "Sec-Fetch-Site": "cross-site"},
+            "POST", "/header-write", headers={"Authorization": f"Bearer {make_token()}", "Sec-Fetch-Site": "cross-site"}
         )
         assert r.status_code == 200
 
@@ -167,9 +148,7 @@ class TestCookieCsrf:
         # request credentialed only via the header carries nothing the
         # browser auto-attached, so CSRF must not apply.
         r = client.request(
-            "POST",
-            "/mixed-write",
-            headers={"Authorization": f"Bearer {make_token()}", "Sec-Fetch-Site": "cross-site"},
+            "POST", "/mixed-write", headers={"Authorization": f"Bearer {make_token()}", "Sec-Fetch-Site": "cross-site"}
         )
         assert r.status_code == 200
 
@@ -270,10 +249,7 @@ class TestSetTokenCookies:
         """The lifetime of a cookie never goes below zero and never rounds up."""
         now = int(time.time())
         pair = TokenPair(
-            access_token="acc",
-            refresh_token="ref",
-            access_claims={"exp": now - 100},
-            refresh_claims={"exp": now - 100},
+            access_token="acc", refresh_token="ref", access_claims={"exp": now - 100}, refresh_claims={"exp": now - 100}
         )
         response = set_token_cookies(PlainText("ok"), pair)
 
@@ -281,12 +257,7 @@ class TestSetTokenCookies:
 
     def test_omits_refresh_cookie_when_absent(self):
         now = int(time.time())
-        pair = TokenPair(
-            access_token="acc",
-            refresh_token="",
-            access_claims={"exp": now + 900},
-            refresh_claims={},
-        )
+        pair = TokenPair(access_token="acc", refresh_token="", access_claims={"exp": now + 900}, refresh_claims={})
         response = set_token_cookies(PlainText("ok"), pair)
         names = {c.name for c in response._cookies}
         assert names == {"access_token"}

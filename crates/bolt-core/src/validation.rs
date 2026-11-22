@@ -24,9 +24,7 @@ pub fn parse_cookies_inline(cookie_header: Option<&str>) -> AHashMap<String, Str
 /// Keep selected values and oversized values for the existing validation pass.
 /// Later duplicate values replace earlier values, including oversized ones.
 pub fn parse_selected_cookies(
-    header: Option<&str>,
-    selected: impl Fn(&str) -> bool,
-    max_length: usize,
+    header: Option<&str>, selected: impl Fn(&str) -> bool, max_length: usize,
 ) -> AHashMap<String, String> {
     let mut cookies = AHashMap::new();
     if let Some(header) = header {
@@ -75,10 +73,7 @@ pub fn is_safe_method(method: &str) -> bool {
 /// Returns `true` when the request must be rejected (403).
 #[inline]
 pub fn cookie_csrf_blocks(
-    method: &str,
-    headers: &AHashMap<String, String>,
-    credential_requires_csrf: bool,
-    scheme: &str,
+    method: &str, headers: &AHashMap<String, String>, credential_requires_csrf: bool, scheme: &str,
 ) -> bool {
     if !credential_requires_csrf || is_safe_method(method) {
         return false;
@@ -152,8 +147,7 @@ fn origin_matches(url: &str, scheme: &str, host: &str) -> bool {
         Some(parts) => parts,
         None => return false,
     };
-    if !url_scheme.eq_ignore_ascii_case(scheme)
-        || !matches!(url_scheme.to_ascii_lowercase().as_str(), "http" | "https")
+    if !url_scheme.eq_ignore_ascii_case(scheme) || !matches!(url_scheme.to_ascii_lowercase().as_str(), "http" | "https")
     {
         return false;
     }
@@ -175,18 +169,11 @@ fn origin_matches(url: &str, scheme: &str, host: &str) -> bool {
         Err(_) => return false,
     };
 
-    let default_port = if url_scheme.eq_ignore_ascii_case("https") {
-        443
-    } else {
-        80
-    };
+    let default_port = if url_scheme.eq_ignore_ascii_case("https") { 443 } else { 80 };
     let url_port = url_authority.port_u16().unwrap_or(default_port);
     let request_port = request_authority.port_u16().unwrap_or(default_port);
 
-    url_authority
-        .host()
-        .eq_ignore_ascii_case(request_authority.host())
-        && url_port == request_port
+    url_authority.host().eq_ignore_ascii_case(request_authority.host()) && url_port == request_port
 }
 
 /// Validate authentication and evaluate guards
@@ -207,9 +194,7 @@ fn origin_matches(url: &str, scheme: &str, host: &str) -> bool {
 /// - Inlined for zero-cost abstraction
 #[inline(always)]
 pub fn validate_auth_and_guards(
-    headers: &AHashMap<String, String>,
-    auth_backends: &[AuthBackend],
-    guards: &GuardSet,
+    headers: &AHashMap<String, String>, auth_backends: &[AuthBackend], guards: &GuardSet,
 ) -> AuthGuardResult {
     // Skip work if no auth or guards configured
     if auth_backends.is_empty() && guards.is_empty() {
@@ -217,11 +202,7 @@ pub fn validate_auth_and_guards(
     }
 
     // Authenticate if backends configured
-    let auth_ctx = if !auth_backends.is_empty() {
-        authenticate(headers, auth_backends)
-    } else {
-        None
-    };
+    let auth_ctx = if !auth_backends.is_empty() { authenticate(headers, auth_backends) } else { None };
 
     // A session request gets a context with no user. Rust cannot evaluate
     // the guards for it, so Python checks them against the Django user.
@@ -395,24 +376,16 @@ mod tests {
         assert!(matches!(result, AuthGuardResult::Allow(Some(_))));
         let result = validate_auth_and_guards(&headers, &backends, &permission_guard("write"));
         assert!(matches!(result, AuthGuardResult::Forbidden(None)));
-        let result =
-            validate_auth_and_guards(&AHashMap::new(), &backends, &permission_guard("read"));
+        let result = validate_auth_and_guards(&AHashMap::new(), &backends, &permission_guard("read"));
         assert!(matches!(result, AuthGuardResult::Unauthorized));
     }
 
     fn headers_with(pairs: &[(&str, &str)]) -> AHashMap<String, String> {
-        pairs
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
+        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
     }
 
     fn session_backend() -> AuthBackend {
-        AuthBackend::Session {
-            cookie: "sessionid".to_string(),
-            csrf: true,
-            login_redirect: false,
-        }
+        AuthBackend::Session { cookie: "sessionid".to_string(), csrf: true, login_redirect: false }
     }
 
     fn requires_login() -> GuardSet {
@@ -438,10 +411,7 @@ mod tests {
     fn a_route_with_no_enforcing_guard_gets_the_csrf_flag_with_or_without_cookie() {
         // With no cookie, the flag protects a login route against login CSRF.
         let guards = GuardSet::from_guards(vec![crate::permissions::Guard::AllowAny]);
-        for headers in [
-            headers_with(&[("cookie", "sessionid=abc")]),
-            AHashMap::new(),
-        ] {
+        for headers in [headers_with(&[("cookie", "sessionid=abc")]), AHashMap::new()] {
             match validate_auth_and_guards(&headers, &[session_backend()], &guards) {
                 AuthGuardResult::Allow(Some(ctx)) => {
                     assert_eq!(ctx.backend, "session");
@@ -454,11 +424,7 @@ mod tests {
 
     #[test]
     fn csrf_false_turns_off_the_flag() {
-        let backend = AuthBackend::Session {
-            cookie: "sessionid".to_string(),
-            csrf: false,
-            login_redirect: false,
-        };
+        let backend = AuthBackend::Session { cookie: "sessionid".to_string(), csrf: false, login_redirect: false };
         let headers = headers_with(&[("cookie", "sessionid=abc")]);
         match validate_auth_and_guards(&headers, &[backend], &requires_login()) {
             AuthGuardResult::Deferred(ctx) => assert!(!ctx.cookie_csrf),
@@ -495,11 +461,7 @@ mod tests {
 
     #[test]
     fn a_login_redirect_defers_a_request_with_no_cookie() {
-        let backend = AuthBackend::Session {
-            cookie: "sessionid".to_string(),
-            csrf: true,
-            login_redirect: true,
-        };
+        let backend = AuthBackend::Session { cookie: "sessionid".to_string(), csrf: true, login_redirect: true };
         match validate_auth_and_guards(&AHashMap::new(), &[backend], &requires_login()) {
             AuthGuardResult::Deferred(ctx) => {
                 assert_eq!(ctx.backend, "session");
@@ -533,26 +495,10 @@ mod tests {
 
     #[test]
     fn csrf_sec_fetch_site_is_authoritative() {
-        assert!(passes_cookie_csrf(
-            "POST",
-            &headers_with(&[("sec-fetch-site", "same-origin")]),
-            "https"
-        ));
-        assert!(passes_cookie_csrf(
-            "POST",
-            &headers_with(&[("sec-fetch-site", "none")]),
-            "https"
-        ));
-        assert!(!passes_cookie_csrf(
-            "POST",
-            &headers_with(&[("sec-fetch-site", "cross-site")]),
-            "https"
-        ));
-        assert!(!passes_cookie_csrf(
-            "POST",
-            &headers_with(&[("sec-fetch-site", "same-site")]),
-            "https"
-        ));
+        assert!(passes_cookie_csrf("POST", &headers_with(&[("sec-fetch-site", "same-origin")]), "https"));
+        assert!(passes_cookie_csrf("POST", &headers_with(&[("sec-fetch-site", "none")]), "https"));
+        assert!(!passes_cookie_csrf("POST", &headers_with(&[("sec-fetch-site", "cross-site")]), "https"));
+        assert!(!passes_cookie_csrf("POST", &headers_with(&[("sec-fetch-site", "same-site")]), "https"));
     }
 
     #[test]
@@ -580,10 +526,7 @@ mod tests {
         ));
         assert!(!passes_cookie_csrf(
             "POST",
-            &headers_with(&[
-                ("host", "example.com"),
-                ("referer", "http://example.com/form")
-            ]),
+            &headers_with(&[("host", "example.com"), ("referer", "http://example.com/form")]),
             "https"
         ));
         // Matching scheme still passes on plain HTTP.
@@ -596,11 +539,7 @@ mod tests {
 
     #[test]
     fn csrf_opaque_or_schemeless_origin_is_refused() {
-        assert!(!passes_cookie_csrf(
-            "POST",
-            &headers_with(&[("host", "example.com"), ("origin", "null")]),
-            "https"
-        ));
+        assert!(!passes_cookie_csrf("POST", &headers_with(&[("host", "example.com"), ("origin", "null")]), "https"));
         assert!(!passes_cookie_csrf(
             "POST",
             &headers_with(&[("host", "example.com"), ("origin", "example.com")]),
@@ -610,11 +549,7 @@ mod tests {
 
     #[test]
     fn csrf_unsafe_request_without_any_origin_signal_is_refused() {
-        assert!(!passes_cookie_csrf(
-            "POST",
-            &headers_with(&[("host", "example.com")]),
-            "https"
-        ));
+        assert!(!passes_cookie_csrf("POST", &headers_with(&[("host", "example.com")]), "https"));
     }
 
     #[test]
@@ -630,26 +565,17 @@ mod tests {
     fn csrf_origin_normalizes_default_ports() {
         assert!(passes_cookie_csrf(
             "POST",
-            &headers_with(&[
-                ("host", "example.com:443"),
-                ("origin", "https://example.com")
-            ]),
+            &headers_with(&[("host", "example.com:443"), ("origin", "https://example.com")]),
             "https"
         ));
         assert!(passes_cookie_csrf(
             "POST",
-            &headers_with(&[
-                ("host", "example.com"),
-                ("origin", "https://example.com:443")
-            ]),
+            &headers_with(&[("host", "example.com"), ("origin", "https://example.com:443")]),
             "https"
         ));
         assert!(!passes_cookie_csrf(
             "POST",
-            &headers_with(&[
-                ("host", "example.com"),
-                ("origin", "https://example.com:444")
-            ]),
+            &headers_with(&[("host", "example.com"), ("origin", "https://example.com:444")]),
             "https"
         ));
     }
@@ -659,10 +585,7 @@ mod tests {
         // A cookie-authenticated cross-site request is blocked.
         assert!(cookie_csrf_blocks(
             "POST",
-            &headers_with(&[
-                ("cookie", "access_token=tok"),
-                ("sec-fetch-site", "cross-site")
-            ]),
+            &headers_with(&[("cookie", "access_token=tok"), ("sec-fetch-site", "cross-site")]),
             true,
             "https"
         ));
@@ -670,30 +593,21 @@ mod tests {
         // stale auth cookie happens to be attached.
         assert!(!cookie_csrf_blocks(
             "POST",
-            &headers_with(&[
-                ("cookie", "access_token=stale"),
-                ("sec-fetch-site", "cross-site")
-            ]),
+            &headers_with(&[("cookie", "access_token=stale"), ("sec-fetch-site", "cross-site")]),
             false,
             "https"
         ));
         // Safe method → exempt even with the cookie.
         assert!(!cookie_csrf_blocks(
             "GET",
-            &headers_with(&[
-                ("cookie", "access_token=tok"),
-                ("sec-fetch-site", "cross-site")
-            ]),
+            &headers_with(&[("cookie", "access_token=tok"), ("sec-fetch-site", "cross-site")]),
             true,
             "https"
         ));
         // A route/credential without cookie CSRF → exempt.
         assert!(!cookie_csrf_blocks(
             "POST",
-            &headers_with(&[
-                ("cookie", "access_token=tok"),
-                ("sec-fetch-site", "cross-site")
-            ]),
+            &headers_with(&[("cookie", "access_token=tok"), ("sec-fetch-site", "cross-site")]),
             false,
             "https"
         ));

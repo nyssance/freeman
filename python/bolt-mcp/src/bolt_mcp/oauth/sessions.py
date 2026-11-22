@@ -14,13 +14,7 @@ from urllib.parse import urlsplit
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from django.contrib.auth import (
-    BACKEND_SESSION_KEY,
-    HASH_SESSION_KEY,
-    SESSION_KEY,
-    authenticate,
-    get_user_model,
-)
+from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY, authenticate, get_user_model
 from django.utils.crypto import constant_time_compare
 
 

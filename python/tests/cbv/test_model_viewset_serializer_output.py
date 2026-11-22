@@ -70,12 +70,7 @@ def test_default_list_and_retrieve_use_serializer_dump(article):
         queryset = Article.objects.all()
         serializer_class = ArticleOut
 
-    expected = {
-        "id": article.id,
-        "title": "hello",
-        "content": "the body",
-        "title_upper": "HELLO",
-    }
+    expected = {"id": article.id, "title": "hello", "content": "the body", "title_upper": "HELLO"}
 
     with TestClient(api) as client:
         r = client.get("/articles")
@@ -144,12 +139,7 @@ def test_nested_serializer_list_and_retrieve():
         queryset = BlogPost.objects.select_related("author").all()
         serializer_class = PostOut
 
-    expected = {
-        "id": post.id,
-        "title": "Post",
-        "author": {"id": author.id, "name": "Ada"},
-        "title_len": 4,
-    }
+    expected = {"id": post.id, "title": "Post", "author": {"id": author.id, "name": "Ada"}, "title_len": 4}
 
     with TestClient(api) as client:
         r = client.get("/posts")
@@ -181,12 +171,7 @@ def test_loaded_nested_serializer_uses_sync_from_model(monkeypatch):
         r = client.get("/posts")
         assert r.status_code == 200, r.text
         assert r.json() == [
-            {
-                "id": post.id,
-                "title": "Post",
-                "author": {"id": author.id, "name": "Ada"},
-                "title_len": 4,
-            }
+            {"id": post.id, "title": "Post", "author": {"id": author.id, "name": "Ada"}, "title_len": 4}
         ]
 
 
@@ -205,12 +190,7 @@ def test_unloaded_nested_serializer_falls_back_to_afrom_model():
         r = client.get("/posts")
         assert r.status_code == 200, r.text
         assert r.json() == [
-            {
-                "id": post.id,
-                "title": "Post",
-                "author": {"id": author.id, "name": "Ada"},
-                "title_len": 4,
-            }
+            {"id": post.id, "title": "Post", "author": {"id": author.id, "name": "Ada"}, "title_len": 4}
         ]
 
 
@@ -263,9 +243,4 @@ def test_serializer_response_still_renders_with_validation_disabled(article):
     with TestClient(api) as client:
         r = client.get(f"/one/{article.id}")
         assert r.status_code == 200, r.text
-        assert r.json() == {
-            "id": article.id,
-            "title": "hello",
-            "content": "the body",
-            "title_upper": "HELLO",
-        }
+        assert r.json() == {"id": article.id, "title": "hello", "content": "the body", "title_upper": "HELLO"}

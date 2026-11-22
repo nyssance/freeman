@@ -1,7 +1,5 @@
 use actix_http::KeepAlive;
-use actix_web::{
-    self as aw, App, HttpRequest, HttpResponse, HttpServer, http::header::HeaderValue, web,
-};
+use actix_web::{self as aw, App, HttpRequest, HttpResponse, HttpServer, http::header::HeaderValue, web};
 use ahash::AHashMap;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -21,18 +19,16 @@ use bolt_core::middleware::cors::CorsMiddleware;
 use bolt_core::middleware::rate_limit::{DEFAULT_IPV6_PREFIX, RateLimiters};
 use bolt_core::router::normalize_request_path;
 use bolt_core::settings::{
-    DjangoSettings, env_flag, env_non_negative_int, env_positive_int, env_var,
-    improperly_configured,
+    DjangoSettings, env_flag, env_non_negative_int, env_positive_int, env_var, improperly_configured,
 };
 use bolt_core::state::{
-    AppState, GLOBAL_ASGI_MOUNTS, GLOBAL_ROUTER, ROUTE_METADATA_TEMP, ScopeConfig, ServeMode,
-    TASK_LOCALS, find_websocket_mount,
+    AppState, GLOBAL_ASGI_MOUNTS, GLOBAL_ROUTER, ROUTE_METADATA_TEMP, ScopeConfig, ServeMode, TASK_LOCALS,
+    find_websocket_mount,
 };
 use bolt_core::static_files::handle_file;
 use bolt_core::streaming::StreamConfig;
 use bolt_websocket::{
-    GLOBAL_WEBSOCKET_ROUTER, WebSocketRouter, WsConfig, WsTarget, handle_websocket_upgrade,
-    is_websocket_upgrade,
+    GLOBAL_WEBSOCKET_ROUTER, WebSocketRouter, WsConfig, WsTarget, handle_websocket_upgrade, is_websocket_upgrade,
 };
 
 /// Reject URL prefixes containing actix scope path-param syntax.
@@ -49,12 +45,7 @@ fn is_literal_prefix(prefix: &str) -> bool {
 /// STATICFILES_DIRS entries are commonly `Path` objects (`BASE_DIR / "static"`),
 /// so fall back to `str()` rather than failing the `String` extraction.
 fn settings_path_to_string(obj: &Bound<'_, PyAny>) -> Option<String> {
-    obj.extract::<String>()
-        .or_else(|_| {
-            obj.call_method0("__str__")
-                .and_then(|s| s.extract::<String>())
-        })
-        .ok()
+    obj.extract::<String>().or_else(|_| obj.call_method0("__str__").and_then(|s| s.extract::<String>())).ok()
 }
 
 /// Canonicalize the configured serve directories once, at startup.
@@ -72,10 +63,7 @@ fn canonicalize_serve_dirs(dirs: &[String], url_prefix: &str, label: &str) -> Ve
         .filter_map(|dir| match Path::new(dir).canonicalize() {
             Ok(canonical) if canonical.is_dir() => Some(canonical),
             Ok(_) => {
-                eprintln!(
-                    "[django-bolt] Warning: {}: not a directory for {}: {}",
-                    label, url_prefix, dir
-                );
+                eprintln!("[django-bolt] Warning: {}: not a directory for {}: {}", label, url_prefix, dir);
                 None
             }
             Err(e) => {
@@ -116,18 +104,14 @@ impl CacheVisibility {
 /// - Missing / None → no header
 /// - A value that is not an int of 0 or more → `ImproperlyConfigured`
 fn read_max_age_setting(
-    settings: &DjangoSettings<'_>,
-    name: &str,
-    visibility: CacheVisibility,
+    settings: &DjangoSettings<'_>, name: &str, visibility: CacheVisibility,
 ) -> PyResult<Option<HeaderValue>> {
     if settings.get(name)?.is_none_or(|value| value.is_none()) {
         return Ok(None);
     }
     let max_age: u64 = settings.non_negative_int(name, 0)?;
     let value = format!("{}, max-age={}", visibility.directive(), max_age);
-    Ok(Some(
-        HeaderValue::from_str(&value).expect("a directive and an int are ASCII"),
-    ))
+    Ok(Some(HeaderValue::from_str(&value).expect("a directive and an int are ASCII")))
 }
 
 /// Read `BOLT_RATE_LIMIT_IPV6_PREFIX`: the prefix length of the network that a
@@ -196,27 +180,21 @@ impl ServerConfig {
         let debug = settings.truth_flag("DEBUG", false)?;
         let max_header_size = settings.non_negative_int("BOLT_MAX_HEADER_SIZE", 8192)?; // Default 8KB
         let max_payload_size = settings.non_negative_int("BOLT_MAX_UPLOAD_SIZE", 1024 * 1024)?; // Default 1MB
-        let asgi_mount_timeout =
-            settings.positive_seconds("BOLT_ASGI_MOUNT_TIMEOUT", Duration::from_secs(30))?; // Default 30s
-        let native_route_timeout =
-            settings.positive_seconds("BOLT_NATIVE_ROUTE_TIMEOUT", Duration::from_secs(30))?;
+        let asgi_mount_timeout = settings.positive_seconds("BOLT_ASGI_MOUNT_TIMEOUT", Duration::from_secs(30))?; // Default 30s
+        let native_route_timeout = settings.positive_seconds("BOLT_NATIVE_ROUTE_TIMEOUT", Duration::from_secs(30))?;
         let stream_config = StreamConfig::read(&settings)?;
         let rate_limit_ipv6_prefix = read_rate_limit_ipv6_prefix(&settings)?;
         let ws_config = Arc::new(WsConfig::from_django_settings(&settings)?);
 
-        let (global_cors_config, static_files_config, media_files_config) = if read_cors_and_files {
-            read_cors_and_file_scopes(&settings, debug)?
-        } else {
-            (None, None, None)
-        };
+        let (global_cors_config, static_files_config, media_files_config) =
+            if read_cors_and_files { read_cors_and_file_scopes(&settings, debug)? } else { (None, None, None) };
 
         // Resolve DJANGO_BOLT_MAX_PARAM_LENGTH once at startup, not per request.
         let max_param_length = bolt_core::type_coercion::resolve_max_param_length(py)?;
         // Lanes and the Python thread pools start later. Check their variables
         // now, so an invalid value stops startup.
         bolt_core::lane::configure_idle_time(py)?;
-        py.import("freeman.concurrency")?
-            .call_method0("check_pool_environment")?;
+        py.import("freeman.concurrency")?.call_method0("check_pool_environment")?;
 
         Ok(Self {
             debug,
@@ -243,11 +221,7 @@ impl ServerConfig {
         self.global_cors_config = if origins.is_empty() {
             None
         } else {
-            let origins = if allow_all {
-                vec!["*".to_string()]
-            } else {
-                origins
-            };
+            let origins = if allow_all { vec!["*".to_string()] } else { origins };
             Some(CorsConfig {
                 origin_set: origins.iter().cloned().collect(),
                 origins,
@@ -259,27 +233,16 @@ impl ServerConfig {
 }
 
 /// The global CORS config, the static scope and the media scope.
-type CorsAndFileScopes = (
-    Option<CorsConfig>,
-    Option<Arc<ScopeConfig>>,
-    Option<Arc<ScopeConfig>>,
-);
+type CorsAndFileScopes = (Option<CorsConfig>, Option<Arc<ScopeConfig>>, Option<Arc<ScopeConfig>>);
 
 /// Read the CORS, static and media settings. A setting with the wrong type
 /// raises `ImproperlyConfigured` that names the setting.
-fn read_cors_and_file_scopes(
-    settings: &DjangoSettings<'_>,
-    debug: bool,
-) -> PyResult<CorsAndFileScopes> {
+fn read_cors_and_file_scopes(settings: &DjangoSettings<'_>, debug: bool) -> PyResult<CorsAndFileScopes> {
     let py = settings.py();
 
     // Read django-cors-headers compatible CORS settings
-    let origins = settings
-        .str_list("CORS_ALLOWED_ORIGINS")?
-        .unwrap_or_default();
-    let origin_regex_patterns = settings
-        .str_list("CORS_ALLOWED_ORIGIN_REGEXES")?
-        .unwrap_or_default();
+    let origins = settings.str_list("CORS_ALLOWED_ORIGINS")?.unwrap_or_default();
+    let origin_regex_patterns = settings.str_list("CORS_ALLOWED_ORIGIN_REGEXES")?.unwrap_or_default();
     let allow_all = settings.bool("CORS_ALLOW_ALL_ORIGINS", false)?;
     let credentials = settings.bool("CORS_ALLOW_CREDENTIALS", false)?;
     let methods = settings.str_list("CORS_ALLOW_METHODS")?;
@@ -386,10 +349,7 @@ fn read_cors_and_file_scopes(
         // Path('') which str()s to ".") would canonicalize to the server's
         // CWD on every request — exposing source files at /media/*.
         if !Path::new(&root_str).is_absolute() {
-            eprintln!(
-                "[django-bolt] Warning: MEDIA_ROOT must be an absolute path (got {:?}); ignoring.",
-                root_str
-            );
+            eprintln!("[django-bolt] Warning: MEDIA_ROOT must be an absolute path (got {:?}); ignoring.", root_str);
             return Ok(None);
         }
 
@@ -403,11 +363,8 @@ fn read_cors_and_file_scopes(
     // rather than a fresh `HeaderValue::from_str` validation pass per
     // response. Same pattern as `BOLT_*_MAX_AGE` cache-control headers.
     // See: https://docs.djangoproject.com/en/6.0/ref/csp/
-    let csp_policy: Option<String> = py
-        .import("freeman.middleware.compiler")?
-        .getattr("get_static_files_csp")?
-        .call0()?
-        .extract()?;
+    let csp_policy: Option<String> =
+        py.import("freeman.middleware.compiler")?.getattr("get_static_files_csp")?.call0()?.extract()?;
     let csp_header = match csp_policy {
         None => None,
         Some(policy) => Some(HeaderValue::from_str(&policy).map_err(|_| {
@@ -428,50 +385,43 @@ fn read_cors_and_file_scopes(
     // CDNs cache aggressively. Media is per-user content where the URL is
     // often the only access gate; `private` keeps shared caches from
     // serving one user's uploads to another.
-    let static_cache_control =
-        read_max_age_setting(settings, "BOLT_STATIC_MAX_AGE", CacheVisibility::Public)?;
-    let media_cache_control =
-        read_max_age_setting(settings, "BOLT_MEDIA_MAX_AGE", CacheVisibility::Private)?;
+    let static_cache_control = read_max_age_setting(settings, "BOLT_STATIC_MAX_AGE", CacheVisibility::Public)?;
+    let media_cache_control = read_max_age_setting(settings, "BOLT_MEDIA_MAX_AGE", CacheVisibility::Private)?;
 
     // Validate CORS configuration: wildcard + credentials is invalid per spec
     if allow_all && credentials {
-        eprintln!(
-            "[django-bolt] Warning: CORS_ALLOW_ALL_ORIGINS=True with CORS_ALLOW_CREDENTIALS=True is invalid."
-        );
-        eprintln!(
-            "[django-bolt] Per CORS spec, wildcard origin (*) cannot be used with credentials."
-        );
+        eprintln!("[django-bolt] Warning: CORS_ALLOW_ALL_ORIGINS=True with CORS_ALLOW_CREDENTIALS=True is invalid.");
+        eprintln!("[django-bolt] Per CORS spec, wildcard origin (*) cannot be used with credentials.");
         eprintln!("[django-bolt] CORS will reflect the request origin instead of using wildcard.");
     }
 
     // Build global CORS config if any CORS settings are configured
-    let global_cors_config =
-        if !origins.is_empty() || !origin_regex_patterns.is_empty() || allow_all {
-            let mut cors_origins = origins.clone();
+    let global_cors_config = if !origins.is_empty() || !origin_regex_patterns.is_empty() || allow_all {
+        let mut cors_origins = origins.clone();
 
-            // If CORS_ALLOW_ALL_ORIGINS = True, use wildcard
-            if allow_all {
-                cors_origins = vec!["*".to_string()];
-            }
+        // If CORS_ALLOW_ALL_ORIGINS = True, use wildcard
+        if allow_all {
+            cors_origins = vec!["*".to_string()];
+        }
 
-            // A pattern or a name that Rust cannot use stops startup. The
-            // error names the setting and the value.
-            Some(
-                CorsConfig::from_django_settings(
-                    cors_origins,
-                    origin_regex_patterns.clone(),
-                    allow_all,
-                    credentials,
-                    methods,
-                    headers,
-                    expose_headers,
-                    max_age,
-                )
-                .map_err(|message| improperly_configured(py, format!("{message}.")))?,
+        // A pattern or a name that Rust cannot use stops startup. The
+        // error names the setting and the value.
+        Some(
+            CorsConfig::from_django_settings(
+                cors_origins,
+                origin_regex_patterns.clone(),
+                allow_all,
+                credentials,
+                methods,
+                headers,
+                expose_headers,
+                max_age,
             )
-        } else {
-            None
-        };
+            .map_err(|message| improperly_configured(py, format!("{message}.")))?,
+        )
+    } else {
+        None
+    };
 
     // Build static files configuration.
     // Directories are canonicalized ONCE here so the request hot path never
@@ -507,8 +457,7 @@ fn read_cors_and_file_scopes(
 
     // Build media files configuration (single directory: MEDIA_ROOT).
     let media_files_config = media_data.and_then(|(url_prefix, directory)| {
-        let valid_dirs =
-            canonicalize_serve_dirs(std::slice::from_ref(&directory), &url_prefix, "Media files");
+        let valid_dirs = canonicalize_serve_dirs(std::slice::from_ref(&directory), &url_prefix, "Media files");
         if valid_dirs.is_empty() {
             // canonicalize_serve_dirs already warned with the specific path.
             None
@@ -529,10 +478,7 @@ fn read_cors_and_file_scopes(
 
 /// Give each route without its own CORS config the global config, unless the
 /// route skips CORS. `runbolt` and the test client both call this.
-pub(crate) fn inject_global_cors(
-    metadata: &mut AHashMap<usize, RouteMetadata>,
-    global: Option<&CorsConfig>,
-) {
+pub(crate) fn inject_global_cors(metadata: &mut AHashMap<usize, RouteMetadata>, global: Option<&CorsConfig>) {
     let Some(global) = global else {
         return;
     };
@@ -557,16 +503,11 @@ pub(crate) fn inject_global_cors(
 /// route to the same `handle_file`; per-scope behaviour (finders fallback,
 /// media XSS-disarm, cache visibility) is data on each `ScopeConfig`.
 pub(crate) fn configure_file_scopes(cfg: &mut web::ServiceConfig, state: &AppState) {
-    for config in [&state.static_files_config, &state.media_files_config]
-        .into_iter()
-        .flatten()
-    {
+    for config in [&state.static_files_config, &state.media_files_config].into_iter().flatten() {
         let scope_data = web::Data::new(config.clone());
         cfg.service(
             web::scope(&config.url_prefix).app_data(scope_data).service(
-                web::resource("/{path:.*}")
-                    .route(web::get().to(handle_file))
-                    .route(web::head().to(handle_file)),
+                web::resource("/{path:.*}").route(web::get().to(handle_file)).route(web::head().to(handle_file)),
             ),
         );
     }
@@ -574,15 +515,10 @@ pub(crate) fn configure_file_scopes(cfg: &mut web::ServiceConfig, state: &AppSta
 
 #[pyfunction]
 #[pyo3(signature = (routes, native_routes, no_route=None))]
-#[expect(
-    clippy::type_complexity,
-    reason = "PyO3 wire format: Python passes each route as one tuple"
-)]
+#[expect(clippy::type_complexity, reason = "PyO3 wire format: Python passes each route as one tuple")]
 pub fn register_routes(
-    py: Python<'_>,
-    routes: Vec<(String, String, usize, Py<PyAny>, Py<PyAny>, Py<PyAny>)>,
-    native_routes: Vec<crate::native::NativeRouteSpec>,
-    no_route: Option<crate::native::NoRouteSpec>,
+    py: Python<'_>, routes: Vec<(String, String, usize, Py<PyAny>, Py<PyAny>, Py<PyAny>)>,
+    native_routes: Vec<crate::native::NativeRouteSpec>, no_route: Option<crate::native::NoRouteSpec>,
 ) -> PyResult<()> {
     let router = crate::native::build_router(py, routes, native_routes, no_route)?;
     GLOBAL_ROUTER
@@ -592,21 +528,17 @@ pub fn register_routes(
 }
 
 #[pyfunction]
-#[expect(
-    clippy::type_complexity,
-    reason = "PyO3 wire format: Python passes each WebSocket route as one tuple"
-)]
+#[expect(clippy::type_complexity, reason = "PyO3 wire format: Python passes each WebSocket route as one tuple")]
 pub fn register_websocket_routes(
-    _py: Python<'_>,
-    routes: Vec<(String, usize, Py<PyAny>, Option<Py<PyAny>>)>,
+    _py: Python<'_>, routes: Vec<(String, usize, Py<PyAny>, Option<Py<PyAny>>)>,
 ) -> PyResult<()> {
     let mut router = WebSocketRouter::new();
     for (path, handler_id, handler, injector) in routes {
         router.register(&path, handler_id, handler, injector)?;
     }
-    GLOBAL_WEBSOCKET_ROUTER.set(Arc::new(router)).map_err(|_| {
-        pyo3::exceptions::PyRuntimeError::new_err("WebSocket router already initialized")
-    })?;
+    GLOBAL_WEBSOCKET_ROUTER
+        .set(Arc::new(router))
+        .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("WebSocket router already initialized"))?;
     Ok(())
 }
 
@@ -614,18 +546,15 @@ pub fn register_websocket_routes(
 pub fn register_asgi_mounts(py: Python<'_>, mounts: Vec<(String, Py<PyAny>)>) -> PyResult<()> {
     let asgi_mounts = validate_and_sort_asgi_mounts(py, mounts)?;
 
-    GLOBAL_ASGI_MOUNTS.set(Arc::new(asgi_mounts)).map_err(|_| {
-        pyo3::exceptions::PyRuntimeError::new_err("ASGI mounts already initialized")
-    })?;
+    GLOBAL_ASGI_MOUNTS
+        .set(Arc::new(asgi_mounts))
+        .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("ASGI mounts already initialized"))?;
 
     Ok(())
 }
 
 #[pyfunction]
-pub fn register_middleware_metadata(
-    py: Python<'_>,
-    metadata: Vec<(usize, Py<PyAny>)>,
-) -> PyResult<()> {
+pub fn register_middleware_metadata(py: Python<'_>, metadata: Vec<(usize, Py<PyAny>)>) -> PyResult<()> {
     let mut parsed_metadata_map = AHashMap::new();
 
     for (handler_id, meta) in metadata {
@@ -642,19 +571,15 @@ pub fn register_middleware_metadata(
             // Keep the error type: a wrong value type stays a TypeError.
             PyErr::from_type(
                 e.get_type(py),
-                format!(
-                    "Failed to parse route metadata for handler {}: {}",
-                    handler_id,
-                    e.value(py)
-                ),
+                format!("Failed to parse route metadata for handler {}: {}", handler_id, e.value(py)),
             )
         })?;
         parsed_metadata_map.insert(handler_id, parsed);
     }
 
-    ROUTE_METADATA_TEMP.set(parsed_metadata_map).map_err(|_| {
-        pyo3::exceptions::PyRuntimeError::new_err("Route metadata already initialized")
-    })?;
+    ROUTE_METADATA_TEMP
+        .set(parsed_metadata_map)
+        .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("Route metadata already initialized"))?;
 
     Ok(())
 }
@@ -675,17 +600,11 @@ pub fn server_listening() -> bool {
 #[pyfunction]
 #[pyo3(signature = (dispatch, host, port, compression_config=None, error_renderer=None))]
 pub fn start_server(
-    py: Python<'_>,
-    dispatch: Py<PyAny>,
-    host: String,
-    port: u16,
-    compression_config: Option<Py<PyAny>>,
+    py: Python<'_>, dispatch: Py<PyAny>, host: String, port: u16, compression_config: Option<Py<PyAny>>,
     error_renderer: Option<Py<PyAny>>,
 ) -> PyResult<()> {
     if GLOBAL_ROUTER.get().is_none() {
-        return Err(pyo3::exceptions::PyRuntimeError::new_err(
-            "Routes not registered",
-        ));
+        return Err(pyo3::exceptions::PyRuntimeError::new_err("Routes not registered"));
     }
     if error_renderer.is_some() {
         bolt_core::error::enable_error_info();
@@ -708,12 +627,7 @@ pub fn start_server(
     let blocking_threads = env_positive_int(py, "DJANGO_BOLT_BLOCKING_THREADS", 1024usize)?; // Increased default to 1024 for better concurrent streaming support
     let workers = env_positive_int(py, "DJANGO_BOLT_WORKERS", 1usize)?;
     // HTTP keep-alive in seconds; without the variable, the OS default applies
-    let keep_alive = match env_var(
-        py,
-        "DJANGO_BOLT_KEEP_ALIVE",
-        "an int of 0 or more",
-        |_: &u64| true,
-    )? {
+    let keep_alive = match env_var(py, "DJANGO_BOLT_KEEP_ALIVE", "an int of 0 or more", |_: &u64| true)? {
         Some(seconds) => KeepAlive::Timeout(Duration::from_secs(seconds)),
         None => KeepAlive::Os,
     };
@@ -777,12 +691,8 @@ pub fn start_server(
     let mut metadata = ROUTE_METADATA_TEMP.get().cloned().unwrap_or_default();
     inject_global_cors(&mut metadata, config.global_cors_config.as_ref());
     // Read each access-log logger and its levels once, before workers start.
-    let access_loggers = bolt_core::access_log::read_access_loggers(
-        py,
-        metadata
-            .values_mut()
-            .map(|meta| &mut meta.access_log_filter),
-    )?;
+    let access_loggers =
+        bolt_core::access_log::read_access_loggers(py, metadata.values_mut().map(|meta| &mut meta.access_log_filter))?;
     // A logger counts only when a route writes to it. A route with no
     // metadata writes to django.server. The no-route route writes the 404
     // and the 405 of a path with no route.
@@ -794,23 +704,15 @@ pub fn start_server(
             .iter()
             .copied()
             .chain(router.no_route().map(|route| route.handler_id))
-            .map(|id| {
-                metadata
-                    .get(&id)
-                    .map_or(0, |meta| meta.access_log_filter.logger)
-            }),
+            .map(|id| metadata.get(&id).map_or(0, |meta| meta.access_log_filter.logger)),
     );
-    let access_loggers = if access_log_enabled {
-        access_loggers
-    } else {
-        Vec::new()
-    };
+    let access_loggers = if access_log_enabled { access_loggers } else { Vec::new() };
     let route_metadata = Arc::new(RouteMetadataStore::from_map(metadata));
 
     let global_compression_config = match compression_config {
-        Some(config_py) => Some(Arc::new(Python::attach(|py| {
-            CompressionConfig::from_python_dict(config_py.bind(py))
-        })?)),
+        Some(config_py) => {
+            Some(Arc::new(Python::attach(|py| CompressionConfig::from_python_dict(config_py.bind(py)))?))
+        }
         None => None,
     };
 
@@ -991,12 +893,7 @@ pub fn start_server(
 }
 
 /// Bind the non-blocking server listener. socket2 gives control of the backlog.
-fn bind_listener(
-    host: &str,
-    port: u16,
-    use_reuse_port: bool,
-    backlog: i32,
-) -> std::io::Result<std::net::TcpListener> {
+fn bind_listener(host: &str, port: u16, use_reuse_port: bool, backlog: i32) -> std::io::Result<std::net::TcpListener> {
     let addr = resolve_bind_addr(host, port)?;
     let socket = Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))?;
     socket.set_reuse_address(true)?;
@@ -1049,10 +946,7 @@ async fn wait_for_shutdown_signal() -> bool {
 #[cfg(not(unix))]
 async fn wait_for_shutdown_signal() -> bool {
     if let Err(e) = tokio::signal::ctrl_c().await {
-        eprintln!(
-            "[django-bolt] Failed to install Ctrl-C handler: {}; graceful shutdown is disabled",
-            e
-        );
+        eprintln!("[django-bolt] Failed to install Ctrl-C handler: {}; graceful shutdown is disabled", e);
         std::future::pending::<()>().await;
     }
     false
@@ -1069,10 +963,7 @@ fn is_websocket_upgrade_guard(ctx: &actix_web::guard::GuardContext) -> bool {
     let has_upgrade_connection = headers
         .get("connection")
         .and_then(|v| v.to_str().ok())
-        .map(|v| {
-            v.split(',')
-                .any(|p| p.trim().eq_ignore_ascii_case("upgrade"))
-        })
+        .map(|v| v.split(',').any(|p| p.trim().eq_ignore_ascii_case("upgrade")))
         .unwrap_or(false);
 
     if !has_upgrade_connection {
@@ -1080,19 +971,13 @@ fn is_websocket_upgrade_guard(ctx: &actix_web::guard::GuardContext) -> bool {
     }
 
     // Check for Upgrade: websocket header
-    headers
-        .get("upgrade")
-        .and_then(|v| v.to_str().ok())
-        .map(|v| v.eq_ignore_ascii_case("websocket"))
-        .unwrap_or(false)
+    headers.get("upgrade").and_then(|v| v.to_str().ok()).map(|v| v.eq_ignore_ascii_case("websocket")).unwrap_or(false)
 }
 
 /// Handler for WebSocket upgrade requests
 /// This is registered as a service and checks against the WebSocket router
 pub async fn websocket_upgrade_handler(
-    req: HttpRequest,
-    stream: web::Payload,
-    state: web::Data<Arc<AppState>>,
+    req: HttpRequest, stream: web::Payload, state: web::Data<Arc<AppState>>,
 ) -> actix_web::Result<HttpResponse> {
     // Check if this is a WebSocket upgrade request
     if !is_websocket_upgrade(&req) {
@@ -1103,11 +988,7 @@ pub async fn websocket_upgrade_handler(
 
     // Normalize trailing slash for consistent matching
     // WebSocket clients typically don't follow redirects, so we normalize server-side
-    let normalized_path = if path.len() > 1 && path.ends_with('/') {
-        &path[..path.len() - 1]
-    } else {
-        path
-    };
+    let normalized_path = if path.len() > 1 && path.ends_with('/') { &path[..path.len() - 1] } else { path };
 
     // Look up in global WebSocket router. Each form of a `%XX` escape matches,
     // as for an HTTP route.
@@ -1115,22 +996,13 @@ pub async fn websocket_upgrade_handler(
     if let Some(ws_router) = GLOBAL_WEBSOCKET_ROUTER.get()
         && let Some((route, path_params)) = ws_router.find(&route_path)
     {
-        let (handler, injector) = Python::attach(|py| {
-            (
-                route.handler.clone_ref(py),
-                route.injector.as_ref().map(|i| i.clone_ref(py)),
-            )
-        });
+        let (handler, injector) =
+            Python::attach(|py| (route.handler.clone_ref(py), route.injector.as_ref().map(|i| i.clone_ref(py))));
         // Pass AppState to WebSocket handler for CORS validation and connection tracking
         return handle_websocket_upgrade(
             req,
             stream,
-            WsTarget::Route {
-                handler,
-                handler_id: route.handler_id,
-                path_params,
-                injector,
-            },
+            WsTarget::Route { handler, handler_id: route.handler_id, path_params, injector },
             state.get_ref().clone(),
         )
         .await;
@@ -1156,13 +1028,11 @@ impl actix::Actor for WebSocketNotFoundActor {
     }
 }
 
-impl
-    actix::StreamHandler<Result<actix_web_actors::ws::Message, actix_web_actors::ws::ProtocolError>>
+impl actix::StreamHandler<Result<actix_web_actors::ws::Message, actix_web_actors::ws::ProtocolError>>
     for WebSocketNotFoundActor
 {
     fn handle(
-        &mut self,
-        _msg: Result<actix_web_actors::ws::Message, actix_web_actors::ws::ProtocolError>,
+        &mut self, _msg: Result<actix_web_actors::ws::Message, actix_web_actors::ws::ProtocolError>,
         _ctx: &mut Self::Context,
     ) {
         // Ignore all messages - we're closing immediately
@@ -1180,9 +1050,7 @@ fn without_trailing_slash(path: &str) -> &str {
 /// Handler for WebSocket upgrade requests to non-existent paths
 /// Properly upgrades then closes with code 1000, avoiding client hangs
 async fn websocket_not_found_handler(
-    req: HttpRequest,
-    stream: web::Payload,
-    state: web::Data<Arc<AppState>>,
+    req: HttpRequest, stream: web::Payload, state: web::Data<Arc<AppState>>,
 ) -> actix_web::Result<HttpResponse> {
     let path = req.path();
     let normalized_path = without_trailing_slash(path);
@@ -1191,11 +1059,9 @@ async fn websocket_not_found_handler(
     // with a trailing slash comes here. Find its route, as the test backend does.
     // Each form of a `%XX` escape matches, as in `websocket_upgrade_handler`.
     let is_route = normalized_path.len() != path.len()
-        && GLOBAL_WEBSOCKET_ROUTER.get().is_some_and(|ws_router| {
-            ws_router
-                .find(&normalize_request_path(normalized_path))
-                .is_some()
-        });
+        && GLOBAL_WEBSOCKET_ROUTER
+            .get()
+            .is_some_and(|ws_router| ws_router.find(&normalize_request_path(normalized_path)).is_some());
     if is_route {
         return websocket_upgrade_handler(req, stream, state).await;
     }
@@ -1241,10 +1107,7 @@ mod tests {
 
     #[test]
     fn bind_listener_binds_an_ipv6_address_in_brackets() {
-        assert_eq!(
-            bound_ip("[::1]").unwrap(),
-            IpAddr::from(std::net::Ipv6Addr::LOCALHOST)
-        );
+        assert_eq!(bound_ip("[::1]").unwrap(), IpAddr::from(std::net::Ipv6Addr::LOCALHOST));
     }
 
     #[test]

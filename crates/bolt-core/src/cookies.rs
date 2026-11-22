@@ -27,10 +27,7 @@ pub fn format_cookie(c: &CookieData) -> Option<String> {
     // Validate cookie name - reject if it contains invalid characters
     // RFC 6265: cookie-name = token (no CTLs, separators, or whitespace)
     if !is_valid_cookie_name(&c.name) {
-        eprintln!(
-            "[django-bolt] WARNING: Invalid cookie name '{}' - contains invalid characters",
-            c.name
-        );
+        eprintln!("[django-bolt] WARNING: Invalid cookie name '{}' - contains invalid characters", c.name);
         return None;
     }
 
@@ -47,10 +44,7 @@ pub fn format_cookie(c: &CookieData) -> Option<String> {
     // a header as Latin-1. A browser that sends it back makes the `Cookie` header
     // unreadable, so the request gets no cookies.
     if c.value.chars().any(|ch| ch > '\u{ff}') {
-        eprintln!(
-            "[django-bolt] WARNING: Cookie '{}' value contains a character above U+00FF - rejected",
-            c.name
-        );
+        eprintln!("[django-bolt] WARNING: Cookie '{}' value contains a character above U+00FF - rejected", c.name);
         return None;
     }
 
@@ -60,10 +54,7 @@ pub fn format_cookie(c: &CookieData) -> Option<String> {
     // Max-Age (validate non-negative)
     if let Some(max_age) = c.max_age {
         if max_age < 0 {
-            eprintln!(
-                "[django-bolt] WARNING: Cookie '{}' has negative max_age ({}) - using 0",
-                c.name, max_age
-            );
+            eprintln!("[django-bolt] WARNING: Cookie '{}' has negative max_age ({}) - using 0", c.name, max_age);
             cookie = cookie.max_age(time::Duration::ZERO);
         } else {
             cookie = cookie.max_age(time::Duration::seconds(max_age));
@@ -193,10 +184,7 @@ pub fn quote_cookie_value(value: &str) -> Cow<'_, str> {
 /// `\ooo` gives the character of that octal code, and `\c` gives `c`.
 /// Any other value stays as it is.
 pub fn unquote_cookie_value(value: &str) -> Cow<'_, str> {
-    let Some(inner) = value
-        .strip_prefix('"')
-        .and_then(|rest| rest.strip_suffix('"'))
-    else {
+    let Some(inner) = value.strip_prefix('"').and_then(|rest| rest.strip_suffix('"')) else {
         return Cow::Borrowed(value);
     };
     if !inner.contains('\\') {
@@ -397,10 +385,7 @@ mod tests {
     fn a_value_above_latin1_is_rejected() {
         assert!(format_cookie(&cookie_with_value("日本")).is_none());
         assert!(format_cookie(&cookie_with_value("a\u{100}")).is_none());
-        assert_eq!(
-            format_cookie(&cookie_with_value("\u{ff}")).unwrap(),
-            r#"session="\377"; Path=/"#
-        );
+        assert_eq!(format_cookie(&cookie_with_value("\u{ff}")).unwrap(), r#"session="\377"; Path=/"#);
     }
 
     #[test]
@@ -416,10 +401,7 @@ mod tests {
     #[test]
     fn a_value_cannot_add_an_attribute() {
         let result = format_cookie(&cookie_with_value("x; Domain=evil.example")).unwrap();
-        assert!(
-            result.starts_with(r#"session="x\073 Domain=evil.example"; "#),
-            "{result}"
-        );
+        assert!(result.starts_with(r#"session="x\073 Domain=evil.example"; "#), "{result}");
     }
 
     #[test]
@@ -521,12 +503,7 @@ mod tests {
                 samesite: Some(input.to_string()),
             };
             let result = format_cookie(&c).unwrap();
-            assert!(
-                result.contains(&format!("SameSite={}", expected)),
-                "Expected SameSite={} in {}",
-                expected,
-                result
-            );
+            assert!(result.contains(&format!("SameSite={}", expected)), "Expected SameSite={} in {}", expected, result);
         }
     }
 }

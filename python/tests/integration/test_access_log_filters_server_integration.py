@@ -12,8 +12,7 @@ _PATHS = ("/fast", "/fast", "/slow", "/gone", "/sampled/ok", "/sampled/ok", "/sa
 
 def _run(make_server_project, settings: str) -> list[str]:
     project = make_server_project(
-        api_module=app_module("access_log_filters"),
-        settings_extra=access_log_settings() + settings,
+        api_module=app_module("access_log_filters"), settings_extra=access_log_settings() + settings
     )
     with project.start(startup_path="/health") as server:
         for path in _PATHS:
@@ -39,10 +38,7 @@ def test_access_log_applies_the_sample_rate_of_a_logging_config(make_server_proj
 
 @pytest.mark.server_integration
 def test_access_log_filters_the_redirect_and_the_options_answer_of_a_route(make_server_project):
-    project = make_server_project(
-        api_module=app_module("access_log_filters"),
-        settings_extra=access_log_settings(),
-    )
+    project = make_server_project(api_module=app_module("access_log_filters"), settings_extra=access_log_settings())
     with project.start(startup_path="/health") as server:
         # Rust gives these answers before the handler runs.
         assert server.request("GET", "/sampled/ok/", follow_redirects=False).status_code == 308
@@ -73,8 +69,4 @@ def test_access_log_applies_the_slow_request_setting(make_server_project):
 @pytest.mark.server_integration
 def test_access_log_applies_the_sample_setting(make_server_project):
     lines = _run(make_server_project, "DJANGO_BOLT_LOG_SAMPLE = 0.0\n")
-    assert lines == [
-        "WARNING GET /gone 404",
-        "WARNING GET /sampled/gone 404",
-        "ERROR GET /sampled/down 503",
-    ]
+    assert lines == ["WARNING GET /gone 404", "WARNING GET /sampled/gone 404", "ERROR GET /sampled/down 503"]

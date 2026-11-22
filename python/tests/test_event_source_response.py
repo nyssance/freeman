@@ -29,13 +29,7 @@ class TestFormatSSEEvent:
         assert format_sse_event(data_bytes=b"line1\nline2\r\nline3") == b"data: line1\ndata: line2\ndata: line3\n\n"
 
     def test_all_fields(self):
-        result = format_sse_event(
-            data_str="payload",
-            event="update",
-            id="42",
-            retry=5000,
-            comment="keepalive",
-        )
+        result = format_sse_event(data_str="payload", event="update", id="42", retry=5000, comment="keepalive")
         assert result == b": keepalive\nevent: update\ndata: payload\nid: 42\nretry: 5000\n\n"
 
     def test_comment_only(self):
@@ -100,13 +94,7 @@ class TestServerSentEvent:
             ServerSentEvent(retry=-1)
 
     def test_all_fields(self):
-        event = ServerSentEvent(
-            data={"count": 1},
-            event="update",
-            id="1",
-            retry=5000,
-            comment="info",
-        )
+        event = ServerSentEvent(data={"count": 1}, event="update", id="1", retry=5000, comment="info")
         assert event.event == "update"
         assert event.id == "1"
         assert event.retry == 5000

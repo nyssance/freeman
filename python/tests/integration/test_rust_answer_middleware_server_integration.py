@@ -10,10 +10,7 @@ from .helpers import access_log_settings
 
 @pytest.mark.server_integration
 def test_the_middleware_and_the_access_log_get_each_answer_of_rust(make_server_project):
-    project = make_server_project(
-        api_module=app_module("rust_answer_middleware"),
-        settings_extra=access_log_settings(),
-    )
+    project = make_server_project(api_module=app_module("rust_answer_middleware"), settings_extra=access_log_settings())
     with project.start(startup_path="/health") as server:
         responses = [
             server.request("GET", "/open"),

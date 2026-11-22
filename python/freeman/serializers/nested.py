@@ -50,10 +50,7 @@ def resolve_nested_config(field_type: Any) -> ResolvedNestedConfig | None:
     resolved_type = _unwrap_nested_type(field_type)
 
     if _is_serializer_type(resolved_type):
-        return ResolvedNestedConfig(
-            serializer_class=resolved_type,
-            many=False,
-        )
+        return ResolvedNestedConfig(serializer_class=resolved_type, many=False)
 
     origin = get_origin(resolved_type)
     if origin is list:
@@ -61,19 +58,12 @@ def resolve_nested_config(field_type: Any) -> ResolvedNestedConfig | None:
         if args:
             item_type = _unwrap_nested_type(args[0])
             if _is_serializer_type(item_type):
-                return ResolvedNestedConfig(
-                    serializer_class=item_type,
-                    many=True,
-                )
+                return ResolvedNestedConfig(serializer_class=item_type, many=True)
 
     return None
 
 
-def validate_nested_field(
-    value: Any,
-    nested_config: ResolvedNestedConfig,
-    field_name: str,
-) -> Any:
+def validate_nested_field(value: Any, nested_config: ResolvedNestedConfig, field_name: str) -> Any:
     """Validate and convert an inferred nested field value."""
     if value is None:
         return None
@@ -85,11 +75,7 @@ def validate_nested_field(
     return _validate_single_nested(value, serializer_class, field_name)
 
 
-def _validate_single_nested(
-    value: Any,
-    serializer_class: type[Serializer],
-    field_name: str,
-) -> Any:
+def _validate_single_nested(value: Any, serializer_class: type[Serializer], field_name: str) -> Any:
     """Validate a single nested object inferred from the field type."""
     if isinstance(value, dict):
         try:
@@ -107,11 +93,7 @@ def _validate_single_nested(
     )
 
 
-def _validate_many_nested(
-    value: Any,
-    serializer_class: type[Serializer],
-    field_name: str,
-) -> Any:
+def _validate_many_nested(value: Any, serializer_class: type[Serializer], field_name: str) -> Any:
     """Validate a list of nested objects inferred from the field type."""
     if not isinstance(value, list):
         raise ValueError(f"{field_name}: Expected list for nested relationship, got {type(value).__name__}")

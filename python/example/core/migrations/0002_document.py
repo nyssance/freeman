@@ -4,9 +4,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [
-        ("core", "0001_initial"),
-    ]
+    dependencies = [("core", "0001_initial")]
 
     operations = [
         migrations.CreateModel(
@@ -17,5 +15,5 @@ class Migration(migrations.Migration):
                 ("file", models.FileField(upload_to="documents/")),
                 ("uploaded_at", models.DateTimeField(auto_now_add=True)),
             ],
-        ),
+        )
     ]

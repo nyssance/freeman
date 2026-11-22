@@ -86,21 +86,11 @@ mod tests {
         let released = std::thread::spawn(|| {
             let flag = Arc::new(AtomicBool::new(false));
             let body = Python::attach(|py| {
-                let module = PyModule::from_code(
-                    py,
-                    c"class Body(bytes):\n    pass\n",
-                    c"body_lifetime.py",
-                    c"body_lifetime",
-                )
-                .unwrap();
-                let original = module
-                    .getattr("Body")
-                    .unwrap()
-                    .call1((b"response body".as_slice(),))
-                    .unwrap();
-                original
-                    .setattr("released", Py::new(py, Released(flag.clone())).unwrap())
-                    .unwrap();
+                let module =
+                    PyModule::from_code(py, c"class Body(bytes):\n    pass\n", c"body_lifetime.py", c"body_lifetime")
+                        .unwrap();
+                let original = module.getattr("Body").unwrap().call1((b"response body".as_slice(),)).unwrap();
+                original.setattr("released", Py::new(py, Released(flag.clone())).unwrap()).unwrap();
                 let backed = original.extract::<PyBackedBytes>().unwrap();
                 Bytes::from_owner(AttachedBytes::from(backed))
             });
@@ -112,9 +102,6 @@ mod tests {
         })
         .join()
         .unwrap();
-        assert!(
-            released,
-            "body cleanup waited for a later Python attachment"
-        );
+        assert!(released, "body cleanup waited for a later Python attachment");
     }
 }

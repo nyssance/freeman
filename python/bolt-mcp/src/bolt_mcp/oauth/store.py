@@ -21,11 +21,7 @@ from .tokens import new_secret, sha256_hex
 
 # ── clients (Dynamic Client Registration) ──────────────────────────────────────
 def _create_client(
-    client_name: str,
-    redirect_uris: list[str],
-    grant_types: list[str],
-    scope: str,
-    application_type: str = "web",
+    client_name: str, redirect_uris: list[str], grant_types: list[str], scope: str, application_type: str = "web"
 ) -> dict[str, Any]:
     client = OAuthClient.objects.create(
         client_id=new_secret(24),
@@ -144,12 +140,7 @@ def _rotate_refresh_token(raw_token: str, ttl: int) -> tuple[str, dict[str, Any]
             scope=row.scope,
             expires_at=timezone.now() + timedelta(seconds=ttl),
         )
-        return "ok", {
-            "user_id": row.user_id,
-            "scope": row.scope,
-            "client_id": row.client.client_id,
-            "raw_new": raw_new,
-        }
+        return "ok", {"user_id": row.user_id, "scope": row.scope, "client_id": row.client.client_id, "raw_new": raw_new}
 
 
 def _revoke_refresh_token(raw_token: str) -> bool:

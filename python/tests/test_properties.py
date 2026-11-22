@@ -170,11 +170,7 @@ def test_a_sequence_query_param_matches_django_getlist(client, raw):
 
 @given(raw=raw_queries)
 def test_a_urlencoded_form_matches_django_getlist(client, raw):
-    response = client.post(
-        "/form",
-        content=raw.encode(),
-        headers={"content-type": "application/x-www-form-urlencoded"},
-    )
+    response = client.post("/form", content=raw.encode(), headers={"content-type": "application/x-www-form-urlencoded"})
     assert response.status_code == 200
     assert response.json() == QueryDict(raw).getlist("k")
 

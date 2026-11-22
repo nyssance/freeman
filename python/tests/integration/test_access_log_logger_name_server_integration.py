@@ -39,8 +39,7 @@ def _lines(project, name):
 def _run(make_server_project, server_level):
     """Send the requests and return the lines of the two logs."""
     project = make_server_project(
-        api_module=app_module("access_log_logger_name"),
-        settings_extra=_LOGGING.replace("{server_level}", server_level),
+        api_module=app_module("access_log_logger_name"), settings_extra=_LOGGING.replace("{server_level}", server_level)
     )
     with project.start(startup_path="/health") as server:
         assert server.request("GET", "/open").status_code == 200

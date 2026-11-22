@@ -81,9 +81,7 @@ def test_create_jwt_for_user_adds_the_name_claims():
 
 
 @pytest.mark.parametrize(
-    "fields",
-    [{}, {"email": "", "first_name": "", "last_name": ""}],
-    ids=["no-attributes", "empty-values"],
+    "fields", [{}, {"email": "", "first_name": "", "last_name": ""}], ids=["no-attributes", "empty-values"]
 )
 def test_create_jwt_for_user_leaves_out_missing_optional_claims(fields):
     decoded = jwt.decode(
@@ -301,12 +299,7 @@ def test_jwt_claims_stored_in_context():
 
     # Create token with custom claims
     token = create_jwt_for_user(
-        user,
-        secret="secret",
-        extra_claims={
-            "permissions": ["read", "write"],
-            "tenant_id": "tenant123",
-        },
+        user, secret="secret", extra_claims={"permissions": ["read", "write"], "tenant_id": "tenant123"}
     )
 
     # Decode to verify claims are there
@@ -489,10 +482,7 @@ async def test_get_user_reraises_operational_error():
     auth = JWTAuthentication(secret="test-secret")
 
     with (
-        patch(
-            "freeman.auth.backends.load_user_by_pk_sync",
-            side_effect=OperationalError("connection reset"),
-        ),
+        patch("freeman.auth.backends.load_user_by_pk_sync", side_effect=OperationalError("connection reset")),
         pytest.raises(OperationalError),
     ):
         await auth.get_user("1", {})
@@ -507,10 +497,7 @@ async def test_get_user_reraises_interface_error():
     auth = JWTAuthentication(secret="test-secret")
 
     with (
-        patch(
-            "freeman.auth.backends.load_user_by_pk_sync",
-            side_effect=InterfaceError("connection closed"),
-        ),
+        patch("freeman.auth.backends.load_user_by_pk_sync", side_effect=InterfaceError("connection closed")),
         pytest.raises(InterfaceError),
     ):
         await auth.get_user("1", {})
@@ -524,10 +511,7 @@ def test_get_user_sync_reraises_operational_error():
     auth = JWTAuthentication(secret="test-secret")
 
     with (
-        patch(
-            "freeman.auth.backends.load_user_by_pk_sync",
-            side_effect=OperationalError("connection reset"),
-        ),
+        patch("freeman.auth.backends.load_user_by_pk_sync", side_effect=OperationalError("connection reset")),
         pytest.raises(OperationalError),
     ):
         auth.get_user_sync("1")
@@ -541,10 +525,7 @@ def test_get_user_sync_reraises_interface_error():
     auth = JWTAuthentication(secret="test-secret")
 
     with (
-        patch(
-            "freeman.auth.backends.load_user_by_pk_sync",
-            side_effect=InterfaceError("connection closed"),
-        ),
+        patch("freeman.auth.backends.load_user_by_pk_sync", side_effect=InterfaceError("connection closed")),
         pytest.raises(InterfaceError),
     ):
         auth.get_user_sync("1")

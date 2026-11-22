@@ -76,11 +76,7 @@ def test_valid_token_exposes_principal_to_tool():
         resp, session_id = initialize(client, authorization=bearer)
         assert resp.status_code == 200
         called = post_rpc(
-            client,
-            "tools/call",
-            {"name": "whoami", "arguments": {}},
-            session_id=session_id,
-            authorization=bearer,
+            client, "tools/call", {"name": "whoami", "arguments": {}}, session_id=session_id, authorization=bearer
         )
         assert parse_rpc(called)["result"]["structuredContent"] == {"user_id": "42"}
 
@@ -110,22 +106,14 @@ def test_per_tool_guard_allows_then_rejects_call():
         # Authorized: the guarded tool runs and returns its result.
         _, sid_yes = initialize(client, authorization=with_perm)
         allowed = post_rpc(
-            client,
-            "tools/call",
-            {"name": "admin_only", "arguments": {}},
-            session_id=sid_yes,
-            authorization=with_perm,
+            client, "tools/call", {"name": "admin_only", "arguments": {}}, session_id=sid_yes, authorization=with_perm
         )
         assert parse_rpc(allowed)["result"]["structuredContent"] == {"ok": True}
 
         # Unauthorized: the guarded tool must not execute successfully.
         _, sid_no = initialize(client, authorization=no_perm)
         rejected = post_rpc(
-            client,
-            "tools/call",
-            {"name": "admin_only", "arguments": {}},
-            session_id=sid_no,
-            authorization=no_perm,
+            client, "tools/call", {"name": "admin_only", "arguments": {}}, session_id=sid_no, authorization=no_perm
         )
         body = parse_rpc(rejected)
         succeeded = "error" not in body and body.get("result", {}).get("isError") is False
@@ -140,9 +128,7 @@ def test_session_backend_on_a_mount_is_an_error():
 
 def test_a_session_default_is_dropped_on_a_mount():
     """The other default backends still authenticate the mount."""
-    with override_settings(
-        BOLT_AUTHENTICATION_CLASSES=[SessionAuthentication(), JWTAuthentication(secret=SECRET)],
-    ):
+    with override_settings(BOLT_AUTHENTICATION_CLASSES=[SessionAuthentication(), JWTAuthentication(secret=SECRET)]):
         api = BoltAPI()
         mount_mcp(api, MCP("default-server"), guards=[IsAuthenticated()])
         with TestClient(api) as client:

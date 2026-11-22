@@ -349,10 +349,7 @@ class TestProcessTemplateResponse:
             response = client.get("/simple")
 
         assert response.text == "page:S:first"
-        assert _calls == [
-            ("first", "process_template_response", False),
-            ("first", "process_response", "page:S:first"),
-        ]
+        assert _calls == [("first", "process_template_response", False), ("first", "process_response", "page:S:first")]
 
     @_KINDS
     def test_a_hook_that_returns_none_is_an_error(self, layout, kind, caplog):

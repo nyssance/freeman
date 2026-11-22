@@ -60,12 +60,7 @@ impl Drop for ClientGoneGuard {
         if !self.armed {
             return;
         }
-        let in_flight = self
-            .state
-            .body_tx
-            .lock()
-            .map(|guard| guard.is_some())
-            .unwrap_or(false);
+        let in_flight = self.state.body_tx.lock().map(|guard| guard.is_some()).unwrap_or(false);
         if in_flight {
             self.state.close();
         }
@@ -123,15 +118,9 @@ struct AsgiSend {
 
 #[pymethods]
 impl AsgiSend {
-    fn __call__<'py>(
-        &self,
-        py: Python<'py>,
-        message: &Bound<'py, PyDict>,
-    ) -> PyResult<Bound<'py, PyAny>> {
-        let msg_type: String = message
-            .get_item("type")?
-            .ok_or_else(|| PyValueError::new_err("Missing ASGI message type"))?
-            .extract()?;
+    fn __call__<'py>(&self, py: Python<'py>, message: &Bound<'py, PyDict>) -> PyResult<Bound<'py, PyAny>> {
+        let msg_type: String =
+            message.get_item("type")?.ok_or_else(|| PyValueError::new_err("Missing ASGI message type"))?.extract()?;
 
         if self.state.closed.load(Ordering::Acquire) {
             return pyo3_async_runtimes::tokio::future_into_py(py, async move { Ok(()) });
@@ -139,23 +128,19 @@ impl AsgiSend {
 
         match msg_type.as_str() {
             "http.response.start" => {
-                let status_item = message.get_item("status")?.ok_or_else(|| {
-                    PyValueError::new_err("Missing status in http.response.start")
-                })?;
+                let status_item = message
+                    .get_item("status")?
+                    .ok_or_else(|| PyValueError::new_err("Missing status in http.response.start"))?;
                 // A value that is not an HTTP status is an error of the app. It must not become a 200.
-                let status = status_item
-                    .extract::<u16>()
-                    .ok()
-                    .and_then(|code| StatusCode::from_u16(code).ok())
-                    .ok_or_else(|| {
-                        PyValueError::new_err(format!(
-                            "The status in http.response.start must be an int from 100 to 999, got {}",
-                            status_item
-                                .repr()
-                                .map(|repr| repr.to_string())
-                                .unwrap_or_else(|_| "?".to_string())
-                        ))
-                    })?;
+                let status =
+                    status_item.extract::<u16>().ok().and_then(|code| StatusCode::from_u16(code).ok()).ok_or_else(
+                        || {
+                            PyValueError::new_err(format!(
+                                "The status in http.response.start must be an int from 100 to 999, got {}",
+                                status_item.repr().map(|repr| repr.to_string()).unwrap_or_else(|_| "?".to_string())
+                            ))
+                        },
+                    )?;
                 let headers = parse_asgi_headers(message)?;
 
                 let mut start_guard = self
@@ -169,9 +154,7 @@ impl AsgiSend {
                         let _ = tx.send(AsgiResponseStart { status, headers });
                     }
                     None => {
-                        return Err(PyRuntimeError::new_err(
-                            "http.response.start sent more than once",
-                        ));
+                        return Err(PyRuntimeError::new_err("http.response.start sent more than once"));
                     }
                 }
             }
@@ -184,22 +167,14 @@ impl AsgiSend {
                     .map_err(|_| PyRuntimeError::new_err("Failed to lock response_start_tx"))?
                     .is_some();
                 if start_pending {
-                    return Err(PyRuntimeError::new_err(
-                        "http.response.body sent before http.response.start",
-                    ));
+                    return Err(PyRuntimeError::new_err("http.response.body sent before http.response.start"));
                 }
                 let body = parse_asgi_body(message)?;
-                let more_body = message
-                    .get_item("more_body")?
-                    .map(|item| item.extract::<bool>())
-                    .transpose()?
-                    .unwrap_or(false);
+                let more_body =
+                    message.get_item("more_body")?.map(|item| item.extract::<bool>()).transpose()?.unwrap_or(false);
 
-                let mut tx_guard = self
-                    .state
-                    .body_tx
-                    .lock()
-                    .map_err(|_| PyRuntimeError::new_err("Failed to lock body channel"))?;
+                let mut tx_guard =
+                    self.state.body_tx.lock().map_err(|_| PyRuntimeError::new_err("Failed to lock body channel"))?;
 
                 let tx = if let Some(ref tx) = *tx_guard {
                     let tx = tx.clone();
@@ -209,9 +184,7 @@ impl AsgiSend {
                     }
                     Some(tx)
                 } else if more_body || !body.is_empty() {
-                    return Err(PyRuntimeError::new_err(
-                        "Response body channel is already closed",
-                    ));
+                    return Err(PyRuntimeError::new_err("Response body channel is already closed"));
                 } else {
                     None
                 };
@@ -230,10 +203,7 @@ impl AsgiSend {
                 });
             }
             _ => {
-                return Err(PyValueError::new_err(format!(
-                    "Unsupported ASGI message type: {}",
-                    msg_type
-                )));
+                return Err(PyValueError::new_err(format!("Unsupported ASGI message type: {}", msg_type)));
             }
         }
 
@@ -256,17 +226,10 @@ impl AsgiDoneCallback {
                 log::debug!("ASGI mount: coroutine was cancelled");
             }
             Ok(exc) if !exc.is_none() => {
-                let exc_type = exc
-                    .get_type()
-                    .name()
-                    .ok()
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "Exception".to_string());
-                let exc_str = exc
-                    .call_method0("__str__")
-                    .ok()
-                    .and_then(|s| s.extract::<String>().ok())
-                    .unwrap_or_default();
+                let exc_type =
+                    exc.get_type().name().ok().map(|s| s.to_string()).unwrap_or_else(|| "Exception".to_string());
+                let exc_str =
+                    exc.call_method0("__str__").ok().and_then(|s| s.extract::<String>().ok()).unwrap_or_default();
                 let msg = format!("{}: {}", exc_type, exc_str);
                 log::error!("ASGI mount: coroutine raised an exception: {}", msg);
                 if let Ok(mut guard) = self.state.exception_msg.lock() {
@@ -295,9 +258,7 @@ fn parse_asgi_headers(message: &Bound<'_, PyDict>) -> PyResult<Vec<(Vec<u8>, Vec
             let header = header?;
             let pair: Vec<PyBackedBytes> = header.extract()?;
             if pair.len() != 2 {
-                return Err(PyValueError::new_err(
-                    "ASGI headers must be [name, value] byte pairs",
-                ));
+                return Err(PyValueError::new_err("ASGI headers must be [name, value] byte pairs"));
             }
             headers.push((pair[0].as_ref().to_vec(), pair[1].as_ref().to_vec()));
         }
@@ -327,11 +288,7 @@ fn parse_asgi_body(message: &Bound<'_, PyDict>) -> PyResult<Vec<u8>> {
 
 #[inline]
 fn parse_host_port(host: &str, scheme: &str) -> (String, u16) {
-    let default_port = if scheme.eq_ignore_ascii_case("https") {
-        443
-    } else {
-        80
-    };
+    let default_port = if scheme.eq_ignore_ascii_case("https") { 443 } else { 80 };
 
     if let Some(bracket_end) = host.find(']') {
         if host.len() > bracket_end + 2
@@ -363,11 +320,7 @@ fn mounted_subpath(request_path: &str, mount_prefix: &str) -> String {
     }
 
     if let Some(path) = request_path.strip_prefix(mount_prefix) {
-        if path.is_empty() {
-            "/".to_string()
-        } else {
-            path.to_string()
-        }
+        if path.is_empty() { "/".to_string() } else { path.to_string() }
     } else {
         request_path.to_string()
     }
@@ -387,10 +340,7 @@ fn request_host(req: &HttpRequest) -> &str {
 }
 
 fn build_scope(
-    py: Python<'_>,
-    req: &HttpRequest,
-    mount: &AsgiMount,
-    trusted_proxies: &TrustedProxies,
+    py: Python<'_>, req: &HttpRequest, mount: &AsgiMount, trusted_proxies: &TrustedProxies,
 ) -> PyResult<Py<PyDict>> {
     let scope = PyDict::new(py);
     let asgi_info = PyDict::new(py);
@@ -426,14 +376,10 @@ fn build_scope(
     let subpath = mounted_subpath(request_path, &mount.prefix);
     // ASGI: `path` is percent-decoded and `raw_path` keeps the request bytes,
     // as in the WebSocket scope. Django matches its URL patterns with `path`.
-    let path =
-        String::from_utf8_lossy(&urlencoding::decode_binary(subpath.as_bytes())).into_owned();
+    let path = String::from_utf8_lossy(&urlencoding::decode_binary(subpath.as_bytes())).into_owned();
     scope.set_item("path", path)?;
     scope.set_item("raw_path", PyBytes::new(py, subpath.as_bytes()))?;
-    scope.set_item(
-        "query_string",
-        PyBytes::new(py, req.query_string().as_bytes()),
-    )?;
+    scope.set_item("query_string", PyBytes::new(py, req.query_string().as_bytes()))?;
     if mount.prefix == "/" {
         scope.set_item("root_path", "")?;
     } else {
@@ -442,17 +388,11 @@ fn build_scope(
 
     let headers = PyList::empty(py);
     for (name, value) in req.headers() {
-        headers.append((
-            PyBytes::new(py, name.as_str().as_bytes()),
-            PyBytes::new(py, value.as_bytes()),
-        ))?;
+        headers.append((PyBytes::new(py, name.as_str().as_bytes()), PyBytes::new(py, value.as_bytes())))?;
     }
 
     if !req.headers().contains_key("host") {
-        headers.append((
-            PyBytes::new(py, b"host"),
-            PyBytes::new(py, request_host(req).as_bytes()),
-        ))?;
+        headers.append((PyBytes::new(py, b"host"), PyBytes::new(py, request_host(req).as_bytes())))?;
     }
 
     scope.set_item("headers", headers)?;
@@ -463,13 +403,10 @@ fn build_scope(
     // Same rule as `REMOTE_ADDR` on Bolt routes: forwarding headers name the
     // client only when the peer is in BOLT_TRUSTED_PROXIES. Actix's
     // `realip_remote_addr()` believes them from any peer.
-    let client_host = client_ip::resolve_from_headers(
-        req.headers(),
-        req.peer_addr().map(|address| address.ip()),
-        trusted_proxies,
-    )
-    .map(|address| address.to_string())
-    .unwrap_or_else(|| "127.0.0.1".to_string());
+    let client_host =
+        client_ip::resolve_from_headers(req.headers(), req.peer_addr().map(|address| address.ip()), trusted_proxies)
+            .map(|address| address.to_string())
+            .unwrap_or_else(|| "127.0.0.1".to_string());
     scope.set_item("client", (client_host, 0u16))?;
 
     scope.set_item("extensions", PyDict::new(py))?;
@@ -483,13 +420,10 @@ fn build_scope(
 /// owns Bolt route coroutines (see `worker_loop::get_loop`) — so a mount cannot
 /// share an asyncio future, queue, or lock with a Bolt handler.
 fn submit_to_event_loop(py: Python<'_>, coroutine: Py<PyAny>) -> PyResult<Py<PyAny>> {
-    let locals = TASK_LOCALS
-        .get()
-        .ok_or_else(|| PyRuntimeError::new_err("Asyncio loop not initialized"))?;
+    let locals = TASK_LOCALS.get().ok_or_else(|| PyRuntimeError::new_err("Asyncio loop not initialized"))?;
     let event_loop = locals.event_loop(py);
     let asyncio = py.import("asyncio")?;
-    let future =
-        asyncio.call_method1("run_coroutine_threadsafe", (coroutine.bind(py), event_loop))?;
+    let future = asyncio.call_method1("run_coroutine_threadsafe", (coroutine.bind(py), event_loop))?;
     Ok(future.unbind())
 }
 
@@ -499,13 +433,8 @@ fn submit_to_event_loop(py: Python<'_>, coroutine: Py<PyAny>) -> PyResult<Py<PyA
 /// so SSE/chunked streaming works in real time. `asgi_mount_timeout` applies
 /// only to the initial `http.response.start`; the body streams indefinitely.
 pub async fn handle_asgi_mount_request(
-    req: HttpRequest,
-    mut payload: web::Payload,
-    mount: &AsgiMount,
-    debug: bool,
-    max_payload_size: usize,
-    asgi_mount_timeout: Duration,
-    trusted_proxies: &TrustedProxies,
+    req: HttpRequest, mut payload: web::Payload, mount: &AsgiMount, debug: bool, max_payload_size: usize,
+    asgi_mount_timeout: Duration, trusted_proxies: &TrustedProxies,
 ) -> HttpResponse {
     // 1. Buffer request body.
     // NOTE: This read loop currently has no timeout. Slow-client request body timeouts
@@ -517,10 +446,7 @@ pub async fn handle_asgi_mount_request(
                 if request_body.len().saturating_add(data.len()) > max_payload_size {
                     return HttpResponse::PayloadTooLarge()
                         .content_type("text/plain; charset=utf-8")
-                        .body(format!(
-                            "Request body too large for ASGI mount (limit: {} bytes)",
-                            max_payload_size
-                        ));
+                        .body(format!("Request body too large for ASGI mount (limit: {} bytes)", max_payload_size));
                 }
                 request_body.extend_from_slice(&data);
             }
@@ -547,45 +473,25 @@ pub async fn handle_asgi_mount_request(
         closed: AtomicBool::new(false),
         response_done: Notify::new(),
     });
-    let mut client_gone = ClientGoneGuard {
-        state: send_state.clone(),
-        armed: true,
-    };
+    let mut client_gone = ClientGoneGuard { state: send_state.clone(), armed: true };
 
     let py_future: Py<PyAny> = match Python::attach(|py| -> PyResult<Py<PyAny>> {
         let scope = build_scope(py, &req, mount, trusted_proxies)?;
         let receive_obj = Py::new(
             py,
-            AsgiReceive {
-                body: Arc::new(AsyncMutex::new(Some(request_body))),
-                state: send_state.clone(),
-            },
+            AsgiReceive { body: Arc::new(AsyncMutex::new(Some(request_body))), state: send_state.clone() },
         )?;
-        let send_obj = Py::new(
-            py,
-            AsgiSend {
-                state: send_state.clone(),
-            },
-        )?;
+        let send_obj = Py::new(py, AsgiSend { state: send_state.clone() })?;
         let coroutine = mount.app.call1(py, (scope, receive_obj, send_obj))?;
 
         let py_future = submit_to_event_loop(py, coroutine)?;
-        let callback = Py::new(
-            py,
-            AsgiDoneCallback {
-                state: send_state.clone(),
-            },
-        )?;
-        py_future
-            .bind(py)
-            .call_method1("add_done_callback", (callback,))?;
+        let callback = Py::new(py, AsgiDoneCallback { state: send_state.clone() })?;
+        py_future.bind(py).call_method1("add_done_callback", (callback,))?;
         Ok(py_future)
     }) {
         Ok(f) => f,
         Err(err) => {
-            return Python::attach(|py| {
-                handle_python_error(py, err, req.path(), req.method().as_str(), debug)
-            });
+            return Python::attach(|py| handle_python_error(py, err, req.path(), req.method().as_str(), debug));
         }
     };
 
@@ -632,8 +538,7 @@ pub async fn handle_asgi_mount_request(
         match HeaderName::from_bytes(&name_bytes) {
             Ok(name) => match HeaderValue::from_bytes(&value_bytes) {
                 Ok(value) => {
-                    if name == "content-type" && value.as_bytes().starts_with(b"text/event-stream")
-                    {
+                    if name == "content-type" && value.as_bytes().starts_with(b"text/event-stream") {
                         is_event_stream = true;
                     }
                     builder.append_header((name, value));
@@ -676,9 +581,7 @@ pub async fn handle_asgi_mount_request(
     // The guard rides along with the stream: Actix drops it when the client
     // disconnects mid-body, which flips `closed` and wakes `receive()`.
     let body_stream = stream::unfold((body_rx, client_gone), |(mut rx, guard)| async move {
-        rx.recv()
-            .await
-            .map(|chunk| (Ok::<Bytes, std::io::Error>(chunk), (rx, guard)))
+        rx.recv().await.map(|chunk| (Ok::<Bytes, std::io::Error>(chunk), (rx, guard)))
     });
     builder.streaming(body_stream)
 }

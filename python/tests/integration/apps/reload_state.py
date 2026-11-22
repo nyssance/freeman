@@ -20,7 +20,4 @@ async def health():
 
 @api.get("/reload-state")
 async def reload_state():
-    return {
-        "pid": os.getpid(),
-        "reload_count": int(os.environ.get("DJANGO_BOLT_DEV_RELOAD_COUNT", "0")),
-    }
+    return {"pid": os.getpid(), "reload_count": int(os.environ.get("DJANGO_BOLT_DEV_RELOAD_COUNT", "0"))}

@@ -51,12 +51,7 @@ def test_explicit_handler_callable_and_binds_param():
         _, session_id = initialize(client)
         resp = post_rpc(client, "tools/list", session_id=session_id)
         (name,) = [t["name"] for t in parse_rpc(resp)["result"]["tools"]]
-        resp = post_rpc(
-            client,
-            "tools/call",
-            {"name": name, "arguments": {"n": 21}},
-            session_id=session_id,
-        )
+        resp = post_rpc(client, "tools/call", {"name": name, "arguments": {"n": 21}}, session_id=session_id)
         assert parse_rpc(resp)["result"]["structuredContent"] == {"result": 42}
 
 

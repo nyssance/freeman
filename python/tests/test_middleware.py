@@ -854,17 +854,7 @@ class TestMiddlewareOrderingAndExecution:
 
     def test_router_dict_middleware_is_compiled_for_rust_metadata(self):
         api = BoltAPI()
-        router = Router(
-            prefix="/rl",
-            middleware=[
-                {
-                    "type": "rate_limit",
-                    "rps": 7,
-                    "burst": 14,
-                    "key": "ip",
-                }
-            ],
-        )
+        router = Router(prefix="/rl", middleware=[{"type": "rate_limit", "rps": 7, "burst": 14, "key": "ip"}])
 
         @router.get("/items")
         async def list_items():

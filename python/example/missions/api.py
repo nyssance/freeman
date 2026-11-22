@@ -181,16 +181,10 @@ async def get_mission(mission_id: int) -> MissionResponse:
 async def create_mission(mission: CreateMission) -> MissionCreatedResponse:
     """Create a new mission."""
     new_mission = await Mission.objects.acreate(
-        name=mission.name,
-        description=mission.description,
-        launch_date=mission.launch_date,
-        status="planned",
+        name=mission.name, description=mission.description, launch_date=mission.launch_date, status="planned"
     )
     return MissionCreatedResponse(
-        id=new_mission.id,
-        name=new_mission.name,
-        status=new_mission.status,
-        message="Mission created successfully",
+        id=new_mission.id, name=new_mission.name, status=new_mission.status, message="Mission created successfully"
     )
 
 
@@ -225,10 +219,7 @@ async def delete_mission(mission_id: int):
 
 
 @api.get("/missions/{mission_id}/classified")
-async def get_classified_info(
-    mission_id: int,
-    clearance: Annotated[str, Header(alias="X-Clearance-Level")],
-):
+async def get_classified_info(mission_id: int, clearance: Annotated[str, Header(alias="X-Clearance-Level")]):
     """Return protected mission metadata when the caller has clearance."""
     if clearance not in ["top-secret", "confidential"]:
         raise HTTPException(status_code=403, detail="Insufficient clearance level")
@@ -265,10 +256,7 @@ Description: {mission.description or "No description"}
 
 
 @api.post("/missions/{mission_id}/patch")
-async def upload_mission_patch(
-    mission_id: int,
-    patch: Annotated[list[dict], File(alias="patch")],
-):
+async def upload_mission_patch(mission_id: int, patch: Annotated[list[dict], File(alias="patch")]):
     """Upload and persist a mission patch image."""
     try:
         mission = await Mission.objects.aget(id=mission_id)
@@ -301,21 +289,14 @@ async def upload_mission_patch(
 
 # Astronaut endpoints
 @api.post("/missions/{mission_id}/astronauts")
-async def add_astronaut(
-    mission_id: int,
-    data: Annotated[CreateAstronaut, Form()],
-) -> AstronautCreatedResponse:
+async def add_astronaut(mission_id: int, data: Annotated[CreateAstronaut, Form()]) -> AstronautCreatedResponse:
     """Add an astronaut to a mission."""
     try:
         mission = await Mission.objects.aget(id=mission_id)
     except Mission.DoesNotExist as exc:
         raise NotFound(detail=f"Mission {mission_id} not found") from exc
 
-    astronaut = await Astronaut.objects.acreate(
-        name=data.name,
-        role=data.role,
-        mission=mission,
-    )
+    astronaut = await Astronaut.objects.acreate(name=data.name, role=data.role, mission=mission)
     return await AstronautCreatedResponse.afrom_model(astronaut)
 
 
@@ -348,9 +329,7 @@ class UserPreferences(Serializer):
 # File upload endpoint
 @api.post("/missions/{mission_id}/documents")
 async def upload_document(
-    mission_id: int,
-    title: Annotated[str, Form()],
-    files: Annotated[list[dict], File(alias="file")],
+    mission_id: int, title: Annotated[str, Form()], files: Annotated[list[dict], File(alias="file")]
 ) -> MissionDocumentsResponse:
     """Upload documents for a mission."""
     try:
@@ -361,30 +340,17 @@ async def upload_document(
     uploaded: list[UploadedDocumentResponse] = []
     for f in files:
         uploaded.append(
-            UploadedDocumentResponse(
-                filename=f.get("filename"),
-                content_type=f.get("content_type"),
-                size=f.get("size"),
-            )
+            UploadedDocumentResponse(filename=f.get("filename"), content_type=f.get("content_type"), size=f.get("size"))
         )
 
-    return MissionDocumentsResponse(
-        mission=mission.name,
-        title=title,
-        documents=uploaded,
-        count=len(uploaded),
-    )
+    return MissionDocumentsResponse(mission=mission.name, title=title, documents=uploaded, count=len(uploaded))
 
 
 # Header struct endpoint
 @api.get("/missions/secure")
 async def secure_endpoint(headers: Annotated[APIHeaders, Header()]) -> SecureMissionResponse:
     """Endpoint requiring API key header."""
-    return SecureMissionResponse(
-        api_key=headers.x_api_key,
-        request_id=headers.x_request_id,
-        message="Access granted",
-    )
+    return SecureMissionResponse(api_key=headers.x_api_key, request_id=headers.x_request_id, message="Access granted")
 
 
 # Cookie struct endpoint
@@ -410,12 +376,7 @@ async def submit_report(
     except Mission.DoesNotExist as exc:
         raise NotFound(detail=f"Mission {mission_id} not found") from exc
 
-    return MissionReportResponse(
-        mission=mission.name,
-        title=title,
-        summary=summary,
-        attachments=len(attachments),
-    )
+    return MissionReportResponse(mission=mission.name, title=title, summary=summary, attachments=len(attachments))
 
 
 @api.get("/status-page")
@@ -435,13 +396,11 @@ async def mission_dashboard(request: Request):
     """Render a small dashboard using a Django template."""
     missions = []
     async for mission in Mission.objects.all()[:20]:
-        missions.append(
-            {
-                "id": mission.id,
-                "name": mission.name,
-                "status": mission.status,
-                "description": mission.description,
-            }
-        )
+        missions.append({
+            "id": mission.id,
+            "name": mission.name,
+            "status": mission.status,
+            "description": mission.description,
+        })
 
     return render(request, "missions/dashboard.html", {"missions": missions})

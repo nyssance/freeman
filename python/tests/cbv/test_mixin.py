@@ -59,14 +59,7 @@ def sample_articles(db):
 # --- Tests ---
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (ListMixin, ViewSet),
-        (ReadOnlyModelViewSet,),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(ListMixin, ViewSet), (ReadOnlyModelViewSet,), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_list_mixin(api, view_classes: list[type]):
     # Create test data
@@ -125,14 +118,7 @@ def test_list_mixin_pagination(api, view_classes: list[type]):
         assert data["has_previous"] is True
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (ListMixin, ViewSet),
-        (ReadOnlyModelViewSet,),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(ListMixin, ViewSet), (ReadOnlyModelViewSet,), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_list_mixin_filtering(api, view_classes: list[type]):
     # Create test data
@@ -192,14 +178,7 @@ def test_default_filter_queryset_is_skipped(api, monkeypatch):
         assert response.status_code == 200
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (RetrieveMixin, ViewSet),
-        (ReadOnlyModelViewSet,),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(RetrieveMixin, ViewSet), (ReadOnlyModelViewSet,), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_retrieve_mixin(api, view_classes: list[type]):
     # Create test data
@@ -219,13 +198,7 @@ def test_retrieve_mixin(api, view_classes: list[type]):
         assert data["content"] == "Retrieve Content"
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (CreateMixin, ViewSet),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(CreateMixin, ViewSet), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_create_mixin(api, view_classes: list[type]):
     @api.viewset("/articles")
@@ -236,8 +209,7 @@ def test_create_mixin(api, view_classes: list[type]):
 
     with TestClient(api) as client:
         response = client.post(
-            "/articles",
-            json={"title": "Create Title", "content": "Create Content", "author": "Author 1"},
+            "/articles", json={"title": "Create Title", "content": "Create Content", "author": "Author 1"}
         )
         assert response.status_code == 201
         data = response.json()
@@ -290,13 +262,7 @@ def test_create_mixin_inserts_only(api):
         assert rows() == [("DE", "Germany"), ("FR", "France"), ("PK", "Pakistan")]
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (UpdateMixin, ViewSet),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(UpdateMixin, ViewSet), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_update_mixin(api, view_classes: list[type]):
     article = Article.objects.create(title="Old Title", content="Old Content", author="Author 1")
@@ -319,13 +285,7 @@ def test_update_mixin(api, view_classes: list[type]):
         assert article.title == "Updated Title"
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (PartialUpdateMixin, ViewSet),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(PartialUpdateMixin, ViewSet), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_partial_update_mixin(api, view_classes: list[type]):
     article = Article.objects.create(title="Old Title", content="Old Content", author="Author 1")
@@ -336,10 +296,7 @@ def test_partial_update_mixin(api, view_classes: list[type]):
         serializer_class = ArticleSchema
 
     with TestClient(api) as client:
-        response = client.patch(
-            f"/articles/{article.id}",
-            json={"title": "Patched Title"},
-        )
+        response = client.patch(f"/articles/{article.id}", json={"title": "Patched Title"})
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == "Patched Title"
@@ -348,13 +305,7 @@ def test_partial_update_mixin(api, view_classes: list[type]):
         assert article.title == "Patched Title"
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (PartialUpdateMixin, ViewSet),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(PartialUpdateMixin, ViewSet), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_partial_update_mixin_uses_validated_values(api, view_classes: list[type]):
     article = Article.objects.create(title="Old Title", content="Old Content", author="Author 1")
@@ -373,10 +324,7 @@ def test_partial_update_mixin_uses_validated_values(api, view_classes: list[type
         update_serializer_class = ArticlePatchSchema
 
     with TestClient(api) as client:
-        response = client.patch(
-            f"/articles/{article.id}",
-            json={"title": "  Patched Title  "},
-        )
+        response = client.patch(f"/articles/{article.id}", json={"title": "  Patched Title  "})
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == "Patched Title"
@@ -405,8 +353,7 @@ def test_update_writes_the_default_values_of_an_omit_defaults_serializer(api):
 
     with TestClient(api) as client:
         response = client.put(
-            f"/articles/{article.id}",
-            json={"title": "New Title", "content": "New Content", "author": "Author 2"},
+            f"/articles/{article.id}", json={"title": "New Title", "content": "New Content", "author": "Author 2"}
         )
 
     assert response.status_code == 200
@@ -452,13 +399,7 @@ def test_write_actions_use_the_overrides_of_get_queryset_and_get_serializer_clas
     assert (article.title, article.content) == ("Patched", "Old Content")
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (DestroyMixin, ViewSet),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(DestroyMixin, ViewSet), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_destroy_mixin(api, view_classes: list[type]):
     article = Article.objects.create(title="To Delete", content="Content", author="Author 1")
@@ -474,13 +415,7 @@ def test_destroy_mixin(api, view_classes: list[type]):
         assert not Article.objects.filter(id=article.id).exists()
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (DestroyMixin, ViewSet),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(DestroyMixin, ViewSet), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_destroy_mixin_uses_perform_destroy_hook(api, view_classes: list[type]):
     article = Article.objects.create(title="To Delete", content="Content", author="Author 1")
@@ -502,13 +437,7 @@ def test_destroy_mixin_uses_perform_destroy_hook(api, view_classes: list[type]):
         assert not Article.objects.filter(id=article.id).exists()
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (DestroyMixin, ViewSet),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(DestroyMixin, ViewSet), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_destroy_mixin_keeps_legacy_perform_destory_override(api, view_classes: list[type]):
     article = Article.objects.create(title="To Delete", content="Content", author="Author 1")
@@ -530,14 +459,7 @@ def test_destroy_mixin_keeps_legacy_perform_destory_override(api, view_classes: 
         assert not Article.objects.filter(id=article.id).exists()
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (RetrieveMixin, ViewSet),
-        (ReadOnlyModelViewSet,),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(RetrieveMixin, ViewSet), (ReadOnlyModelViewSet,), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_retrieve_by_custom_lookup_field(api, view_classes: list[type]):
     # Create test data
@@ -596,11 +518,7 @@ async def test_get_object_reads_request_from_context_var():
 
 
 @pytest.mark.parametrize(
-    "view_classes",
-    [
-        (CreateMixin, UpdateMixin, PartialUpdateMixin, DestroyMixin, ViewSet),
-        (ModelViewSet,),
-    ],
+    "view_classes", [(CreateMixin, UpdateMixin, PartialUpdateMixin, DestroyMixin, ViewSet), (ModelViewSet,)]
 )
 @pytest.mark.django_db(transaction=True)
 def test_write_by_custom_lookup_field(api, view_classes: list[type]):
@@ -614,10 +532,7 @@ def test_write_by_custom_lookup_field(api, view_classes: list[type]):
 
     with TestClient(api) as client:
         # Test create
-        response = client.post(
-            "/articles",
-            json={"title": "unique_title", "content": "Content", "author": "Author"},
-        )
+        response = client.post("/articles", json={"title": "unique_title", "content": "Content", "author": "Author"})
         assert response.status_code == 201
         data = response.json()
         assert data["title"] == "unique_title"
@@ -636,10 +551,7 @@ def test_write_by_custom_lookup_field(api, view_classes: list[type]):
         assert article.content == "Updated Content"
 
         # Test partial update by title
-        response = client.patch(
-            "/articles/unique_title",
-            json={"content": "Patched Content"},
-        )
+        response = client.patch("/articles/unique_title", json={"content": "Patched Content"})
         assert response.status_code == 200
         data = response.json()
         assert data["content"] == "Patched Content"
@@ -654,12 +566,7 @@ def test_write_by_custom_lookup_field(api, view_classes: list[type]):
 
 
 @pytest.mark.parametrize(
-    "view_classes",
-    [
-        (ListMixin, RetrieveMixin, ViewSet),
-        (ReadOnlyModelViewSet,),
-        (ModelViewSet,),
-    ],
+    "view_classes", [(ListMixin, RetrieveMixin, ViewSet), (ReadOnlyModelViewSet,), (ModelViewSet,)]
 )
 @pytest.mark.django_db(transaction=True)
 def test_list_queryset_reevaluation(api, view_classes: list[type]):
@@ -683,11 +590,7 @@ def test_list_queryset_reevaluation(api, view_classes: list[type]):
         assert client.get("/articles/titles").json() == []
 
         # Create article outside the viewset
-        article = Article.objects.create(
-            title="Article 1",
-            content="Content 1",
-            author="Author 1",
-        )
+        article = Article.objects.create(title="Article 1", content="Content 1", author="Author 1")
 
         # Second request - should see the new article (queryset re-evaluated)
         response = client.get("/articles")
@@ -704,30 +607,13 @@ def test_list_queryset_reevaluation(api, view_classes: list[type]):
         assert client.get("/articles/titles").json() == ["Article 1"]
 
 
-@pytest.mark.parametrize(
-    "view_classes",
-    [
-        (ListMixin, ViewSet),
-        (ReadOnlyModelViewSet,),
-        (ModelViewSet,),
-    ],
-)
+@pytest.mark.parametrize("view_classes", [(ListMixin, ViewSet), (ReadOnlyModelViewSet,), (ModelViewSet,)])
 @pytest.mark.django_db(transaction=True)
 def test_list_custom_queryset(api, view_classes: list[type]):
     """Test ModelViewSet with custom get_queryset()."""
     # Create test data
-    Article.objects.create(
-        title="Published 1",
-        content="Content",
-        author="Author",
-        is_published=True,
-    )
-    Article.objects.create(
-        title="Draft 1",
-        content="Content",
-        author="Author",
-        is_published=False,
-    )
+    Article.objects.create(title="Published 1", content="Content", author="Author", is_published=True)
+    Article.objects.create(title="Draft 1", content="Content", author="Author", is_published=False)
 
     @api.viewset("/articles/published")
     class PublishedArticleViewSet(*view_classes):
@@ -798,6 +684,7 @@ def test_list_with_paginate_decorator(api, sample_articles, view_set_class: type
             @paginate(PageNumberPagination)
             async def list(self, request):
                 return Article.objects.all()
+
         else:
 
             @paginate(PageNumberPagination)
@@ -823,11 +710,7 @@ def test_list_with_paginate_decorator(api, sample_articles, view_set_class: type
 
 
 @pytest.mark.parametrize(
-    "view_classes",
-    [
-        (ListMixin, RetrieveMixin, CreateMixin, UpdateMixin, PartialUpdateMixin, ViewSet),
-        (ModelViewSet,),
-    ],
+    "view_classes", [(ListMixin, RetrieveMixin, CreateMixin, UpdateMixin, PartialUpdateMixin, ViewSet), (ModelViewSet,)]
 )
 @pytest.mark.django_db(transaction=True)
 def test_list_and_retrieve_different_serializers(api, view_classes: list[type]):
@@ -875,8 +758,7 @@ def test_list_and_retrieve_different_serializers(api, view_classes: list[type]):
 
         # Test create uses ArticleCreateSchema (accepts title, content, author)
         response = client.post(
-            "/articles",
-            json={"title": "New Title", "content": "New Content", "author": "New Author"},
+            "/articles", json={"title": "New Title", "content": "New Content", "author": "New Author"}
         )
         assert response.status_code == 201
         create_data = response.json()
@@ -916,10 +798,7 @@ def test_list_and_retrieve_different_serializers(api, view_classes: list[type]):
         # Test patch uses ArticleUpdateSchema
         # accept title, content
         # ignore author
-        response = client.patch(
-            f"/articles/{article2.id}",
-            json={"title": "Patched Title", "author": "Patched Author"},
-        )
+        response = client.patch(f"/articles/{article2.id}", json={"title": "Patched Title", "author": "Patched Author"})
         assert response.status_code == 200
         patch_data = response.json()
 

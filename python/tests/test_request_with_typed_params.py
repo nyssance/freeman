@@ -33,42 +33,27 @@ def api():
     # Handler with request + path param — request.headers should still work
     @api.get("/items/{item_id}/headers")
     async def get_headers_with_path_param(request, item_id: str):
-        return {
-            "item_id": item_id,
-            "headers": dict(request.headers),
-        }
+        return {"item_id": item_id, "headers": dict(request.headers)}
 
     # Handler with request + query param — request.headers should still work
     @api.get("/search/headers")
     async def get_headers_with_query_param(request, q: str = ""):
-        return {
-            "q": q,
-            "headers": dict(request.headers),
-        }
+        return {"q": q, "headers": dict(request.headers)}
 
     # Handler with request + path param — request.body should still work
     @api.post("/items/{item_id}/body")
     async def get_body_with_path_param(request, item_id: str):
-        return {
-            "item_id": item_id,
-            "body": request.body.decode(),
-        }
+        return {"item_id": item_id, "body": request.body.decode()}
 
     # Handler with request + query param — request.body should still work
     @api.post("/echo/body")
     async def get_body_with_query_param(request, format: str = "raw"):
-        return {
-            "format": format,
-            "body": request.body.decode(),
-        }
+        return {"format": format, "body": request.body.decode()}
 
     # Handler with request + path param — request.query should still work
     @api.get("/items/{item_id}/query")
     async def get_query_with_path_param(request, item_id: str):
-        return {
-            "item_id": item_id,
-            "query": dict(request.query),
-        }
+        return {"item_id": item_id, "query": dict(request.query)}
 
     # Handler with request + path + query — all should work
     @api.post("/items/{item_id}/all")
@@ -84,10 +69,7 @@ def api():
     # Handler with request + path param — request.cookies should still work
     @api.get("/items/{item_id}/cookies")
     async def get_cookies_with_path_param(request, item_id: str):
-        return {
-            "item_id": item_id,
-            "cookies": dict(request.cookies),
-        }
+        return {"item_id": item_id, "cookies": dict(request.cookies)}
 
     # Handler with request + typed body, header and cookie parameters. The
     # handler does not read the request, so the analysis finds no request part.
@@ -119,10 +101,7 @@ class TestRequestHeadersWithTypedParams:
 
     def test_headers_with_path_param(self, client):
         """request.headers works when handler has a path param."""
-        response = client.get(
-            "/items/abc/headers",
-            headers={"X-Custom": "test-value", "Authorization": "Bearer tok"},
-        )
+        response = client.get("/items/abc/headers", headers={"X-Custom": "test-value", "Authorization": "Bearer tok"})
         assert response.status_code == 200
         data = response.json()
         assert data["item_id"] == "abc"
@@ -131,10 +110,7 @@ class TestRequestHeadersWithTypedParams:
 
     def test_headers_with_query_param(self, client):
         """request.headers works when handler has a query param."""
-        response = client.get(
-            "/search/headers?q=test",
-            headers={"X-Request-Id": "req-123"},
-        )
+        response = client.get("/search/headers?q=test", headers={"X-Request-Id": "req-123"})
         assert response.status_code == 200
         data = response.json()
         assert data["q"] == "test"
@@ -142,10 +118,7 @@ class TestRequestHeadersWithTypedParams:
 
     def test_headers_request_only_control(self, client):
         """Control: request-only handler always has headers (no regression)."""
-        response = client.get(
-            "/headers-only",
-            headers={"X-Control": "yes"},
-        )
+        response = client.get("/headers-only", headers={"X-Control": "yes"})
         assert response.status_code == 200
         assert response.json()["headers"].get("x-control") == "yes"
 
@@ -156,9 +129,7 @@ class TestRequestBodyWithTypedParams:
     def test_body_with_path_param(self, client):
         """request.body works when handler has a path param."""
         response = client.post(
-            "/items/xyz/body",
-            content=b'{"key": "value"}',
-            headers={"Content-Type": "application/json"},
+            "/items/xyz/body", content=b'{"key": "value"}', headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -167,10 +138,7 @@ class TestRequestBodyWithTypedParams:
 
     def test_body_with_query_param(self, client):
         """request.body works when handler has a query param."""
-        response = client.post(
-            "/echo/body?format=json",
-            content=b"hello world",
-        )
+        response = client.post("/echo/body?format=json", content=b"hello world")
         assert response.status_code == 200
         data = response.json()
         assert data["format"] == "json"
@@ -195,10 +163,7 @@ class TestRequestCookiesWithTypedParams:
 
     def test_cookies_with_path_param(self, client):
         """request.cookies works when handler has a path param."""
-        response = client.get(
-            "/items/abc/cookies",
-            headers={"Cookie": "session=abc123; theme=dark"},
-        )
+        response = client.get("/items/abc/cookies", headers={"Cookie": "session=abc123; theme=dark"})
         assert response.status_code == 200
         data = response.json()
         assert data["item_id"] == "abc"
@@ -227,10 +192,7 @@ class TestAllComponentsWithMixedParams:
         response = client.post(
             "/items/item-42/all?token=hmac-abc",
             content=b'{"action": "process"}',
-            headers={
-                "Content-Type": "application/json",
-                "X-Task-Token": "secret-token",
-            },
+            headers={"Content-Type": "application/json", "X-Task-Token": "secret-token"},
         )
         assert response.status_code == 200
         data = response.json()

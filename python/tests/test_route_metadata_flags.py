@@ -99,9 +99,7 @@ def test_request_only_route_sends_every_flag(path: str) -> None:
 
     with TestClient(api) as client:
         response = client.post(
-            path.replace("{item_id}", "7") + "?q=1",
-            content=b"payload",
-            headers={"x-probe": "h", "cookie": "probe=c"},
+            path.replace("{item_id}", "7") + "?q=1", content=b"payload", headers={"x-probe": "h", "cookie": "probe=c"}
         )
 
     assert response.status_code == 200

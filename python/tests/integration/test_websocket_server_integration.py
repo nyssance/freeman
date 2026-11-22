@@ -18,10 +18,7 @@ def test_websocket_handshake_auth_and_close(make_server_project):
     with (
         project.start() as server,
         SimpleWebSocketClient(
-            server.host,
-            server.port,
-            "/ws/protected",
-            headers={"Authorization": "Bearer secret-token"},
+            server.host, server.port, "/ws/protected", headers={"Authorization": "Bearer secret-token"}
         ) as websocket,
     ):
         assert websocket.receive_text() == "authorized"

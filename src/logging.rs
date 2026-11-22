@@ -26,8 +26,7 @@ static LOGGER: StderrLogger = StderrLogger;
 /// of Bolt, such as Actix, also need `WARNING` or higher. Their `INFO` and
 /// `DEBUG` records describe their own work, not the work of Bolt.
 fn record_passes(level: Level, target: &str, max_level: LevelFilter) -> bool {
-    level <= max_level
-        && (level <= Level::Warn || target.starts_with("bolt_") || target.starts_with("freeman"))
+    level <= max_level && (level <= Level::Warn || target.starts_with("bolt_") || target.starts_with("freeman"))
 }
 
 impl Log for StderrLogger {
@@ -63,11 +62,7 @@ fn level_name(level: Level) -> &'static str {
 
 /// A character at which Python's `str.splitlines()` starts a new line.
 fn is_line_break(c: char) -> bool {
-    matches!(
-        c,
-        '\n' | '\r' | '\u{0b}' | '\u{0c}' | '\u{1c}'
-            ..='\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}'
-    )
+    matches!(c, '\n' | '\r' | '\u{0b}' | '\u{0c}' | '\u{1c}'..='\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}')
 }
 
 /// Write `\n` and `\r` as these two characters, and each other line break as `\uXXXX`.
@@ -91,12 +86,7 @@ fn format_record(level: Level, target: &str, args: &std::fmt::Arguments<'_>) -> 
     if message.contains(is_line_break) {
         message = escape_line_breaks(&message);
     }
-    format!(
-        "[django-bolt] {} {}: {}\n",
-        level_name(level),
-        target,
-        message
-    )
+    format!("[django-bolt] {} {}: {}\n", level_name(level), target, message)
 }
 
 /// The Rust level filter for an effective level of a Python logger.
@@ -139,27 +129,15 @@ mod tests {
     #[test]
     fn other_crates_log_only_warnings_and_errors() {
         let debug = LevelFilter::Debug;
-        assert!(record_passes(
-            Level::Debug,
-            "bolt_core::middleware::auth",
-            debug
-        ));
+        assert!(record_passes(Level::Debug, "bolt_core::middleware::auth", debug));
         assert!(record_passes(Level::Info, "freeman::server", debug));
         assert!(!record_passes(Level::Info, "actix_server::builder", debug));
         assert!(!record_passes(Level::Debug, "actix_server::accept", debug));
         assert!(record_passes(Level::Warn, "actix_server::accept", debug));
         assert!(record_passes(Level::Error, "actix_http::h1", debug));
         // The level of freeman still applies to each crate.
-        assert!(!record_passes(
-            Level::Warn,
-            "actix_server::accept",
-            LevelFilter::Error
-        ));
-        assert!(!record_passes(
-            Level::Debug,
-            "bolt_core::lane",
-            LevelFilter::Warn
-        ));
+        assert!(!record_passes(Level::Warn, "actix_server::accept", LevelFilter::Error));
+        assert!(!record_passes(Level::Debug, "bolt_core::lane", LevelFilter::Warn));
     }
 
     /// `log_enabled!` asks the backend. No other test sets the level.
@@ -190,22 +168,14 @@ mod tests {
             (50, LevelFilter::Off),   // CRITICAL
         ];
         for (python_level, filter) in cases {
-            assert_eq!(
-                level_filter(python_level),
-                filter,
-                "Python level {python_level}"
-            );
+            assert_eq!(level_filter(python_level), filter, "Python level {python_level}");
         }
     }
 
     #[test]
     fn a_record_is_one_line_with_the_python_level_name_and_the_target() {
         assert_eq!(
-            format_record(
-                Level::Warn,
-                "bolt_core::lane",
-                &format_args!("lane {} failed", 3)
-            ),
+            format_record(Level::Warn, "bolt_core::lane", &format_args!("lane {} failed", 3)),
             "[django-bolt] WARNING bolt_core::lane: lane 3 failed\n"
         );
     }

@@ -37,19 +37,11 @@ class TestFileAutoCleanup:
         @api.post("/upload")
         async def upload_file(file: Annotated[UploadFile, File()]) -> dict:
             content = await file.read()
-            file_states.append(
-                {
-                    "file_obj": file,
-                    "content_len": len(content),
-                }
-            )
+            file_states.append({"file_obj": file, "content_len": len(content)})
             return {"size": len(content)}
 
         with TestClient(api) as client:
-            response = client.post(
-                "/upload",
-                files={"file": ("test.txt", b"hello world", "text/plain")},
-            )
+            response = client.post("/upload", files={"file": ("test.txt", b"hello world", "text/plain")})
             assert response.status_code == 200
 
         assert len(file_states) == 1
@@ -61,23 +53,15 @@ class TestFileAutoCleanup:
         file_states = []
 
         @api.post("/upload-large")
-        async def upload_large(
-            file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)],
-        ) -> dict:
+        async def upload_large(file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)]) -> dict:
             content = await file.read()
-            file_states.append(
-                {
-                    "file_obj": file,
-                    "rolled_to_disk": file.rolled_to_disk,
-                }
-            )
+            file_states.append({"file_obj": file, "rolled_to_disk": file.rolled_to_disk})
             return {"size": len(content)}
 
         with TestClient(api) as client:
             large_content = b"x" * (2 * 1024 * 1024)  # 2MB
             response = client.post(
-                "/upload-large",
-                files={"file": ("large.bin", large_content, "application/octet-stream")},
+                "/upload-large", files={"file": ("large.bin", large_content, "application/octet-stream")}
             )
             assert response.status_code == 200
 
@@ -90,9 +74,7 @@ class TestFileAutoCleanup:
         file_states = []
 
         @api.post("/upload-multiple")
-        async def upload_multiple(
-            files: Annotated[list[UploadFile], File(max_files=10)],
-        ) -> dict:
+        async def upload_multiple(files: Annotated[list[UploadFile], File(max_files=10)]) -> dict:
             for f in files:
                 await f.read()
                 file_states.append(f)
@@ -125,10 +107,7 @@ class TestFileAutoCleanup:
             raise ValueError("Handler error!")
 
         with TestClient(api, raise_server_exceptions=False) as client:
-            response = client.post(
-                "/upload-error",
-                files={"file": ("test.txt", b"will error", "text/plain")},
-            )
+            response = client.post("/upload-error", files={"file": ("test.txt", b"will error", "text/plain")})
             assert response.status_code == 500
 
         assert len(file_states) == 1
@@ -149,8 +128,7 @@ class TestFileAutoCleanup:
         with TestClient(api) as client:
             for i in range(200):
                 response = client.post(
-                    "/upload-many",
-                    files={"file": (f"file{i}.txt", f"content {i}".encode(), "text/plain")},
+                    "/upload-many", files={"file": (f"file{i}.txt", f"content {i}".encode(), "text/plain")}
                 )
                 assert response.status_code == 200
 
@@ -169,9 +147,7 @@ class TestDiskSpooling:
         file_info = {}
 
         @api.post("/upload")
-        async def upload(
-            file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)],
-        ) -> dict:
+        async def upload(file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)]) -> dict:
             file_info["rolled_to_disk"] = file.rolled_to_disk
             file_info["size"] = file.size
             file_info["temp_path"] = file._temp_path
@@ -184,10 +160,7 @@ class TestDiskSpooling:
             # Upload 2MB file (above 1MB threshold)
             file_size = 2 * 1024 * 1024
             large_content = b"x" * file_size
-            response = client.post(
-                "/upload",
-                files={"file": ("large.bin", large_content, "application/octet-stream")},
-            )
+            response = client.post("/upload", files={"file": ("large.bin", large_content, "application/octet-stream")})
 
         assert response.status_code == 200
         assert file_info["rolled_to_disk"] is True
@@ -256,10 +229,7 @@ class TestDiskSpooling:
         with TestClient(api) as client:
             # Upload 500KB file (under 1MB threshold)
             small_content = b"x" * (500 * 1024)
-            response = client.post(
-                "/upload",
-                files={"file": ("small.bin", small_content, "application/octet-stream")},
-            )
+            response = client.post("/upload", files={"file": ("small.bin", small_content, "application/octet-stream")})
 
         assert response.status_code == 200
         assert file_info["rolled_to_disk"] is False
@@ -273,9 +243,7 @@ class TestDiskSpooling:
         file_info = {}
 
         @api.post("/upload")
-        async def upload(
-            file: Annotated[UploadFile, File(max_size=10 * 1024 * 1024)],
-        ) -> dict:
+        async def upload(file: Annotated[UploadFile, File(max_size=10 * 1024 * 1024)]) -> dict:
             file_info["rolled_to_disk"] = file.rolled_to_disk
             file_info["size"] = file.size
             return {"rolled": file.rolled_to_disk}
@@ -284,8 +252,7 @@ class TestDiskSpooling:
             # Upload exactly 1MB + 1 byte to trigger spooling
             threshold_content = b"x" * (1024 * 1024 + 1)
             response = client.post(
-                "/upload",
-                files={"file": ("threshold.bin", threshold_content, "application/octet-stream")},
+                "/upload", files={"file": ("threshold.bin", threshold_content, "application/octet-stream")}
             )
 
         assert response.status_code == 200
@@ -300,9 +267,7 @@ class TestDiskSpooling:
         file_info = {}
 
         @api.post("/upload")
-        async def upload(
-            file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)],
-        ) -> dict:
+        async def upload(file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)]) -> dict:
             # Check state BEFORE accessing file content
             file_info["file_before_access"] = file._file
             file_info["temp_path"] = file._temp_path
@@ -317,10 +282,7 @@ class TestDiskSpooling:
 
         with TestClient(api) as client:
             large_content = b"x" * (2 * 1024 * 1024)  # 2MB
-            response = client.post(
-                "/upload",
-                files={"file": ("large.bin", large_content, "application/octet-stream")},
-            )
+            response = client.post("/upload", files={"file": ("large.bin", large_content, "application/octet-stream")})
 
         assert response.status_code == 200
         assert file_info["temp_path"] is not None  # Has Rust temp path
@@ -339,9 +301,7 @@ class TestMemorySpoolThreshold:
         file_info = {}
 
         @api.post("/upload")
-        async def upload(
-            file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)],
-        ) -> dict:
+        async def upload(file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)]) -> dict:
             file_info["rolled_to_disk"] = file.rolled_to_disk
             await file.read()
             return {"rolled": file.rolled_to_disk}
@@ -349,10 +309,7 @@ class TestMemorySpoolThreshold:
         with TestClient(api) as client:
             # 1.5MB - above default 1MB threshold
             content = b"x" * (1536 * 1024)
-            response = client.post(
-                "/upload",
-                files={"file": ("test.bin", content, "application/octet-stream")},
-            )
+            response = client.post("/upload", files={"file": ("test.bin", content, "application/octet-stream")})
 
         assert response.status_code == 200
         assert file_info["rolled_to_disk"] is True
@@ -373,10 +330,7 @@ class TestMemorySpoolThreshold:
         with TestClient(api) as client:
             # 500KB - under 1MB threshold
             content = b"x" * (512 * 1024)
-            response = client.post(
-                "/upload",
-                files={"file": ("test.bin", content, "application/octet-stream")},
-            )
+            response = client.post("/upload", files={"file": ("test.bin", content, "application/octet-stream")})
 
         assert response.status_code == 200
         assert file_info["rolled_to_disk"] is False
@@ -391,9 +345,7 @@ class TestMemorySpoolThreshold:
         file_info = {}
 
         @api.post("/upload")
-        async def upload(
-            file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)],
-        ) -> dict:
+        async def upload(file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)]) -> dict:
             file_info["rolled_to_disk"] = file.rolled_to_disk
             file_info["temp_path"] = file._temp_path
             await file.read()
@@ -402,10 +354,7 @@ class TestMemorySpoolThreshold:
         with TestClient(api) as client:
             # 2MB - above default 1MB but under custom 5MB threshold
             content = b"x" * (2 * 1024 * 1024)
-            response = client.post(
-                "/upload",
-                files={"file": ("test.bin", content, "application/octet-stream")},
-            )
+            response = client.post("/upload", files={"file": ("test.bin", content, "application/octet-stream")})
 
         assert response.status_code == 200
         # With 5MB threshold, 2MB file should stay in memory
@@ -421,9 +370,7 @@ class TestMemorySpoolThreshold:
         file_info = {}
 
         @api.post("/upload")
-        async def upload(
-            file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)],
-        ) -> dict:
+        async def upload(file: Annotated[UploadFile, File(max_size=50 * 1024 * 1024)]) -> dict:
             file_info["rolled_to_disk"] = file.rolled_to_disk
             file_info["temp_path"] = file._temp_path
             await file.read()
@@ -432,10 +379,7 @@ class TestMemorySpoolThreshold:
         with TestClient(api) as client:
             # 6MB - above 5MB custom threshold
             content = b"x" * (6 * 1024 * 1024)
-            response = client.post(
-                "/upload",
-                files={"file": ("test.bin", content, "application/octet-stream")},
-            )
+            response = client.post("/upload", files={"file": ("test.bin", content, "application/octet-stream")})
 
         assert response.status_code == 200
         # With 5MB threshold, 6MB file should be disk-spooled

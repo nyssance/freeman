@@ -220,10 +220,7 @@ def test_a_rejection_of_a_route_runs_no_process_view(kind, wrap):
     assert response.status_code == 401
     assert response.headers["x-hook"] == "seen"
     assert response.headers["www-authenticate"]
-    assert _hooks == [
-        ("process_request", "/private"),
-        ("process_response", "/private", 401),
-    ]
+    assert _hooks == [("process_request", "/private"), ("process_response", "/private", 401)]
 
 
 def test_the_csrf_middleware_does_not_replace_a_rejection_of_a_form_post():
@@ -330,9 +327,7 @@ def test_the_route_middleware_gets_a_rejection_of_its_route():
     api = BoltAPI()
 
     @api.get(
-        "/private",
-        auth=[APIKeyAuthentication(api_keys={"secret"}, header="x-api-key")],
-        guards=[IsAuthenticated()],
+        "/private", auth=[APIKeyAuthentication(api_keys={"secret"}, header="x-api-key")], guards=[IsAuthenticated()]
     )
     @middleware(BoltRequestIdMiddleware)
     async def private(request: Request):

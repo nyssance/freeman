@@ -143,10 +143,7 @@ def handler_reads_request_cookies(request):
 
 def handler_reads_request_meta(request):
     """Handler that reads Django-compatible META."""
-    return {
-        "host": request.META.get("HTTP_HOST"),
-        "query": request.META.get("QUERY_STRING"),
-    }
+    return {"host": request.META.get("HTTP_HOST"), "query": request.META.get("QUERY_STRING")}
 
 
 def handler_reads_request_full_path(request):
@@ -501,11 +498,7 @@ class TestAnalyzeDependencyTree:
 
     def test_dep_reading_request_query_marks_query(self):
         dep_fn = _dep_reads_query_via_request
-        dep_meta = {
-            "mode": "request_only",
-            "sig": inspect.signature(dep_fn),
-            "fields": [],
-        }
+        dep_meta = {"mode": "request_only", "sig": inspect.signature(dep_fn), "fields": []}
         handler_meta = {"fields": [_make_fake_field(source="dependency", dep_fn=dep_fn)]}
 
         needs = analyze_dependency_tree(handler_meta, self._compile_fn({dep_fn: dep_meta}))
@@ -517,11 +510,7 @@ class TestAnalyzeDependencyTree:
 
     def test_dep_reading_request_headers_marks_headers(self):
         dep_fn = _dep_reads_headers_via_request
-        dep_meta = {
-            "mode": "request_only",
-            "sig": inspect.signature(dep_fn),
-            "fields": [],
-        }
+        dep_meta = {"mode": "request_only", "sig": inspect.signature(dep_fn), "fields": []}
         handler_meta = {"fields": [_make_fake_field(source="dependency", dep_fn=dep_fn)]}
 
         needs = analyze_dependency_tree(handler_meta, self._compile_fn({dep_fn: dep_meta}))
@@ -531,11 +520,7 @@ class TestAnalyzeDependencyTree:
 
     def test_dep_reading_request_cookies_marks_cookies(self):
         dep_fn = _dep_reads_cookies_via_request
-        dep_meta = {
-            "mode": "request_only",
-            "sig": inspect.signature(dep_fn),
-            "fields": [],
-        }
+        dep_meta = {"mode": "request_only", "sig": inspect.signature(dep_fn), "fields": []}
         handler_meta = {"fields": [_make_fake_field(source="dependency", dep_fn=dep_fn)]}
 
         needs = analyze_dependency_tree(handler_meta, self._compile_fn({dep_fn: dep_meta}))
@@ -544,11 +529,7 @@ class TestAnalyzeDependencyTree:
 
     def test_dep_reading_request_body_marks_body(self):
         dep_fn = _dep_reads_body_via_request
-        dep_meta = {
-            "mode": "request_only",
-            "sig": inspect.signature(dep_fn),
-            "fields": [],
-        }
+        dep_meta = {"mode": "request_only", "sig": inspect.signature(dep_fn), "fields": []}
         handler_meta = {"fields": [_make_fake_field(source="dependency", dep_fn=dep_fn)]}
 
         needs = analyze_dependency_tree(handler_meta, self._compile_fn({dep_fn: dep_meta}))
@@ -557,11 +538,7 @@ class TestAnalyzeDependencyTree:
 
     def test_dep_without_request_access_produces_no_needs(self):
         dep_fn = _dep_no_request_access
-        dep_meta = {
-            "mode": "request_only",
-            "sig": inspect.signature(dep_fn),
-            "fields": [],
-        }
+        dep_meta = {"mode": "request_only", "sig": inspect.signature(dep_fn), "fields": []}
         handler_meta = {"fields": [_make_fake_field(source="dependency", dep_fn=dep_fn)]}
 
         needs = analyze_dependency_tree(handler_meta, self._compile_fn({dep_fn: dep_meta}))
@@ -571,11 +548,7 @@ class TestAnalyzeDependencyTree:
     def test_typed_query_in_dep_is_picked_up_via_needs_query(self):
         """A dep with a typed Query() param already sets needs_query in its meta."""
         dep_fn = lambda page: {"page": page}  # noqa: E731
-        dep_meta = {
-            "mode": "mixed",
-            "fields": [],
-            "needs_query": True,
-        }
+        dep_meta = {"mode": "mixed", "fields": [], "needs_query": True}
         handler_meta = {"fields": [_make_fake_field(source="dependency", dep_fn=dep_fn)]}
 
         needs = analyze_dependency_tree(handler_meta, self._compile_fn({dep_fn: dep_meta}))
@@ -600,11 +573,7 @@ class TestAnalyzeDependencyTree:
     def test_visited_set_prevents_infinite_recursion_on_self_reference(self):
         """A dep referenced twice is only analyzed once (by identity)."""
         dep_fn = _dep_reads_query_via_request
-        dep_meta = {
-            "mode": "request_only",
-            "sig": inspect.signature(dep_fn),
-            "fields": [],
-        }
+        dep_meta = {"mode": "request_only", "sig": inspect.signature(dep_fn), "fields": []}
         handler_meta = {
             "fields": [
                 _make_fake_field(source="dependency", dep_fn=dep_fn, name="a"),
@@ -629,6 +598,7 @@ def test_sync_handler_with_a_raw_cursor_runs_in_the_thread_pool(use_handler):
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1")
                 return {"value": cursor.fetchone()[0], "thread": threading.current_thread().name}
+
     else:
 
         @api.get("/one")
@@ -1032,10 +1002,7 @@ class TestDependencyTreeWalk:
         assert _needs(needs) == ("body",)
 
     def test_the_dependencies_of_a_dependency_count(self):
-        metas = {
-            _outer_dep: _mixed(_dependency(_inner_dep, name="inner")),
-            _inner_dep: _request_only(_inner_dep),
-        }
+        metas = {_outer_dep: _mixed(_dependency(_inner_dep, name="inner")), _inner_dep: _request_only(_inner_dep)}
 
         needs = analyze_dependency_tree({"fields": [_dependency(_outer_dep)]}, metas.__getitem__)
 

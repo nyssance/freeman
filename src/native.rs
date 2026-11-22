@@ -24,15 +24,10 @@ pub type NativeRouteSpec = (String, String, Py<PyAny>);
 pub type NoRouteSpec = (usize, Py<PyAny>, Py<PyAny>, Py<PyAny>);
 
 /// Build the router of an app: the Python routes, then the native routes.
-#[expect(
-    clippy::type_complexity,
-    reason = "PyO3 wire format: Python passes each route as one tuple"
-)]
+#[expect(clippy::type_complexity, reason = "PyO3 wire format: Python passes each route as one tuple")]
 pub fn build_router(
-    py: Python<'_>,
-    routes: Vec<(String, String, usize, Py<PyAny>, Py<PyAny>, Py<PyAny>)>,
-    native_routes: Vec<NativeRouteSpec>,
-    no_route: Option<NoRouteSpec>,
+    py: Python<'_>, routes: Vec<(String, String, usize, Py<PyAny>, Py<PyAny>, Py<PyAny>)>,
+    native_routes: Vec<NativeRouteSpec>, no_route: Option<NoRouteSpec>,
 ) -> PyResult<Router> {
     let mut router = Router::new();
     for (method, path, handler_id, handler, dispatch, dispatch_sync) in routes {
@@ -55,9 +50,7 @@ fn handler_from_capsule(py: Python<'_>, capsule: &Py<PyAny>) -> PyResult<NativeH
     // SAFETY: `obj` is alive while `capsule` is bound.
     let ptr = unsafe {
         if pyo3::ffi::PyCapsule_IsValid(obj, name) != 1 {
-            return Err(PyTypeError::new_err(
-                "expected a freeman.native_handler.v1 capsule",
-            ));
+            return Err(PyTypeError::new_err("expected a freeman.native_handler.v1 capsule"));
         }
         pyo3::ffi::PyCapsule_GetPointer(obj, name) as *const abi::HandlerV1
     };
@@ -76,9 +69,7 @@ fn handler_from_capsule(py: Python<'_>, capsule: &Py<PyAny>) -> PyResult<NativeH
     // SAFETY: the size covers the v1 layout, and the contract requires the
     // struct to be static. CPython does not unload extension modules.
     let handler: &'static abi::HandlerV1 = unsafe { &*ptr };
-    let call = handler
-        .call
-        .ok_or_else(|| PyValueError::new_err("native handler has no call function"))?;
+    let call = handler.call.ok_or_else(|| PyValueError::new_err("native handler has no call function"))?;
     Ok(NativeHandler { handler, call })
 }
 
@@ -94,9 +85,7 @@ fn handler_name(native: NativeHandler) -> String {
         return "<unnamed>".to_owned();
     }
     // SAFETY: the contract requires a NUL-terminated, static name.
-    unsafe { CStr::from_ptr(native.handler.name) }
-        .to_string_lossy()
-        .into_owned()
+    unsafe { CStr::from_ptr(native.handler.name) }.to_string_lossy().into_owned()
 }
 
 struct OwnedResponse {
@@ -136,16 +125,9 @@ unsafe extern "C" fn complete(token: *mut c_void, resp: *const abi::Response) {
     } else {
         unsafe { std::slice::from_raw_parts(resp.headers, resp.n_headers) }
     };
-    let headers = pairs
-        .iter()
-        .map(|p| unsafe { (p.name.as_bytes().to_vec(), p.value.as_bytes().to_vec()) })
-        .collect();
+    let headers = pairs.iter().map(|p| unsafe { (p.name.as_bytes().to_vec(), p.value.as_bytes().to_vec()) }).collect();
     // An error means that the request is gone (client or timeout).
-    let _ = tx.send(OwnedResponse {
-        status: resp.status,
-        headers,
-        body: unsafe { resp.body.as_bytes().to_vec() },
-    });
+    let _ = tx.send(OwnedResponse { status: resp.status, headers, body: unsafe { resp.body.as_bytes().to_vec() } });
 }
 
 /// A 500 that Bolt makes for a native route. The reason is logged here, one
@@ -156,9 +138,7 @@ fn internal_error(reason: String) -> HttpResponse {
     let response = HttpResponse::InternalServerError()
         .content_type("application/json")
         .body(r#"{"detail":"Internal Server Error"}"#);
-    error::with_error_info(response, || {
-        error::ErrorInfo::core("internal_error", "Internal Server Error")
-    })
+    error::with_error_info(response, || error::ErrorInfo::core("internal_error", "Internal Server Error"))
 }
 
 /// The header limits of Python routes: at most 100 headers, and no value
@@ -174,11 +154,7 @@ fn check_header_limits(req: &HttpRequest, max_header_size: usize) -> Result<(), 
     if req.headers().len() > MAX_HEADERS {
         return Err(responses::error_400_too_many_headers());
     }
-    if req
-        .headers()
-        .iter()
-        .any(|(_, value)| value.len() > max_header_size)
-    {
+    if req.headers().iter().any(|(_, value)| value.len() > max_header_size) {
         return Err(responses::error_400_header_too_large(max_header_size));
     }
     Ok(())
@@ -188,19 +164,13 @@ fn check_header_limits(req: &HttpRequest, max_header_size: usize) -> Result<(), 
 /// for the error formatter. A response of the handler has none, so the
 /// formatter leaves it as it is.
 pub async fn dispatch(
-    req: &HttpRequest,
-    mut payload: web::Payload,
-    native: NativeHandler,
-    path_params: Option<PathParams<'_>>,
+    req: &HttpRequest, mut payload: web::Payload, native: NativeHandler, path_params: Option<PathParams<'_>>,
     state: &AppState,
 ) -> HttpResponse {
     if let Err(response) = check_header_limits(req, state.max_header_size) {
         return response;
     }
-    if crate::handler::content_length_exceeds_limit(
-        crate::handler::parse_content_length(req),
-        state.max_payload_size,
-    ) {
+    if crate::handler::content_length_exceeds_limit(crate::handler::parse_content_length(req), state.max_payload_size) {
         return responses::error_413();
     }
     let body = match crate::handler::read_body(&mut payload, state.max_payload_size).await {
@@ -230,12 +200,7 @@ pub async fn dispatch(
         let client = client_ip::resolve_from_headers(req.headers(), peer, &state.trusted_proxies)
             .map(|ip| ip.to_string())
             .unwrap_or_default();
-        let scheme = client_ip::resolve_scheme(
-            req.headers(),
-            peer,
-            req.app_config().secure(),
-            &state.trusted_proxies,
-        );
+        let scheme = client_ip::resolve_scheme(req.headers(), peer, req.app_config().secure(), &state.trusted_proxies);
         let request = abi::Request {
             size: std::mem::size_of::<abi::Request>(),
             method: abi::Slice::from_bytes(req.method().as_str().as_bytes()),
@@ -272,9 +237,8 @@ pub async fn dispatch(
                 handler_name(native),
                 state.native_route_timeout.as_secs_f64()
             );
-            let response = HttpResponse::GatewayTimeout()
-                .content_type("application/json")
-                .body(r#"{"detail":"Gateway Timeout"}"#);
+            let response =
+                HttpResponse::GatewayTimeout().content_type("application/json").body(r#"{"detail":"Gateway Timeout"}"#);
             return error::with_error_info(response, || {
                 error::ErrorInfo::core("gateway_timeout", "The handler did not complete in time")
             });
@@ -284,11 +248,7 @@ pub async fn dispatch(
     let status = match StatusCode::from_u16(out.status) {
         Ok(status) if (200..600).contains(&out.status) => status,
         _ => {
-            return internal_error(format!(
-                "native handler '{}' sent status {}",
-                handler_name(native),
-                out.status
-            ));
+            return internal_error(format!("native handler '{}' sent status {}", handler_name(native), out.status));
         }
     };
     let mut response = HttpResponse::build(status);

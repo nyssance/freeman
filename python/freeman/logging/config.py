@@ -190,10 +190,7 @@ def get_default_logging_config() -> LoggingConfig:
     except ValueError as error:
         raise ImproperlyConfigured(str(error)) from error
 
-    return LoggingConfig(
-        sample_rate=sample_rate,
-        min_duration_ms=min_duration_ms,
-    )
+    return LoggingConfig(sample_rate=sample_rate, min_duration_ms=min_duration_ms)
 
 
 # Default bound for the logging queue (see BOLT_LOG_QUEUE_SIZE).
@@ -287,10 +284,7 @@ def _ensure_queue_logging(base_level: str) -> QueueHandler:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(base_level)
         console_handler.setFormatter(
-            logging.Formatter(
-                fmt="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
+            logging.Formatter(fmt="%(levelname)s - %(asctime)s - %(name)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
         )
 
         listener = _BoundedQueueListener(_QUEUE, console_handler)
@@ -367,9 +361,7 @@ def restart_queue_listener_after_fork() -> None:
     # of the parent can hold a lock at the time of the fork.
     _QUEUE.__init__(_QUEUE.maxsize)
     listener = _BoundedQueueListener(
-        _QUEUE,
-        *_QUEUE_LISTENER.handlers,
-        respect_handler_level=_QUEUE_LISTENER.respect_handler_level,
+        _QUEUE, *_QUEUE_LISTENER.handlers, respect_handler_level=_QUEUE_LISTENER.respect_handler_level
     )
     listener.start()
     _QUEUE_LISTENER = listener
@@ -460,8 +452,5 @@ def setup_django_logging(force: bool = False) -> None:
 
     except (ImportError, AttributeError, Exception):
         # If Django not available or configuration fails, use basic config
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
-        )
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(asctime)s - %(name)s - %(message)s")
         _LOGGING_CONFIGURED = True

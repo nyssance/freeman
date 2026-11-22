@@ -73,17 +73,11 @@ pub struct Slice {
 
 impl Slice {
     /// No bytes.
-    pub const EMPTY: Slice = Slice {
-        ptr: core::ptr::null(),
-        len: 0,
-    };
+    pub const EMPTY: Slice = Slice { ptr: core::ptr::null(), len: 0 };
 
     /// Borrow `b`. The slice is valid while `b` is.
     pub fn from_bytes(b: &[u8]) -> Slice {
-        Slice {
-            ptr: b.as_ptr(),
-            len: b.len(),
-        }
+        Slice { ptr: b.as_ptr(), len: b.len() }
     }
 
     /// # Safety
@@ -170,12 +164,7 @@ pub struct Response {
 pub type CompleteFn = unsafe extern "C" fn(token: *mut c_void, resp: *const Response);
 
 /// The handler's entry point. See the contract.
-pub type CallFn = unsafe extern "C" fn(
-    ctx: *mut c_void,
-    req: *const Request,
-    complete: CompleteFn,
-    token: *mut c_void,
-);
+pub type CallFn = unsafe extern "C" fn(ctx: *mut c_void, req: *const Request, complete: CompleteFn, token: *mut c_void);
 
 /// The handler that the capsule points to.
 #[repr(C)]
@@ -194,12 +183,7 @@ pub struct HandlerV1 {
 impl HandlerV1 {
     /// A handler with a static name, state and entry point.
     pub const fn new(name: &'static CStr, ctx: *mut c_void, call: CallFn) -> Self {
-        HandlerV1 {
-            size: core::mem::size_of::<HandlerV1>(),
-            name: name.as_ptr(),
-            ctx,
-            call: Some(call),
-        }
+        HandlerV1 { size: core::mem::size_of::<HandlerV1>(), name: name.as_ptr(), ctx, call: Some(call) }
     }
 }
 
@@ -249,16 +233,12 @@ impl<'a> RequestRef<'a> {
     /// All headers, with lower-case names.
     pub fn headers(&self) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
         let pairs = unsafe { pairs(self.req.headers, self.req.n_headers) };
-        pairs
-            .iter()
-            .map(|p| unsafe { (p.name.as_bytes(), p.value.as_bytes()) })
+        pairs.iter().map(|p| unsafe { (p.name.as_bytes(), p.value.as_bytes()) })
     }
 
     /// The first value of a header. The name matches in any case.
     pub fn header(&self, name: &[u8]) -> Option<&'a [u8]> {
-        self.headers()
-            .find(|(n, _)| n.eq_ignore_ascii_case(name))
-            .map(|(_, v)| v)
+        self.headers().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, v)| v)
     }
 
     /// A path parameter, percent-decoded once.
@@ -299,10 +279,7 @@ impl Responder {
     pub fn send(self, status: u16, headers: &[(&[u8], &[u8])], body: &[u8]) {
         let pairs: Vec<Pair> = headers
             .iter()
-            .map(|(name, value)| Pair {
-                name: Slice::from_bytes(name),
-                value: Slice::from_bytes(value),
-            })
+            .map(|(name, value)| Pair { name: Slice::from_bytes(name), value: Slice::from_bytes(value) })
             .collect();
         let resp = Response {
             size: core::mem::size_of::<Response>(),
@@ -342,12 +319,8 @@ where
 {
     // SAFETY: the caller passes Bolt's arguments for this call.
     let responder = unsafe { Responder::from_raw(complete, token) };
-    let req = RequestRef {
-        req: unsafe { &*req },
-    };
-    if let Err(payload) =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(req, responder)))
-    {
+    let req = RequestRef { req: unsafe { &*req } };
+    if let Err(payload) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(req, responder))) {
         // The Drop of a payload can panic too, and that panic would leave
         // `call` and abort the process.
         std::mem::forget(payload);
@@ -493,14 +466,8 @@ mod tests {
 
     #[test]
     fn request_ref_finds_headers_and_params() {
-        let headers = [Pair {
-            name: Slice::from_bytes(b"x-test"),
-            value: Slice::from_bytes(b"1"),
-        }];
-        let params = [Pair {
-            name: Slice::from_bytes(b"id"),
-            value: Slice::from_bytes(b"42"),
-        }];
+        let headers = [Pair { name: Slice::from_bytes(b"x-test"), value: Slice::from_bytes(b"1") }];
+        let params = [Pair { name: Slice::from_bytes(b"id"), value: Slice::from_bytes(b"42") }];
         let req = request(&headers, &params);
         let req = RequestRef { req: &req };
         assert_eq!(req.header(b"X-Test"), Some(&b"1"[..]));

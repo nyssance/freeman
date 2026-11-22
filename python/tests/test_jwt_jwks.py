@@ -51,11 +51,7 @@ def make_token(private_key, kid: str, **claims):
 def client():
     api = BoltAPI()
 
-    @api.get(
-        "/jwks",
-        auth=[JWTAuthentication(jwks=JWKS, algorithms=["RS256"])],
-        guards=[IsAuthenticated()],
-    )
+    @api.get("/jwks", auth=[JWTAuthentication(jwks=JWKS, algorithms=["RS256"])], guards=[IsAuthenticated()])
     async def jwks_route(request: dict):
         return {"user_id": request["context"]["user_id"]}
 
@@ -91,9 +87,7 @@ class TestJwks:
         api = BoltAPI()
 
         @api.get(
-            "/s",
-            auth=[JWTAuthentication(jwks=json.dumps(JWKS), algorithms=["RS256"])],
-            guards=[IsAuthenticated()],
+            "/s", auth=[JWTAuthentication(jwks=json.dumps(JWKS), algorithms=["RS256"])], guards=[IsAuthenticated()]
         )
         async def route(request: dict):
             return {"ok": True}
@@ -396,27 +390,19 @@ class TestOidcDiscovery:
         def fake_get(url, timeout):
             calls.append(url)
             if url.endswith("openid-configuration"):
-                return FakeResponse(
-                    {
-                        "issuer": "https://issuer.example",
-                        "jwks_uri": "https://issuer.example/keys",
-                        "id_token_signing_alg_values_supported": ["RS256", "none"],
-                    }
-                )
+                return FakeResponse({
+                    "issuer": "https://issuer.example",
+                    "jwks_uri": "https://issuer.example/keys",
+                    "id_token_signing_alg_values_supported": ["RS256", "none"],
+                })
             return FakeResponse(JWKS)
 
         monkeypatch.setattr(auth_backends.httpx, "get", fake_get)
-        metadata = JWTAuthentication(
-            oidc_issuer="https://issuer.example",
-            audience="my-api",
-        ).to_metadata()
+        metadata = JWTAuthentication(oidc_issuer="https://issuer.example", audience="my-api").to_metadata()
 
         assert metadata["issuer"] == "https://issuer.example"
         assert metadata["algorithms"] == ["RS256"]
-        assert calls == [
-            "https://issuer.example/.well-known/openid-configuration",
-            "https://issuer.example/keys",
-        ]
+        assert calls == ["https://issuer.example/.well-known/openid-configuration", "https://issuer.example/keys"]
 
     def test_discovery_requires_audience(self):
         with pytest.raises(ImproperlyConfigured, match="audience"):
@@ -452,11 +438,7 @@ class TestOidcDiscovery:
         assert auth.issuer == discovered_issuer
 
     def test_a_different_issuer_in_the_document_is_rejected(self, monkeypatch):
-        monkeypatch.setattr(
-            auth_backends.httpx,
-            "get",
-            _serving(_discovery_document("https://evil.example")),
-        )
+        monkeypatch.setattr(auth_backends.httpx, "get", _serving(_discovery_document("https://evil.example")))
 
         with pytest.raises(ImproperlyConfigured) as raised:
             JWTAuthentication(oidc_issuer="https://issuer.example", audience="my-api")
@@ -482,9 +464,7 @@ class TestOidcDiscovery:
 
     def test_algorithms_of_the_project_win_over_the_document(self, monkeypatch):
         monkeypatch.setattr(
-            auth_backends.httpx,
-            "get",
-            _serving(_discovery_document("https://issuer.example", ["RS256", "ES256"])),
+            auth_backends.httpx, "get", _serving(_discovery_document("https://issuer.example", ["RS256", "ES256"]))
         )
 
         auth = JWTAuthentication(oidc_issuer="https://issuer.example", audience="my-api", algorithms=["ES256"])
@@ -583,14 +563,8 @@ REMOTE = {"issuer": "https://issuer.example/", "audience": "api"}
             {"jwks": JWKS, "secret": SECRET_FOR_ERRORS},
             "JWTAuthentication accepts JWKS (jwks_url/jwks) or a static key (secret/public_key), not both.",
         ),
-        (
-            {"jwks": JWKS, "jwks_refresh_interval": 0},
-            "JWTAuthentication jwks_refresh_interval must be > 0 seconds.",
-        ),
-        (
-            {"jwks": JWKS, "jwks_refresh_interval": -5},
-            "JWTAuthentication jwks_refresh_interval must be > 0 seconds.",
-        ),
+        ({"jwks": JWKS, "jwks_refresh_interval": 0}, "JWTAuthentication jwks_refresh_interval must be > 0 seconds."),
+        ({"jwks": JWKS, "jwks_refresh_interval": -5}, "JWTAuthentication jwks_refresh_interval must be > 0 seconds."),
         (
             {"oidc_issuer": "http://issuer.example", "audience": "api"},
             "JWTAuthentication oidc_issuer must be an absolute HTTPS URL.",
@@ -599,10 +573,7 @@ REMOTE = {"issuer": "https://issuer.example/", "audience": "api"}
             {"oidc_issuer": "https://", "audience": "api"},
             "JWTAuthentication oidc_issuer must be an absolute HTTPS URL.",
         ),
-        (
-            {"oidc_issuer": "https://issuer.example"},
-            "JWTAuthentication with oidc_issuer requires 'audience'.",
-        ),
+        ({"oidc_issuer": "https://issuer.example"}, "JWTAuthentication with oidc_issuer requires 'audience'."),
         (
             {"jwks_url": "http://issuer.example/keys", **REMOTE},
             "JWTAuthentication jwks_url must be an absolute HTTPS URL.",

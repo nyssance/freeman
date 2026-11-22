@@ -31,10 +31,7 @@ DOCS = ROOT / "docs" / "src"
 # The README of each package is its PyPI page.
 READMES = (ROOT / "README.md", ROOT / "python" / "bolt-mcp" / "README.md")
 # The directory that holds each package of this repository.
-SOURCE_ROOTS = {
-    "freeman": ROOT / "python",
-    "bolt_mcp": ROOT / "python" / "bolt-mcp" / "src",
-}
+SOURCE_ROOTS = {"freeman": ROOT / "python", "bolt_mcp": ROOT / "python" / "bolt-mcp" / "src"}
 FRAGMENT_MARKER = "<!-- fragment -->"
 # A fence is 3 or more backticks or tildes. The closing fence has the same
 # character, and at least the length of the opening fence.

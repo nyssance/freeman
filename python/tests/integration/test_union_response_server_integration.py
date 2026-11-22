@@ -17,31 +17,13 @@ def test_union_response_each_branch_carries_tag(make_server_project):
         like = server.get("/feed/2")
 
     assert post.status_code == 200
-    assert post.json() == {
-        "type": "post",
-        "id": 0,
-        "actor": "alice",
-        "title": "hello",
-        "body": "world",
-    }
+    assert post.json() == {"type": "post", "id": 0, "actor": "alice", "title": "hello", "body": "world"}
 
     assert comment.status_code == 200
-    assert comment.json() == {
-        "type": "comment",
-        "id": 1,
-        "actor": "bob",
-        "post_id": 0,
-        "text": "nice",
-    }
+    assert comment.json() == {"type": "comment", "id": 1, "actor": "bob", "post_id": 0, "text": "nice"}
 
     assert like.status_code == 200
-    assert like.json() == {
-        "type": "like",
-        "id": 2,
-        "actor": "carol",
-        "target_id": 0,
-        "target_kind": "post",
-    }
+    assert like.json() == {"type": "like", "id": 2, "actor": "carol", "target_id": 0, "target_kind": "post"}
 
 
 @pytest.mark.server_integration

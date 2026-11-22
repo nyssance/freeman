@@ -45,10 +45,7 @@ def test_extension_import_keeps_gil_disabled():
     # GIL; -W error turns that warning into a failed import.
     code = "import sys, freeman._core; print(sys._is_gil_enabled())"
     result = subprocess.run(
-        [sys.executable, "-W", "error::RuntimeWarning", "-c", code],
-        capture_output=True,
-        text=True,
-        check=False,
+        [sys.executable, "-W", "error::RuntimeWarning", "-c", code], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "False", result.stdout

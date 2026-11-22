@@ -25,10 +25,7 @@ pytestmark = pytest.mark.server_integration
 def make_token(sub: str, *, headers=None, exp_offset: int = 3600) -> str:
     now = int(time.time())
     return jwt.encode(
-        {"sub": sub, "iat": now, "exp": now + exp_offset},
-        PRIVATE_KEY_PEM,
-        algorithm="RS256",
-        headers=headers,
+        {"sub": sub, "iat": now, "exp": now + exp_offset}, PRIVATE_KEY_PEM, algorithm="RS256", headers=headers
     )
 
 

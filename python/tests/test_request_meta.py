@@ -161,13 +161,7 @@ class TestRequestMETA:
 
     def test_meta_http_headers(self, client):
         """META contains HTTP_* headers."""
-        response = client.get(
-            "/meta/headers",
-            headers={
-                "Host": "example.com",
-                "X-Custom": "test-value",
-            },
-        )
+        response = client.get("/meta/headers", headers={"Host": "example.com", "X-Custom": "test-value"})
         assert response.status_code == 200
         data = response.json()
         assert data["host"] == "example.com"
@@ -175,19 +169,13 @@ class TestRequestMETA:
 
     def test_meta_content_type_header(self, client):
         """META contains CONTENT_TYPE (without HTTP_ prefix)."""
-        response = client.get(
-            "/meta/headers",
-            headers={"Content-Type": "application/json"},
-        )
+        response = client.get("/meta/headers", headers={"Content-Type": "application/json"})
         assert response.status_code == 200
         assert response.json()["content_type"] == "application/json"
 
     def test_meta_content_length_header(self, client):
         """META contains CONTENT_LENGTH (without HTTP_ prefix)."""
-        response = client.get(
-            "/meta/headers",
-            headers={"Content-Length": "42"},
-        )
+        response = client.get("/meta/headers", headers={"Content-Length": "42"})
         assert response.status_code == 200
         assert response.json()["content_length"] == "42"
 
@@ -199,13 +187,7 @@ class TestRequestMETA:
 
     def test_meta_all_keys(self, client):
         """META contains all expected keys."""
-        response = client.get(
-            "/meta?test=1",
-            headers={
-                "Host": "localhost",
-                "Accept": "application/json",
-            },
-        )
+        response = client.get("/meta?test=1", headers={"Host": "localhost", "Accept": "application/json"})
         assert response.status_code == 200
         meta = response.json()
 
@@ -225,10 +207,7 @@ class TestRequestMETA:
 
     def test_meta_server_info(self, client):
         """META contains SERVER_NAME, SERVER_PORT, and SERVER_PROTOCOL."""
-        response = client.get(
-            "/meta",
-            headers={"Host": "example.com:8080"},
-        )
+        response = client.get("/meta", headers={"Host": "example.com:8080"})
         assert response.status_code == 200
         meta = response.json()
 
@@ -246,10 +225,7 @@ class TestRequestMETA:
 
     def test_meta_server_info_default_port(self, client):
         """META parses Host header without port correctly."""
-        response = client.get(
-            "/meta",
-            headers={"Host": "example.com"},
-        )
+        response = client.get("/meta", headers={"Host": "example.com"})
         assert response.status_code == 200
         meta = response.json()
 
@@ -273,15 +249,9 @@ class TestRequestMETA:
     ):
         """SERVER_PORT and build_absolute_uri() follow X-Forwarded-Proto only from BOLT_TRUSTED_PROXIES."""
         with override_settings(BOLT_TRUSTED_PROXIES=trusted_proxies), TestClient(api) as client:
-            response = client.get(
-                "/meta/scheme",
-                headers={"Host": "example.com", "X-Forwarded-Proto": forwarded_proto},
-            )
+            response = client.get("/meta/scheme", headers={"Host": "example.com", "X-Forwarded-Proto": forwarded_proto})
         assert response.status_code == 200
-        assert response.json() == {
-            "server_port": port,
-            "absolute_uri": f"{scheme}://example.com/meta/scheme",
-        }
+        assert response.json() == {"server_port": port, "absolute_uri": f"{scheme}://example.com/meta/scheme"}
 
     @pytest.mark.parametrize(
         ("headers", "extra_settings", "host"),
@@ -310,10 +280,7 @@ class TestRequestMETA:
 
     def test_build_absolute_uri_follows_secure_proxy_ssl_header(self, api):
         """Django's build_absolute_uri() applies SECURE_PROXY_SSL_HEADER. Bolt's SERVER_PORT does not."""
-        with (
-            override_settings(SECURE_PROXY_SSL_HEADER=("HTTP_X_FORWARDED_PROTO", "https")),
-            TestClient(api) as client,
-        ):
+        with override_settings(SECURE_PROXY_SSL_HEADER=("HTTP_X_FORWARDED_PROTO", "https")), TestClient(api) as client:
             response = client.get("/meta/scheme", headers={"Host": "example.com", "X-Forwarded-Proto": "https"})
         assert response.status_code == 200
         assert response.json() == {"server_port": "80", "absolute_uri": "https://example.com/meta/scheme"}

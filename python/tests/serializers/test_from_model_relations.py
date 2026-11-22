@@ -183,11 +183,7 @@ async def test_afrom_model_nested_many_lazy_loads_for_reverse_fk():
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
 async def test_afrom_model_lazy_loads_forward_fk_and_source_paths():
-    user = await User.objects.acreate(
-        username="alice",
-        email="alice@example.com",
-        password_hash="hash",
-    )
+    user = await User.objects.acreate(username="alice", email="alice@example.com", password_hash="hash")
     profile = await UserProfile.objects.acreate(user=user, bio="Hello", location="Earth")
 
     profile = await UserProfile.objects.aget(id=profile.id)
@@ -203,11 +199,7 @@ async def test_afrom_model_lazy_loads_forward_fk_and_source_paths():
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
 async def test_afrom_model_reuses_inflight_relation_load_for_shared_source_path(monkeypatch):
-    user = await User.objects.acreate(
-        username="alice",
-        email="alice@example.com",
-        password_hash="hash",
-    )
+    user = await User.objects.acreate(username="alice", email="alice@example.com", password_hash="hash")
     await UserProfile.objects.acreate(user=user, bio="Hello", location="Earth")
 
     user = await User.objects.aget(id=user.id)
@@ -219,11 +211,7 @@ async def test_afrom_model_reuses_inflight_relation_load_for_shared_source_path(
             load_calls.append(relation.name)
         return await original_loader(cls, obj, relation)
 
-    monkeypatch.setattr(
-        UserWithProfileSerializer,
-        "_load_relation_async",
-        classmethod(tracked_loader),
-    )
+    monkeypatch.setattr(UserWithProfileSerializer, "_load_relation_async", classmethod(tracked_loader))
 
     serializer = await UserWithProfileSerializer.afrom_model(user)
 
@@ -256,11 +244,7 @@ async def test_afrom_model_loads_multiple_unloaded_relations_concurrently(monkey
                 second_started.set()
         return await original_loader(cls, obj, relation)
 
-    monkeypatch.setattr(
-        BlogPostWithAuthorAndCommentsSerializer,
-        "_load_relation_async",
-        classmethod(tracked_loader),
-    )
+    monkeypatch.setattr(BlogPostWithAuthorAndCommentsSerializer, "_load_relation_async", classmethod(tracked_loader))
 
     serializer = await BlogPostWithAuthorAndCommentsSerializer.afrom_model(post)
 
@@ -302,11 +286,7 @@ def test_from_model_max_depth_is_the_deepest_nested_level_that_it_accepts():
 
 @pytest.mark.django_db
 def test_from_model_unloaded_source_path_uses_default_without_querying():
-    user = User.objects.create(
-        username="alice",
-        email="alice@example.com",
-        password_hash="hash",
-    )
+    user = User.objects.create(username="alice", email="alice@example.com", password_hash="hash")
     UserProfile.objects.create(user=user, bio="Hello", location="Earth")
 
     user = User.objects.get(id=user.id)

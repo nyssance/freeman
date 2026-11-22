@@ -33,13 +33,8 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         Box::pin(async move {
             let service = Rc::new(service);
-            let normalized = NormalizePath::new(TrailingSlash::MergeOnly)
-                .new_transform(service.clone())
-                .await?;
-            Ok(MergeSlashesService {
-                service,
-                normalized,
-            })
+            let normalized = NormalizePath::new(TrailingSlash::MergeOnly).new_transform(service.clone()).await?;
+            Ok(MergeSlashesService { service, normalized })
         })
     }
 }
@@ -58,12 +53,7 @@ where
     }
 
     fn call(&self, request: ServiceRequest) -> Self::Future {
-        if request
-            .path()
-            .as_bytes()
-            .windows(2)
-            .any(|pair| pair == b"//")
-        {
+        if request.path().as_bytes().windows(2).any(|pair| pair == b"//") {
             self.normalized.call(request)
         } else {
             self.service.call(request)

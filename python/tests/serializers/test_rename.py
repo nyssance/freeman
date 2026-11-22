@@ -347,13 +347,7 @@ class TestRenameNested:
         user = _NestedUser(user_name="alice", home_address=addr)
         data = user.dump()
 
-        assert data == {
-            "userName": "alice",
-            "homeAddress": {
-                "streetName": "Main St",
-                "zipCode": "12345",
-            },
-        }
+        assert data == {"userName": "alice", "homeAddress": {"streetName": "Main St", "zipCode": "12345"}}
 
     def test_mixed_rename_nested(self):
         """Parent and child can use different rename strategies."""
@@ -361,12 +355,7 @@ class TestRenameNested:
         user = _MixedUser(user_name="alice", home_address=addr)
         data = user.dump()
 
-        assert data == {
-            "userName": "alice",
-            "homeAddress": {
-                "StreetName": "Main St",
-            },
-        }
+        assert data == {"userName": "alice", "homeAddress": {"StreetName": "Main St"}}
 
 
 class TestRenameBackwardCompat:

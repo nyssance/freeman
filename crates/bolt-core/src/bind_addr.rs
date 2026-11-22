@@ -11,9 +11,7 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 /// resolves a host name.
 pub fn resolve_bind_addr(host: &str, port: u16) -> io::Result<SocketAddr> {
     // The lookup needs a port, but `resolve_bind_addr_with` sets the port.
-    resolve_bind_addr_with(host, port, |name| {
-        (name, 0).to_socket_addrs().map(Iterator::collect)
-    })
+    resolve_bind_addr_with(host, port, |name| (name, 0).to_socket_addrs().map(Iterator::collect))
 }
 
 /// Return the address to bind for `host` and `port`. `resolve` gives the
@@ -27,8 +25,7 @@ pub fn resolve_bind_addr_with<R>(host: &str, port: u16, resolve: R) -> io::Resul
 where
     R: FnOnce(&str) -> io::Result<Vec<SocketAddr>>,
 {
-    let cannot_resolve =
-        |reason: &dyn Display| io::Error::other(format!("cannot resolve host {host:?}: {reason}"));
+    let cannot_resolve = |reason: &dyn Display| io::Error::other(format!("cannot resolve host {host:?}: {reason}"));
     if let Some(inner) = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')) {
         return inner
             .parse::<Ipv6Addr>()
@@ -59,11 +56,7 @@ mod tests {
     /// Run `resolve_bind_addr_with` with a fake resolver. `answer` is what the
     /// resolver gives: the addresses, or `None` for a failed lookup. Also
     /// return the name of each call of the resolver.
-    fn resolve_fake(
-        host: &str,
-        port: u16,
-        answer: Option<Vec<SocketAddr>>,
-    ) -> (io::Result<SocketAddr>, Vec<String>) {
+    fn resolve_fake(host: &str, port: u16, answer: Option<Vec<SocketAddr>>) -> (io::Result<SocketAddr>, Vec<String>) {
         let mut calls = Vec::new();
         let result = resolve_bind_addr_with(host, port, |name| {
             calls.push(name.to_string());
@@ -101,21 +94,14 @@ mod tests {
         for host in ["[localhost]", "[127.0.0.1]", "[]", "[[::1]]", "[::1%lo0]"] {
             let (result, calls) = resolve_fake(host, 8000, Some(vec![v4(127, 0, 0, 1, 8000)]));
             let err = result.unwrap_err().to_string();
-            assert!(
-                err.contains("brackets hold only an IPv6 address"),
-                "{host}: {err}"
-            );
+            assert!(err.contains("brackets hold only an IPv6 address"), "{host}: {err}");
             assert!(calls.is_empty(), "{host}: {calls:?}");
         }
     }
 
     #[test]
     fn a_name_binds_its_first_ipv4_address() {
-        let answer = vec![
-            v6("::1", 8000),
-            v4(127, 0, 0, 1, 8000),
-            v4(127, 0, 0, 2, 8000),
-        ];
+        let answer = vec![v6("::1", 8000), v4(127, 0, 0, 1, 8000), v4(127, 0, 0, 2, 8000)];
         let (result, calls) = resolve_fake("localhost", 8000, Some(answer));
         assert_eq!(result.unwrap(), v4(127, 0, 0, 1, 8000));
         assert_eq!(calls, ["localhost"]);
@@ -135,10 +121,7 @@ mod tests {
         let SocketAddr::V6(addr) = result.unwrap() else {
             panic!("an IPv6 address must stay IPv6");
         };
-        assert_eq!(
-            addr,
-            SocketAddrV6::new("fe80::1".parse().unwrap(), 8000, 3, 7)
-        );
+        assert_eq!(addr, SocketAddrV6::new("fe80::1".parse().unwrap(), 8000, 3, 7));
     }
 
     #[test]
@@ -160,18 +143,12 @@ mod tests {
         // RFC 6761: a name under .invalid never resolves.
         let err = resolve_bind_addr("bolt-test.invalid", 8000).unwrap_err();
         let err = err.to_string();
-        assert!(
-            err.starts_with(r#"cannot resolve host "bolt-test.invalid": "#),
-            "{err}"
-        );
+        assert!(err.starts_with(r#"cannot resolve host "bolt-test.invalid": "#), "{err}");
     }
 
     #[test]
     fn the_system_resolver_gives_the_ipv4_loopback_for_localhost() {
-        assert_eq!(
-            resolve_bind_addr("localhost", 8000).unwrap(),
-            v4(127, 0, 0, 1, 8000)
-        );
+        assert_eq!(resolve_bind_addr("localhost", 8000).unwrap(), v4(127, 0, 0, 1, 8000));
     }
 
     /// Hosts near the edges of the rules: addresses, addresses in brackets,

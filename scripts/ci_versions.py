@@ -52,20 +52,10 @@ print(f"wheel-patterns-json={json.dumps({v: wheel_pattern(v) for v in versions +
 # requires-python claim. Each free-threaded build gets its own
 # cp3XX-cp3XXt wheel, whose pattern is derived from the interpreter.
 artifacts = [
-    {
-        "artifact-kind": "wheel",
-        "python-version": v,
-        "artifact-pattern": wheel_pattern(v),
-    }
+    {"artifact-kind": "wheel", "python-version": v, "artifact-pattern": wheel_pattern(v)}
     for v in [versions[0], *free_threaded]
 ]
-artifacts.append(
-    {
-        "artifact-kind": "sdist",
-        "python-version": versions[0],
-        "artifact-pattern": "freeman-*.tar.gz",
-    }
-)
+artifacts.append({"artifact-kind": "sdist", "python-version": versions[0], "artifact-pattern": "freeman-*.tar.gz"})
 print(f"artifact-include-json={json.dumps(artifacts)}")
 
 # Django series, same source of truth. Only upstream-supported series

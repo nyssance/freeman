@@ -15,9 +15,7 @@ pytestmark = pytest.mark.server_integration
 
 def _initialize(server) -> str:
     resp = server.client.post(
-        server.url("/mcp"),
-        content=rpc_body("initialize", INITIALIZE_PARAMS),
-        headers=mcp_headers(),
+        server.url("/mcp"), content=rpc_body("initialize", INITIALIZE_PARAMS), headers=mcp_headers()
     )
     assert resp.status_code == 200
     return resp.headers["mcp-session-id"]

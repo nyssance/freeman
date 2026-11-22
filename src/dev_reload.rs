@@ -33,11 +33,7 @@ impl Paint {
     }
 
     fn wrap(&self, code: &str, text: &str) -> String {
-        if self.enabled {
-            format!("\x1b[{}m{}\x1b[0m", code, text)
-        } else {
-            text.to_string()
-        }
+        if self.enabled { format!("\x1b[{}m{}\x1b[0m", code, text) } else { text.to_string() }
     }
 
     fn dim(&self, text: &str) -> String {
@@ -63,12 +59,7 @@ impl Paint {
     /// `HH:MM:SS [bolt] <body>` — Vite-style timestamped supervisor line.
     fn log(&self, body: &str) {
         let timestamp = chrono::Local::now().format("%H:%M:%S");
-        eprintln!(
-            "  {} {} {}",
-            self.dim(&timestamp.to_string()),
-            self.cyan("[bolt]"),
-            body
-        );
+        eprintln!("  {} {} {}", self.dim(&timestamp.to_string()), self.cyan("[bolt]"), body);
     }
 }
 
@@ -81,12 +72,7 @@ fn color_enabled(is_terminal: bool, no_color: bool, term: Option<&str>) -> bool 
 /// Render a path relative to the current directory when possible; developers
 /// read `testproject/api.py` faster than an absolute path.
 fn display_path(path: &Path) -> String {
-    std::env::current_dir()
-        .ok()
-        .and_then(|cwd| path.strip_prefix(&cwd).ok())
-        .unwrap_or(path)
-        .display()
-        .to_string()
+    std::env::current_dir().ok().and_then(|cwd| path.strip_prefix(&cwd).ok()).unwrap_or(path).display().to_string()
 }
 
 #[derive(Debug, Clone)]
@@ -99,10 +85,7 @@ impl ReloadFilter {
     fn new(ignore_dir_names: Vec<String>, ignore_paths: Vec<String>) -> Self {
         Self {
             ignore_dir_names: ignore_dir_names.into_iter().collect(),
-            ignore_paths: ignore_paths
-                .into_iter()
-                .map(|path| normalize_path(PathBuf::from(path)))
-                .collect(),
+            ignore_paths: ignore_paths.into_iter().map(|path| normalize_path(PathBuf::from(path))).collect(),
         }
     }
 
@@ -113,18 +96,12 @@ impl ReloadFilter {
     fn is_ignored(&self, path: &Path) -> bool {
         let path = normalize_path(path.to_path_buf());
 
-        if self
-            .ignore_paths
-            .iter()
-            .any(|prefix| path.starts_with(prefix))
-        {
+        if self.ignore_paths.iter().any(|prefix| path.starts_with(prefix)) {
             return true;
         }
 
         path.components().any(|component| match component {
-            std::path::Component::Normal(name) => self
-                .ignore_dir_names
-                .contains(name.to_string_lossy().as_ref()),
+            std::path::Component::Normal(name) => self.ignore_dir_names.contains(name.to_string_lossy().as_ref()),
             _ => false,
         })
     }
@@ -156,10 +133,7 @@ fn is_temporary_path(path: &Path) -> bool {
 }
 
 fn has_relevant_extension(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(|extension| extension.to_str()),
-        Some("py" | "html")
-    )
+    matches!(path.extension().and_then(|extension| extension.to_str()), Some("py" | "html"))
 }
 
 /// The first relevant path in the event. An access is not a change.
@@ -168,11 +142,7 @@ fn named_relevant_path(event: &Event, filter: &ReloadFilter) -> Option<PathBuf> 
         return None;
     }
 
-    event
-        .paths
-        .iter()
-        .find(|path| filter.is_relevant(path))
-        .cloned()
+    event.paths.iter().find(|path| filter.is_relevant(path)).cloned()
 }
 
 fn first_relevant_path(event: &Event, filter: &ReloadFilter) -> Option<PathBuf> {
@@ -188,18 +158,13 @@ fn first_relevant_path(event: &Event, filter: &ReloadFilter) -> Option<PathBuf> 
 }
 
 /// The directories that a create or rename event adds to the tree.
-fn new_directories<'a>(
-    event: &'a Event,
-    filter: &'a ReloadFilter,
-) -> impl Iterator<Item = &'a PathBuf> {
-    let adds = matches!(
-        event.kind,
-        EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(_))
-    );
+fn new_directories<'a>(event: &'a Event, filter: &'a ReloadFilter) -> impl Iterator<Item = &'a PathBuf> {
+    let adds = matches!(event.kind, EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(_)));
     // read_dir follows a symbolic link, so look only in a real directory.
-    event.paths.iter().filter(move |path| {
-        adds && !filter.is_ignored(path) && path.symlink_metadata().is_ok_and(|meta| meta.is_dir())
-    })
+    event
+        .paths
+        .iter()
+        .filter(move |path| adds && !filter.is_ignored(path) && path.symlink_metadata().is_ok_and(|meta| meta.is_dir()))
 }
 
 /// The first relevant file in `dir` or its subdirectories. None when `dir` is
@@ -211,12 +176,7 @@ fn first_relevant_file_in(dir: &Path, filter: &ReloadFilter) -> Option<PathBuf> 
     let entries = match std::fs::read_dir(dir) {
         Ok(entries) => entries,
         // A file, or the old path of a rename: there is no directory to scan.
-        Err(err)
-            if matches!(
-                err.kind(),
-                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
-            ) =>
-        {
+        Err(err) if matches!(err.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory) => {
             return None;
         }
         Err(_) => return Some(dir.to_path_buf()),
@@ -258,10 +218,8 @@ fn spawn_worker(command: &[String], reload_count: u64) -> PyResult<Child> {
 
     // Spawn timestamp lets the worker print an honest "ready in N ms" that
     // includes interpreter startup and django.setup(), not just route setup.
-    let spawn_unix_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_millis().to_string())
-        .unwrap_or_default();
+    let spawn_unix_ms =
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|elapsed| elapsed.as_millis().to_string()).unwrap_or_default();
 
     child
         .env("DJANGO_BOLT_DEV_WORKER", "1")
@@ -271,15 +229,10 @@ fn spawn_worker(command: &[String], reload_count: u64) -> PyResult<Child> {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    child.spawn().map_err(|err| {
-        py_runtime_error(format!("Failed to start dev worker '{}': {}", program, err))
-    })
+    child.spawn().map_err(|err| py_runtime_error(format!("Failed to start dev worker '{}': {}", program, err)))
 }
 
-fn wait_for_child_exit(
-    child: &mut Child,
-    timeout: Duration,
-) -> std::io::Result<Option<std::process::ExitStatus>> {
+fn wait_for_child_exit(child: &mut Child, timeout: Duration) -> std::io::Result<Option<std::process::ExitStatus>> {
     let deadline = Instant::now() + timeout;
 
     loop {
@@ -301,8 +254,7 @@ fn sighup_is_ignored() -> bool {
     // SAFETY: a null new action only reads the current action into `current`.
     unsafe {
         let mut current: libc::sigaction = std::mem::zeroed();
-        libc::sigaction(libc::SIGHUP, std::ptr::null(), &mut current) == 0
-            && current.sa_sigaction == libc::SIG_IGN
+        libc::sigaction(libc::SIGHUP, std::ptr::null(), &mut current) == 0 && current.sa_sigaction == libc::SIG_IGN
     }
 }
 
@@ -326,20 +278,14 @@ fn stop_worker(worker: &mut Option<Child>, timeout: Duration) -> PyResult<()> {
             unsafe {
                 libc::kill(pid, libc::SIGKILL);
             }
-            child
-                .wait()
-                .map_err(|err| py_runtime_error(format!("Failed to kill dev worker: {}", err)))?;
+            child.wait().map_err(|err| py_runtime_error(format!("Failed to kill dev worker: {}", err)))?;
         }
     }
 
     #[cfg(not(unix))]
     {
-        child
-            .kill()
-            .map_err(|err| py_runtime_error(format!("Failed to stop dev worker: {}", err)))?;
-        child
-            .wait()
-            .map_err(|err| py_runtime_error(format!("Failed to wait for dev worker: {}", err)))?;
+        child.kill().map_err(|err| py_runtime_error(format!("Failed to stop dev worker: {}", err)))?;
+        child.wait().map_err(|err| py_runtime_error(format!("Failed to wait for dev worker: {}", err)))?;
     }
 
     *worker = None;
@@ -368,10 +314,7 @@ enum WatchError {
 }
 
 fn recv_change(
-    rx: &Receiver<notify::Result<Event>>,
-    filter: &ReloadFilter,
-    debounce: Duration,
-    recv_timeout: Duration,
+    rx: &Receiver<notify::Result<Event>>, filter: &ReloadFilter, debounce: Duration, recv_timeout: Duration,
 ) -> Result<Option<PathBuf>, WatchError> {
     match rx.recv_timeout(recv_timeout) {
         Ok(Ok(event)) => {
@@ -445,17 +388,11 @@ fn terminal_worker_exit_code(status: std::process::ExitStatus, reload_count: u64
 }
 
 fn run_dev_reloader_inner(
-    command: Vec<String>,
-    watch_paths: Vec<String>,
-    ignore_dir_names: Vec<String>,
-    ignore_paths: Vec<String>,
-    debounce_ms: u64,
-    force_polling: bool,
+    command: Vec<String>, watch_paths: Vec<String>, ignore_dir_names: Vec<String>, ignore_paths: Vec<String>,
+    debounce_ms: u64, force_polling: bool,
 ) -> PyResult<i32> {
     if watch_paths.is_empty() {
-        return Err(py_runtime_error(
-            "At least one watch path is required for dev reload",
-        ));
+        return Err(py_runtime_error("At least one watch path is required for dev reload"));
     }
 
     let filter = ReloadFilter::new(ignore_dir_names, ignore_paths);
@@ -475,12 +412,7 @@ fn run_dev_reloader_inner(
     ctrlc::set_handler(move || {
         shutdown_flag.store(true, Ordering::SeqCst);
     })
-    .map_err(|err| {
-        py_runtime_error(format!(
-            "Failed to install dev reload signal handler: {}",
-            err
-        ))
-    })?;
+    .map_err(|err| py_runtime_error(format!("Failed to install dev reload signal handler: {}", err)))?;
 
     // Ignore SIGHUP again. The worker keeps SIG_IGN across exec, so both
     // processes continue when the terminal closes.
@@ -508,9 +440,7 @@ fn run_dev_reloader_inner(
                 },
                 Config::default().with_poll_interval(Duration::from_millis(500)),
             )
-            .map_err(|err| {
-                py_runtime_error(format!("Failed to initialize poll watcher: {}", err))
-            })?,
+            .map_err(|err| py_runtime_error(format!("Failed to initialize poll watcher: {}", err)))?,
         )
     } else {
         Box::new(
@@ -520,9 +450,7 @@ fn run_dev_reloader_inner(
                 },
                 Config::default(),
             )
-            .map_err(|err| {
-                py_runtime_error(format!("Failed to initialize dev reload watcher: {}", err))
-            })?,
+            .map_err(|err| py_runtime_error(format!("Failed to initialize dev reload watcher: {}", err)))?,
         )
     };
 
@@ -541,31 +469,15 @@ fn run_dev_reloader_inner(
 
         watcher
             .watch(&watch_path, RecursiveMode::Recursive)
-            .map_err(|err| {
-                py_runtime_error(format!(
-                    "Failed to watch '{}': {}",
-                    watch_path.display(),
-                    err
-                ))
-            })?;
+            .map_err(|err| py_runtime_error(format!("Failed to watch '{}': {}", watch_path.display(), err)))?;
         watched += 1;
     }
 
     if watched == 0 {
-        return Err(py_runtime_error(
-            "No valid watch paths were found for dev reload",
-        ));
+        return Err(py_runtime_error("No valid watch paths were found for dev reload"));
     }
 
-    supervise(
-        &command,
-        &rx,
-        &filter,
-        debounce,
-        recv_timeout,
-        &shutdown,
-        &paint,
-    )
+    supervise(&command, &rx, &filter, debounce, recv_timeout, &shutdown, &paint)
 }
 
 /// The supervisor loop. Start the worker, start a new one after each change,
@@ -574,13 +486,8 @@ fn run_dev_reloader_inner(
 /// `rx` gives the events of the file watcher. `shutdown` is the flag that the
 /// signal handler sets.
 fn supervise(
-    command: &[String],
-    rx: &Receiver<notify::Result<Event>>,
-    filter: &ReloadFilter,
-    debounce: Duration,
-    recv_timeout: Duration,
-    shutdown: &AtomicBool,
-    paint: &Paint,
+    command: &[String], rx: &Receiver<notify::Result<Event>>, filter: &ReloadFilter, debounce: Duration,
+    recv_timeout: Duration, shutdown: &AtomicBool, paint: &Paint,
 ) -> PyResult<i32> {
     let mut reload_count = 0u64;
     // None while the worker is dead and the supervisor waits for a change.
@@ -595,9 +502,8 @@ fn supervise(
         }
 
         if let Some(child) = worker.as_mut()
-            && let Some(status) = child
-                .try_wait()
-                .map_err(|err| py_runtime_error(format!("Failed to poll dev worker: {}", err)))?
+            && let Some(status) =
+                child.try_wait().map_err(|err| py_runtime_error(format!("Failed to poll dev worker: {}", err)))?
         {
             let exit_detail = format_exit_status(status);
             worker = None;
@@ -613,21 +519,14 @@ fn supervise(
                 return Ok(code);
             }
 
-            paint.log(&paint.yellow(&format!(
-                "server exited with {}. Waiting for changes...",
-                exit_detail
-            )));
+            paint.log(&paint.yellow(&format!("server exited with {}. Waiting for changes...", exit_detail)));
         }
 
         match recv_change(rx, filter, debounce, recv_timeout) {
             Ok(Some(changed_path)) => {
                 // After a reload, a watcher error that comes back is news again.
                 last_watch_error = None;
-                paint.log(&format!(
-                    "{} {}",
-                    paint.green("reloading"),
-                    display_path(&changed_path)
-                ));
+                paint.log(&format!("{} {}", paint.green("reloading"), display_path(&changed_path)));
                 reload_count += 1;
                 stop_worker(&mut worker, WORKER_STOP_TIMEOUT_RELOAD)?;
                 worker = Some(spawn_worker(command, reload_count)?);
@@ -644,9 +543,7 @@ fn supervise(
             }
             Err(WatchError::Disconnected) => {
                 // Without a watcher, the session cannot reload. Do not wait with no end.
-                paint.log(
-                    &paint.red("file watcher stopped; changes cannot reload the server, exiting"),
-                );
+                paint.log(&paint.red("file watcher stopped; changes cannot reload the server, exiting"));
                 stop_worker(&mut worker, WORKER_STOP_TIMEOUT_SHUTDOWN)?;
                 return Ok(1);
             }
@@ -656,13 +553,8 @@ fn supervise(
 
 #[pyfunction]
 pub fn run_dev_reloader(
-    py: Python<'_>,
-    command: Vec<String>,
-    watch_paths: Vec<String>,
-    ignore_dir_names: Vec<String>,
-    ignore_paths: Vec<String>,
-    debounce_ms: Option<u64>,
-    force_polling: Option<bool>,
+    py: Python<'_>, command: Vec<String>, watch_paths: Vec<String>, ignore_dir_names: Vec<String>,
+    ignore_paths: Vec<String>, debounce_ms: Option<u64>, force_polling: Option<bool>,
 ) -> PyResult<i32> {
     py.detach(|| {
         run_dev_reloader_inner(
@@ -679,9 +571,9 @@ pub fn run_dev_reloader(
 #[cfg(test)]
 mod tests {
     use super::{
-        Paint, ReloadFilter, WatchError, color_enabled, display_path, first_relevant_file_in,
-        first_relevant_path, format_exit_status, is_new_watch_error, is_temporary_path,
-        recv_change, terminal_worker_exit_code, wait_for_child_exit,
+        Paint, ReloadFilter, WatchError, color_enabled, display_path, first_relevant_file_in, first_relevant_path,
+        format_exit_status, is_new_watch_error, is_temporary_path, recv_change, terminal_worker_exit_code,
+        wait_for_child_exit,
     };
     use notify::{
         Event, EventKind,
@@ -728,10 +620,7 @@ mod tests {
         // by SIGINT; that is a shutdown, not a failed start.
         use std::os::unix::process::ExitStatusExt;
 
-        assert_eq!(
-            terminal_worker_exit_code(ExitStatus::from_raw(libc::SIGINT), 0),
-            None
-        );
+        assert_eq!(terminal_worker_exit_code(ExitStatus::from_raw(libc::SIGINT), 0), None);
     }
 
     #[test]
@@ -743,9 +632,7 @@ mod tests {
 
     #[test]
     fn temporary_editor_files_do_not_trigger_reload() {
-        assert!(is_temporary_path(&PathBuf::from(
-            "/tmp/project/main.py.swp"
-        )));
+        assert!(is_temporary_path(&PathBuf::from("/tmp/project/main.py.swp")));
         assert!(is_temporary_path(&PathBuf::from("/tmp/project/.#main.py")));
         assert!(!is_temporary_path(&PathBuf::from("/tmp/project/main.py")));
     }
@@ -753,16 +640,9 @@ mod tests {
     #[test]
     fn each_temporary_file_pattern_does_not_trigger_reload() {
         let project = PathBuf::from("/tmp/project");
-        for name in [
-            "main.py~",
-            "main.py.swp",
-            "main.py.swo",
-            "main.py.swx",
-            "main.py.tmp",
-            "4913",
-            ".#main.py",
-            "#main.py#",
-        ] {
+        for name in
+            ["main.py~", "main.py.swp", "main.py.swo", "main.py.swx", "main.py.tmp", "4913", ".#main.py", "#main.py#"]
+        {
             assert!(is_temporary_path(&project.join(name)), "{name}");
         }
         // A `#` at only one end is a normal name.
@@ -775,9 +655,7 @@ mod tests {
     fn ignores_access_only_events() {
         let filter = ReloadFilter::new(vec![], vec![]);
         let event = Event {
-            kind: EventKind::Access(notify::event::AccessKind::Close(
-                notify::event::AccessMode::Read,
-            )),
+            kind: EventKind::Access(notify::event::AccessKind::Close(notify::event::AccessMode::Read)),
             paths: vec![PathBuf::from("/tmp/project/main.py")],
             attrs: Default::default(),
         };
@@ -790,17 +668,11 @@ mod tests {
         let filter = ReloadFilter::new(vec!["__pycache__".to_string()], vec![]);
         let event = Event {
             kind: EventKind::Create(CreateKind::File),
-            paths: vec![
-                PathBuf::from("/tmp/project/__pycache__/main.pyc"),
-                PathBuf::from("/tmp/project/main.py"),
-            ],
+            paths: vec![PathBuf::from("/tmp/project/__pycache__/main.pyc"), PathBuf::from("/tmp/project/main.py")],
             attrs: Default::default(),
         };
 
-        assert_eq!(
-            first_relevant_path(&event, &filter),
-            Some(PathBuf::from("/tmp/project/main.py"))
-        );
+        assert_eq!(first_relevant_path(&event, &filter), Some(PathBuf::from("/tmp/project/main.py")));
     }
 
     /// A new directory in the system temporary directory, removed on drop.
@@ -808,8 +680,7 @@ mod tests {
 
     impl TempDir {
         fn new(name: &str) -> Self {
-            let path =
-                std::env::temp_dir().join(format!("bolt-reload-{}-{}", name, std::process::id()));
+            let path = std::env::temp_dir().join(format!("bolt-reload-{}-{}", name, std::process::id()));
             let _ = std::fs::remove_dir_all(&path);
             std::fs::create_dir_all(&path).unwrap();
             Self(path)
@@ -823,11 +694,7 @@ mod tests {
     }
 
     fn create_folder_event(path: PathBuf) -> Event {
-        Event {
-            kind: EventKind::Create(CreateKind::Folder),
-            paths: vec![path],
-            attrs: Default::default(),
-        }
+        Event { kind: EventKind::Create(CreateKind::Folder), paths: vec![path], attrs: Default::default() }
     }
 
     #[test]
@@ -866,12 +733,7 @@ mod tests {
             })
         };
 
-        let changed = recv_change(
-            &rx,
-            &filter,
-            Duration::from_millis(500),
-            Duration::from_millis(10),
-        );
+        let changed = recv_change(&rx, &filter, Duration::from_millis(500), Duration::from_millis(10));
         writer.join().unwrap();
 
         assert_eq!(changed, Ok(Some(file)));
@@ -892,10 +754,7 @@ mod tests {
             attrs: Default::default(),
         };
 
-        assert_eq!(
-            first_relevant_path(&event, &filter),
-            Some(package.join("models.py"))
-        );
+        assert_eq!(first_relevant_path(&event, &filter), Some(package.join("models.py")));
     }
 
     #[test]
@@ -913,10 +772,7 @@ mod tests {
             attrs: Default::default(),
         };
 
-        assert_eq!(
-            first_relevant_path(&event, &filter),
-            Some(package.join("views.py"))
-        );
+        assert_eq!(first_relevant_path(&event, &filter), Some(package.join("views.py")));
     }
 
     #[cfg(unix)]
@@ -937,10 +793,7 @@ mod tests {
         std::fs::set_permissions(&package, std::fs::Permissions::from_mode(0o755)).unwrap();
 
         // root can read the directory, and then finds the file in it.
-        assert!(
-            matches!(&found, Some(path) if path.starts_with(&package)),
-            "{found:?}"
-        );
+        assert!(matches!(&found, Some(path) if path.starts_with(&package)), "{found:?}");
     }
 
     #[test]
@@ -967,11 +820,7 @@ mod tests {
         std::os::unix::fs::symlink(&outside, &link).unwrap();
         let filter = ReloadFilter::new(vec![], vec![]);
         // inotify reports a new symbolic link as a new file.
-        let event = Event {
-            kind: EventKind::Create(CreateKind::File),
-            paths: vec![link],
-            attrs: Default::default(),
-        };
+        let event = Event { kind: EventKind::Create(CreateKind::File), paths: vec![link], attrs: Default::default() };
 
         assert!(first_relevant_path(&event, &filter).is_none());
     }
@@ -1023,15 +872,9 @@ mod tests {
     fn a_repeated_watcher_error_is_logged_once_until_it_changes() {
         let mut last = None;
 
-        assert!(is_new_watch_error(
-            &mut last,
-            "permission denied about /srv"
-        ));
+        assert!(is_new_watch_error(&mut last, "permission denied about /srv"));
         // A poll watcher reports the same error on each scan.
-        assert!(!is_new_watch_error(
-            &mut last,
-            "permission denied about /srv"
-        ));
+        assert!(!is_new_watch_error(&mut last, "permission denied about /srv"));
         assert!(is_new_watch_error(&mut last, "no space left"));
         // A reload clears the last error, so the next one shows again.
         last = None;
@@ -1045,18 +888,14 @@ mod tests {
         let debounce = Duration::from_millis(50);
 
         let (tx, rx) = mpsc::channel();
-        tx.send(Err(notify::Error::generic("inotify watch limit")))
-            .unwrap();
+        tx.send(Err(notify::Error::generic("inotify watch limit"))).unwrap();
         assert_eq!(
             recv_change(&rx, &filter, debounce, timeout),
             Err(WatchError::Notify("inotify watch limit".to_string()))
         );
 
         drop(tx);
-        assert_eq!(
-            recv_change(&rx, &filter, debounce, timeout),
-            Err(WatchError::Disconnected)
-        );
+        assert_eq!(recv_change(&rx, &filter, debounce, timeout), Err(WatchError::Disconnected));
     }
 
     #[test]
@@ -1068,10 +907,7 @@ mod tests {
         let debounce = Duration::from_millis(200);
         let timeout = Duration::from_millis(10);
 
-        assert_eq!(
-            recv_change(&rx, &filter, debounce, timeout),
-            Ok(Some(PathBuf::from("/tmp/project/views.py")))
-        );
+        assert_eq!(recv_change(&rx, &filter, debounce, timeout), Ok(Some(PathBuf::from("/tmp/project/views.py"))));
         // The first reload took the second event.
         assert_eq!(recv_change(&rx, &filter, debounce, timeout), Ok(None));
         drop(tx);
@@ -1085,17 +921,10 @@ mod tests {
         let later = tx.clone();
         let sender = thread::spawn(move || {
             thread::sleep(Duration::from_millis(50));
-            later
-                .send(Ok(modify_event("/tmp/project/views.py")))
-                .unwrap();
+            later.send(Ok(modify_event("/tmp/project/views.py"))).unwrap();
         });
 
-        let changed = recv_change(
-            &rx,
-            &filter,
-            Duration::from_millis(500),
-            Duration::from_millis(10),
-        );
+        let changed = recv_change(&rx, &filter, Duration::from_millis(500), Duration::from_millis(10));
         sender.join().unwrap();
 
         assert_eq!(changed, Ok(Some(PathBuf::from("/tmp/project/views.py"))));
@@ -1114,22 +943,13 @@ mod tests {
         let filter = ReloadFilter::new(vec![], vec![]);
         let paint = Paint { enabled: false };
         let run = |rx: &mpsc::Receiver<notify::Result<Event>>, shutdown: &AtomicBool| {
-            supervise(
-                &command,
-                rx,
-                &filter,
-                Duration::from_millis(50),
-                Duration::from_millis(200),
-                shutdown,
-                &paint,
-            )
+            supervise(&command, rx, &filter, Duration::from_millis(50), Duration::from_millis(200), shutdown, &paint)
         };
 
         // No shutdown: a notify error does not end the session. Then the
         // watcher stops, and the session ends with the exit code 1.
         let (tx, rx) = mpsc::channel();
-        tx.send(Err(notify::Error::generic("inotify watch limit")))
-            .unwrap();
+        tx.send(Err(notify::Error::generic("inotify watch limit"))).unwrap();
         drop(tx);
         let exit_code = run(&rx, &AtomicBool::new(false));
         assert!(matches!(exit_code, Ok(1)), "{exit_code:?}");
@@ -1181,11 +1001,7 @@ mod tests {
 
     #[test]
     fn wait_for_child_exit_gives_the_status_of_a_child_that_exits_in_time() {
-        let mut child = Command::new("sh")
-            .arg("-c")
-            .arg("sleep 0.1; exit 3")
-            .spawn()
-            .unwrap();
+        let mut child = Command::new("sh").arg("-c").arg("sleep 0.1; exit 3").spawn().unwrap();
 
         let status = wait_for_child_exit(&mut child, Duration::from_secs(30)).unwrap();
 
@@ -1194,11 +1010,7 @@ mod tests {
 
     #[test]
     fn wait_for_child_exit_gives_none_after_the_timeout() {
-        let mut child = Command::new("sh")
-            .arg("-c")
-            .arg("sleep 30")
-            .spawn()
-            .unwrap();
+        let mut child = Command::new("sh").arg("-c").arg("sleep 30").spawn().unwrap();
         let started = Instant::now();
 
         let status = wait_for_child_exit(&mut child, Duration::from_millis(100));
@@ -1235,11 +1047,7 @@ mod tests {
     /// Wait until the file has `expected` as its content. Stop when the
     /// supervisor ends first.
     #[cfg(unix)]
-    fn wait_for_content<T>(
-        path: &std::path::Path,
-        expected: &str,
-        supervisor: &thread::JoinHandle<T>,
-    ) {
+    fn wait_for_content<T>(path: &std::path::Path, expected: &str, supervisor: &thread::JoinHandle<T>) {
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {
             let content = std::fs::read_to_string(path).unwrap_or_default();
@@ -1281,9 +1089,8 @@ mod tests {
         // As under `nohup`. The supervisor must keep this action.
         // SAFETY: SIG_IGN installs no Rust code.
         unsafe { libc::signal(libc::SIGHUP, libc::SIG_IGN) };
-        let supervisor = thread::spawn(move || {
-            run_dev_reloader_inner(command.to_vec(), watch_paths, vec![], vec![], 50, false)
-        });
+        let supervisor =
+            thread::spawn(move || run_dev_reloader_inner(command.to_vec(), watch_paths, vec![], vec![], 50, false));
         wait_for_content(&starts, "0\n", &supervisor);
         assert!(super::sighup_is_ignored());
         drop(action);
@@ -1299,10 +1106,7 @@ mod tests {
         // SAFETY: the signal goes to this process, which handles it.
         unsafe { libc::kill(libc::getpid(), libc::SIGTERM) };
         let exit_code = supervisor.join().unwrap();
-        assert!(
-            matches!(exit_code, Ok(0)),
-            "the supervisor did not stop cleanly"
-        );
+        assert!(matches!(exit_code, Ok(0)), "the supervisor did not stop cleanly");
     }
 
     #[test]
@@ -1315,10 +1119,7 @@ mod tests {
     fn exit_status_names_a_signal() {
         use std::os::unix::process::ExitStatusExt;
 
-        assert_eq!(
-            format_exit_status(ExitStatus::from_raw(libc::SIGKILL)),
-            "terminated by signal"
-        );
+        assert_eq!(format_exit_status(ExitStatus::from_raw(libc::SIGKILL)), "terminated by signal");
     }
 
     #[test]
@@ -1345,10 +1146,7 @@ mod tests {
     fn display_path_is_relative_to_the_current_directory() {
         let cwd = std::env::current_dir().unwrap();
         let inside = PathBuf::from("api").join("views.py");
-        assert_eq!(
-            display_path(&cwd.join(&inside)),
-            inside.display().to_string()
-        );
+        assert_eq!(display_path(&cwd.join(&inside)), inside.display().to_string());
 
         // Each absolute path is inside the root directory, so a test that
         // runs there has no outside path.

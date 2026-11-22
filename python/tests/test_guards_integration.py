@@ -13,13 +13,7 @@ from django.conf import settings  # noqa: PLC0415
 from django.core.management import call_command  # noqa: PLC0415
 
 from freeman import BoltAPI, Router
-from freeman.auth import (
-    AllowAny,
-    APIKeyAuthentication,
-    IsAuthenticated,
-    JWTAuthentication,
-    Requires,
-)
+from freeman.auth import AllowAny, APIKeyAuthentication, IsAuthenticated, JWTAuthentication, Requires
 from freeman.testing import TestClient
 
 
@@ -44,17 +38,8 @@ def api():
         settings.configure(
             DEBUG=True,
             SECRET_KEY="test-secret-key-for-guards",
-            INSTALLED_APPS=[
-                "django.contrib.contenttypes",
-                "django.contrib.auth",
-                "freeman",
-            ],
-            DATABASES={
-                "default": {
-                    "ENGINE": "django.db.backends.sqlite3",
-                    "NAME": ":memory:",
-                }
-            },
+            INSTALLED_APPS=["django.contrib.contenttypes", "django.contrib.auth", "freeman"],
+            DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
             USE_TZ=True,
         )
         django.setup()
@@ -83,19 +68,12 @@ def api():
     @api.get("/admin", auth=[JWTAuthentication(secret="test-secret")], guards=[Requires("is_superuser", True)])
     async def admin_endpoint(request: dict):
         context = request["context"]
-        return {
-            "message": "admin area",
-            "user_id": context["user_id"],
-            "is_superuser": context["is_superuser"],
-        }
+        return {"message": "admin area", "user_id": context["user_id"], "is_superuser": context["is_superuser"]}
 
     # Staff-only endpoint
     @api.get("/staff", auth=[JWTAuthentication(secret="test-secret")], guards=[Requires("is_staff", True)])
     async def staff_endpoint(request: dict):
-        return {
-            "message": "staff area",
-            "user_id": request["context"]["user_id"],
-        }
+        return {"message": "staff area", "user_id": request["context"]["user_id"]}
 
     # Permission-required endpoint
     @api.get(
@@ -129,11 +107,7 @@ def api():
         }
 
     # Presence check on a boolean claim: present means true
-    @api.get(
-        "/staff-presence",
-        auth=[JWTAuthentication(secret="test-secret")],
-        guards=[Requires("is_staff")],
-    )
+    @api.get("/staff-presence", auth=[JWTAuthentication(secret="test-secret")], guards=[Requires("is_staff")])
     async def staff_presence_endpoint():
         return {"message": "staff flag set"}
 
@@ -277,10 +251,7 @@ def test_has_any_permission_without_match(client):
 def test_a_nested_router_inherits_auth_guards_and_tags_of_its_parent():
     """A route of a child router gets the auth, guards and tags of the parent router."""
     parent = Router(
-        prefix="/parent",
-        auth=[JWTAuthentication(secret="test-secret")],
-        guards=[IsAuthenticated()],
-        tags=["p"],
+        prefix="/parent", auth=[JWTAuthentication(secret="test-secret")], guards=[IsAuthenticated()], tags=["p"]
     )
     child = Router(prefix="/child")
     open_child = Router(prefix="/open", guards=[AllowAny()], tags=["o"])

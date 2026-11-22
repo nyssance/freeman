@@ -67,12 +67,7 @@ _route("/perm-all", [Requires("permissions", all_of=["users.create", "users.dele
 _route(
     "/key-perm",
     [Requires("permissions", "can.read")],
-    auth=[
-        APIKeyAuthentication(
-            api_keys={"key-1", "key-2"},
-            key_permissions={"key-1": ["can.read"]},
-        )
-    ],
+    auth=[APIKeyAuthentication(api_keys={"key-1", "key-2"}, key_permissions={"key-1": ["can.read"]})],
 )
 _route("/key-role", [Requires("role", "client")], auth=[APIKeyAuthentication(api_keys={"key-1"})])
 
@@ -82,20 +77,13 @@ _route("/roles-not-banned", [Requires("roles", none_of=["banned"])])
 _route("/perm-not-delete", [Requires("permissions", none_of=["users.delete"])])
 _route("/authed-not-banned", [IsAuthenticated(), Requires("role", none_of=["banned"])])
 # Guards are cumulative, so "has X but not Y" is two guards.
-_route(
-    "/perm-add-not-admin",
-    [Requires("permissions", "blog.add"), Requires("permissions", none_of=["blog.admin"])],
-)
+_route("/perm-add-not-admin", [Requires("permissions", "blog.add"), Requires("permissions", none_of=["blog.admin"])])
 
 # message: the detail returned with the 403.
 _route("/client-msg", [Requires("role", "client", message="Client accounts only")])
 _route("/not-banned-msg", [Requires("role", none_of=["banned"], message="Your account is restricted")])
 _route(
-    "/two-messages",
-    [
-        Requires("role", "client", message="first guard"),
-        Requires("tenant_id", message="second guard"),
-    ],
+    "/two-messages", [Requires("role", "client", message="first guard"), Requires("tenant_id", message="second guard")]
 )
 _route("/quoted-msg", [Requires("role", "client", message='Say "no" — \\ ok')])
 
@@ -217,10 +205,7 @@ class TestPermissionsClaim:
         assert bad.status_code == 403
 
     def test_jwt_all_of_permissions(self, client, user):
-        both = client.get(
-            "/perm-all",
-            headers=bearer(user, permissions=["users.create", "users.delete", "x"]),
-        )
+        both = client.get("/perm-all", headers=bearer(user, permissions=["users.create", "users.delete", "x"]))
         one = client.get("/perm-all", headers=bearer(user, permissions=["users.create"]))
         assert both.status_code == 200
         assert one.status_code == 403
@@ -407,37 +392,17 @@ class TestRegistrationFailures:
                 "— not both. They are the same quantifier; guards are cumulative, so combine them as separate "
                 "guards.",
             ),
-            (
-                ("permissions",),
-                {"all_of": "abc"},
-                "Requires() all_of must be a list/tuple of values, got 'abc'.",
-            ),
-            (
-                ("role",),
-                {"none_of": "abc"},
-                "Requires() none_of must be a list/tuple of values, got 'abc'.",
-            ),
-            (
-                ("permissions",),
-                {"all_of": []},
-                "Requires() all_of must not be empty — omit it for a presence check.",
-            ),
-            (
-                ("role",),
-                {"none_of": []},
-                "Requires() none_of must not be empty — omit it for a presence check.",
-            ),
+            (("permissions",), {"all_of": "abc"}, "Requires() all_of must be a list/tuple of values, got 'abc'."),
+            (("role",), {"none_of": "abc"}, "Requires() none_of must be a list/tuple of values, got 'abc'."),
+            (("permissions",), {"all_of": []}, "Requires() all_of must not be empty — omit it for a presence check."),
+            (("role",), {"none_of": []}, "Requires() none_of must not be empty — omit it for a presence check."),
             (
                 ("role", {"nested": "dict"}),
                 {},
                 "Requires('role') got value {'nested': 'dict'} (dict); claim values must be str, int, float, or bool "
                 "so they can be compiled into the Rust guard at registration.",
             ),
-            (
-                ("role", "client"),
-                {"message": ""},
-                "Requires() message must be a non-empty string, got ''.",
-            ),
+            (("role", "client"), {"message": ""}, "Requires() message must be a non-empty string, got ''."),
         ],
         ids=[
             "two-quantifiers",

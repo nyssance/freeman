@@ -21,52 +21,27 @@ def test_token_lifecycle_over_real_server(make_server_project):
         assert login.status_code == 200, login.text
         original = login.json()
 
-        access_works = server.get(
-            "/whoami",
-            headers=bearer(original["access_token"]),
-        )
+        access_works = server.get("/whoami", headers=bearer(original["access_token"]))
         assert access_works.status_code == 200, access_works.text
         assert access_works.json()["user_id"] == "lifecycle-user"
 
-        refresh_on_access_route = server.get(
-            "/whoami",
-            headers=bearer(original["refresh_token"]),
-        )
+        refresh_on_access_route = server.get("/whoami", headers=bearer(original["refresh_token"]))
         assert refresh_on_access_route.status_code == 401, refresh_on_access_route.text
 
-        access_on_refresh_route = server.request(
-            "POST",
-            "/refresh",
-            headers=bearer(original["access_token"]),
-        )
+        access_on_refresh_route = server.request("POST", "/refresh", headers=bearer(original["access_token"]))
         assert access_on_refresh_route.status_code == 401, access_on_refresh_route.text
 
-        rotated_response = server.request(
-            "POST",
-            "/refresh",
-            headers=bearer(original["refresh_token"]),
-        )
+        rotated_response = server.request("POST", "/refresh", headers=bearer(original["refresh_token"]))
         assert rotated_response.status_code == 200, rotated_response.text
         rotated = rotated_response.json()
 
-        rotated_access_works = server.get(
-            "/whoami",
-            headers=bearer(rotated["access_token"]),
-        )
+        rotated_access_works = server.get("/whoami", headers=bearer(rotated["access_token"]))
         assert rotated_access_works.status_code == 200, rotated_access_works.text
 
-        replay = server.request(
-            "POST",
-            "/refresh",
-            headers=bearer(original["refresh_token"]),
-        )
+        replay = server.request("POST", "/refresh", headers=bearer(original["refresh_token"]))
         assert replay.status_code == 401, replay.text
 
-        burned_descendant = server.request(
-            "POST",
-            "/refresh",
-            headers=bearer(rotated["refresh_token"]),
-        )
+        burned_descendant = server.request("POST", "/refresh", headers=bearer(rotated["refresh_token"]))
         assert burned_descendant.status_code == 401, burned_descendant.text
 
 

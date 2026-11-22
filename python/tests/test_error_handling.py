@@ -350,9 +350,10 @@ class TestErrorHandlers:
         ]
 
     def test_response_validation_error_handler_logs_the_errors_and_the_exception(self, caplog):
-        exc = ResponseValidationError(
-            [{"loc": ["response", "id"], "msg": "Field required", "type": "missing"}, "plain"]
-        )
+        exc = ResponseValidationError([
+            {"loc": ["response", "id"], "msg": "Field required", "type": "missing"},
+            "plain",
+        ])
         # The body has the errors only in debug mode.
         with caplog.at_level(logging.ERROR, logger="freeman.error_handlers"):
             status, _, body = response_validation_error_handler(exc, debug=True)
@@ -405,12 +406,7 @@ class TestErrorHandlers:
         """Test generic exception handler in debug mode returns HTML."""
         # Configure Django settings for ExceptionReporter
         if not settings.configured:
-            settings.configure(
-                DEBUG=True,
-                SECRET_KEY="test-secret-key",
-                INSTALLED_APPS=[],
-                ROOT_URLCONF="",
-            )
+            settings.configure(DEBUG=True, SECRET_KEY="test-secret-key", INSTALLED_APPS=[], ROOT_URLCONF="")
             django.setup()
 
         exc = ValueError("Something went wrong")
@@ -437,12 +433,7 @@ class TestErrorHandlers:
     def test_generic_exception_handler_debug_without_request(self):
         """Test generic exception handler in debug mode works without request."""
         if not settings.configured:
-            settings.configure(
-                DEBUG=True,
-                SECRET_KEY="test-secret-key",
-                INSTALLED_APPS=[],
-                ROOT_URLCONF="",
-            )
+            settings.configure(DEBUG=True, SECRET_KEY="test-secret-key", INSTALLED_APPS=[], ROOT_URLCONF="")
             django.setup()
 
         exc = RuntimeError("Error without request context")
@@ -612,20 +603,11 @@ class TestErrorHandlers:
     def test_handle_exception_with_request_parameter(self):
         """Test that handle_exception properly passes request to generic_exception_handler."""
         if not settings.configured:
-            settings.configure(
-                DEBUG=True,
-                SECRET_KEY="test-secret-key",
-                INSTALLED_APPS=[],
-                ROOT_URLCONF="",
-            )
+            settings.configure(DEBUG=True, SECRET_KEY="test-secret-key", INSTALLED_APPS=[], ROOT_URLCONF="")
             django.setup()
 
         exc = ValueError("Test with request")
-        request_dict = {
-            "method": "POST",
-            "path": "/api/users",
-            "headers": {"content-type": "application/json"},
-        }
+        request_dict = {"method": "POST", "path": "/api/users", "headers": {"content-type": "application/json"}}
 
         status, headers, body = handle_exception(exc, debug=True, request=request_dict)
 
@@ -770,11 +752,7 @@ class TestMsgspecValidationErrorToDict:
     def test_missing_field_of_a_nested_struct_has_the_path_and_the_field_name(self):
         error = _validation_error(b'{"name": "a", "inner": {}}')
         assert msgspec_validation_error_to_dict(error) == [
-            {
-                "loc": ["body", "inner", "age"],
-                "msg": "Object missing required field `age`",
-                "type": "missing_field",
-            }
+            {"loc": ["body", "inner", "age"], "msg": "Object missing required field `age`", "type": "missing_field"}
         ]
 
     def test_missing_field_in_a_list_item_has_the_index_in_its_loc(self):
@@ -790,11 +768,7 @@ class TestMsgspecValidationErrorToDict:
     def test_missing_field_in_a_dict_value_has_the_path_of_the_dict(self):
         error = _validation_error(b'{"by_key": {"k": {}}}', _Holder)
         assert msgspec_validation_error_to_dict(error) == [
-            {
-                "loc": ["body", "by_key", "age"],
-                "msg": "Object missing required field `age`",
-                "type": "missing_field",
-            }
+            {"loc": ["body", "by_key", "age"], "msg": "Object missing required field `age`", "type": "missing_field"}
         ]
 
     def test_missing_field_of_a_nested_struct_uses_the_given_root(self):
@@ -925,12 +899,7 @@ class TestParseMsgspecDecodeError:
             "loc": ("body", 1, 6),
             "msg": "Invalid JSON at line 1, column 6: JSON is malformed: expected ':' (byte 5)\n  {\"a\" 1}\n       ^",
             "input": '{"a" 1}',
-            "ctx": {
-                "line": 1,
-                "column": 6,
-                "byte_position": 5,
-                "error": "JSON is malformed: expected ':' (byte 5)",
-            },
+            "ctx": {"line": 1, "column": 6, "byte_position": 5, "error": "JSON is malformed: expected ':' (byte 5)"},
         }
 
     def test_error_after_a_blank_line(self):
@@ -1192,10 +1161,7 @@ class TestResponseValidationDisclosure:
             return JSON({"kind": error.kind, "errors": error.errors}, status_code=error.status)
 
         api = _bad_response_api(error_formatter=formatter)
-        with (
-            TestClient(api, raise_server_exceptions=False) as client,
-            caplog.at_level(logging.ERROR, logger="freeman"),
-        ):
+        with TestClient(api, raise_server_exceptions=False) as client, caplog.at_level(logging.ERROR, logger="freeman"):
             response = client.get("/async-bad")
 
         assert response.status_code == 500

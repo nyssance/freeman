@@ -151,7 +151,5 @@ def _build(serializer_cls: type[Serializer], model_cls: type) -> LoadingPlan:
     annotations = dict(getattr(config, "annotations", None) or {})
 
     return LoadingPlan(
-        select_related=tuple(dict.fromkeys(select_related)),
-        prefetch=tuple(prefetch),
-        annotations=annotations,
+        select_related=tuple(dict.fromkeys(select_related)), prefetch=tuple(prefetch), annotations=annotations
     )

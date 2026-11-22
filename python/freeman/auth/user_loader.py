@@ -268,11 +268,7 @@ async def load_user(user_id: str | None, backend_name: str | None, auth_context:
     return await loaders[1](user_id, auth_context)
 
 
-def load_user_sync(
-    user_id: str | None,
-    backend_name: str | None,
-    auth_context: dict | None = None,
-) -> Any | None:
+def load_user_sync(user_id: str | None, backend_name: str | None, auth_context: dict | None = None) -> Any | None:
     """
     Synchronously load user from auth context.
 
