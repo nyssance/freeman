@@ -20,7 +20,8 @@ The size is in ``OPTIONS["async_pool"]`` of the database, for example
 ``{"min_size": 2, "max_size": 16}``. Count these connections with the others:
 the database serves ``processes * workers * max_size`` of them at most.
 
-Call ``close_pools()`` on shutdown, from the ``lifespan`` of the API.
+Call ``close_pools()`` on shutdown, from the ``lifespan`` of the API. A test run calls
+``close_all_pools()`` before it drops the test database.
 """
 
 import asyncio
@@ -37,7 +38,7 @@ try:
 except ImportError as e:  # pragma: no cover - the message is the behaviour
     raise ImportError('freeman.postgres needs psycopg and psycopg_pool. Install "freeman[pool]".') from e
 
-__all__ = ("close_pools", "connection", "pool")
+__all__ = ("close_all_pools", "close_pools", "connection", "pool")
 
 _DEFAULT_SIZE = {"min_size": 1, "max_size": 16}
 # One pool for each (event loop, database alias).
@@ -54,7 +55,11 @@ def _conninfo(alias: str) -> str:
         raise ImproperlyConfigured(
             f"freeman.postgres needs a PostgreSQL database. {alias!r} is {database.get('ENGINE')!r}."
         )
-    return make_conninfo(**{key: database[name] for name, key in _CONNINFO_KEYS.items() if database.get(name)})
+    params = {key: database[name] for name, key in _CONNINFO_KEYS.items() if database.get(name)}
+    if settings.USE_TZ:
+        # As the connections of Django: a timestamp comes back in the time zone of the database setting, or in UTC.
+        params["options"] = f"-c timezone={database.get('TIME_ZONE') or 'UTC'}"
+    return make_conninfo(**params)
 
 
 async def pool(alias: str = "default") -> AsyncConnectionPool:
@@ -98,3 +103,17 @@ async def close_pools() -> None:
     loop = asyncio.get_running_loop()
     for key in [key for key in _pools if key[0] is loop]:
         await _pools.pop(key).close()
+
+
+def close_all_pools(timeout: float = 10) -> None:
+    """Close the pools of every event loop. Call it from a thread that runs no event loop.
+
+    The event loop of a worker outlives a request, and a test client. A test
+    run calls this before it drops the test database, which an open
+    connection would keep.
+    """
+    for key in list(_pools):
+        loop, _ = key
+        found = _pools.pop(key, None)
+        if found is not None and loop.is_running():
+            asyncio.run_coroutine_threadsafe(found.close(), loop).result(timeout)

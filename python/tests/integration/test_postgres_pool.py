@@ -123,3 +123,16 @@ def test_a_database_that_is_not_postgresql_is_refused(native):
         postgres._conninfo("default")
     with pytest.raises(ImproperlyConfigured, match="has no 'missing'"):
         postgres._conninfo("missing")
+
+
+def test_close_all_pools_closes_a_pool_from_outside_its_event_loop(client):
+    from freeman import postgres  # noqa: PLC0415
+
+    assert client.get("/one?value=1").json() == {"value": 2}
+    opened = [found for (_, alias), found in postgres._pools.items() if alias == ALIAS]
+    assert len(opened) == 1
+    postgres.close_all_pools()
+    assert opened[0].closed
+    assert not postgres._pools
+    # The next request opens a new pool.
+    assert client.get("/one?value=2").json() == {"value": 3}
