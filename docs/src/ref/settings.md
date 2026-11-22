@@ -246,7 +246,7 @@ Number of threads in the ORM pool of each process. Django-Bolt evaluates the Que
 export DJANGO_BOLT_ORM_THREADS=8
 ```
 
-**Default:** `1` when every database is SQLite, otherwise `4`.
+**Default:** `1` when every database is SQLite, otherwise CPU count + 4, maximum `32`.
 
 Without a connection pool, each thread holds one database connection. With a pool, a thread holds a connection only while it has work. Increase the value when one free-threaded process runs many worker threads. See [Size the database thread pools](../getting-started/deployment.md#size-the-database-thread-pools). The value must be an int of `1` or more.
 
@@ -583,6 +583,6 @@ api = BoltAPI(
 | `BOLT_AUTHENTICATION_CLASSES` | `list` | not set | Default authentication backends. Not set: `JWTAuthentication()` for a route with a guard that needs a user |
 | `BOLT_DEFAULT_PERMISSION_CLASSES` | `list` | `[AllowAny()]` | Default permission guards |
 | `DJANGO_BOLT_MAX_PARAM_LENGTH` | `int` (env var) | `8192` | Max path/query/form parameter size in bytes, from `1` to `1048576` (1 MB); requests over the limit return `422` |
-| `DJANGO_BOLT_ORM_THREADS` | `int` (env var) | `1` (SQLite) or `4` | Threads in the ORM pool of each process |
+| `DJANGO_BOLT_ORM_THREADS` | `int` (env var) | `1` (SQLite) or CPU count + 4 (max `32`) | Threads in the ORM pool of each process |
 | `DJANGO_BOLT_LANE_IDLE_SECONDS` | `float` (env var) | `10` | Idle time after which a request lane stops |
 | `DJANGO_BOLT_EXECUTOR_THREADS` | `int` (env var) | CPU count + 4 (max `32`) | Threads in the shared executor pool of each process |

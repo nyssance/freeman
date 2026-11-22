@@ -525,6 +525,42 @@ def problem_details(error: BoltError, request: Any) -> Response:
     return Response(body, status_code=error.status, media_type="application/problem+json")
 
 
+class CodeDetail(msgspec.Struct, kw_only=True):
+    """An error body with a stable code, a message, and the field errors when the error has them."""
+
+    code: str
+    detail: str | dict[str, Any] | list[Any]
+    fields: list[ProblemFieldError] = []
+
+
+@error_schema(CodeDetail)
+def code_detail(error: BoltError, request: Any) -> Response:  # noqa: ARG001
+    """Format an error as ``{"code", "detail", "fields"}``.
+
+    Use it as ``BoltAPI(error_formatter=code_detail)``. One shape then covers
+    the errors of every layer: a guard or a parameter that Rust refuses, a
+    body that does not validate, an ``HTTPException`` and an unhandled error.
+
+    "code" is ``error.kind``, a stable name such as "not_authenticated",
+    "not_found" or "validation". A dict detail of an ``HTTPException`` that
+    has a "code" gives the code, and its "detail" gives the detail, so a
+    handler can name its own codes:
+    ``raise HTTPException(409, detail={"code": "out_of_stock", "detail": "..."})``.
+    "fields" is present only when the error has field errors. The keys of
+    ``error.extra`` are more members of the body. They do not replace these three.
+    """
+    code, detail = error.kind, error.detail
+    if isinstance(detail, dict) and isinstance(detail.get("code"), str):
+        code, detail = detail["code"], detail.get("detail", _STATUS_TITLES.get(error.status, "Error"))
+    body: dict[str, Any] = {"code": code, "detail": detail}
+    if error.errors:
+        body["fields"] = error.errors
+    if isinstance(error.extra, dict):
+        for key, value in error.extra.items():
+            body.setdefault(key, value)
+    return Response(body, status_code=error.status)
+
+
 def bolt_error_from_exception(exc: BaseException, debug: bool | None = None) -> BoltError:
     """Describe the error response for an exception, as ``handle_exception`` sends it.
 

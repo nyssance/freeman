@@ -723,7 +723,7 @@ def _get_default_executor() -> concurrent.futures.ThreadPoolExecutor:
 # SQLite (measured: /users/full10 at C=32 was ~2x faster through one shared
 # connection than through the unbounded default pool). A small cap keeps the
 # C=1 parallelism win while bounding connection count and lock contention.
-# Tune with DJANGO_BOLT_ORM_THREADS (default 4).
+# Tune with DJANGO_BOLT_ORM_THREADS.
 _orm_executor: concurrent.futures.ThreadPoolExecutor | None = None
 
 
@@ -733,15 +733,21 @@ def _default_orm_workers() -> int:
     Measured on the example project (/users/full10, C=32, single process):
     SQLite throughput scales INVERSELY with connection count — 1 thread beat
     4 threads by ~80% and the unbounded pool by ~2.5x (file-lock contention +
-    per-connection page caches). Networked databases (Postgres/MySQL) benefit
-    from parallel connections instead. Override with DJANGO_BOLT_ORM_THREADS.
+    per-connection page caches).
+
+    A networked database gets the size of the shared executor pool. A query
+    waits on the network with the GIL released, so the pool size is the number
+    of queries in flight. Measured on PostgreSQL with one process, 50
+    connections and a 50 ms query: 4 threads gave 77 requests per second, 16
+    gave 309 and 50 gave 944. Each thread holds one database connection
+    unless the database has a pool. Override with DJANGO_BOLT_ORM_THREADS.
     """
     try:
         if all_databases_sqlite():
             return 1
     except Exception as exc:  # unconfigured settings etc. — fall back to the parallel default
         logger.debug("ORM executor vendor detection failed, using default pool size: %s", exc)
-    return 4
+    return min(32, (os.cpu_count() or 1) + 4)
 
 
 def all_databases_sqlite() -> bool:
