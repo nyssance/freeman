@@ -7,11 +7,18 @@ memory fails these tests.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from .apps import app_module
 
-pytestmark = pytest.mark.server_integration
+# These tests need the kernel to spread connections over two worker processes.
+# Only Linux does that for a shared port.
+pytestmark = [
+    pytest.mark.server_integration,
+    pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Multiprocess runs only on Linux."),
+]
 
 LOGIN = {"username": "user", "password": "correct"}
 NEW_CONNECTION = {"Connection": "close", "Sec-Fetch-Site": "same-origin"}

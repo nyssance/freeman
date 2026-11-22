@@ -4,6 +4,6 @@
 # the channel current via its built-in rust-toolchain manager.
 # CI runs clippy with `-D warnings`, so clippy is pinned here too.
 [toolchain]
-channel = "1.99.1"
+channel = "1.100.0"
 profile = "minimal"
 components = ["rustfmt", "clippy"]

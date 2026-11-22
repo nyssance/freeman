@@ -41,8 +41,8 @@ def wheel_pattern(version):
     # own cp3XX-cp3XXt wheel.
     if version.endswith("t"):
         tag = "cp" + version.removesuffix("t").replace(".", "")
-        return f"django_bolt-*-{tag}-{tag}t-*.whl"
-    return "django_bolt-*-abi3-*.whl"
+        return f"freeman-*-{tag}-{tag}t-*.whl"
+    return "freeman-*-abi3-*.whl"
 
 
 print(f"wheel-patterns-json={json.dumps({v: wheel_pattern(v) for v in versions + free_threaded})}")
@@ -63,7 +63,7 @@ artifacts.append(
     {
         "artifact-kind": "sdist",
         "python-version": versions[0],
-        "artifact-pattern": "django_bolt-*.tar.gz",
+        "artifact-pattern": "freeman-*.tar.gz",
     }
 )
 print(f"artifact-include-json={json.dumps(artifacts)}")

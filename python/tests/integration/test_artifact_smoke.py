@@ -106,7 +106,7 @@ def test_installed_artifact_prints_its_version(installed_artifact_python: Path):
         [
             str(installed_artifact_python),
             "-c",
-            "import importlib.metadata; print(importlib.metadata.version('django-bolt'))",
+            "import importlib.metadata; print(importlib.metadata.version('freeman'))",
         ],
         capture_output=True,
         text=True,

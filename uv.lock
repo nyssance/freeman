@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -9,7 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "bolt-mcp",
-    "django-bolt",
+    "freeman",
 ]
 
 [[package]]
@@ -88,14 +88,14 @@ wheels = [
 name = "bolt-mcp"
 source = { editable = "python/bolt-mcp" }
 dependencies = [
-    { name = "django-bolt" },
+    { name = "freeman" },
     { name = "msgspec" },
     { name = "pyjwt" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "django-bolt", editable = "." },
+    { name = "freeman", editable = "." },
     { name = "msgspec", specifier = ">=0.20" },
     { name = "pyjwt", specifier = ">=2.8" },
 ]
@@ -439,8 +439,55 @@ wheels = [
 ]
 
 [[package]]
-name = "django-bolt"
-version = "0.13.0"
+name = "django-debug-toolbar"
+version = "8.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "sqlparse" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/3d/aa093a841f32837311538e7952f5548b1a9c605a5aba5395163fbc54ac59/django_debug_toolbar-8.0.0.tar.gz", hash = "sha256:cae32d3e441e608f39f3f1ca6b3f028c38d5d04d74c98d8ab96d46022dee3163", size = 1239141, upload-time = "2026-09-01T18:27:56.934Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/22/bd/ffd3f171940c58cca7971d1e5b81d6ab67b85a9569fe9d9fe13f7fbd1c99/django_debug_toolbar-8.0.0-py3-none-any.whl", hash = "sha256:329dfd6e1c26d9b4501a5cc69294c8bb734206ccb1bd36e96afc4d14128b630a", size = 437877, upload-time = "2026-09-01T18:27:55.018Z" },
+]
+
+[[package]]
+name = "django-ninja"
+version = "1.7.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1c/8e/8c12dd873d76762e61fa7225bbab5d2b87dce358a8f7d764508b1363c17c/django_ninja-1.7.3.tar.gz", hash = "sha256:8a73ecccaa86639202427e81667b8fca6dfc250d2b6e5108369688029a4cb593", size = 2342134, upload-time = "2026-10-29T10:21:03.197Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/7d/7df99529f54178c67282d25983aad66bc0593ffbf5c1d420bb2840389c90/django_ninja-1.7.3-py3-none-any.whl", hash = "sha256:5e3c2dcead83a2512ea772dbc435ca51632cf46bf3be1523bac41e5bb394891c", size = 2376577, upload-time = "2026-10-29T10:21:01.199Z" },
+]
+
+[[package]]
+name = "django-tenants"
+version = "4.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/96/d5/7f1b0bb15d0a5858f4a758be63ec4f6f7a2901b84ba580b2f67f8337228e/django_tenants-4.0.1.tar.gz", hash = "sha256:769a0934507305c55b7b6e49b788df6627dcc546d7f4e187812285bad1c6270b", size = 180774, upload-time = "2026-10-23T22:17:21.524Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/69/9b0935d7555abf67b9984a9bdf3dd132edba407638daf6f2a0cb4d737991/django_tenants-4.0.1-py3-none-any.whl", hash = "sha256:b9bd2ce240e71e58e47981288807d5e449c6a3624685dfe20afa819341f7ad5c", size = 137013, upload-time = "2026-10-23T22:17:19.984Z" },
+]
+
+[[package]]
+name = "execnet"
+version = "2.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bf/89/780e11f9588d9e7128a3f87788354c7946a9cbb1401ad38a48c4db9a4f07/execnet-2.1.2.tar.gz", hash = "sha256:63d83bfdd9a23e35b9c6a3261412324f964c2ec8dcd8d3c6916ee9373e0befcd", size = 166622, upload-time = "2025-11-12T09:56:37.75Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/84/02fc1827e8cdded4aa65baef11296a9bbe595c474f0d6d758af082d849fd/execnet-2.1.2-py3-none-any.whl", hash = "sha256:67fba928dd5a544b783f6056f449e5e3931a5c378b128bc18501f7ea79e296ec", size = 40708, upload-time = "2025-11-12T09:56:36.333Z" },
+]
+
+[[package]]
+name = "freeman"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "asgiref" },
@@ -557,53 +604,6 @@ dev = [
     { name = "zstandard", specifier = ">=0.25.0" },
 ]
 docs = [{ name = "zensical" }]
-
-[[package]]
-name = "django-debug-toolbar"
-version = "8.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "sqlparse" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4f/3d/aa093a841f32837311538e7952f5548b1a9c605a5aba5395163fbc54ac59/django_debug_toolbar-8.0.0.tar.gz", hash = "sha256:cae32d3e441e608f39f3f1ca6b3f028c38d5d04d74c98d8ab96d46022dee3163", size = 1239141, upload-time = "2026-09-01T18:27:56.934Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/22/bd/ffd3f171940c58cca7971d1e5b81d6ab67b85a9569fe9d9fe13f7fbd1c99/django_debug_toolbar-8.0.0-py3-none-any.whl", hash = "sha256:329dfd6e1c26d9b4501a5cc69294c8bb734206ccb1bd36e96afc4d14128b630a", size = 437877, upload-time = "2026-09-01T18:27:55.018Z" },
-]
-
-[[package]]
-name = "django-ninja"
-version = "1.7.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/8e/8c12dd873d76762e61fa7225bbab5d2b87dce358a8f7d764508b1363c17c/django_ninja-1.7.3.tar.gz", hash = "sha256:8a73ecccaa86639202427e81667b8fca6dfc250d2b6e5108369688029a4cb593", size = 2342134, upload-time = "2026-10-29T10:21:03.197Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/7d/7df99529f54178c67282d25983aad66bc0593ffbf5c1d420bb2840389c90/django_ninja-1.7.3-py3-none-any.whl", hash = "sha256:5e3c2dcead83a2512ea772dbc435ca51632cf46bf3be1523bac41e5bb394891c", size = 2376577, upload-time = "2026-10-29T10:21:01.199Z" },
-]
-
-[[package]]
-name = "django-tenants"
-version = "4.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/96/d5/7f1b0bb15d0a5858f4a758be63ec4f6f7a2901b84ba580b2f67f8337228e/django_tenants-4.0.1.tar.gz", hash = "sha256:769a0934507305c55b7b6e49b788df6627dcc546d7f4e187812285bad1c6270b", size = 180774, upload-time = "2026-10-23T22:17:21.524Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/69/9b0935d7555abf67b9984a9bdf3dd132edba407638daf6f2a0cb4d737991/django_tenants-4.0.1-py3-none-any.whl", hash = "sha256:b9bd2ce240e71e58e47981288807d5e449c6a3624685dfe20afa819341f7ad5c", size = 137013, upload-time = "2026-10-23T22:17:19.984Z" },
-]
-
-[[package]]
-name = "execnet"
-version = "2.1.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bf/89/780e11f9588d9e7128a3f87788354c7946a9cbb1401ad38a48c4db9a4f07/execnet-2.1.2.tar.gz", hash = "sha256:63d83bfdd9a23e35b9c6a3261412324f964c2ec8dcd8d3c6916ee9373e0befcd", size = 166622, upload-time = "2025-11-12T09:56:37.75Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/84/02fc1827e8cdded4aa65baef11296a9bbe595c474f0d6d758af082d849fd/execnet-2.1.2-py3-none-any.whl", hash = "sha256:67fba928dd5a544b783f6056f449e5e3931a5c378b128bc18501f7ea79e296ec", size = 40708, upload-time = "2025-11-12T09:56:36.333Z" },
-]
 
 [[package]]
 name = "gunicorn"

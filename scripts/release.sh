@@ -199,7 +199,7 @@ if [ "$DRY_RUN" = false ]; then
     info "\nNext steps:
   1. Monitor GitHub Actions: https://github.com/$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/actions
   2. Wait for CI to complete (~10-15 minutes)
-  3. Check PyPI: https://pypi.org/project/django-bolt/$VERSION/
+  3. Check PyPI: https://pypi.org/project/freeman/$VERSION/
   4. Verify GitHub Release: https://github.com/$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$VERSION
 
   The CI workflow will:

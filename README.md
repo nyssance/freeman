@@ -1,3 +1,7 @@
+> **Freeman** is a fork of [django-bolt](https://github.com/dj-bolt/django-bolt) (MIT), taken at upstream commit `23c1990`.
+> The distribution is named `freeman`. The import name is still `django_bolt` at this stage, so the two cannot be installed together.
+> Everything below is the upstream README and has not been rewritten yet.
+
 <div align="center">
   <img src="docs/logo.png" alt="Django-Bolt" width="400"/>
 

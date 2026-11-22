@@ -43,3 +43,6 @@ python/benchmark/BENCHMARK_DEV.md
 # Mutation testing output (`just mutants`, `just mutmut`)
 /mutants.out*/
 /mutants-work/
+
+# Throughput baseline of scripts/gate.py: it is per machine.
+.gate-baseline.json

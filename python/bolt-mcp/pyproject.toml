@@ -21,7 +21,7 @@ dependencies = [
     # version-coupled — keep this floor in lockstep with django-bolt releases.
     # Hard floor: the MCP protocol core (rmcp) lives in django-bolt's Rust
     # extension from 0.10; bolt-mcp >= 0.2 cannot serve without it.
-    "django-bolt>=0.10.2",
+    "freeman>=0.1.0",
     "msgspec>=0.20",
     # The built-in OAuth Authorization Server (bolt_mcp.oauth) signs/validates JWTs with
     # PyJWT. django-bolt already imports it transitively; declared here for hygiene.
@@ -49,4 +49,4 @@ raw-options = { root = "../..", git_describe_command = ["git", "describe", "--di
 packages = ["src/bolt_mcp"]
 
 [tool.uv.sources]
-django-bolt = { workspace = true }
+freeman = { workspace = true }

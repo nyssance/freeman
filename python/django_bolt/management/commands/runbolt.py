@@ -1159,7 +1159,7 @@ class Command(BaseCommand):
     def _get_version() -> str:
         """Return the installed django-bolt version."""
         try:
-            return importlib.metadata.version("django-bolt")
+            return importlib.metadata.version("freeman")
         except importlib.metadata.PackageNotFoundError:
             return "dev"
 

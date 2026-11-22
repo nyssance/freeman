@@ -1022,7 +1022,7 @@ jobs:
     needs: [test, rust, validate, audit, server_smoke_linux, server_integration_linux, platform_smoke, artifact_smoke]
     environment:
       name: pypi
-      url: https://pypi.org/project/django-bolt/
+      url: https://pypi.org/project/freeman/
     permissions:
       id-token: write # Required for trusted publishing
       contents: write # Required for GitHub release

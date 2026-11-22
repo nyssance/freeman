@@ -13,4 +13,4 @@ def main():
 @main.command()
 def version():
     """Show Django-Bolt version."""
-    click.echo(f"Django-Bolt version: {importlib.metadata.version('django-bolt')}")
+    click.echo(f"Django-Bolt version: {importlib.metadata.version('freeman')}")

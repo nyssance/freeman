@@ -110,6 +110,14 @@ rebuild: (kill port) clean build
 run-dev:
     uv run python python/example/manage.py runbolt --dev --port 8001
 
+# Throughput gate: `just gate-perf --record` writes this machine's baseline, `just gate-perf` fails under 90% of it
+gate-perf *args:
+    uv run python scripts/gate.py perf {{args}}
+
+# Memory gate: fails when resident memory keeps growing under a mixed load
+gate-memory *args:
+    uv run python scripts/gate.py memory {{args}}
+
 # Run Python tests (verbose)
 test-py:
     uv run pytest python/tests -s -vv -n auto

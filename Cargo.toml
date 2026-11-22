@@ -2,10 +2,10 @@
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.13.0"
+version = "0.1.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/dj-bolt/django-bolt"
+repository = "https://github.com/nyssance/freeman"
 
 [workspace.dependencies]
 # NOTE: "extension-module" is NOT hardcoded here — maturin enables it via

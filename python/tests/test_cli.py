@@ -35,14 +35,14 @@ def test_version_prints_the_installed_distribution_version(tmp_path):
     result = CliRunner().invoke(installed_cli.main, ["version"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
-    assert result.output == f"Django-Bolt version: {importlib.metadata.version('django-bolt')}\n"
+    assert result.output == f"Django-Bolt version: {importlib.metadata.version('freeman')}\n"
 
 
 def test_version_of_the_imported_module_prints_the_distribution_version():
     result = CliRunner().invoke(cli.main, ["version"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
-    assert result.output == f"Django-Bolt version: {importlib.metadata.version('django-bolt')}\n"
+    assert result.output == f"Django-Bolt version: {importlib.metadata.version('freeman')}\n"
 
 
 @pytest.mark.parametrize("flag", ["-h", "--help"])

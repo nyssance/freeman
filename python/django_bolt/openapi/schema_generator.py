@@ -475,7 +475,9 @@ class SchemaGenerator:
         ``msgspec.json.schema_components`` carries through.
         """
         own_doc = cls.__dict__.get("__doc__")
-        if not own_doc:
+        # Python 3.15 stores the generated signature of a dataclass as a lazy
+        # object, not a str. It is never a docstring the author wrote.
+        if not own_doc or not isinstance(own_doc, str):
             return None
         # A dataclass or a NamedTuple with no docstring gets its signature as
         # ``__doc__``, for example ``Point(x, y)``. msgspec skips it too.

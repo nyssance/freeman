@@ -3,14 +3,17 @@ requires = ["maturin>=1.8,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "django-bolt"
-version = "0.13.0"
-description = "The fastest Python web framework, built on Django: Rust (Actix Web) HTTP server, async typed handlers, msgspec validation - with the full Django ORM, Admin, middleware and auth. 300k+ req/s, no gunicorn or uvicorn needed."
+name = "freeman"
+version = "0.1.0"
+description = "A Rust HTTP engine for Python APIs: routing, auth and limits in Rust, business code in Python. A fork of django-bolt."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [
-    { name = "Farhan", email = "farhanalirazaazeemi@gmail.com" }
+    { name = "Farhan", email = "farhanalirazaazeemi@gmail.com" }  # author of django-bolt, which this is forked from
+]
+maintainers = [
+    { name = "nyssance" }
 ]
 keywords = ["django", "api", "rest", "rust", "performance", "actix", "pyo3", "async", "msgspec", "fastapi-alternative", "django-ninja", "django-rest-framework", "web-framework", "openapi", "websocket"]
 classifiers = [
@@ -21,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
@@ -58,10 +62,10 @@ bolt-mcp = ["bolt-mcp>=0.1.0"]
 pool = ["psycopg[pool]>=3.3", "psycopg-pool>=3.3"]
 
 [project.urls]
-Homepage = "https://github.com/dj-bolt/django-bolt"
-Repository = "https://github.com/dj-bolt/django-bolt"
-Documentation = "https://bolt.farhana.li/"
-"Bug Tracker" = "https://github.com/dj-bolt/django-bolt/issues"
+Homepage = "https://github.com/nyssance/freeman"
+Repository = "https://github.com/nyssance/freeman"
+"Bug Tracker" = "https://github.com/nyssance/freeman/issues"
+Upstream = "https://github.com/dj-bolt/django-bolt"
 [project.scripts]
 django-bolt = "django_bolt.cli:main"
 
