@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class AdminRouteRegistrar:
     """Registers Django admin as an ASGI mount on a BoltAPI instance."""
 
-    def __init__(self, api: "BoltAPI"):
+    def __init__(self, api: BoltAPI):
         self.api = api
 
     def register_routes(self, host: str = "localhost", port: int = 8000) -> None:

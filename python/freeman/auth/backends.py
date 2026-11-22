@@ -53,7 +53,7 @@ def revocation_takes_claims(handler: RevokedTokenHandler) -> bool:
     """
     try:
         parameters = inspect.signature(handler).parameters.values()
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
     return sum(1 for parameter in parameters if parameter.kind in _POSITIONAL) >= 2
 
@@ -399,7 +399,7 @@ class JWTAuthentication(BaseAuthentication):
                 raise ValueError("JWKS response must contain a keys array")
             self._jwks = response.text
             return self._jwks
-        except (httpx.HTTPError, ValueError):
+        except httpx.HTTPError, ValueError:
             # Bolt keeps the last keys. A token from a new key gets a 401 until a refresh works.
             logger.warning("JWKS refresh from %s failed. Bolt keeps the last keys.", self.jwks_url, exc_info=True)
             return None
@@ -471,7 +471,7 @@ class JWTAuthentication(BaseAuthentication):
 
         try:
             return load_user_by_pk_sync(User, user_id)
-        except (OperationalError, InterfaceError):
+        except OperationalError, InterfaceError:
             raise
         except Exception as e:
             print(f"Error loading user {user_id} in JWTAuthentication: {type(e).__name__}: {e}", file=sys.stderr)
@@ -649,7 +649,7 @@ def get_default_authentication_classes(*, needs_user: bool = False) -> list[Base
         except ImproperlyConfigured:
             # Settings not configured, return empty list
             pass
-    except (ImportError, AttributeError):
+    except ImportError, AttributeError:
         pass
 
     # With no backend, the guard would reject each request with a 401.

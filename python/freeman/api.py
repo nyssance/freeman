@@ -1727,7 +1727,7 @@ class BoltAPI:
         try:
             view_instance = viewset_cls()
             return view_instance.get_serializer_class(action_name)
-        except (AttributeError, TypeError, ValueError):
+        except AttributeError, TypeError, ValueError:
             return _RESPONSE_MODEL_UNSET
         finally:
             _current_action.reset(token)

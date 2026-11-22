@@ -7,7 +7,7 @@ A nested router inherits the middleware, auth, guards and tags of its parent.
 """
 
 from collections.abc import Callable, Collection
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from .middleware.middleware import normalize_middleware_specs
 
@@ -64,10 +64,10 @@ class Router:
         self,
         prefix: str = "",
         tags: list[str] | None = None,
-        middleware: list["MiddlewareType"] | None = None,
-        auth: list["AuthenticationBackend"] | None = None,
-        guards: list["Guard"] | None = None,
-        parent: Optional["Router"] = None,
+        middleware: list[MiddlewareType] | None = None,
+        auth: list[AuthenticationBackend] | None = None,
+        guards: list[Guard] | None = None,
+        parent: Router | None = None,
     ):
         """
         Initialize a router.
@@ -183,7 +183,7 @@ class Router:
 
         return dec
 
-    def include_router(self, router: "Router", prefix: str = "") -> None:
+    def include_router(self, router: Router, prefix: str = "") -> None:
         """
         Include another router as a child.
 
@@ -212,7 +212,7 @@ class Router:
         if prefix:
             router.prefix = _leading_slash(prefix.rstrip("/")) + router.prefix
 
-    def get_all_routes(self, skip: Collection["Router"] = ()) -> list[tuple[str, str, Callable, dict[str, Any]]]:
+    def get_all_routes(self, skip: Collection[Router] = ()) -> list[tuple[str, str, Callable, dict[str, Any]]]:
         """
         Get all routes including from child routers.
 
@@ -242,7 +242,7 @@ class Router:
         parent = self._parent
         return parent.parent_prefix() + parent.prefix if parent else ""
 
-    def child_routers(self) -> list["Router"]:
+    def child_routers(self) -> list[Router]:
         """Each router below this one: its children, and their children."""
         routers = []
         for child in self._children:
@@ -266,7 +266,7 @@ class Router:
                 meta["guards"] = parent.guards
             parent = parent._parent
 
-    def get_middleware_chain(self) -> list["MiddlewareType"]:
+    def get_middleware_chain(self) -> list[MiddlewareType]:
         """
         Get the full middleware chain including parent middleware.
 

@@ -601,7 +601,7 @@ class TestWebSocketIterators:
                 try:
                     msg = await ws.receive_text(timeout=1.0)
                     messages.append(msg)
-                except (ConnectionClosed, TimeoutError):
+                except ConnectionClosed, TimeoutError:
                     break
 
         assert messages == ["message 0", "message 1", "message 2"]

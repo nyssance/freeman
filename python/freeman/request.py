@@ -93,7 +93,7 @@ class Request(Protocol):
         ...
 
     @property
-    def session(self) -> "SessionBase":
+    def session(self) -> SessionBase:
         """Django session (requires SessionMiddleware)"""
         ...
 

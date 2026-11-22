@@ -58,7 +58,7 @@ def get_rss_bytes(pid: int) -> int | None:
             for line in status_file:
                 if line.startswith(b"VmRSS:"):
                     return int(line.split()[1]) * 1024  # VmRSS is in KiB
-    except (OSError, ValueError, IndexError):
+    except OSError, ValueError, IndexError:
         pass
 
     try:
@@ -66,7 +66,7 @@ def get_rss_bytes(pid: int) -> int | None:
         value = result.stdout.strip()
         if result.returncode == 0 and value:
             return int(value) * 1024  # ps reports RSS in KiB
-    except (OSError, ValueError, subprocess.SubprocessError):
+    except OSError, ValueError, subprocess.SubprocessError:
         pass
 
     return None

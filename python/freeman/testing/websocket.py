@@ -570,7 +570,7 @@ class WebSocketTestClient:
         while True:
             try:
                 yield await self.receive_text(timeout=timeout)
-            except (ConnectionClosed, TimeoutError):
+            except ConnectionClosed, TimeoutError:
                 break
 
     async def iter_bytes(self, timeout: float = 5.0) -> AsyncIterator[bytes]:
@@ -578,7 +578,7 @@ class WebSocketTestClient:
         while True:
             try:
                 yield await self.receive_bytes(timeout=timeout)
-            except (ConnectionClosed, TimeoutError):
+            except ConnectionClosed, TimeoutError:
                 break
 
     async def iter_json(self, timeout: float = 5.0) -> AsyncIterator[Any]:
@@ -586,7 +586,7 @@ class WebSocketTestClient:
         while True:
             try:
                 yield await self.receive_json(timeout=timeout)
-            except (ConnectionClosed, TimeoutError):
+            except ConnectionClosed, TimeoutError:
                 break
 
 

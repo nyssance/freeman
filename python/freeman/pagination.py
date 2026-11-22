@@ -86,7 +86,7 @@ def _field_accepts(field: Any, value: Any, queryset: Any) -> bool:
     try:
         # The lookup makes the same call. Without this check, its error is a 500.
         prepared = field.get_prep_value(value)
-    except (ValueError, TypeError, ValidationError):
+    except ValueError, TypeError, ValidationError:
         return False
     if isinstance(prepared, int):
         # A ForeignKey has the column type of its target.
@@ -398,7 +398,7 @@ class PaginationBase(ABC):
                     if page_size < 1:
                         return min(self.page_size, self.max_page_size)
                     return page_size
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     pass
 
         # max_page_size also limits the default. A subclass can set only max_page_size.
@@ -436,7 +436,7 @@ class PageNumberPagination(PaginationBase):
             page = int(page_str)
             if page < 1:
                 page = 1
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             page = 1
 
         # Get page size
@@ -527,7 +527,7 @@ class LimitOffsetPagination(PaginationBase):
                 limit = int(limit_str)
                 if limit < 1:
                     limit = self.page_size
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 limit = self.page_size
         # max_page_size also limits the default. A subclass can set only max_page_size.
         if limit > self.max_page_size:
@@ -539,7 +539,7 @@ class LimitOffsetPagination(PaginationBase):
             offset = int(offset_str)
             if offset < 0:
                 offset = 0
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             offset = 0
 
         return {"limit": limit, "offset": offset}
@@ -649,7 +649,7 @@ class CursorPagination(PaginationBase):
         """
         try:
             data = msgspec.json.decode(base64.b64decode(cursor.translate(_URL_SAFE_TO_STANDARD)))
-        except (ValueError, RecursionError):
+        except ValueError, RecursionError:
             # ValueError includes binascii.Error, UnicodeError and msgspec.DecodeError.
             # JSON with too many levels raises RecursionError.
             return None, None

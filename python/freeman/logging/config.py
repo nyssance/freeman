@@ -418,7 +418,7 @@ def setup_django_logging(force: bool = False) -> None:
             # Try to import the actual settings module to check if LOGGING is defined
             settings_module = importlib.import_module(settings.SETTINGS_MODULE)
             has_explicit_logging = hasattr(settings_module, "LOGGING")
-        except (AttributeError, ImportError):
+        except AttributeError, ImportError:
             # Fall back to checking settings object
             has_explicit_logging = hasattr(settings, "LOGGING") and settings.LOGGING
 
@@ -450,7 +450,7 @@ def setup_django_logging(force: bool = False) -> None:
 
         _LOGGING_CONFIGURED = True
 
-    except (ImportError, AttributeError, Exception):
+    except ImportError, AttributeError, Exception:
         # If Django not available or configuration fails, use basic config
         logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(asctime)s - %(name)s - %(message)s")
         _LOGGING_CONFIGURED = True

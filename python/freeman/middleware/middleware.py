@@ -1006,7 +1006,7 @@ class ErrorHandlerMiddleware(BaseMiddleware):
     async def process_request(self, request: Request) -> Response:
         try:
             return await self.get_response(request)
-        except (HTTPException, ValidationException, msgspec.ValidationError):
+        except HTTPException, ValidationException, msgspec.ValidationError:
             # An HTTP exception or a validation error is not a server fault. Bolt answers it.
             raise
         except Exception as e:

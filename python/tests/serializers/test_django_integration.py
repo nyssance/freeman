@@ -192,7 +192,7 @@ class UserCreateSerializer(Serializer):
         return value.lower().strip()
 
     @model_validator
-    def validate_passwords(self) -> "UserCreateSerializer":
+    def validate_passwords(self) -> UserCreateSerializer:
         if self.password != self.password_confirm:
             raise ValueError("Passwords do not match")
         return self
@@ -1523,7 +1523,7 @@ class ComprehensiveProductSerializer(Serializer):
     # 15. @model_validator - Cross-field validation
     # -------------------------------------------------------------------------
     @model_validator
-    def validate_pricing(self) -> "ComprehensiveProductSerializer":
+    def validate_pricing(self) -> ComprehensiveProductSerializer:
         """Ensure discount doesn't exceed price logic."""
         if self.discount_percent > 0 and self.price <= 0:
             raise ValueError("Cannot apply discount to zero-priced product")

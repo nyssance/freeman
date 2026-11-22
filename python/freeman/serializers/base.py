@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
+import annotationlib
 import asyncio
 import inspect
 import logging
-import sys
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from types import UnionType
@@ -27,9 +27,6 @@ from typing import (
     get_type_hints,
 )
 from weakref import WeakKeyDictionary
-
-if sys.version_info >= (3, 14):
-    import annotationlib
 
 import msgspec
 from django.core.exceptions import FieldDoesNotExist, ImproperlyConfigured

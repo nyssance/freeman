@@ -102,7 +102,7 @@ def load_user_by_pk_sync(model: type, user_id: Any) -> Any | None:
     connection = connections[alias]
     try:
         pk_value = pk_field.get_db_prep_value(pk_python, connection)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
     sql, fields, converters = compiled

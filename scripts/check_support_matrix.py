@@ -114,7 +114,7 @@ def _retry_after_seconds(value: str | None) -> float | None:
         return float(value)
     try:
         when = parsedate_to_datetime(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if when.tzinfo is None:
         when = when.replace(tzinfo=UTC)

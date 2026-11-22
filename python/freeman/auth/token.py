@@ -226,7 +226,7 @@ class Token:
         issuer: str | None = None,
         verify_exp: bool = True,
         verify_nbf: bool = True,
-    ) -> "Token":
+    ) -> Token:
         """
         Decode and validate a JWT token.
 
@@ -306,7 +306,7 @@ class Token:
         is_admin: bool = False,
         permissions: list[str] | None = None,
         **extra_claims: Any,
-    ) -> "Token":
+    ) -> Token:
         """
         Convenient factory method to create a token.
 

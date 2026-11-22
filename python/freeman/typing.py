@@ -244,7 +244,7 @@ def is_msgspec_struct(annotation: Any) -> bool:
     """Check if type is a msgspec.Struct."""
     try:
         return isinstance(annotation, type) and issubclass(annotation, msgspec.Struct)
-    except (TypeError, AttributeError):
+    except TypeError, AttributeError:
         return False
 
 
@@ -393,7 +393,7 @@ def is_dataclass_type(annotation: Any) -> bool:
     """Check if annotation is a dataclass."""
     try:
         return is_dataclass(annotation)
-    except (TypeError, AttributeError):
+    except TypeError, AttributeError:
         return False
 
 

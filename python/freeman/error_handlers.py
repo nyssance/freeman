@@ -305,7 +305,7 @@ def _resolve_debug(debug: bool | None) -> bool:
         return debug
     try:
         return django_settings.DEBUG if django_settings and django_settings.configured else False
-    except (ImportError, AttributeError):
+    except ImportError, AttributeError:
         return False
 
 

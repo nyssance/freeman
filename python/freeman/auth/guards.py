@@ -217,7 +217,7 @@ def get_default_permission_classes() -> list[Guard]:
         except ImproperlyConfigured:
             # Settings not configured, return default
             pass
-    except (ImportError, AttributeError):
+    except ImportError, AttributeError:
         pass
 
     return [AllowAny()]

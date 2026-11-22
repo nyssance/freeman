@@ -79,7 +79,7 @@ def _pick_glyphs(stream) -> dict[str, str]:
     encoding = getattr(stream, "encoding", None) or "utf-8"
     try:
         "⚡➜✓·".encode(encoding)
-    except (LookupError, UnicodeEncodeError):
+    except LookupError, UnicodeEncodeError:
         return _GLYPHS_ASCII
     return _GLYPHS_UNICODE
 
@@ -222,7 +222,7 @@ def _build_dev_worker_command(
 def _coerce_path(value) -> Path | None:
     try:
         return Path(os.fspath(value)).resolve()
-    except (TypeError, ValueError, OSError):
+    except TypeError, ValueError, OSError:
         return None
 
 
@@ -257,7 +257,7 @@ def _collect_loaded_python_paths() -> set[Path]:
 def _module_spec_watch_paths(module_name: str) -> set[Path]:
     try:
         spec = importlib.util.find_spec(module_name)
-    except (ImportError, ModuleNotFoundError, ValueError):
+    except ImportError, ModuleNotFoundError, ValueError:
         return set()
 
     if spec is None:
@@ -472,7 +472,7 @@ def find_bolt_api_names(module_name: str) -> list[str]:
     try:
         with open(spec.origin) as f:
             source = f.read()
-    except (OSError, UnicodeDecodeError):
+    except OSError, UnicodeDecodeError:
         return []
 
     try:
