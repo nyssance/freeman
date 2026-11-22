@@ -11,8 +11,8 @@ from typing import Annotated
 
 import msgspec
 
-from django_bolt import BoltAPI, UploadFile
-from django_bolt.params import File, Form
+from freeman import BoltAPI, UploadFile
+from freeman.params import File, Form
 
 api = BoltAPI()
 

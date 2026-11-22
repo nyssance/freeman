@@ -6,7 +6,7 @@ trailing slash, and a route with a path parameter. Each handler sends its name.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket
 
 api = BoltAPI()
 

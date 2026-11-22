@@ -27,8 +27,8 @@ Start your server and visit any of these URLs to browse your API documentation.
 Customize the documentation using `OpenAPIConfig`:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.openapi import OpenAPIConfig
+from freeman import BoltAPI
+from freeman.openapi import OpenAPIConfig
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -238,7 +238,7 @@ By default, all documentation UIs are served automatically. To serve only specif
 ### Swagger UI only
 
 ```python
-from django_bolt.openapi import OpenAPIConfig, SwaggerRenderPlugin
+from freeman.openapi import OpenAPIConfig, SwaggerRenderPlugin
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -252,7 +252,7 @@ api = BoltAPI(
 ### ReDoc only
 
 ```python
-from django_bolt.openapi import OpenAPIConfig, RedocRenderPlugin
+from freeman.openapi import OpenAPIConfig, RedocRenderPlugin
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -266,7 +266,7 @@ api = BoltAPI(
 ### Scalar only
 
 ```python
-from django_bolt.openapi import OpenAPIConfig, ScalarRenderPlugin
+from freeman.openapi import OpenAPIConfig, ScalarRenderPlugin
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -280,7 +280,7 @@ api = BoltAPI(
 ### Stoplight Elements only
 
 ```python
-from django_bolt.openapi import OpenAPIConfig, StoplightRenderPlugin
+from freeman.openapi import OpenAPIConfig, StoplightRenderPlugin
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -294,7 +294,7 @@ api = BoltAPI(
 ### RapiDoc only
 
 ```python
-from django_bolt.openapi import OpenAPIConfig, RapidocRenderPlugin
+from freeman.openapi import OpenAPIConfig, RapidocRenderPlugin
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -308,7 +308,7 @@ api = BoltAPI(
 ### Multiple UIs at custom paths
 
 ```python
-from django_bolt.openapi import (
+from freeman.openapi import (
     OpenAPIConfig,
     SwaggerRenderPlugin,
     RedocRenderPlugin,
@@ -346,7 +346,7 @@ A browser does not send a token. Use `SessionAuthentication` for docs that peopl
 This example gives the docs to staff users who logged in to the Django admin:
 
 ```python
-from django_bolt.auth import Requires, SessionAuthentication
+from freeman.auth import Requires, SessionAuthentication
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -369,7 +369,7 @@ To let any logged-in user see the docs, use `guards=[IsAuthenticated()]`.
 Protect the docs with a JWT or an API key. A request with no valid token gets 401 or 403, with no redirect:
 
 ```python
-from django_bolt.auth import JWTAuthentication, IsAuthenticated
+from freeman.auth import JWTAuthentication, IsAuthenticated
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(

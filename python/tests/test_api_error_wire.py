@@ -1,6 +1,6 @@
 import pytest
 
-from django_bolt.api import _wire_from_error_parts
+from freeman.api import _wire_from_error_parts
 
 
 @pytest.mark.parametrize(

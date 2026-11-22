@@ -1,13 +1,13 @@
 import pytest
 from django.contrib.auth.models import User
 
-from django_bolt import BoltAPI, ModelViewSet, ViewSet, action
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
-from django_bolt.auth.guards import AllowAny
-from django_bolt.auth.jwt_utils import create_jwt_for_user
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
-from django_bolt.views import (
+from freeman import BoltAPI, ModelViewSet, ViewSet, action
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
+from freeman.auth.guards import AllowAny
+from freeman.auth.jwt_utils import create_jwt_for_user
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
+from freeman.views import (
     CreateMixin,
     ListMixin,
     ReadOnlyModelViewSet,

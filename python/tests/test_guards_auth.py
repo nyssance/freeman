@@ -13,8 +13,8 @@ from django.conf import settings  # noqa: PLC0415
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.auth import (
+from freeman import BoltAPI
+from freeman.auth import (
     AllowAny,
     APIKeyAuthentication,
     IsAuthenticated,
@@ -412,7 +412,7 @@ class TestAuthBackendEntries:
 
     @pytest.mark.parametrize(
         "entry",
-        ["django_bolt.auth.JWTAuthentication", JWTAuthentication, object()],
+        ["freeman.auth.JWTAuthentication", JWTAuthentication, object()],
         ids=["dotted-path", "class", "object"],
     )
     def test_route_auth_entry_that_is_not_a_backend_fails_loudly(self, entry):
@@ -428,7 +428,7 @@ class TestAuthBackendEntries:
         api = BoltAPI()
 
         with (
-            override_settings(BOLT_AUTHENTICATION_CLASSES=["django_bolt.auth.JWTAuthentication"]),
+            override_settings(BOLT_AUTHENTICATION_CLASSES=["freeman.auth.JWTAuthentication"]),
             pytest.raises(ImproperlyConfigured, match="not an authentication backend"),
         ):
 

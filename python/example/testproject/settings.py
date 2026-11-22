@@ -34,7 +34,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
-    "django_bolt",
+    "freeman",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -208,7 +208,7 @@ if not DEBUG:
         "loggers": {
             "django": {"handlers": ["console"], "level": "ERROR"},
             "django.server": {"handlers": ["console"], "level": "ERROR", "propagate": False},
-            "django_bolt": {"handlers": ["console"], "level": "INFO", "propagate": False},
+            "freeman": {"handlers": ["console"], "level": "INFO", "propagate": False},
             "django.security.csrf": {"handlers": ["console"], "level": "INFO", "propagate": False},
         },
         "root": {"handlers": ["console"], "level": "ERROR"},
@@ -231,7 +231,7 @@ else:
         "loggers": {
             "django": {"handlers": ["console"], "level": "INFO"},
             "django.server": {"handlers": ["console"], "level": "INFO", "propagate": False},
-            "django_bolt": {"handlers": ["console"], "level": "INFO", "propagate": False},
+            "freeman": {"handlers": ["console"], "level": "INFO", "propagate": False},
             "django.security.csrf": {"handlers": ["console"], "level": "INFO", "propagate": False},
         },
         "root": {"handlers": ["console"], "level": "INFO"},
@@ -256,7 +256,7 @@ SECURE_CSP = {
 BOLT_MAX_UPLOAD_SIZE = 30 * 1024 * 1024  # 10 mb
 
 
-# from django_bolt.auth import JWTAuthentication, IsAuthenticated
+# from freeman.auth import JWTAuthentication, IsAuthenticated
 
 # BOLT_AUTHENTICATION_CLASSES = [
 #     JWTAuthentication(),

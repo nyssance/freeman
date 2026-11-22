@@ -15,10 +15,10 @@ from typing import Annotated, Any, NamedTuple, NewType, TypedDict
 import msgspec
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.param_functions import Cookie, Form, Header, Path, Query
+from freeman import BoltAPI
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.param_functions import Cookie, Form, Header, Path, Query
 
 UserId = NewType("UserId", int)
 type Page = int

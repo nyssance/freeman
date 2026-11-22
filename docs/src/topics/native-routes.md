@@ -10,10 +10,10 @@ Users of a native route do not need Rust. The handler comes in a compiled wheel,
 
 ## Register a native route
 
-The extension module gives a `PyCapsule` named `django_bolt.native_handler.v1`. Give the capsule to `native_route()`:
+The extension module gives a `PyCapsule` named `freeman.native_handler.v1`. Give the capsule to `native_route()`:
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 import my_extension
 
@@ -102,7 +102,7 @@ Rules for the handler:
 `TestClient` and `AsyncTestClient` serve native routes as `runbolt` does:
 
 ```python
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 with TestClient(api) as client:
     response = client.get("/native/users/42")

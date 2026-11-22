@@ -7,7 +7,7 @@ exposes Django's lazy ``settings`` proxy to pluggy's attribute walk triggers
 ``ImproperlyConfigured`` via ``inspect.isroutine`` → ``LazyObject.__class__``.
 
 Without this test, that bug ships silently because the unit suite already has
-Django configured by the time it imports django_bolt.nanodjango.
+Django configured by the time it imports freeman.nanodjango.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ import sys
 
 from nanodjango import Django
 
-from django_bolt.nanodjango import BoltAPI
+from freeman.nanodjango import BoltAPI
 
 app = Django()
 bolt = BoltAPI()
@@ -130,7 +130,7 @@ def test_single_file_app_serves_bolt_and_django_routes(single_file_app: Path):
 
 
 def test_plugin_module_imports_without_django_configured(tmp_path: Path):
-    """Importing ``django_bolt.nanodjango`` must not require Django settings.
+    """Importing ``freeman.nanodjango`` must not require Django settings.
 
     Pluggy walks module attributes during plugin discovery; any module-top
     import that exposes ``django.conf.settings`` (a lazy proxy) will fail
@@ -148,7 +148,7 @@ def test_plugin_module_imports_without_django_configured(tmp_path: Path):
             """\
             # Deliberately do NOT call settings.configure(). If the plugin
             # module accesses settings at import time, this will raise.
-            import django_bolt.nanodjango  # noqa: F401
+            import freeman.nanodjango  # noqa: F401
             print("import-ok")
             """
         )
@@ -161,7 +161,7 @@ def test_plugin_module_imports_without_django_configured(tmp_path: Path):
         timeout=30,
     )
     assert result.returncode == 0, (
-        f"importing django_bolt.nanodjango required Django settings to be configured. "
+        f"importing freeman.nanodjango required Django settings to be configured. "
         f"stdout={result.stdout!r} stderr={result.stderr!r}"
     )
     assert "import-ok" in result.stdout

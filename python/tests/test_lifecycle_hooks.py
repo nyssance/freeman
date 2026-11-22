@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 
 import pytest
 
-from django_bolt.api import BoltAPI
-from django_bolt.testing import AsyncTestClient, TestClient
+from freeman.api import BoltAPI
+from freeman.testing import AsyncTestClient, TestClient
 
 
 def test_no_lifespan_by_default():

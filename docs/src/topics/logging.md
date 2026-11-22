@@ -13,8 +13,8 @@ Bolt also logs the exceptions that give a 5xx response.
 Give a `LoggingConfig` to the API:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.logging import LoggingConfig
+from freeman import BoltAPI
+from freeman.logging import LoggingConfig
 
 config = LoggingConfig(
     logger_name="myapp.api",
@@ -31,7 +31,7 @@ api = BoltAPI(logging_config=config)
 ### Basic options
 
 ```python
-from django_bolt.logging import LoggingConfig
+from freeman.logging import LoggingConfig
 
 config = LoggingConfig(
     # Logger name (default: "django.server")
@@ -53,8 +53,8 @@ Each API has its own logger, also after `mount()`.
 `log_exception()` uses the same logger.
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.logging import LoggingConfig
+from freeman import BoltAPI
+from freeman.logging import LoggingConfig
 
 api = BoltAPI(logging_config=LoggingConfig(logger_name="myapp.api"))
 ```
@@ -80,8 +80,8 @@ Bolt reads the level of each logger once, at startup. See [Access log](#access-l
 Give the config to the API to apply `skip_paths` and `skip_status_codes` to the [access log](#access-log) of `runbolt`:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.logging import LoggingConfig
+from freeman import BoltAPI
+from freeman.logging import LoggingConfig
 
 api = BoltAPI(logging_config=LoggingConfig(skip_paths={"/health"}, skip_status_codes={204, 304}))
 ```
@@ -103,8 +103,8 @@ For production, use sampling and a duration threshold to make the access log of 
 Give the config to the API:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.logging import LoggingConfig
+from freeman import BoltAPI
+from freeman.logging import LoggingConfig
 
 config = LoggingConfig(
     # Only log 5% of successful requests
@@ -165,7 +165,7 @@ Each API with logging has a `LoggingMiddleware`. It holds the `LoggingConfig` an
 ### Exception logging
 
 ```python
-from django_bolt.logging import LoggingConfig, LoggingMiddleware
+from freeman.logging import LoggingConfig, LoggingMiddleware
 
 middleware = LoggingMiddleware(LoggingConfig(logger_name="myapp.api"))
 
@@ -203,7 +203,7 @@ Bolt calls the handler only when the default response for the exception is a 5xx
 Django-Bolt uses queue-based logging to prevent I/O blocking:
 
 ```python
-from django_bolt.logging.config import setup_django_logging
+from freeman.logging.config import setup_django_logging
 
 # Called automatically by runbolt
 setup_django_logging()
@@ -220,24 +220,24 @@ An example is an error that a mounted ASGI app raises:
 [django-bolt] ERROR bolt_asgi::asgi_http: ASGI mount: coroutine raised an exception: RuntimeError: boom
 ```
 
-The effective level of the `django_bolt` logger sets the level of these records.
+The effective level of the `freeman` logger sets the level of these records.
 Bolt reads the level once, when `runbolt` starts the server or a test client starts.
 A later change of the level does not apply to the Rust records.
 A record of a lower level costs one check in Rust and is not formatted.
 Without a `LOGGING` setting, Bolt sets this level to `DEBUG` when `DEBUG = True`, and to `WARNING` when `DEBUG = False`.
-With your own `LOGGING`, the level of `django_bolt` applies.
+With your own `LOGGING`, the level of `freeman` applies.
 If `LOGGING` does not set it, Python uses the level of the root logger.
 
 Other crates, such as Actix, write only their `WARNING` and `ERROR` records.
 Bolt escapes each line break in a message, such as `\n` or U+2028, so each record stays on one line.
 
-To see the debug records of the Rust core, set the level of `django_bolt` to `DEBUG`:
+To see the debug records of the Rust core, set the level of `freeman` to `DEBUG`:
 
 ```python
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "loggers": {"django_bolt": {"level": "DEBUG"}},
+    "loggers": {"freeman": {"level": "DEBUG"}},
 }
 ```
 
@@ -332,8 +332,8 @@ The logger name also comes from that route.
 ## Example: Complete production setup
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.logging import LoggingConfig
+from freeman import BoltAPI
+from freeman.logging import LoggingConfig
 
 # Production logging config
 config = LoggingConfig(

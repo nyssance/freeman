@@ -7,16 +7,16 @@ import yaml
 from django.conf import settings
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.openapi import (
+from freeman import BoltAPI
+from freeman.openapi import (
     JsonRenderPlugin,
     OpenAPIConfig,
     ScalarRenderPlugin,
     SwaggerRenderPlugin,
     YamlRenderPlugin,
 )
-from django_bolt.openapi.spec import Components, OpenAPIFormat, OpenAPIType, Schema
-from django_bolt.testing import TestClient
+from freeman.openapi.spec import Components, OpenAPIFormat, OpenAPIType, Schema
+from freeman.testing import TestClient
 
 from .debug_toolbar_urls import toolbar_urlpatterns
 

@@ -17,7 +17,7 @@ schema, like ``request``). Through it a tool can, while running:
   Code before an ``elicit`` must therefore be idempotent, or guarded with
   ``ctx.is_replay``.
 
-The heavy lifting lives in Rust (``django_bolt._core.McpCallContext``): this
+The heavy lifting lives in Rust (``freeman._core.McpCallContext``): this
 class is a thin asyncio-friendly wrapper.
 """
 
@@ -26,8 +26,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from django_bolt._json import decode as json_decode
-from django_bolt._json import encode as json_encode
+from freeman._json import decode as json_decode
+from freeman._json import encode as json_encode
 
 
 class McpClientError(Exception):

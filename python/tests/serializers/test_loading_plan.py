@@ -19,10 +19,10 @@ import pytest
 from django.db.backends import utils as db_utils
 from django.db.models import Count, F, Prefetch
 
-from django_bolt import BoltAPI
-from django_bolt.pagination import PageNumberPagination, paginate
-from django_bolt.serializers import Serializer, field
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.pagination import PageNumberPagination, paginate
+from freeman.serializers import Serializer, field
+from freeman.testing import TestClient
 from tests.test_models import Author, BlogPost, Comment, Tag
 
 try:  # Django >= 6.1

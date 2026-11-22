@@ -22,16 +22,16 @@ from django.db.models import QuerySet
 from django.utils.safestring import SafeString
 from msgspec import Meta
 
-from django_bolt import BoltAPI
-from django_bolt.auth import AllowAny, IsAuthenticated, JWTAuthentication
-from django_bolt.error_handlers import BoltError, problem_details
-from django_bolt.exceptions import HTTPException, RequestValidationError, ResponseValidationError
-from django_bolt.management.commands.runbolt import Command
-from django_bolt.middleware import rate_limit, skip_middleware
-from django_bolt.param_functions import Form
-from django_bolt.responses import HTML, JSON, FileResponse, PlainText, Response
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import AllowAny, IsAuthenticated, JWTAuthentication
+from freeman.error_handlers import BoltError, problem_details
+from freeman.exceptions import HTTPException, RequestValidationError, ResponseValidationError
+from freeman.management.commands.runbolt import Command
+from freeman.middleware import rate_limit, skip_middleware
+from freeman.param_functions import Form
+from freeman.responses import HTML, JSON, FileResponse, PlainText, Response
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
 
 from .test_exception_log_policy import _allow_file_paths
 from .test_models import Article
@@ -222,7 +222,7 @@ def test_http_exception_reaches_the_formatter(recorded):
 
 @pytest.mark.parametrize("path", ["/crash", "/crash-sync"])
 def test_unhandled_exception_reaches_the_formatter(recorded, path, caplog):
-    with caplog.at_level(logging.ERROR, logger="django_bolt.error_handlers"):
+    with caplog.at_level(logging.ERROR, logger="freeman.error_handlers"):
         response = recorded.get(path)
     assert response.status_code == 500
     data = response.json()
@@ -231,7 +231,7 @@ def test_unhandled_exception_reaches_the_formatter(recorded, path, caplog):
     assert data["exception"] == "RuntimeError"
     # The formatter does not stop the log of the server error. The access log also names
     # the exception, so only the records of the error handlers count.
-    logged = [record.getMessage() for record in caplog.records if record.name == "django_bolt.error_handlers"]
+    logged = [record.getMessage() for record in caplog.records if record.name == "freeman.error_handlers"]
     assert logged == ["Internal Server Error: RuntimeError - boom"]
 
 
@@ -310,7 +310,7 @@ def test_formatter_request_takes_the_scheme_from_a_trusted_proxy_only(settings, 
 def test_response_validation_500_reaches_the_formatter(recorded, caplog, settings):
     # The formatter gets the field errors only when DEBUG is on.
     settings.DEBUG = True
-    with caplog.at_level(logging.ERROR, logger="django_bolt.error_handlers"):
+    with caplog.at_level(logging.ERROR, logger="freeman.error_handlers"):
         response = recorded.get("/bad-response")
     assert response.status_code == 500
     data = response.json()
@@ -320,7 +320,7 @@ def test_response_validation_500_reaches_the_formatter(recorded, caplog, setting
     [error] = data["errors"]
     assert error["loc"] == ["response", "id"]
     assert error["type"] == "validation_error"
-    records = [record for record in caplog.records if record.name == "django_bolt.error_handlers"]
+    records = [record for record in caplog.records if record.name == "freeman.error_handlers"]
     assert len(records) == 1
     # The record is the one that Bolt writes without a formatter: the errors, and the exception.
     assert records[0].getMessage() == (
@@ -723,7 +723,7 @@ _RETURN_TYPES = "error_formatter must return Response, JSON, PlainText or HTML, 
 )
 def test_broken_formatter_logs_and_sends_the_default_error(formatter, reason, caplog):
     with (
-        caplog.at_level(logging.ERROR, logger="django_bolt.error_handlers"),
+        caplog.at_level(logging.ERROR, logger="freeman.error_handlers"),
         TestClient(_routes(BoltAPI(error_formatter=formatter))) as client,
     ):
         rust_error = client.get("/nowhere")
@@ -832,7 +832,7 @@ def test_http_exception_below_400_skips_the_formatter(handler_kind, caplog):
     def moved_sync():
         raise HTTPException(307, "Moved", headers={"Location": "/new"})
 
-    with caplog.at_level(logging.ERROR, logger="django_bolt"), TestClient(api) as client:
+    with caplog.at_level(logging.ERROR, logger="freeman"), TestClient(api) as client:
         response = client.get(f"/{handler_kind}", follow_redirects=False)
 
     assert response.status_code == 307
@@ -851,11 +851,11 @@ def test_http_exception_500_is_not_logged_as_a_server_error(formatter, caplog):
     async def planned():
         raise HTTPException(500, "planned outage")
 
-    with caplog.at_level(logging.ERROR, logger="django_bolt.error_handlers"), TestClient(api) as client:
+    with caplog.at_level(logging.ERROR, logger="freeman.error_handlers"), TestClient(api) as client:
         response = client.get("/planned")
 
     assert response.status_code == 500
-    assert [record for record in caplog.records if record.name == "django_bolt.error_handlers"] == []
+    assert [record for record in caplog.records if record.name == "freeman.error_handlers"] == []
 
 
 def test_rust_server_error_keeps_its_reason_in_the_log(tmp_path, caplog):
@@ -872,12 +872,12 @@ def test_rust_server_error_keeps_its_reason_in_the_log(tmp_path, caplog):
         path.mkdir()
         return response
 
-    with caplog.at_level(logging.ERROR, logger="django_bolt.error_handlers"), TestClient(api) as client:
+    with caplog.at_level(logging.ERROR, logger="freeman.error_handlers"), TestClient(api) as client:
         response = client.get("/swapped")
 
     assert response.status_code == 500
     assert response.json()["kind"] == "internal_error"
-    messages = [record.getMessage() for record in caplog.records if record.name == "django_bolt.error_handlers"]
+    messages = [record.getMessage() for record in caplog.records if record.name == "freeman.error_handlers"]
     assert len(messages) == 1
     assert messages[0].startswith("Internal Server Error: Failed to read file:"), messages
 
@@ -893,13 +893,13 @@ def test_exception_that_reaches_rust_reaches_the_formatter(caplog):
     def escape() -> dict:
         raise _Escapes("boom")
 
-    with caplog.at_level(logging.ERROR, logger="django_bolt.error_handlers"), TestClient(api) as client:
+    with caplog.at_level(logging.ERROR, logger="freeman.error_handlers"), TestClient(api) as client:
         response = client.get("/escape")
 
     assert response.status_code == 500
     assert response.json()["kind"] == "internal_error"
     assert response.json()["exception"] == "_Escapes"
-    assert any(record.name == "django_bolt.error_handlers" for record in caplog.records)
+    assert any(record.name == "freeman.error_handlers" for record in caplog.records)
 
 
 def test_debug_body_of_an_exception_that_reaches_rust_escapes_control_characters(settings):

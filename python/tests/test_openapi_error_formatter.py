@@ -14,14 +14,14 @@ import pytest
 from jsonschema import Draft202012Validator
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import BoltError, ProblemDetails, error_schema, problem_details
-from django_bolt.exceptions import HTTPException
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import OpenAPIStrictError, SchemaGenerator
-from django_bolt.param_functions import Cookie, Form, Header, Query
-from django_bolt.responses import PlainText, Response
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.error_handlers import BoltError, ProblemDetails, error_schema, problem_details
+from freeman.exceptions import HTTPException
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import OpenAPIStrictError, SchemaGenerator
+from freeman.param_functions import Cookie, Form, Header, Query
+from freeman.responses import PlainText, Response
+from freeman.testing import TestClient
 
 
 class ItemIn(msgspec.Struct):

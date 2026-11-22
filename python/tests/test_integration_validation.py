@@ -11,9 +11,9 @@ from datetime import date
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.params import Cookie, File, Form, Header, Path, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.params import Cookie, File, Form, Header, Path, Query
+from freeman.testing import TestClient
 
 
 class User(msgspec.Struct):

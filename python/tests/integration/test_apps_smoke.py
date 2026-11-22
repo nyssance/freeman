@@ -14,7 +14,7 @@ import pkgutil
 
 import pytest
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 from . import apps
 from .apps import app_module, app_source

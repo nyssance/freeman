@@ -13,8 +13,8 @@ from django.test import TestCase, TransactionTestCase
 
 from core.api import api
 from core.models import Blog
-from django_bolt.testing import BoltTestClientWarning, TestClient
-from django_bolt.testing import client as testing_client
+from freeman.testing import BoltTestClientWarning, TestClient
+from freeman.testing import client as testing_client
 
 
 class DjangoTestClientDoesNotFindBoltRoutes(TestCase):

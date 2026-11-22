@@ -62,7 +62,7 @@ pub fn convert_python_chunk(value: &Bound<'_, PyAny>) -> Option<Bytes> {
 }
 
 /// Logger of errors that a streaming body raises after the response started.
-const STREAM_LOGGER: &str = "django_bolt.streaming";
+const STREAM_LOGGER: &str = "freeman.streaming";
 const STREAM_ERROR_MESSAGE: &str =
     "The body of a streaming response raised an error. The response body ends here.";
 
@@ -94,7 +94,7 @@ import inspect
 import logging
 
 async def forward(gen, sender):
-    logger = logging.getLogger("django_bolt.streaming")
+    logger = logging.getLogger("freeman.streaming")
     iterator = None
     try:
         # Inside the try: an error here must also end the body, or the response waits forever.
@@ -175,8 +175,8 @@ fn get_async_stream_forwarder(py: Python<'_>) -> PyResult<&Bound<'_, PyAny>> {
 
     let module = FORWARDER_MODULE.get_or_try_init(py, || -> PyResult<Py<PyAny>> {
         let code = CString::new(ASYNC_STREAM_FORWARDER).expect("valid async stream forwarder");
-        let file = CString::new("django_bolt/async_stream_forwarder.py").expect("valid filename");
-        let name = CString::new("django_bolt_async_stream_forwarder").expect("valid module name");
+        let file = CString::new("freeman/async_stream_forwarder.py").expect("valid filename");
+        let name = CString::new("freeman_async_stream_forwarder").expect("valid module name");
         Ok(
             PyModule::from_code(py, code.as_c_str(), file.as_c_str(), name.as_c_str())?
                 .into_any()
@@ -510,7 +510,7 @@ fn create_python_stream_with_config(
             // pooled one would hold a pool slot for the life of the process.
             Python::attach(|py| {
                 let closed = py
-                    .import(pyo3::intern!(py, "django_bolt.concurrency"))
+                    .import(pyo3::intern!(py, "freeman.concurrency"))
                     .and_then(|module| module.call_method0(pyo3::intern!(py, "close_stream_connections")));
                 if let Err(e) = closed {
                     eprintln!("[SSE WARNING] Error closing the database connections of a sync streaming thread: {}", e);

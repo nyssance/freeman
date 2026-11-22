@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import msgspec
 
-from django_bolt import BoltAPI
-from django_bolt.decorators import action
-from django_bolt.responses import JSON, Response
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView, ViewSet
+from freeman import BoltAPI
+from freeman.decorators import action
+from freeman.responses import JSON, Response
+from freeman.testing import TestClient
+from freeman.views import APIView, ViewSet
 
 
 class Item(msgspec.Struct):

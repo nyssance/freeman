@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt import Depends, Router
+from freeman import Depends, Router
 
 
 def test_router_refuses_dependencies_that_it_cannot_run():

@@ -16,13 +16,13 @@ from __future__ import annotations
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.auth.backends import JWTAuthentication
-from django_bolt.auth.guards import IsAuthenticated  # noqa: PLC0415
-from django_bolt.exceptions import HTTPException
-from django_bolt.params import Depends
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView
+from freeman import BoltAPI
+from freeman.auth.backends import JWTAuthentication
+from freeman.auth.guards import IsAuthenticated  # noqa: PLC0415
+from freeman.exceptions import HTTPException
+from freeman.params import Depends
+from freeman.testing import TestClient
+from freeman.views import APIView
 from tests.test_models import Article
 
 # --- Schema Definitions ---

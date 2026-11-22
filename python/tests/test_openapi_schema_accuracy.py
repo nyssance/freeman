@@ -18,17 +18,17 @@ import pytest
 from django.db import models
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
-from django_bolt.datastructures import UploadFile
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import ComponentNameCollisionError, SchemaGenerator
-from django_bolt.openapi.spec import Components, SecurityScheme
-from django_bolt.param_functions import File, Form, Query
-from django_bolt.serializers import Serializer, computed_field, field
-from django_bolt.serializers.types import Email, HttpsURL, PositiveInt
-from django_bolt.testing import TestClient
-from django_bolt.websocket import WebSocket
+from freeman import BoltAPI
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
+from freeman.datastructures import UploadFile
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import ComponentNameCollisionError, SchemaGenerator
+from freeman.openapi.spec import Components, SecurityScheme
+from freeman.param_functions import File, Form, Query
+from freeman.serializers import Serializer, computed_field, field
+from freeman.serializers.types import Email, HttpsURL, PositiveInt
+from freeman.testing import TestClient
+from freeman.websocket import WebSocket
 
 
 # Fixtures

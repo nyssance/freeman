@@ -16,8 +16,8 @@ import json
 
 import pytest
 
-from django_bolt.exceptions import RequestValidationError
-from django_bolt.serializers import (
+from freeman.exceptions import RequestValidationError
+from freeman.serializers import (
     URL,
     Email,
     HttpsURL,
@@ -30,7 +30,7 @@ from django_bolt.serializers import (
     Slug,
     Username,
 )
-from django_bolt.serializers.types import (
+from freeman.serializers.types import (
     UUID,
     HexColor,
     Latitude,

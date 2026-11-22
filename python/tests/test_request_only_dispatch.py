@@ -18,9 +18,9 @@ import pytest
 from asgiref.sync import sync_to_async
 from django.db.models import QuerySet
 
-from django_bolt import BoltAPI, Request
-from django_bolt.responses import PlainText
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Request
+from freeman.responses import PlainText
+from freeman.testing import TestClient
 
 from .test_models import Article
 

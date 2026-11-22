@@ -13,9 +13,9 @@ from typing import Annotated
 
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.param_functions import Cookie, Header, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.param_functions import Cookie, Header, Query
+from freeman.testing import TestClient
 
 CASES = [
     ("date", "0000-01-01", "year"),

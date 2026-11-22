@@ -6,7 +6,7 @@ connection that passes the Origin check.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket
 
 api = BoltAPI()
 

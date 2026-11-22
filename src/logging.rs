@@ -3,7 +3,7 @@
 //! The crates of Bolt log with `log::error!`, `log::warn!` and `log::debug!`.
 //! Without a backend, the `log` crate drops each record.
 //!
-//! The level comes from the `django_bolt` logger of Python, read once when the
+//! The level comes from the `freeman` logger of Python, read once when the
 //! server or a test app starts. Python does not see the records. A record of a
 //! lower level costs one atomic load in the `log` macro and is not formatted.
 
@@ -14,7 +14,7 @@ use pyo3::intern;
 use pyo3::prelude::*;
 
 /// Python logger whose effective level sets the level of the Rust records.
-const PYTHON_LOGGER: &str = "django_bolt";
+const PYTHON_LOGGER: &str = "freeman";
 
 struct StderrLogger;
 
@@ -22,14 +22,12 @@ static LOGGER: StderrLogger = StderrLogger;
 
 /// Whether a record of `level` from the module `target` gets a line.
 ///
-/// The level of `django_bolt` applies to each crate. Crates that are not part
+/// The level of `freeman` applies to each crate. Crates that are not part
 /// of Bolt, such as Actix, also need `WARNING` or higher. Their `INFO` and
 /// `DEBUG` records describe their own work, not the work of Bolt.
 fn record_passes(level: Level, target: &str, max_level: LevelFilter) -> bool {
     level <= max_level
-        && (level <= Level::Warn
-            || target.starts_with("bolt_")
-            || target.starts_with("django_bolt"))
+        && (level <= Level::Warn || target.starts_with("bolt_") || target.starts_with("freeman"))
 }
 
 impl Log for StderrLogger {
@@ -116,7 +114,7 @@ fn level_filter(python_level: i64) -> LevelFilter {
     }
 }
 
-/// Install the backend, and set its level from the `django_bolt` logger.
+/// Install the backend, and set its level from the `freeman` logger.
 ///
 /// Call it at startup, after Django configured logging. A second call only
 /// sets the level again, so a test app follows the current Python level.
@@ -146,12 +144,12 @@ mod tests {
             "bolt_core::middleware::auth",
             debug
         ));
-        assert!(record_passes(Level::Info, "django_bolt::server", debug));
+        assert!(record_passes(Level::Info, "freeman::server", debug));
         assert!(!record_passes(Level::Info, "actix_server::builder", debug));
         assert!(!record_passes(Level::Debug, "actix_server::accept", debug));
         assert!(record_passes(Level::Warn, "actix_server::accept", debug));
         assert!(record_passes(Level::Error, "actix_http::h1", debug));
-        // The level of django_bolt still applies to each crate.
+        // The level of freeman still applies to each crate.
         assert!(!record_passes(
             Level::Warn,
             "actix_server::accept",

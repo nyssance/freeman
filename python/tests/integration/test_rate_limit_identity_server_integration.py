@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth import get_user_model
 
-from django_bolt.auth import create_jwt_for_user
+from freeman.auth import create_jwt_for_user
 
 from .apps import app_module
 from .apps.rate_limit_identity import BURST, SECRET, SECRET_API_KEY

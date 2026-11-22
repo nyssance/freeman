@@ -4,7 +4,7 @@ This module has no ``from __future__ import annotations`` on purpose. On
 Python 3.14, the class bodies keep their annotations in ``__annotate__``.
 """
 
-from django_bolt.serializers import Serializer
+from freeman.serializers import Serializer
 
 
 class Label(Serializer):

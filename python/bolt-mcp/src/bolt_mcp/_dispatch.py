@@ -22,8 +22,8 @@ from urllib.parse import unquote
 
 import msgspec
 
-from django_bolt._json import decode as json_decode
-from django_bolt._json import encode as json_encode
+from freeman._json import decode as json_decode
+from freeman._json import encode as json_encode
 
 from ._execute import RESULT_TYPE_COMPLETE, error_result, execute_tool, tool_failed
 from .context import Context, _InputRequired

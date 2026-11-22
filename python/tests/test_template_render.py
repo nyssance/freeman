@@ -14,10 +14,10 @@ from __future__ import annotations
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.responses import HTML
-from django_bolt.shortcuts import render
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.responses import HTML
+from freeman.shortcuts import render
+from freeman.testing import TestClient
 
 
 @pytest.fixture(scope="module")

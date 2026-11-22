@@ -16,10 +16,10 @@ import jwt
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, TokenPair, set_token_cookies
-from django_bolt.responses import PlainText
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication, TokenPair, set_token_cookies
+from freeman.responses import PlainText
+from freeman.testing import TestClient
 
 SECRET = "cookie-csrf-secret"
 

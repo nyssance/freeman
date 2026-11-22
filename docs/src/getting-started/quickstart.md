@@ -31,7 +31,7 @@ Add it to your `INSTALLED_APPS` in `settings.py`:
 ```python
 INSTALLED_APPS = [
     # ...
-    "django_bolt",
+    "freeman",
     "missions",
 ]
 ```
@@ -83,7 +83,7 @@ python manage.py migrate
 Create `missions/api.py` and add your first endpoint:
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -113,7 +113,7 @@ Let's add an endpoint to get a specific mission by ID. Path parameters are defin
 
 ```python
 from missions.models import Mission
-from django_bolt.exceptions import NotFound
+from freeman.exceptions import NotFound
 
 
 @api.get("/missions/{mission_id}")
@@ -148,8 +148,8 @@ from typing import Annotated, Literal
 
 from msgspec import Meta
 
-from django_bolt.param_functions import Query
-from django_bolt.serializers import Serializer
+from freeman.param_functions import Query
+from freeman.serializers import Serializer
 
 
 class MissionFilters(Serializer):
@@ -198,7 +198,7 @@ from typing import Annotated
 
 from msgspec import Meta
 
-from django_bolt.serializers import Serializer, field, field_validator
+from freeman.serializers import Serializer, field, field_validator
 
 
 class CreateMission(Serializer):
@@ -326,8 +326,8 @@ Extract header values using `Annotated` and `Header`. Let's add a classified end
 
 ```python
 from typing import Annotated
-from django_bolt.param_functions import Header
-from django_bolt.exceptions import HTTPException
+from freeman.param_functions import Header
+from freeman.exceptions import HTTPException
 
 
 @api.get("/missions/{mission_id}/classified")
@@ -373,7 +373,7 @@ curl http://localhost:8000/missions/1/classified \
 Handle form submissions using `Form`. You can group form fields into a `Serializer` with validation:
 
 ```python
-from django_bolt.param_functions import Form
+from freeman.param_functions import Form
 
 
 class CreateAstronaut(Serializer):
@@ -429,7 +429,7 @@ curl -X POST http://localhost:8000/missions/1/astronauts \
 Handle file uploads using `File`. Let's add mission patch upload:
 
 ```python
-from django_bolt.param_functions import File
+from freeman.param_functions import File
 import os
 
 
@@ -484,7 +484,7 @@ Once the same response shapes start showing up in multiple endpoints, move them 
 ```python
 import asyncio
 
-from django_bolt.serializers import Serializer, field
+from freeman.serializers import Serializer, field
 
 
 class MissionResponse(Serializer):
@@ -572,7 +572,7 @@ A few things to notice:
 Django-Bolt supports multiple response types. Let's add some variety:
 
 ```python
-from django_bolt.responses import PlainText, HTML, Redirect
+from freeman.responses import PlainText, HTML, Redirect
 
 
 @api.get("/missions/{mission_id}/log")
@@ -656,8 +656,8 @@ First, create the template at `missions/templates/missions/dashboard.html`:
 Now add the endpoint:
 
 ```python
-from django_bolt import Request
-from django_bolt.shortcuts import render
+from freeman import Request
+from freeman.shortcuts import render
 
 
 @api.get("/dashboard")
@@ -680,7 +680,7 @@ Visit `http://localhost:8000/dashboard` to see the rendered dashboard.
 You've already seen error handling throughout this tutorial. Here's a summary of available exceptions:
 
 ```python
-from django_bolt.exceptions import (
+from freeman.exceptions import (
     HTTPException,  # Generic exception with custom status code
     BadRequest,     # 400
     Unauthorized,   # 401
@@ -718,7 +718,7 @@ async def get_mission(mission_id: int):
 You can also configure API-level settings via `OpenAPIConfig`:
 
 ```python
-from django_bolt.openapi import OpenAPIConfig
+from freeman.openapi import OpenAPIConfig
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -743,13 +743,13 @@ from typing import Annotated, Literal
 
 from msgspec import Meta
 
-from django_bolt import BoltAPI, Request
-from django_bolt.exceptions import HTTPException, NotFound
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.param_functions import File, Form, Header, Query
-from django_bolt.responses import HTML, PlainText, Redirect
-from django_bolt.serializers import Serializer, field, field_validator
-from django_bolt.shortcuts import render
+from freeman import BoltAPI, Request
+from freeman.exceptions import HTTPException, NotFound
+from freeman.openapi import OpenAPIConfig
+from freeman.param_functions import File, Form, Header, Query
+from freeman.responses import HTML, PlainText, Redirect
+from freeman.serializers import Serializer, field, field_validator
+from freeman.shortcuts import render
 
 from missions.models import Astronaut, Mission
 

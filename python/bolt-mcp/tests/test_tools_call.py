@@ -8,8 +8,8 @@ import msgspec
 from _helpers import initialize, make_server, parse_rpc, post_rpc
 from bolt_mcp import MCP, mount_mcp
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 
 def _call(client, session_id, name, arguments, *, id=1):

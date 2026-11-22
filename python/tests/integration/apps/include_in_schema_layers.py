@@ -7,9 +7,9 @@ WebSocket routes use the same layers, and set ``tags`` and ``summary``.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.views import APIView
-from django_bolt.websocket import WebSocket
+from freeman import BoltAPI
+from freeman.views import APIView
+from freeman.websocket import WebSocket
 
 api = BoltAPI()
 

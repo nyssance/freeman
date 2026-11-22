@@ -80,7 +80,7 @@ python manage.py runbolt --dev
 ```
 src/                     Rust extension entry crate (PyO3 module, Actix server, dispatch)
 crates/                  Rust workspace crates (bolt-loop, bolt-core, bolt-asgi, bolt-websocket, bolt-mcp)
-python/django_bolt/      Python framework (BoltAPI, serializers, responses, auth, viewsets, ...)
+python/freeman/      Python framework (BoltAPI, serializers, responses, auth, viewsets, ...)
 python/bolt-mcp/         Optional MCP add-on package
 python/tests/            Python test suite
 python/tests/integration/apps/   Real app modules used by server-integration tests
@@ -95,7 +95,7 @@ See [`CLAUDE.md`](CLAUDE.md) for a deeper architecture overview, request flow, a
 
 1. **Create a branch** from `master`: `git checkout -b feature/my-change`
 2. **Rust changes** live in `src/` and `crates/`. Run `just build` after every edit — Python tests use the compiled extension.
-3. **Python changes** live in `python/django_bolt/`. No rebuild needed.
+3. **Python changes** live in `python/freeman/`. No rebuild needed.
 4. **Keep changes focused.** Small, surgical PRs are reviewed and merged faster than sweeping ones.
 5. **Never silently swallow errors.** Raise or log — silent failures make bugs hard to trace.
 6. **Imports at the top of the file**, and prefer `from __future__ import annotations`.
@@ -120,8 +120,8 @@ Guidelines:
 - **Use `TestClient`** for integration tests. It runs requests through the full Rust pipeline in-process — fast and deterministic:
 
   ```python
-  from django_bolt import BoltAPI
-  from django_bolt.testing import TestClient
+  from freeman import BoltAPI
+  from freeman.testing import TestClient
 
   api = BoltAPI()
 
@@ -158,7 +158,7 @@ Always publish the conditions (processes, concurrency, request count, machine) n
 
 Docs live in `docs/src/` and are published at [bolt.farhana.li](https://bolt.farhana.li/). If your change adds or alters user-facing behavior, update the relevant topic guide in `docs/src/topics/` and, for notable changes, add an entry to `CHANGELOG.md`.
 
-CI checks each Python code block in the docs and in the package readmes: it must parse, and each name that it imports from `django_bolt` or `bolt_mcp` must exist. Run the check with `just docs-check`. A block that is not complete code, for example a signature, needs the line `<!-- fragment -->` directly before it.
+CI checks each Python code block in the docs and in the package readmes: it must parse, and each name that it imports from `freeman` or `bolt_mcp` must exist. Run the check with `just docs-check`. A block that is not complete code, for example a signature, needs the line `<!-- fragment -->` directly before it.
 
 The example project in `python/example/` is checked too. CI runs its Django checks, checks that its migrations match its models, and runs its tests. `test_docs_testing_guide.py` runs each pattern of the testing guide. Run all of this with `just test-example`.
 

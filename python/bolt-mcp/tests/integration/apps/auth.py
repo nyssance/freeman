@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from bolt_mcp import MCP, mount_mcp
 
-from django_bolt import BoltAPI, IsAuthenticated, JWTAuthentication
+from freeman import BoltAPI, IsAuthenticated, JWTAuthentication
 
 SECRET = "itest-auth-secret-0123456789-abcdefgh"
 

@@ -1,6 +1,6 @@
 # /// script
 # dependencies = [
-#   "django-bolt[nanodjango]",
+#   "freeman[nanodjango]",
 # ]
 # ///
 """
@@ -26,9 +26,9 @@ from pathlib import Path
 import msgspec
 from nanodjango import Django
 
-from django_bolt import WebSocket, WebSocketDisconnect
-from django_bolt.nanodjango import BoltAPI
-from django_bolt.responses import EventSourceResponse
+from freeman import WebSocket, WebSocketDisconnect
+from freeman.nanodjango import BoltAPI
+from freeman.responses import EventSourceResponse
 
 app = Django()
 bolt = BoltAPI()

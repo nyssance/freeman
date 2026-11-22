@@ -15,7 +15,7 @@ from typing import Any
 import jwt
 from django.conf import settings
 
-from django_bolt.auth.jwt_utils import create_jwt_for_user
+from freeman.auth.jwt_utils import create_jwt_for_user
 
 from .config import AuthorizationServer
 

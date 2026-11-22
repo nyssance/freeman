@@ -13,10 +13,10 @@ from django.template.response import SimpleTemplateResponse
 from django.test import override_settings
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import DjangoMiddleware, DjangoMiddlewareStack
-from django_bolt.responses import JSON, TemplateResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.middleware import DjangoMiddleware, DjangoMiddlewareStack
+from freeman.responses import JSON, TemplateResponse
+from freeman.testing import TestClient
 
 from .test_models import Article
 

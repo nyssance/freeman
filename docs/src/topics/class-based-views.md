@@ -11,8 +11,8 @@ Django-Bolt supports class-based views for organizing related endpoints. This gu
 Use `APIView` to group HTTP methods for a single resource:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.views import APIView
+from freeman import BoltAPI
+from freeman.views import APIView
 
 api = BoltAPI()
 
@@ -76,7 +76,7 @@ class ResourceView(APIView):
 Set authentication and permissions at the class level:
 
 ```python
-from django_bolt.auth import JWTAuthentication, IsAuthenticated
+from freeman.auth import JWTAuthentication, IsAuthenticated
 
 @api.view("/protected")
 class ProtectedView(APIView):
@@ -106,7 +106,7 @@ class UserView(APIView):
 `ViewSet` provides a higher-level abstraction for CRUD operations:
 
 ```python
-from django_bolt.views import ViewSet
+from freeman.views import ViewSet
 
 @api.viewset("/items")
 class ItemViewSet(ViewSet):
@@ -157,8 +157,8 @@ you want per-method control instead.
 `ModelViewSet` provides built-in Django ORM integration:
 
 ```python
-from django_bolt import ModelViewSet, PageNumberPagination
-from django_bolt.serializers import Serializer
+from freeman import ModelViewSet, PageNumberPagination
+from freeman.serializers import Serializer
 from myapp.models import Article
 
 class ArticleSchema(Serializer):
@@ -288,7 +288,7 @@ Add custom actions using the `@action` decorator to create endpoints beyond stan
 ### Basic actions
 
 ```python
-from django_bolt import action
+from freeman import action
 
 @api.viewset("/articles")
 class ArticleViewSet(ViewSet):
@@ -451,7 +451,7 @@ class ArticleView(ViewSet):
 Use mixins to compose functionality:
 
 ```python
-from django_bolt.views import (
+from freeman.views import (
     ListMixin,
     RetrieveMixin,
     CreateMixin,
@@ -503,7 +503,7 @@ The write actions do not take each field from the request body:
 A convenient shortcut for read-only access:
 
 ```python
-from django_bolt.views import ReadOnlyModelViewSet
+from freeman.views import ReadOnlyModelViewSet
 
 @api.viewset("/public-articles")
 class PublicArticleViewSet(ReadOnlyModelViewSet):

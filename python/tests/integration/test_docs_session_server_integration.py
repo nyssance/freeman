@@ -21,7 +21,7 @@ pytestmark = pytest.mark.server_integration
 USERS = {"staff": ("staff-password-for-tests-1", True), "member": ("member-password-for-tests-2", False)}
 
 _SETTINGS = """
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
+from freeman.auth import IsAuthenticated, JWTAuthentication
 
 BOLT_AUTHENTICATION_CLASSES = [JWTAuthentication()]
 BOLT_DEFAULT_PERMISSION_CLASSES = [IsAuthenticated()]

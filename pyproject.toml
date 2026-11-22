@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "freeman"
 version = "0.1.0"
-description = "A Rust HTTP engine for Python APIs: routing, auth and limits in Rust, business code in Python. A fork of django-bolt."
+description = "A Rust HTTP engine for Python APIs: routing, auth and limits in Rust, business code in Python. The Rust core started from django-bolt."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
@@ -67,14 +67,14 @@ Repository = "https://github.com/nyssance/freeman"
 "Bug Tracker" = "https://github.com/nyssance/freeman/issues"
 Upstream = "https://github.com/dj-bolt/django-bolt"
 [project.scripts]
-django-bolt = "django_bolt.cli:main"
+freeman = "freeman.cli:main"
 
 [project.entry-points."nanodjango"]
-django-bolt = "django_bolt.nanodjango"
+django-bolt = "freeman.nanodjango"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-module-name = "django_bolt._core"
+module-name = "freeman._core"
 python-source = "python"
 
 [tool.uv.workspace]
@@ -149,7 +149,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["django_bolt"]
+known-first-party = ["freeman"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -165,7 +165,7 @@ python-version = "3.12"
 extra-paths = ["python"]
 
 [tool.coverage.run]
-source = ["django_bolt", "bolt_mcp"]
+source = ["freeman", "bolt_mcp"]
 branch = true
 # Measure the runbolt servers that the integration tests start, too. The
 # workers of `runbolt --processes N` are forked and end with os._exit(), so
@@ -174,22 +174,22 @@ patch = ["subprocess", "fork", "_exit"]
 parallel = true
 
 [tool.coverage.paths]
-django_bolt = ["python/django_bolt", "*/site-packages/django_bolt"]
+freeman = ["python/freeman", "*/site-packages/freeman"]
 bolt_mcp = ["python/bolt-mcp/src/bolt_mcp", "*/site-packages/bolt_mcp"]
 
 [tool.coverage.report]
 skip_empty = true
 precision = 1
 
-# mutmut (Python mutation testing). scripts/mutmut.sh copies python/django_bolt
-# to django_bolt/ and python/tests to tests/ in a work directory, because
+# mutmut (Python mutation testing). scripts/mutmut.sh copies python/freeman
+# to freeman/ and python/tests to tests/ in a work directory, because
 # mutmut looks for the code in ./, src/ or source/. The paths are in that layout.
 [tool.mutmut]
-source_paths = ["django_bolt"]
+source_paths = ["freeman"]
 only_mutate = [
-    "django_bolt/analysis.py",
-    "django_bolt/middleware/compiler.py",
-    "django_bolt/serialization.py",
+    "freeman/analysis.py",
+    "freeman/middleware/compiler.py",
+    "freeman/serialization.py",
 ]
 # The test client starts Rust threads, and a forked child has none of them.
 # The fork server forks each mutant from a process that ran no test.

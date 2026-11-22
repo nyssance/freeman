@@ -6,7 +6,7 @@ sends a space or a non-ASCII character of a path as a `%XX` escape.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket
 
 api = BoltAPI()
 

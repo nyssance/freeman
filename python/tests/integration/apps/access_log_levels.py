@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import HTTPException
+from freeman import BoltAPI
+from freeman.exceptions import HTTPException
 
 api = BoltAPI()
 

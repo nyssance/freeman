@@ -15,9 +15,9 @@ import sys
 
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt._worker_loop import _with_running_loop
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman._worker_loop import _with_running_loop
+from freeman.testing import TestClient
 
 
 def test_with_running_loop_installs_and_restores():
@@ -58,8 +58,8 @@ from django.conf import settings
 settings.configure(DEBUG=False)
 django.setup()
 
-from django_bolt import BoltAPI, concurrency
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, concurrency
+from freeman.testing import TestClient
 
 api = BoltAPI()
 

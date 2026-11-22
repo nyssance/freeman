@@ -6,8 +6,8 @@ import pytest
 from _helpers import initialize, mint_jwt, parse_rpc, post_rpc
 from bolt_mcp import MCP, JsonRpcError, PromptGet, ResourceRead, mount_mcp
 
-from django_bolt import BoltAPI, IsAuthenticated, JWTAuthentication
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, IsAuthenticated, JWTAuthentication
+from freeman.testing import TestClient
 
 TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 SECRET = "middleware-secret-key-0123456789-abcd"

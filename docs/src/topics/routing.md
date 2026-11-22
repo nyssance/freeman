@@ -11,7 +11,7 @@ This guide explains how routing works in Django-Bolt and covers all the ways you
 Routes are defined using decorator methods on a `BoltAPI` instance:
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -85,7 +85,7 @@ async def head_items():
 
 @api.options("/items")
 async def options_items():
-    from django_bolt import Response
+    from freeman import Response
     return Response({}, headers={"Allow": "GET, POST, PUT, PATCH, DELETE"})
 ```
 
@@ -97,7 +97,7 @@ A `QUERY` handler takes a body the same way a `POST` handler does:
 
 ```python
 import msgspec
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -163,14 +163,14 @@ Bolt routes live in Rust's router, not Django's URLconf, so Django can't see the
 
 ### Wiring it up
 
-Include `django_bolt.urls` in your project's `ROOT_URLCONF`:
+Include `freeman.urls` in your project's `ROOT_URLCONF`:
 
 ```python
 # urls.py
 from django.urls import include, path
 
 urlpatterns = [
-    path("", include("django_bolt.urls")),
+    path("", include("freeman.urls")),
     # ... your other patterns
 ]
 ```
@@ -270,7 +270,7 @@ A handler is a function, a bound method, or an object with `__call__`. For an ob
 Define WebSocket endpoints using `@api.websocket()`:
 
 ```python
-from django_bolt import WebSocket
+from freeman import WebSocket
 
 @api.websocket("/ws/echo")
 async def echo(websocket: WebSocket):
@@ -307,7 +307,7 @@ You can create multiple `BoltAPI` instances and mount them:
 
 ```python
 # users/api.py
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -318,7 +318,7 @@ async def list_users():
 
 ```python
 # myproject/api.py
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 from users.api import api as users_api
 
 api = BoltAPI()

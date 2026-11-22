@@ -39,7 +39,7 @@ def _make_buffered_project(make_server_project, *, backend: str, **kwargs: objec
     extras = f", {kwargs_repr}" if kwargs_repr else ""
     return make_server_project(
         settings_extra=f"""
-        from django_bolt.middleware import CompressionConfig
+        from freeman.middleware import CompressionConfig
         BOLT_COMPRESSION = CompressionConfig(backend={backend!r}{extras})
         """,
         api_module=app_module("compression_data"),
@@ -218,7 +218,7 @@ def test_buffered_and_sse_share_one_compression_config(make_server_project):
     reads — not a parallel store."""
     project = make_server_project(
         settings_extra="""
-        from django_bolt.middleware import CompressionConfig
+        from freeman.middleware import CompressionConfig
         BOLT_COMPRESSION = CompressionConfig(backend="brotli")
         """,
         api_module=app_module("compression_sse"),
@@ -293,7 +293,7 @@ def test_buffered_and_sse_share_negotiation_parser(make_server_project):
     rejects brotli must fall back to gzip on both."""
     project = make_server_project(
         settings_extra="""
-        from django_bolt.middleware import CompressionConfig
+        from freeman.middleware import CompressionConfig
         BOLT_COMPRESSION = CompressionConfig(backend="brotli")
         """,
         api_module=app_module("compression_sse"),

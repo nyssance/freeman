@@ -29,10 +29,10 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
-import django_bolt.logging.config as config_module
-from django_bolt import BoltAPI
-from django_bolt.logging import LoggingConfig, LoggingMiddleware, create_logging_middleware
-from django_bolt.logging.config import (
+import freeman.logging.config as config_module
+from freeman import BoltAPI
+from freeman.logging import LoggingConfig, LoggingMiddleware, create_logging_middleware
+from freeman.logging.config import (
     _BoundedQueueListener,
     _DropOnFullQueueHandler,
     _ensure_queue_logging,
@@ -326,7 +326,7 @@ class TestQueueBasedLogging:
         """
         saved_loggers = [
             (logger, logger.handlers[:], logger.level, logger.propagate)
-            for logger in map(logging.getLogger, ("", "django", "django.server", "django_bolt"))
+            for logger in map(logging.getLogger, ("", "django", "django.server", "freeman"))
         ]
         configured = config_module._LOGGING_CONFIGURED
         listener = config_module._QUEUE_LISTENER
@@ -362,7 +362,7 @@ class TestQueueBasedLogging:
             """
             import logging, os, sys, threading, time
             from queue import Queue
-            import django_bolt.logging.config as config
+            import freeman.logging.config as config
 
             handler = logging.StreamHandler(sys.stderr)
             config._QUEUE = Queue()
@@ -639,7 +639,7 @@ class TestQueueBasedLogging:
         config_module._QUEUE = None
 
         # Clear existing handlers
-        for logger_name in ("django", "django.server", "django_bolt", ""):
+        for logger_name in ("django", "django.server", "freeman", ""):
             logger = logging.getLogger(logger_name)
             logger.handlers.clear()
 
@@ -648,12 +648,12 @@ class TestQueueBasedLogging:
         # Check that loggers have queue handlers
         django_logger = logging.getLogger("django")
         django_server_logger = logging.getLogger("django.server")
-        django_bolt_logger = logging.getLogger("django_bolt")
+        freeman_logger = logging.getLogger("freeman")
 
         # All should have handlers after setup
         assert len(django_logger.handlers) > 0, "django logger should have handlers"
         assert len(django_server_logger.handlers) > 0, "django.server logger should have handlers"
-        assert len(django_bolt_logger.handlers) > 0, "django_bolt logger should have handlers"
+        assert len(freeman_logger.handlers) > 0, "freeman logger should have handlers"
 
         # At least one should be a QueueHandler
         root_logger = logging.getLogger()
@@ -667,7 +667,7 @@ class TestQueueBasedLogging:
         setup_django_logging(force=True)
         logging.getLogger("django.request").warning("one request record")
         logging.getLogger("django.server").warning("one server record")
-        logging.getLogger("django_bolt").warning("one bolt record")
+        logging.getLogger("freeman").warning("one bolt record")
         logging.getLogger("another_app").warning("one app record")
         # stop() sends each queued record to the console handler.
         config_module._QUEUE_LISTENER.stop()

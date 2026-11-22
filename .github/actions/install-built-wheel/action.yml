@@ -45,11 +45,11 @@ runs:
         from pathlib import Path
 
         with zipfile.ZipFile(sys.argv[1]) as wheel:
-            names = [name for name in wheel.namelist() if name.startswith("django_bolt/_core")]
+            names = [name for name in wheel.namelist() if name.startswith("freeman/_core")]
             if not names:
-                sys.exit(f"{sys.argv[1]} has no django_bolt/_core*")
+                sys.exit(f"{sys.argv[1]} has no freeman/_core*")
             for name in names:
-                target = Path("python/django_bolt") / Path(name).name
+                target = Path("python/freeman") / Path(name).name
                 target.write_bytes(wheel.read(name))
                 print(target)
         EOF

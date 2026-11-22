@@ -7,9 +7,9 @@ to Django REST Framework's ModelViewSet, where you just set queryset and seriali
 
 import pytest
 
-from django_bolt import BoltAPI, ModelViewSet, ReadOnlyModelViewSet, action
-from django_bolt.serializers import Serializer, field
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, ModelViewSet, ReadOnlyModelViewSet, action
+from freeman.serializers import Serializer, field
+from freeman.testing import TestClient
 from tests.test_models import Article, Author, BlogPost
 
 

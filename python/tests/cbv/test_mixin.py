@@ -1,11 +1,11 @@
 import pytest
 
-from django_bolt import BoltAPI, ModelViewSet, ViewSet, action
-from django_bolt._view_context import _current_request
-from django_bolt.pagination import PageNumberPagination, paginate
-from django_bolt.serializers import Serializer, field_validator
-from django_bolt.testing import TestClient
-from django_bolt.views import (
+from freeman import BoltAPI, ModelViewSet, ViewSet, action
+from freeman._view_context import _current_request
+from freeman.pagination import PageNumberPagination, paginate
+from freeman.serializers import Serializer, field_validator
+from freeman.testing import TestClient
+from freeman.views import (
     CreateMixin,
     DestroyMixin,
     ListMixin,

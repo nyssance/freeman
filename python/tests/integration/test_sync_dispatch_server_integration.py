@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 from .apps import app_module
 from .apps import sync_dispatch as sync_dispatch_app

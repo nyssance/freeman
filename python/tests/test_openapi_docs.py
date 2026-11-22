@@ -20,8 +20,8 @@ from django.test import override_settings
 from jsonschema import Draft202012Validator
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI, Request
-from django_bolt.auth import (
+from freeman import BoltAPI, Request
+from freeman.auth import (
     AllowAny,
     APIKeyAuthentication,
     IsAuthenticated,
@@ -29,9 +29,9 @@ from django_bolt.auth import (
     Requires,
     SessionAuthentication,
 )
-from django_bolt.datastructures import UploadFile
-from django_bolt.error_handlers import ProblemDetails, problem_details
-from django_bolt.openapi import (
+from freeman.datastructures import UploadFile
+from freeman.error_handlers import ProblemDetails, problem_details
+from freeman.openapi import (
     OpenAPIConfig,
     RapidocRenderPlugin,
     RedocRenderPlugin,
@@ -39,7 +39,7 @@ from django_bolt.openapi import (
     StoplightRenderPlugin,
     SwaggerRenderPlugin,
 )
-from django_bolt.openapi.spec import (
+from freeman.openapi.spec import (
     Components,
     Contact,
     ExternalDocumentation,
@@ -48,10 +48,10 @@ from django_bolt.openapi.spec import (
     Server,
     Tag,
 )
-from django_bolt.params import File, Form
-from django_bolt.serializers import Serializer, field
-from django_bolt.testing import TestClient
-from django_bolt.websocket.types import WebSocket
+from freeman.params import File, Form
+from freeman.serializers import Serializer, field
+from freeman.testing import TestClient
+from freeman.websocket.types import WebSocket
 
 
 class Item(msgspec.Struct):

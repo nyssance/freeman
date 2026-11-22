@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt.api import BoltAPI
-from django_bolt.serializers import (
+from freeman.api import BoltAPI
+from freeman.serializers import (
     URL,
     Email,
     HttpsURL,
@@ -26,7 +26,7 @@ from django_bolt.serializers import (
     Username,
     computed_field,
 )
-from django_bolt.serializers.types import (
+from freeman.serializers.types import (
     UUID,
     HexColor,
     IPv4,
@@ -34,7 +34,7 @@ from django_bolt.serializers.types import (
     Longitude,
     Port,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 # =============================================================================
 # SERIALIZERS - Using validated types

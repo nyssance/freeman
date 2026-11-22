@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import os
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication
 
 ISSUER = "https://issuer.example.test/"
 AUDIENCE = "django-bolt-integration"

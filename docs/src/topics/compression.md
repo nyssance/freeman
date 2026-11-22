@@ -14,9 +14,9 @@ Compression is on by default. Use the framework's defaults and you get
 brotli with gzip fallback for every eligible response:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.responses import EventSourceResponse
-from django_bolt.middleware import CompressionConfig, no_compress
+from freeman import BoltAPI
+from freeman.responses import EventSourceResponse
+from freeman.middleware import CompressionConfig, no_compress
 
 api = BoltAPI()  # brotli, gzip fallback, on for buffered + streaming
 
@@ -62,8 +62,8 @@ kwarg — the decision is always made per-request from the global
 ## CompressionConfig
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.middleware import CompressionConfig
+from freeman import BoltAPI
+from freeman.middleware import CompressionConfig
 
 api = BoltAPI(compression=CompressionConfig(
     backend="brotli",        # "brotli" | "gzip" | "zstd"
@@ -211,5 +211,5 @@ disabling compression globally.
 - `src/handler.rs::build_response_from_parsed` — reads
   `AppState.global_compression_config`, runs negotiation, sets the
   encoding headers, and wraps the stream.
-- `python/django_bolt/middleware/compression.py` — `CompressionConfig`
+- `python/freeman/middleware/compression.py` — `CompressionConfig`
   dataclass and per-codec level/range types.

@@ -2,7 +2,7 @@
 """Check the Python examples in docs/src and in the package readmes.
 
 Each ```python or ~~~python block must be valid Python. Each name that it
-imports from django_bolt or bolt_mcp must exist. Thus a renamed or removed API
+imports from freeman or bolt_mcp must exist. Thus a renamed or removed API
 fails this check, not the code of a reader.
 
 The check reads the source of the packages and imports nothing. Thus it needs
@@ -32,7 +32,7 @@ DOCS = ROOT / "docs" / "src"
 READMES = (ROOT / "README.md", ROOT / "python" / "bolt-mcp" / "README.md")
 # The directory that holds each package of this repository.
 SOURCE_ROOTS = {
-    "django_bolt": ROOT / "python",
+    "freeman": ROOT / "python",
     "bolt_mcp": ROOT / "python" / "bolt-mcp" / "src",
 }
 FRAGMENT_MARKER = "<!-- fragment -->"

@@ -16,8 +16,8 @@ from urllib.parse import urlsplit
 
 from django.conf import settings
 
-from django_bolt import JSON, BoltAPI, Request
-from django_bolt.auth.guards import guards_need_user
+from freeman import JSON, BoltAPI, Request
+from freeman.auth.guards import guards_need_user
 
 from ._catalog import build_mount_definition
 from ._dispatch import make_verify_token
@@ -142,7 +142,7 @@ def mount_mcp(
     if any(existing["path"] == path for existing in api._mcp_mounts):
         raise ValueError(f"An MCP server is already mounted at {path!r} on this API")
 
-    from django_bolt import _core  # noqa: PLC0415 — verify the Rust core at mount time
+    from freeman import _core  # noqa: PLC0415 — verify the Rust core at mount time
 
     if not hasattr(_core, "register_mcp_mounts"):
         raise ImportError(
@@ -164,9 +164,9 @@ def mount_mcp(
     # Tier-1 backends follow the same default resolution as routes: an
     # explicit list wins, otherwise the API-wide default authentication
     # classes apply (harmless context enrichment when no guards are set).
-    from django_bolt.auth import get_default_authentication_classes  # noqa: PLC0415 — Django must be configured first
-    from django_bolt.auth.backends import www_authenticate_challenge  # noqa: PLC0415 — Django must be configured first
-    from django_bolt.auth.session import auth_without_session  # noqa: PLC0415 — Django must be configured first
+    from freeman.auth import get_default_authentication_classes  # noqa: PLC0415 — Django must be configured first
+    from freeman.auth.backends import www_authenticate_challenge  # noqa: PLC0415 — Django must be configured first
+    from freeman.auth.session import auth_without_session  # noqa: PLC0415 — Django must be configured first
 
     # Django middleware does not run on a mount, so a session backend cannot work there.
     backends = auth_without_session(auth, f"MCP mount {path}")

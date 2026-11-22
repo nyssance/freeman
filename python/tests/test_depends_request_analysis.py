@@ -16,9 +16,9 @@ from typing import Annotated
 
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.params import Depends, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.params import Depends, Query
+from freeman.testing import TestClient
 
 # --- Dependency callables (module-level so inspect.getsource works) ---
 

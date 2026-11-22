@@ -165,7 +165,7 @@ class AuthorizationServer:
         a ``https → http://localhost`` 302 (Firefox HTTPS-Only mode). Override to
         customize how the code reaches the client.
         """
-        from django_bolt.responses import HTML, Redirect  # noqa: PLC0415
+        from freeman.responses import HTML, Redirect  # noqa: PLC0415
 
         from . import consent  # noqa: PLC0415
 

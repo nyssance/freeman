@@ -9,10 +9,10 @@ import asyncio
 
 import pytest
 
-from django_bolt import BoltAPI, WebSocket, WebSocketClose, WebSocketDisconnect, WebSocketException, WebSocketState
-from django_bolt.testing import ConnectionClosed, HandshakeRejected, WebSocketTestClient
-from django_bolt.testing import websocket as websocket_testing
-from django_bolt.websocket import CloseCode
+from freeman import BoltAPI, WebSocket, WebSocketClose, WebSocketDisconnect, WebSocketException, WebSocketState
+from freeman.testing import ConnectionClosed, HandshakeRejected, WebSocketTestClient
+from freeman.testing import websocket as websocket_testing
+from freeman.websocket import CloseCode
 from tests.integration.apps.websocket_frame_types import api as frame_types_api
 from tests.integration.apps.websocket_handler_end import api as handler_end_api
 

@@ -137,7 +137,7 @@ impl TrustedProxies {
     /// Rust hot-path representation only once at application startup.
     pub fn from_django_settings(py: Python<'_>) -> PyResult<Self> {
         let entries: Vec<String> = py
-            .import("django_bolt.middleware.compiler")?
+            .import("freeman.middleware.compiler")?
             .getattr("get_trusted_proxies")?
             .call0()?
             .extract()?;

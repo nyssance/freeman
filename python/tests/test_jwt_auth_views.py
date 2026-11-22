@@ -13,16 +13,16 @@ from django.contrib.auth.backends import ModelBackend
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 
-from django_bolt import BoltAPI
-from django_bolt.auth import (
+from freeman import BoltAPI
+from freeman.auth import (
     DjangoCacheRevocation,
     InMemoryRevocation,
     IsAuthenticated,
     JWTAuthentication,
     JWTAuthViews,
 )
-from django_bolt.auth.tokens import create_token_pair, rotate_refresh_token
-from django_bolt.testing import TestClient
+from freeman.auth.tokens import create_token_pair, rotate_refresh_token
+from freeman.testing import TestClient
 
 pytestmark = pytest.mark.django_db
 

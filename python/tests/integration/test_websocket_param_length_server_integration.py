@@ -78,7 +78,7 @@ def test_websocket_route_path_with_an_escaped_character_completes_handshake(make
         assert websocket.receive_text() == expected
 
 
-def test_websocket_honors_django_bolt_max_param_length_env(make_server_project):
+def test_websocket_honors_freeman_max_param_length_env(make_server_project):
     """The upgrade limit is driven by DJANGO_BOLT_MAX_PARAM_LENGTH, not hard-coded to 8192.
 
     Exercises the production startup path with the env override set: a value that

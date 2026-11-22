@@ -922,44 +922,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "django-bolt"
-version = "0.1.0"
-dependencies = [
- "actix",
- "actix-http",
- "actix-multipart",
- "actix-web",
- "actix-web-actors",
- "ahash",
- "bolt-asgi",
- "bolt-core",
- "bolt-loop",
- "bolt-mcp",
- "bolt-native-abi",
- "bolt-websocket",
- "bytes",
- "chrono",
- "ctrlc",
- "dashmap",
- "futures-util",
- "http 1.5.0",
- "libc",
- "log",
- "mimalloc",
- "notify",
- "once_cell",
- "parking_lot",
- "pyo3",
- "pyo3-async-runtimes",
- "pyo3-build-config",
- "regex",
- "serde_json",
- "socket2",
- "tikv-jemallocator",
- "tokio",
-]
-
-[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1043,6 +1005,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "freeman"
+version = "0.1.0"
+dependencies = [
+ "actix",
+ "actix-http",
+ "actix-multipart",
+ "actix-web",
+ "actix-web-actors",
+ "ahash",
+ "bolt-asgi",
+ "bolt-core",
+ "bolt-loop",
+ "bolt-mcp",
+ "bolt-native-abi",
+ "bolt-websocket",
+ "bytes",
+ "chrono",
+ "ctrlc",
+ "dashmap",
+ "futures-util",
+ "http 1.5.0",
+ "libc",
+ "log",
+ "mimalloc",
+ "notify",
+ "once_cell",
+ "parking_lot",
+ "pyo3",
+ "pyo3-async-runtimes",
+ "pyo3-build-config",
+ "regex",
+ "serde_json",
+ "socket2",
+ "tikv-jemallocator",
+ "tokio",
 ]
 
 [[package]]

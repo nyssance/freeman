@@ -13,7 +13,7 @@ This page documents all authentication and authorization classes.
 JWT token authentication.
 
 ```python
-from django_bolt.auth import JWTAuthentication
+from freeman.auth import JWTAuthentication
 
 JWTAuthentication(
     secret=None,              # JWT secret (default: Django SECRET_KEY)
@@ -109,7 +109,7 @@ server startup:
 API key authentication.
 
 ```python
-from django_bolt.auth import APIKeyAuthentication
+from freeman.auth import APIKeyAuthentication
 
 APIKeyAuthentication(
     api_keys={"key1", "key2"},
@@ -138,7 +138,7 @@ APIKeyAuthentication(
 Allow any request.
 
 ```python
-from django_bolt.auth import AllowAny
+from freeman.auth import AllowAny
 
 @api.get("/public", guards=[AllowAny()])
 async def public():
@@ -150,7 +150,7 @@ async def public():
 Require valid authentication.
 
 ```python
-from django_bolt.auth import IsAuthenticated
+from freeman.auth import IsAuthenticated
 
 @api.get("/private", guards=[IsAuthenticated()])
 async def private():
@@ -164,7 +164,7 @@ Returns 401 if not authenticated.
 The permission check: require a token claim to be present, optionally matching expected values.
 
 ```python
-from django_bolt.auth import Requires
+from freeman.auth import Requires
 
 Requires("tenant_id")                        # claim must exist
 Requires("role", "client")                   # equals (or list contains)
@@ -199,7 +199,7 @@ Returns 401 if unauthenticated, 403 if the claim is missing or doesn't match —
 Create a JWT token for a Django user.
 
 ```python
-from django_bolt.auth import create_jwt_for_user
+from freeman.auth import create_jwt_for_user
 
 token = create_jwt_for_user(user, expires_in=3600)
 ```
@@ -242,8 +242,8 @@ token = create_jwt_for_user(
 Dependency for getting the authenticated user.
 
 ```python
-from django_bolt import Depends
-from django_bolt.auth import get_current_user
+from freeman import Depends
+from freeman.auth import get_current_user
 
 @api.get("/me")
 async def me(user=Depends(get_current_user)):
@@ -256,7 +256,7 @@ Mint an access + refresh token pair. See [Access and refresh
 tokens](../topics/authentication.md#access-and-refresh-tokens) for usage.
 
 ```python
-from django_bolt.auth import create_token_pair
+from freeman.auth import create_token_pair
 
 pair = create_token_pair(user, method="pwd", kid="signing-key-2026-07")
 pair.access_token     # JWT with typ "access"
@@ -291,7 +291,7 @@ coroutine; the claims you pass are the already-verified claims from
 `request["context"]["auth_claims"]`.
 
 ```python
-from django_bolt.auth import rotate_refresh_token
+from freeman.auth import rotate_refresh_token
 
 pair = await rotate_refresh_token(claims, store=store)
 ```
@@ -323,7 +323,7 @@ Attach a token pair to a response as `HttpOnly`, `Secure`,
 `SameSite=Lax` cookies. Returns the response for chaining.
 
 ```python
-from django_bolt.auth import set_token_cookies
+from freeman.auth import set_token_cookies
 
 return set_token_cookies(response, pair, refresh_path="/auth/refresh")
 ```
@@ -386,7 +386,7 @@ In-memory token revocation (development only — single process, no
 persistence).
 
 ```python
-from django_bolt.auth import InMemoryRevocation
+from freeman.auth import InMemoryRevocation
 
 store = InMemoryRevocation()
 await store.revoke("token-jti", exp=1234567890)
@@ -398,7 +398,7 @@ await store.is_revoked("token-jti")  # True
 Django cache-based revocation.
 
 ```python
-from django_bolt.auth import DjangoCacheRevocation
+from freeman.auth import DjangoCacheRevocation
 
 store = DjangoCacheRevocation(
     cache_alias="default",
@@ -419,7 +419,7 @@ not evict security entries before their configured TTL.
 Database-backed revocation.
 
 ```python
-from django_bolt.auth import DjangoORMRevocation
+from freeman.auth import DjangoORMRevocation
 
 store = DjangoORMRevocation(
     model="myapp.RevokedToken",  # 'app_label.ModelName' — exactly two parts

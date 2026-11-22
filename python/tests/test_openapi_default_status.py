@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt import BoltAPI, Response
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Response
+from freeman.testing import TestClient
 
 
 @pytest.mark.parametrize("status_code", [200, 201, 202, 204])

@@ -5,9 +5,9 @@ from __future__ import annotations
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, ModelViewSet
-from django_bolt.serializers import Serializer, computed_field, field
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, ModelViewSet
+from freeman.serializers import Serializer, computed_field, field
+from freeman.testing import TestClient
 from tests.test_models import Article, Author, BlogPost
 
 

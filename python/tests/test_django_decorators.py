@@ -14,9 +14,9 @@ from django.http import (
     HttpResponseRedirect,
 )
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
-from django_bolt.types import Request
+from freeman import BoltAPI
+from freeman.testing import TestClient
+from freeman.types import Request
 
 
 @pytest.fixture(scope="module")

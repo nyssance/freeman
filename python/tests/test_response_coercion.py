@@ -16,10 +16,10 @@ from typing import Annotated, Any, List  # noqa: UP035 - the test needs the bare
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.responses import JSON, Response
-from django_bolt.serializers import Serializer, field
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.responses import JSON, Response
+from freeman.serializers import Serializer, field
+from freeman.testing import TestClient
 
 from .test_models import Article
 

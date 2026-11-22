@@ -25,7 +25,7 @@ Every guard compiles to a native Rust check at registration — the claim name a
 Requires a valid authentication token:
 
 ```python
-from django_bolt.auth import JWTAuthentication, IsAuthenticated
+from freeman.auth import JWTAuthentication, IsAuthenticated
 
 @api.get("/profile", auth=[JWTAuthentication()], guards=[IsAuthenticated()])
 async def profile(request):
@@ -41,7 +41,7 @@ A guard needs an auth backend to find the user. With no `auth` on the route and 
 Explicitly allows any request, bypassing global default guards:
 
 ```python
-from django_bolt.auth import AllowAny
+from freeman.auth import AllowAny
 
 @api.get("/public", guards=[AllowAny()])
 async def public():
@@ -53,7 +53,7 @@ async def public():
 `Requires` checks a token claim against expected values:
 
 ```python
-from django_bolt.auth import JWTAuthentication, IsAuthenticated, Requires
+from freeman.auth import JWTAuthentication, IsAuthenticated, Requires
 
 Requires("tenant_id")                        # claim must exist
 Requires("role", "client")                   # equals (or list contains)
@@ -80,7 +80,7 @@ async def list_orders():
 Issue tokens carrying the claims your guards read:
 
 ```python
-from django_bolt.auth import create_jwt_for_user
+from freeman.auth import create_jwt_for_user
 
 token = create_jwt_for_user(user, extra_claims={"role": "client"})
 ```
@@ -102,7 +102,7 @@ token = create_jwt_for_user(user, extra_claims={"role": "client"})
 `Requires("permissions", ...)` reads the **unified permission set**, which is populated from the JWT `permissions` claim *or* from `key_permissions` for API-key auth — the same guard works for every backend:
 
 ```python
-from django_bolt.auth import APIKeyAuthentication
+from freeman.auth import APIKeyAuthentication
 
 @api.get(
     "/reports",
@@ -163,7 +163,7 @@ Guards run in Rust without database access, so all permission data must be embed
 The `create_jwt_for_user()` function automatically includes `is_staff` and `is_superuser`, but **everything else must be passed explicitly** via `extra_claims`:
 
 ```python
-from django_bolt.auth import create_jwt_for_user
+from freeman.auth import create_jwt_for_user
 
 # Basic token - includes is_staff, is_superuser, but NOT permissions
 token = create_jwt_for_user(user, expires_in=3600)
@@ -184,7 +184,7 @@ token = create_jwt_for_user(
 To include a user's Django permissions in the token:
 
 ```python
-from django_bolt.auth import create_jwt_for_user
+from freeman.auth import create_jwt_for_user
 
 def create_token_with_permissions(user):
     # Get all permissions for the user (from groups and direct assignments)
@@ -211,7 +211,7 @@ def create_token_with_permissions(user):
 Authentication and guards are specified per-route using the `auth` and `guards` parameters:
 
 ```python
-from django_bolt.auth import JWTAuthentication, IsAuthenticated, AllowAny
+from freeman.auth import JWTAuthentication, IsAuthenticated, AllowAny
 
 # Protected endpoint
 @api.get("/data", auth=[JWTAuthentication()], guards=[IsAuthenticated()])
@@ -229,8 +229,8 @@ async def health():
 A guard is a claim comparison — it can't `await`, query the database, or see the request body. For rules that need any of that, use a dependency (or a check in the handler, below):
 
 ```python
-from django_bolt import Depends
-from django_bolt.exceptions import HTTPException
+from freeman import Depends
+from freeman.exceptions import HTTPException
 
 async def require_active_subscription(request):
     user_id = request.context.get("user_id")
@@ -247,7 +247,7 @@ async def premium(_=Depends(require_active_subscription)):
 For complex permission logic, perform checks in your handler:
 
 ```python
-from django_bolt.exceptions import Forbidden
+from freeman.exceptions import Forbidden
 
 @api.delete(
     "/articles/{article_id}",

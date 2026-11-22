@@ -101,7 +101,7 @@ kill port=port:
 clean:
     cargo clean
     rm -rf target/
-    rm -f python/django_bolt/*.so
+    rm -f python/freeman/*.so
 
 # Full rebuild
 rebuild: (kill port) clean build
@@ -189,11 +189,11 @@ ruff: lint
 
 # Check only library code (excludes tests and examples)
 lint-lib:
-    uv run ruff check python/django_bolt
+    uv run ruff check python/freeman
 
 # Check only library code and fix issues
 lint-lib-fix:
-    uv run ruff check python/django_bolt --fix
+    uv run ruff check python/freeman --fix
 
 # Fix ruff errors automatically
 ruff-fix:
@@ -205,7 +205,7 @@ format:
 
 # Find unused code (functions, classes, variables) with vulture
 dead-code:
-    uv run vulture python/django_bolt --min-confidence 80
+    uv run vulture python/freeman --min-confidence 80
 
 # Find unused code including tests (more false positives)
 dead-code-all:

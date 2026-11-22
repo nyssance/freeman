@@ -13,9 +13,9 @@ import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import rate_limit
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.middleware import rate_limit
+from freeman.testing import TestClient
 
 
 def _api_with_limited_route():

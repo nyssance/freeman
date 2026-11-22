@@ -22,11 +22,11 @@ from typing import Annotated
 import jwt
 import pytest
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, Requires
-from django_bolt.param_functions import Cookie, Header, Query
-from django_bolt.testing import ConnectionClosed, TestClient, WebSocketTestClient
-from django_bolt.websocket import CloseCode, is_websocket_handler
+from freeman import BoltAPI, WebSocket
+from freeman.auth import IsAuthenticated, JWTAuthentication, Requires
+from freeman.param_functions import Cookie, Header, Query
+from freeman.testing import ConnectionClosed, TestClient, WebSocketTestClient
+from freeman.websocket import CloseCode, is_websocket_handler
 
 # Test secret for JWT tokens
 TEST_JWT_SECRET = "test-secret-key-for-websocket-tests"

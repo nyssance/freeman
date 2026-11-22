@@ -29,7 +29,7 @@ import pytest
 
 
 def found(*parts):
-    return len(glob.glob(os.path.join(tempfile.gettempdir(), "django_bolt_test_*", *parts)))
+    return len(glob.glob(os.path.join(tempfile.gettempdir(), "freeman_test_*", *parts)))
 
 
 class Probe:

@@ -6,8 +6,8 @@ import pytest
 from _helpers import INITIALIZE_PARAMS, initialize, mcp_headers, parse_rpc, post_rpc, rpc_body
 from bolt_mcp import MCP, AuthorizationServer, expose_as_tool
 
-from django_bolt import BoltAPI, _core
-from django_bolt.testing import AsyncTestClient, TestClient
+from freeman import BoltAPI, _core
+from freeman.testing import AsyncTestClient, TestClient
 
 
 def _tools(api) -> set[str]:

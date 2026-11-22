@@ -1,6 +1,6 @@
 """Unit tests for the runbolt worker supervisor (RSS/lifetime recycling).
 
-These tests drive :class:`django_bolt.workers.WorkerSupervisor` deterministically
+These tests drive :class:`freeman.workers.WorkerSupervisor` deterministically
 through injected fakes (clock, spawn, kill, waitpid, RSS reader) — no real
 processes are forked. Real-server behavior is covered by
 ``integration/test_worker_recycling_integration.py``.
@@ -15,7 +15,7 @@ import sys
 
 import pytest
 
-from django_bolt.workers import WorkerSupervisor, get_rss_bytes
+from freeman.workers import WorkerSupervisor, get_rss_bytes
 
 MIB = 1024 * 1024
 

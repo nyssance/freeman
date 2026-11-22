@@ -11,8 +11,8 @@ Django-Bolt provides a built-in health check system for Kubernetes readiness/liv
 Register health check endpoints on your API:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.health import register_health_checks
+from freeman import BoltAPI
+from freeman.health import register_health_checks
 
 api = BoltAPI()
 register_health_checks(api)
@@ -80,7 +80,7 @@ If any check fails:
 Django-Bolt includes a database check:
 
 ```python
-from django_bolt.health import check_database
+from freeman.health import check_database
 
 # Runs: await connection.ensure_connection()
 healthy, message = await check_database()
@@ -95,7 +95,7 @@ This check is not automatically registered. Add it manually if needed.
 Add checks that run on every `/ready` request:
 
 ```python
-from django_bolt.health import add_health_check
+from freeman.health import add_health_check
 
 async def check_redis():
     """Check Redis connectivity."""
@@ -137,7 +137,7 @@ async def my_check() -> tuple[bool, str]:
 For more control, use the `HealthCheck` class:
 
 ```python
-from django_bolt.health import HealthCheck
+from freeman.health import HealthCheck
 
 health_check = HealthCheck()
 
@@ -210,8 +210,8 @@ readinessProbe:
 ## Example: Complete setup
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.health import register_health_checks, add_health_check
+from freeman import BoltAPI
+from freeman.health import register_health_checks, add_health_check
 
 api = BoltAPI()
 
@@ -256,7 +256,7 @@ add_health_check(check_celery)
 By default, health check paths are excluded from logging:
 
 ```python
-from django_bolt.logging import LoggingConfig
+from freeman.logging import LoggingConfig
 
 config = LoggingConfig()
 print(config.skip_paths)

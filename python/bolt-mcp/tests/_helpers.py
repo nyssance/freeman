@@ -10,7 +10,7 @@ import jwt
 import msgspec
 from bolt_mcp import MCP, mount_mcp
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 DUAL_ACCEPT = "application/json, text/event-stream"
 JSON_CONTENT_TYPE = "application/json"

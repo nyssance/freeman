@@ -12,7 +12,7 @@ import builtins
 import msgspec
 import pytest
 
-from django_bolt import (
+from freeman import (
     BoltAPI,
     CursorPagination,
     LimitOffsetPagination,
@@ -20,9 +20,9 @@ from django_bolt import (
     PaginatedResponse,
     paginate,
 )
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
-from django_bolt.views import ViewSet
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
+from freeman.views import ViewSet
 
 from .test_models import Article, Author, BlogPost
 

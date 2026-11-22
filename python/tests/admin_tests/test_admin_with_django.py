@@ -6,16 +6,16 @@ These tests configure Django properly and validate admin via ASGI mounts.
 
 import pytest
 
-from django_bolt.admin.admin_detection import detect_admin_url_prefix, detect_admin_url_prefixes
-from django_bolt.api import BoltAPI
-from django_bolt.management.commands.runbolt import Command
-from django_bolt.testing import TestClient
+from freeman.admin.admin_detection import detect_admin_url_prefix, detect_admin_url_prefixes
+from freeman.api import BoltAPI
+from freeman.management.commands.runbolt import Command
+from freeman.testing import TestClient
 
 
 @pytest.mark.django_db(transaction=True)
 def test_admin_root_redirect():
     """Test /admin/ returns content (redirect or login page) via TestClient."""
-    from django_bolt.admin.admin_detection import should_enable_admin  # noqa: PLC0415
+    from freeman.admin.admin_detection import should_enable_admin  # noqa: PLC0415
 
     # The test settings enable the admin. A skip here would hide a broken detection.
     assert should_enable_admin()
@@ -270,7 +270,7 @@ def test_admin_behind_a_path_parameter_keeps_the_root_mount_of_the_user(settings
 @pytest.mark.django_db(transaction=True)
 def test_admin_login_page():
     """Test /admin/login/ returns HTML page (not empty body) via TestClient."""
-    from django_bolt.admin.admin_detection import should_enable_admin  # noqa: PLC0415
+    from freeman.admin.admin_detection import should_enable_admin  # noqa: PLC0415
 
     # The test settings enable the admin. A skip here would hide a broken detection.
     assert should_enable_admin()

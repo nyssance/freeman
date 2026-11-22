@@ -11,14 +11,14 @@ from django.core.handlers.asgi import ASGIRequest
 from django.core.management.base import CommandError
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.api import (
+from freeman import BoltAPI
+from freeman.api import (
     _rewrite_django_mount_redirect_message,
     _rewrite_scope_for_django_mount,
 )
-from django_bolt.exceptions import HTTPException
-from django_bolt.management.commands.runbolt import Command
-from django_bolt.testing import TestClient
+from freeman.exceptions import HTTPException
+from freeman.management.commands.runbolt import Command
+from freeman.testing import TestClient
 
 
 def test_mount_asgi_rejects_dynamic_path():

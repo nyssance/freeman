@@ -7,8 +7,8 @@ from _helpers import initialize, mint_jwt
 from bolt_mcp import MCP, ProtectedResource, mount_mcp
 from bolt_mcp._dispatch import make_verify_token
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 SECRET = "tier2-secret-key-0123456789-abcdefgh"
 RESOURCE_URL = "https://api.test/mcp"

@@ -24,12 +24,12 @@ import msgspec
 import pytest
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.param_functions import Cookie, Header, Path, Query
-from django_bolt.serializers import Serializer, field
-from django_bolt.testing import TestClient
-from django_bolt.websocket.types import WebSocket
+from freeman import BoltAPI
+from freeman.openapi import OpenAPIConfig
+from freeman.param_functions import Cookie, Header, Path, Query
+from freeman.serializers import Serializer, field
+from freeman.testing import TestClient
+from freeman.websocket.types import WebSocket
 
 # --- Fixture types covering the surface area the generator handles ---
 

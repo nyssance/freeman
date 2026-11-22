@@ -9,9 +9,9 @@ the same backend.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, CurrentUser
-from django_bolt.auth import AllowAny, IsAuthenticated, Requires, SessionAuthentication
-from django_bolt.openapi import OpenAPIConfig
+from freeman import BoltAPI, CurrentUser
+from freeman.auth import AllowAny, IsAuthenticated, Requires, SessionAuthentication
+from freeman.openapi import OpenAPIConfig
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(

@@ -905,7 +905,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --no-install-project
 
-      # The test process needs django_bolt too. This step also puts the Linux
+      # The test process needs freeman too. This step also puts the Linux
       # wheels in dist/ for the wheel artifact under test.
       - name: Install the built wheel
         uses: ./.github/actions/install-built-wheel
@@ -960,7 +960,7 @@ jobs:
 
       # --only-group installs the locked docs group and not the project, so
       # the Rust extension does not build. This matches `just docs-build`.
-      # Each ```python block parses, and each django_bolt or bolt_mcp name that
+      # Each ```python block parses, and each freeman or bolt_mcp name that
       # it imports exists. The script reads the package source, so no build is
       # needed.
       - name: Check the Python examples

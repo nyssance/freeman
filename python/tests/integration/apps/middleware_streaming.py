@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import DjangoMiddleware, Middleware
-from django_bolt.responses import StreamingResponse
+from freeman import BoltAPI
+from freeman.middleware import DjangoMiddleware, Middleware
+from freeman.responses import StreamingResponse
 
 
 class SeenByDjango(MiddlewareMixin):

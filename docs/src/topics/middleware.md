@@ -13,7 +13,7 @@ Django-Bolt provides middleware for cross-cutting concerns like CORS and rate li
 Apply CORS to specific endpoints:
 
 ```python
-from django_bolt.middleware import cors
+from freeman.middleware import cors
 
 @api.get("/api/data")
 @cors(origins=["https://example.com"], credentials=True)
@@ -85,7 +85,7 @@ Without these settings, Bolt allows the methods `GET`, `POST`, `PUT`, `PATCH`, `
 ### Per-route rate limiting
 
 ```python
-from django_bolt.middleware import rate_limit
+from freeman.middleware import rate_limit
 
 @api.get("/api/search")
 @rate_limit(rps=10, burst=20)
@@ -177,7 +177,7 @@ X-RateLimit-Reset: 1640000000
 Disable specific middleware for an endpoint:
 
 ```python
-from django_bolt.middleware import skip_middleware
+from freeman.middleware import skip_middleware
 
 @api.get("/health")
 @skip_middleware("cors", "rate_limit")
@@ -211,8 +211,8 @@ default (brotli with gzip fallback). Opt out per-route with
 `CompressionConfig`:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.middleware import CompressionConfig, no_compress
+from freeman import BoltAPI
+from freeman.middleware import CompressionConfig, no_compress
 
 api = BoltAPI(compression=CompressionConfig(backend="brotli"))
 
@@ -233,7 +233,7 @@ guidance.
 Use `@middleware` on a function that accepts `(request, call_next)`:
 
 ```python
-from django_bolt.middleware import middleware
+from freeman.middleware import middleware
 
 @middleware
 async def timing_middleware(request, call_next):
@@ -255,8 +255,8 @@ In this form, `@middleware` creates a **route decorator** and runs with the `(re
 Define a Django-style middleware class and pass the **class** to `BoltAPI(middleware=[...])`:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.middleware import Middleware
+from freeman import BoltAPI
+from freeman.middleware import Middleware
 import uuid
 
 
@@ -281,7 +281,7 @@ api = BoltAPI(
 You can apply class-based middleware to a single route with `@middleware(MyMiddlewareClass)`:
 
 ```python
-from django_bolt.middleware import middleware
+from freeman.middleware import middleware
 
 @api.get("/admin-only")
 @middleware(RequestIdMiddleware)
@@ -294,7 +294,7 @@ async def admin_only():
 Router middleware applies to all routes in that router (including nested routers):
 
 ```python
-from django_bolt import Router
+from freeman import Router
 
 admin_router = Router(
     prefix="/admin",
@@ -315,8 +315,8 @@ api.include_router(admin_router)
 A middleware can answer the request itself. Return a response and do not call `get_response`:
 
 ```python
-from django_bolt.middleware import Middleware
-from django_bolt.responses import JSON
+from freeman.middleware import Middleware
+from freeman.responses import JSON
 
 
 class MaintenanceMiddleware(Middleware):
@@ -360,7 +360,7 @@ Django-Bolt seamlessly integrates with Django's middleware system, allowing you 
 The simplest approach is to use the `django_middleware` parameter, which loads middleware from your Django `settings.MIDDLEWARE`:
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 # Load all middleware from settings.MIDDLEWARE
 api = BoltAPI(django_middleware=True)
@@ -402,7 +402,7 @@ api = BoltAPI(django_middleware={
 For wrapping individual middleware classes directly:
 
 ```python
-from django_bolt import BoltAPI, DjangoMiddleware
+from freeman import BoltAPI, DjangoMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.auth.middleware import AuthenticationMiddleware
 
@@ -457,8 +457,8 @@ A list of wrappers runs the hooks in a different order from Django. Each wrapper
 When using multiple Django middleware, `DjangoMiddlewareStack` is more efficient as it performs a single request conversion instead of one per middleware:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.middleware import DjangoMiddlewareStack
+from freeman import BoltAPI
+from freeman.middleware import DjangoMiddlewareStack
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.auth.middleware import AuthenticationMiddleware
 
@@ -543,7 +543,7 @@ Obey these rules with django-tenants:
 
 ```python
 from django.core.cache import cache
-from django_bolt.concurrency import sync_to_thread
+from freeman.concurrency import sync_to_thread
 
 @api.get("/report")
 async def report(request: Request):
@@ -565,7 +565,7 @@ On a lane, `DjangoMiddleware` uses a second instance of your middleware class in
 
 In an async request, Bolt moves work to the lane one time for all `process_request` and `process_view` hooks. It moves work one more time for all `process_response` hooks. A stack with only Django built-in hooks runs them on the event loop.
 
-Lanes need no configuration. A request takes an idle lane, or Bolt starts a new one. A lane that stays idle for 10 seconds closes its database connections and stops. [`DJANGO_BOLT_LANE_IDLE_SECONDS`](../ref/settings.md#django_bolt_lane_idle_seconds) changes this time.
+Lanes need no configuration. A request takes an idle lane, or Bolt starts a new one. A lane that stays idle for 10 seconds closes its database connections and stops. [`DJANGO_BOLT_LANE_IDLE_SECONDS`](../ref/settings.md#freeman_lane_idle_seconds) changes this time.
 
 When `runbolt` stops, each lane closes its database connections and stops before Python exits. Bolt waits up to 2 seconds for a lane that still runs a call.
 

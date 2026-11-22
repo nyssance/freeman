@@ -26,10 +26,10 @@ from bolt_mcp.oauth.tokens import sha256_hex
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
-from django_bolt import BoltAPI, Requires
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.responses import Redirect
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Requires
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.responses import Redirect
+from freeman.testing import TestClient
 
 ISSUER = "http://localhost:8000"
 REDIRECT_URI = "https://client.example.com/callback"

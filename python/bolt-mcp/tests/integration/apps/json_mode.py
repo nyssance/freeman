@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from bolt_mcp import MCP, mount_mcp
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 mcp = MCP("json-itest", "1.0", json_response=True)

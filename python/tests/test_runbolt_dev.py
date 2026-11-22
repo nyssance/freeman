@@ -11,11 +11,11 @@ from bolt_mcp import MCP, mount_mcp
 from django.core.management import call_command, execute_from_command_line
 from django.core.management.base import CommandError
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated
-from django_bolt.management.commands import runbolt as runbolt_module
-from django_bolt.middleware import Middleware
-from django_bolt.testing import TestClient, WebSocketTestClient
+from freeman import BoltAPI, WebSocket
+from freeman.auth import APIKeyAuthentication, IsAuthenticated
+from freeman.management.commands import runbolt as runbolt_module
+from freeman.middleware import Middleware
+from freeman.testing import TestClient, WebSocketTestClient
 
 
 def _clear_modules(monkeypatch, *module_names: str) -> None:
@@ -298,7 +298,7 @@ def test_runbolt_dev_warns_about_the_options_that_it_ignores(monkeypatch, capsys
 _LIFESPAN_API_SOURCE = """
 from contextlib import asynccontextmanager
 
-from django_bolt.api import BoltAPI
+from freeman.api import BoltAPI
 
 EVENTS = []
 
@@ -333,7 +333,7 @@ def test_runbolt_passes_its_options_to_the_server(
     settings, tmp_path, monkeypatch, capsys, argv, backlog, mounts, warnings
 ):
     (tmp_path / "options_api.py").write_text(
-        "from django_bolt.api import BoltAPI\napi = BoltAPI()\n\n\n@api.get('/ping')\nasync def ping():\n    return {}\n"
+        "from freeman.api import BoltAPI\napi = BoltAPI()\n\n\n@api.get('/ping')\nasync def ping():\n    return {}\n"
     )
     (tmp_path / "options_lifespan_api.py").write_text(_LIFESPAN_API_SOURCE)
     monkeypatch.syspath_prepend(str(tmp_path))
@@ -382,9 +382,7 @@ def test_collect_dev_watch_paths_includes_api_transitive_imports(settings, tmp_p
     file itself — editing a helper module api.py imports would never reload.
     """
     (tmp_path / "urls.py").write_text("urlpatterns = []\n")
-    (tmp_path / "api.py").write_text(
-        "from django_bolt.api import BoltAPI\nimport dev_watch_helper_a\napi = BoltAPI()\n"
-    )
+    (tmp_path / "api.py").write_text("from freeman.api import BoltAPI\nimport dev_watch_helper_a\napi = BoltAPI()\n")
     helper = tmp_path / "dev_watch_helper_a.py"
     helper.write_text("VALUE = 1\n")
 
@@ -400,7 +398,7 @@ def test_collect_dev_watch_paths_includes_api_transitive_imports(settings, tmp_p
 
 def test_collect_dev_watch_paths_includes_bolt_api_setting_imports(settings, tmp_path, monkeypatch):
     (tmp_path / "explicit_api.py").write_text(
-        "from django_bolt.api import BoltAPI\nimport dev_watch_helper_b\napi = BoltAPI()\n"
+        "from freeman.api import BoltAPI\nimport dev_watch_helper_b\napi = BoltAPI()\n"
     )
     helper = tmp_path / "dev_watch_helper_b.py"
     helper.write_text("VALUE = 1\n")
@@ -464,7 +462,7 @@ def test_collect_dev_watch_paths_survives_broken_api_module(settings, tmp_path, 
     still triggers a reload."""
     (tmp_path / "urls.py").write_text("urlpatterns = []\n")
     api_module = tmp_path / "api.py"
-    api_module.write_text("from django_bolt.api import BoltAPI\nraise RuntimeError('boom')\napi = BoltAPI()\n")
+    api_module.write_text("from freeman.api import BoltAPI\nraise RuntimeError('boom')\napi = BoltAPI()\n")
 
     monkeypatch.syspath_prepend(str(tmp_path))
     _clear_modules(monkeypatch, "urls", "api")
@@ -479,7 +477,7 @@ def test_collect_dev_watch_paths_survives_broken_api_module(settings, tmp_path, 
 
 def test_autodiscover_apis_uses_top_level_api_for_plain_root_urlconf(settings, tmp_path, monkeypatch):
     (tmp_path / "urls.py").write_text("urlpatterns = []\n")
-    (tmp_path / "api.py").write_text("from django_bolt.api import BoltAPI\napi = BoltAPI()\n")
+    (tmp_path / "api.py").write_text("from freeman.api import BoltAPI\napi = BoltAPI()\n")
 
     monkeypatch.syspath_prepend(str(tmp_path))
     _clear_modules(monkeypatch, "urls", "api", "urls.api")
@@ -495,7 +493,7 @@ def test_autodiscover_apis_prefers_package_api_for_package_root_urlconf(settings
     urls_package = tmp_path / "urls"
     urls_package.mkdir()
     (urls_package / "__init__.py").write_text("urlpatterns = []\n")
-    (urls_package / "api.py").write_text("from django_bolt.api import BoltAPI\napi = BoltAPI()\n")
+    (urls_package / "api.py").write_text("from freeman.api import BoltAPI\napi = BoltAPI()\n")
 
     monkeypatch.syspath_prepend(str(tmp_path))
     _clear_modules(monkeypatch, "urls", "api", "urls.api")
@@ -513,14 +511,14 @@ def test_autodiscover_apis_finds_the_apis_of_installed_apps(settings, tmp_path, 
         package.mkdir()
         (package / "__init__.py").write_text("")
         for file_name, source in files.items():
-            (package / file_name).write_text("from django_bolt.api import BoltAPI\n" + source)
+            (package / file_name).write_text("from freeman.api import BoltAPI\n" + source)
 
     write_app("discover_project", {"urls.py": "urlpatterns = []\n", "api.py": "api = BoltAPI()\n"})
     # The project API covers each app below the project package.
     (tmp_path / "discover_project" / "billing").mkdir()
     (tmp_path / "discover_project" / "billing" / "__init__.py").write_text("")
     (tmp_path / "discover_project" / "billing" / "api.py").write_text(
-        "from django_bolt.api import BoltAPI\napi = BoltAPI()\n"
+        "from freeman.api import BoltAPI\napi = BoltAPI()\n"
     )
     write_app(
         "discover_shop", {"api.py": "first = BoltAPI()\nsecond = BoltAPI()\n", "bolt_api.py": "api = BoltAPI()\n"}
@@ -531,7 +529,7 @@ def test_autodiscover_apis_finds_the_apis_of_installed_apps(settings, tmp_path, 
 
     monkeypatch.syspath_prepend(str(tmp_path))
     app_configs = [
-        SimpleNamespace(name="django_bolt"),
+        SimpleNamespace(name="freeman"),
         SimpleNamespace(name="discover_project.billing"),
         SimpleNamespace(name="discover_shop"),
         SimpleNamespace(name="discover_plain"),
@@ -802,7 +800,7 @@ def test_bolt_api_entry_that_cannot_be_imported_stops_startup(
     settings, tmp_path, monkeypatch, entry, error_type, message
 ):
     (tmp_path / "broken_entry_api.py").write_text(
-        "from django_bolt.api import BoltAPI\napi = BoltAPI()\nother = object()\n"
+        "from freeman.api import BoltAPI\napi = BoltAPI()\nother = object()\n"
     )
     (tmp_path / "broken_entry_dependency.py").write_text("import broken_entry_not_installed\n")
     (tmp_path / "broken_entry_package").mkdir()

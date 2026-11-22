@@ -2,15 +2,15 @@
 
 A named Bolt route plus a route that renders a template using ``{% url %}``,
 proving ``reverse()`` resolves Bolt route names end-to-end. The project wires
-``path("", include("django_bolt.urls"))`` in its ROOT_URLCONF.
+``path("", include("freeman.urls"))`` in its ROOT_URLCONF.
 """
 
 from __future__ import annotations
 
 from django.template import Context, Template
 
-from django_bolt import BoltAPI
-from django_bolt.responses import HTML
+from freeman import BoltAPI
+from freeman.responses import HTML
 
 api = BoltAPI()
 

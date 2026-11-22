@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.testing import TestClient, WebSocketTestClient
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.testing import TestClient, WebSocketTestClient
 
 from .apps import app_module, include_in_schema_layers
 from .helpers import SimpleWebSocketClient

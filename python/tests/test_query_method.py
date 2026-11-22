@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import msgspec
 
-from django_bolt import BoltAPI, Router
-from django_bolt.openapi.config import OpenAPIConfig
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView
+from freeman import BoltAPI, Router
+from freeman.openapi.config import OpenAPIConfig
+from freeman.testing import TestClient
+from freeman.views import APIView
 
 
 class SearchQuery(msgspec.Struct):

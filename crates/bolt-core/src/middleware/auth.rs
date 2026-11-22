@@ -372,7 +372,7 @@ impl RefreshingJwks {
     }
 }
 
-/// Log a JWKS refresh that Bolt cannot use to the `django_bolt.auth` logger.
+/// Log a JWKS refresh that Bolt cannot use to the `freeman.auth` logger.
 ///
 /// Bolt keeps the last keys, so a token from a new key gets a 401. The log
 /// is the only sign that the provider fails. The `log` crate has no output here.
@@ -380,7 +380,7 @@ fn log_jwks_refresh_failure(py: Python<'_>, reason: &str) {
     let message = format!("JWKS refresh failed: {reason}. Bolt keeps the last keys.");
     let logged = py
         .import(intern!(py, "logging"))
-        .and_then(|logging| logging.call_method1(intern!(py, "getLogger"), ("django_bolt.auth",)))
+        .and_then(|logging| logging.call_method1(intern!(py, "getLogger"), ("freeman.auth",)))
         .and_then(|logger| logger.call_method1(intern!(py, "warning"), (message.as_str(),)));
     if let Err(err) = logged {
         eprintln!("[django-bolt] {message} Logging failed: {err}");
@@ -2049,7 +2049,7 @@ mod tests {
                 class Keep(logging.Handler):\n    \
                     def emit(self, record):\n        \
                         records.append((record.levelname, record.getMessage()))\n\
-                logging.getLogger('django_bolt.auth').addHandler(Keep())\n\
+                logging.getLogger('freeman.auth').addHandler(Keep())\n\
                 def refresh():\n    \
                     raise RuntimeError('provider 7391 is down')\n";
             let module = PyModule::from_code(

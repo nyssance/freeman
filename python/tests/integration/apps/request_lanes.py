@@ -19,9 +19,9 @@ from django.db import connection
 from django.db.backends.signals import connection_created
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI
-from django_bolt.concurrency import in_lane_mode, sync_to_thread
-from django_bolt.middleware import DjangoMiddlewareStack
+from freeman import BoltAPI
+from freeman.concurrency import in_lane_mode, sync_to_thread
+from freeman.middleware import DjangoMiddlewareStack
 
 _local = threading.local()
 _created_connections = []

@@ -7,7 +7,7 @@ Bolt route of this module answers first.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 

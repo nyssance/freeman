@@ -19,10 +19,10 @@ import msgspec
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI, Router
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
-from django_bolt.exceptions import HTTPException
-from django_bolt.middleware import (
+from freeman import BoltAPI, Router
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
+from freeman.exceptions import HTTPException
+from freeman.middleware import (
     BaseMiddleware,
     DjangoMiddlewareStack,
     ErrorHandlerMiddleware,
@@ -34,10 +34,10 @@ from django_bolt.middleware import (
     rate_limit,
     skip_middleware,
 )
-from django_bolt.middleware.middleware import FunctionMiddlewareSpec, normalize_middleware_specs
-from django_bolt.params import Cookie, Header
-from django_bolt.responses import HTML, JSON, PlainText
-from django_bolt.testing import TestClient
+from freeman.middleware.middleware import FunctionMiddlewareSpec, normalize_middleware_specs
+from freeman.params import Cookie, Header
+from freeman.responses import HTML, JSON, PlainText
+from freeman.testing import TestClient
 
 
 # Test models
@@ -1698,11 +1698,11 @@ def test_logging_middleware_logs_less_by_default(caplog):
     async def health():
         return {"ok": True}
 
-    with caplog.at_level(logging.INFO, logger="django_bolt.requests"), TestClient(api) as client:
+    with caplog.at_level(logging.INFO, logger="freeman.requests"), TestClient(api) as client:
         client.post("/echo", content=b"12345", headers={"X-Probe": "1"})
         client.get("/health")
 
-    records = [record for record in caplog.records if record.name == "django_bolt.requests"]
+    records = [record for record in caplog.records if record.name == "freeman.requests"]
     assert [record.levelno for record in records] == [logging.INFO, logging.INFO]
     request_line = records[0].getMessage()
     assert "'path': '/echo'" in request_line
@@ -1730,7 +1730,7 @@ def test_error_handler_middleware_answers_500_and_logs_an_unhandled_exception(de
     async def teapot():
         raise HTTPException(418, "teapot")
 
-    with caplog.at_level(logging.ERROR, logger="django_bolt.errors"), TestClient(api) as client:
+    with caplog.at_level(logging.ERROR, logger="freeman.errors"), TestClient(api) as client:
         crash = client.get("/boom")
         http_error = client.get("/teapot")
 
@@ -1742,7 +1742,7 @@ def test_error_handler_middleware_answers_500_and_logs_an_unhandled_exception(de
         assert crash.json() == {"detail": "Internal Server Error"}
     assert http_error.status_code == 418
     assert http_error.json() == {"detail": "teapot"}
-    messages = [record.getMessage() for record in caplog.records if record.name == "django_bolt.errors"]
+    messages = [record.getMessage() for record in caplog.records if record.name == "freeman.errors"]
     assert messages == ["Unhandled exception: secret detail"]
 
 

@@ -1,8 +1,8 @@
 import pytest
 
-from django_bolt.middleware_response import MiddlewareResponse
-from django_bolt.responses import StreamingResponse
-from django_bolt.serialization import _BODY_BYTES, _BODY_FILE, _BODY_STREAM
+from freeman.middleware_response import MiddlewareResponse
+from freeman.responses import StreamingResponse
+from freeman.serialization import _BODY_BYTES, _BODY_FILE, _BODY_STREAM
 
 
 def test_middleware_response_does_not_promote_content_attribute_objects_to_stream():

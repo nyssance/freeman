@@ -14,10 +14,10 @@ import jwt
 import pytest
 from django.contrib.auth.models import User
 
-from django_bolt import BoltAPI
-from django_bolt.auth import InMemoryRevocation, IsAuthenticated, JWTAuthentication
-from django_bolt.auth.user_loader import default_django_user_loader
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import InMemoryRevocation, IsAuthenticated, JWTAuthentication
+from freeman.auth.user_loader import default_django_user_loader
+from freeman.testing import TestClient
 
 SECRET = "test-secret"
 

@@ -7,7 +7,7 @@ A large JSON route (above the default compression threshold) plus a tiny one
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 

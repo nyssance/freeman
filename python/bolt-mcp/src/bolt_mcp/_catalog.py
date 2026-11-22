@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 from typing import TYPE_CHECKING, Any
 
-from django_bolt._json import encode as json_encode
+from freeman._json import encode as json_encode
 
 if TYPE_CHECKING:
     from .server import MCP

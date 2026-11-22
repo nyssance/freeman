@@ -28,7 +28,7 @@ def test_runbolt_uses_default_max_param_length_without_env(make_server_project):
     assert "max 8192 bytes" in response.text
 
 
-def test_runbolt_honors_django_bolt_max_param_length_env(make_server_project):
+def test_runbolt_honors_freeman_max_param_length_env(make_server_project):
     project = _make_project(make_server_project)
 
     accepted = "a" * 10000

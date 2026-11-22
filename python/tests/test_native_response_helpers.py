@@ -7,8 +7,8 @@ from http.cookies import CookieError, SimpleCookie
 
 import pytest
 
-from django_bolt import _core
-from django_bolt.exceptions import ResponseFileNotAllowed, ResponseFileNotFound
+from freeman import _core
+from freeman.exceptions import ResponseFileNotAllowed, ResponseFileNotFound
 
 
 @pytest.mark.parametrize("tz", [None, UTC, timezone(timedelta(hours=5))])

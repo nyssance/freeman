@@ -3,7 +3,7 @@ from __future__ import annotations
 from bolt_mcp import MCP, mount_mcp, principal
 from bolt_mcp.oauth import AuthorizationServer
 
-from django_bolt import BoltAPI, IsAuthenticated, Request, Requires
+from freeman import BoltAPI, IsAuthenticated, Request, Requires
 
 ISSUER = "http://testserver"
 

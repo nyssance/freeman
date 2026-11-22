@@ -17,10 +17,10 @@ import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
-from django_bolt import BoltAPI, FileSize, UploadFile, responses
-from django_bolt.params import File
-from django_bolt.responses import FileResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, FileSize, UploadFile, responses
+from freeman.params import File
+from freeman.responses import FileResponse
+from freeman.testing import TestClient
 
 TWO_MB = 2 * 1024 * 1024
 # An absolute path on each OS.

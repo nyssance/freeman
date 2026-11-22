@@ -6,7 +6,7 @@ The mounted ASGI app accepts, closes with 4000, and then sends a message.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 

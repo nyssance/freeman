@@ -14,16 +14,16 @@ import jwt
 import pytest
 from django.contrib.auth.models import User
 
-from django_bolt import BoltAPI
-from django_bolt.auth import (
+from freeman import BoltAPI
+from freeman.auth import (
     APIKeyAuthentication,
     DjangoCacheRevocation,
     InMemoryRevocation,
     IsAuthenticated,
     JWTAuthentication,
 )
-from django_bolt.auth.jwt_utils import create_jwt_for_user
-from django_bolt.testing import TestClient
+from freeman.auth.jwt_utils import create_jwt_for_user
+from freeman.testing import TestClient
 
 SECRET = "revocation-integration-secret"
 

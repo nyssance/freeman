@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from django.http import HttpResponse
 
-from django_bolt import BoltAPI
-from django_bolt.responses import JSON, Response
+from freeman import BoltAPI
+from freeman.responses import JSON, Response
 
 api = BoltAPI()
 

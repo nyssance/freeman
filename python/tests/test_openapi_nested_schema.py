@@ -11,10 +11,10 @@ from typing import Annotated
 
 import msgspec
 
-from django_bolt import BoltAPI
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.params import Body
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.openapi import OpenAPIConfig
+from freeman.params import Body
+from freeman.testing import TestClient
 
 
 class Address(msgspec.Struct):

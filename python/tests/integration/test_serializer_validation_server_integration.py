@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 from .apps import app_module, serializer_validation
 

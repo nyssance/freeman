@@ -19,7 +19,7 @@ Pass an async context manager factory to the `lifespan` parameter of `BoltAPI`. 
 
 ```python
 from contextlib import asynccontextmanager
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 @asynccontextmanager
 async def lifespan(app):
@@ -40,7 +40,7 @@ The context manager pattern guarantees cleanup runs even if the server crashes, 
 
 ```python
 from contextlib import asynccontextmanager
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 @asynccontextmanager
 async def lifespan(app):
@@ -67,7 +67,7 @@ async def get_cached():
 ```python
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import create_async_engine
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 @asynccontextmanager
 async def lifespan(app):
@@ -85,7 +85,7 @@ api = BoltAPI(lifespan=lifespan)
 
 ```python
 from contextlib import asynccontextmanager
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 @asynccontextmanager
 async def lifespan(app):
@@ -139,7 +139,7 @@ The lifespan of an API that you mount with `api.mount()` runs with the parent AP
 
 ```python
 from contextlib import asynccontextmanager
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 @asynccontextmanager
 async def reports_lifespan(app):
@@ -159,8 +159,8 @@ The `TestClient` is lifespan-aware. When you enter the `with` block, startup run
 
 ```python
 from contextlib import asynccontextmanager
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 @asynccontextmanager
 async def lifespan(app):

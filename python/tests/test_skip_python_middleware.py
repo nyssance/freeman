@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt import BoltAPI, Router
-from django_bolt.middleware import DjangoMiddleware, DjangoMiddlewareStack, middleware, rate_limit, skip_middleware
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Router
+from freeman.middleware import DjangoMiddleware, DjangoMiddlewareStack, middleware, rate_limit, skip_middleware
+from freeman.testing import TestClient
 
 
 def _header_middleware(header: str) -> type:

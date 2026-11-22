@@ -15,17 +15,17 @@ import uuid
 import jwt
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.auth import (
+from freeman import BoltAPI
+from freeman.auth import (
     IsAuthenticated,
     JWTAuthentication,
     TokenRotationError,
     create_token_pair,
     rotate_refresh_token,
 )
-from django_bolt.auth import tokens as tokens_module
-from django_bolt.auth.revocation import InMemoryRevocation
-from django_bolt.testing import TestClient
+from freeman.auth import tokens as tokens_module
+from freeman.auth.revocation import InMemoryRevocation
+from freeman.testing import TestClient
 
 SECRET = "token-pair-secret"
 

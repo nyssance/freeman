@@ -10,8 +10,8 @@ backends with different secrets. Only the first one reads ``REVOKED_JTIS``.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
+from freeman import BoltAPI, WebSocket
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
 
 SECRET = "websocket-revocation-secret-longer-than-32-characters"
 OTHER_SECRET = "websocket-revocation-other-secret-longer-than-32-chars"

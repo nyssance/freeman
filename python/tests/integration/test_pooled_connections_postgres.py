@@ -2,7 +2,7 @@
 
 ``test_dead_connection_recovery_server_integration.py`` checks the same code
 on a real ``runbolt`` server. The tests here call the public helpers of
-``django_bolt.concurrency`` on threads of the test, so they can hold a
+``freeman.concurrency`` on threads of the test, so they can hold a
 connection on a thread, end its backend, and read the state of the pool.
 
 Set ``DJANGO_BOLT_TEST_POSTGRES_DSN`` to run them. Without the variable, they skip.
@@ -25,9 +25,9 @@ from django.db.backends.signals import connection_created
 from django.utils.deprecation import MiddlewareMixin
 from psycopg_pool import ConnectionPool
 
-from django_bolt import BoltAPI, concurrency
-from django_bolt.middleware import DjangoMiddlewareStack
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, concurrency
+from freeman.middleware import DjangoMiddlewareStack
+from freeman.testing import TestClient
 from tests.thread_pools import shutdown_closing_connections
 
 from .test_dead_connection_recovery_server_integration import backend_pids, terminate_backends
@@ -286,15 +286,15 @@ def test_each_event_that_ends_the_connections_drains_the_pool_one_time(pooled, f
 
 @pytest.fixture
 def bolt_logs_reach_caplog(monkeypatch):
-    """Make ``django_bolt`` records propagate before the test runs.
+    """Make ``freeman`` records propagate before the test runs.
 
     An earlier test can leave Bolt's logging setup in place, which stops the
     records at its own handler. pytest then attaches the ``caplog`` handler to
-    ``django_bolt`` when the test starts. A patch inside the test sends each
+    ``freeman`` when the test starts. A patch inside the test sends each
     record to that handler and to the root handler, so ``caplog`` gets it two
     times. A fixture patches before pytest attaches its handlers.
     """
-    monkeypatch.setattr(logging.getLogger("django_bolt"), "propagate", True)
+    monkeypatch.setattr(logging.getLogger("freeman"), "propagate", True)
 
 
 @pytest.mark.parametrize(
@@ -315,14 +315,14 @@ def test_check_pool_environment_warns_only_for_a_pool_with_a_check(
     The installed psycopg_pool has ``drain()``, so the check logs no warning about its version.
     """
     options = {"pool": pool} if pool else {}
-    caplog.set_level(logging.WARNING, logger="django_bolt")
+    caplog.set_level(logging.WARNING, logger="freeman")
     # The settings go back before the fixture closes the pool of this database.
     with monkeypatch.context() as patch:
         patch.setitem(connections.settings[ALIAS], "OPTIONS", options)
         patch.setitem(connections.settings[ALIAS], "CONN_HEALTH_CHECKS", health_checks)
         concurrency.check_pool_environment()
 
-    messages = [record.getMessage() for record in caplog.records if record.name == "django_bolt.concurrency"]
+    messages = [record.getMessage() for record in caplog.records if record.name == "freeman.concurrency"]
     if warning is None:
         assert messages == []
     else:
@@ -423,7 +423,7 @@ def test_a_pooled_connection_that_stays_does_not_keep_the_one_of_another_pool(
             # Django then cannot give the connection back, and its close() raises.
             raw._pool = None
 
-    caplog.set_level(logging.ERROR, logger="django_bolt")
+    caplog.set_level(logging.ERROR, logger="freeman")
     try:
         blocking(lose_both_pools)
     finally:
@@ -432,7 +432,7 @@ def test_a_pooled_connection_that_stays_does_not_keep_the_one_of_another_pool(
             raw._pool = pool
             pool.putconn(raw)
 
-    messages = [record.getMessage() for record in caplog.records if record.name == "django_bolt.concurrency"]
+    messages = [record.getMessage() for record in caplog.records if record.name == "freeman.concurrency"]
     # The first failed return goes up to the call, which logs it. Bolt logs the second one with its database.
     assert "Could not give the pooled database connections of a thread back after a call" in messages
     second = [message for message in messages if message.startswith("Could not give the pooled connection of")]

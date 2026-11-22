@@ -8,6 +8,7 @@ one time for each line.
 
 from __future__ import annotations
 
+import importlib.util
 import inspect
 import logging
 import os
@@ -19,21 +20,21 @@ import jwt
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI, Request, concurrency
-from django_bolt.auth import JWTAuthentication
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Request, concurrency
+from freeman.auth import JWTAuthentication
+from freeman.testing import TestClient
 
 SECRET = "slow-user-read-hint-secret-longer-than-32-characters"
 
 
 @pytest.fixture(autouse=True)
 def _bolt_logs_reach_caplog(monkeypatch):
-    """Bolt's logging setup stops ``django_bolt`` records at its own handler.
+    """Bolt's logging setup stops ``freeman`` records at its own handler.
 
     An earlier test can leave that setup in place. ``caplog`` listens on the
     root logger, so the records must propagate for these tests.
     """
-    monkeypatch.setattr(logging.getLogger("django_bolt"), "propagate", True)
+    monkeypatch.setattr(logging.getLogger("freeman"), "propagate", True)
 
 
 @pytest.fixture(autouse=True)
@@ -53,8 +54,11 @@ def _mutmut_trampolines_are_framework_frames(monkeypatch):
     Bolt reports the first caller outside Bolt, Django, and asgiref. Without
     this, that caller is the trampoline, and the tests fail for each mutant.
     """
-    parts = (*concurrency._FRAMEWORK_PATH_PARTS, f"{os.sep}mutmut{os.sep}")
-    monkeypatch.setattr(concurrency, "_FRAMEWORK_PATH_PARTS", parts)
+    spec = importlib.util.find_spec("mutmut")
+    if spec is None or spec.origin is None:
+        return
+    mutmut_dir = os.path.dirname(os.path.abspath(spec.origin)) + os.sep
+    monkeypatch.setattr(concurrency, "_FRAMEWORK_DIRS", (*concurrency._FRAMEWORK_DIRS, mutmut_dir))
 
 
 class _SlowAuth(JWTAuthentication):
@@ -109,7 +113,7 @@ def test_a_slow_blocking_read_is_reported_one_time_in_dev_mode(caplog, monkeypat
         monkeypatch.delenv("DJANGO_BOLT_DEV_WORKER", raising=False)
     else:
         monkeypatch.setenv("DJANGO_BOLT_DEV_WORKER", dev_worker)
-    caplog.set_level(logging.WARNING, logger="django_bolt")
+    caplog.set_level(logging.WARNING, logger="freeman")
     with override_settings(DEBUG=debug), TestClient(_api(delay=0.08)) as client:
         for _ in range(3):
             response = client.get("/me", headers=_headers())
@@ -130,7 +134,7 @@ def test_a_slow_blocking_read_is_reported_one_time_in_dev_mode(caplog, monkeypat
 
 
 def test_a_fast_read_is_not_reported(caplog):
-    caplog.set_level(logging.WARNING, logger="django_bolt")
+    caplog.set_level(logging.WARNING, logger="freeman")
     with override_settings(DEBUG=True), TestClient(_api(delay=0)) as client:
         assert client.get("/me", headers=_headers()).status_code == 200
 

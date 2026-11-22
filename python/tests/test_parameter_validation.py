@@ -8,9 +8,9 @@ from typing import Annotated
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.params import Body, Param, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.params import Body, Param, Query
+from freeman.testing import TestClient
 
 
 class UserCreate(msgspec.Struct):

@@ -14,9 +14,9 @@ Tests cover:
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
-from django_bolt.views import (
+from freeman import BoltAPI
+from freeman.testing import TestClient
+from freeman.views import (
     APIView,
 )
 from tests.test_models import Article

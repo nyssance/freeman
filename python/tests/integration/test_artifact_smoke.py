@@ -41,7 +41,7 @@ def _venv_script(venv_python: Path, name: str) -> Path:
 
 
 def _artifact_requirement(artifact_path: Path, extra: str = "") -> str:
-    return f"django-bolt{extra} @ {artifact_path.resolve().as_uri()}"
+    return f"freeman{extra} @ {artifact_path.resolve().as_uri()}"
 
 
 def _venv_with(venv_dir: Path, *requirements: str) -> Path:
@@ -101,7 +101,7 @@ def test_installed_artifact_runs_runbolt_dev(make_server_project, installed_arti
 
 
 def test_installed_artifact_prints_its_version(installed_artifact_python: Path):
-    """The ``django-bolt version`` console script prints the version of the installed distribution."""
+    """The ``freeman version`` console script prints the version of the installed distribution."""
     installed_version = subprocess.run(
         [
             str(installed_artifact_python),
@@ -114,7 +114,7 @@ def test_installed_artifact_prints_its_version(installed_artifact_python: Path):
     ).stdout.strip()
 
     result = subprocess.run(
-        [str(_venv_script(installed_artifact_python, "django-bolt")), "version"],
+        [str(_venv_script(installed_artifact_python, "freeman")), "version"],
         capture_output=True,
         text=True,
     )
@@ -179,4 +179,4 @@ def test_runbolt_warns_on_a_pool_without_drain(make_server_project, pool_without
 
     output = stdout + stderr
     assert "psycopg_pool before 3.3" in output, output
-    assert 'Install "django-bolt[pool]"' in output, output
+    assert 'Install "freeman[pool]"' in output, output

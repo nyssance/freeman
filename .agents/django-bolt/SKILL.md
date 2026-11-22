@@ -39,13 +39,13 @@ metadata:
 ```python
 # settings.py
 INSTALLED_APPS = [
-    "django_bolt",
+    "freeman",
 ]
 ```
 
 ```python
 # myproject/api.py
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -60,7 +60,7 @@ Run: `python manage.py runbolt --dev`
 ### BoltAPI constructor options
 
 ```python
-from django_bolt import (
+from freeman import (
     BoltAPI,
     CompressionConfig,
     LoggingMiddleware,
@@ -95,7 +95,7 @@ All HTTP methods: `@api.get`, `@api.post`, `@api.put`, `@api.patch`, `@api.delet
 
 ```python
 import msgspec
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -124,7 +124,7 @@ async def get_item(item_id: int):
 
 ```python
 import msgspec
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -154,8 +154,8 @@ from __future__ import annotations
 from typing import Annotated
 
 import msgspec
-from django_bolt import BoltAPI
-from django_bolt.serializers import Serializer, field_validator, model_validator
+from freeman import BoltAPI
+from freeman.serializers import Serializer, field_validator, model_validator
 
 api = BoltAPI()
 
@@ -204,8 +204,8 @@ from __future__ import annotations
 from typing import Annotated
 
 import msgspec
-from django_bolt import BoltAPI, Depends, UploadFile
-from django_bolt.param_functions import Body, Cookie, File, Form, Header, Path, Query
+from freeman import BoltAPI, Depends, UploadFile
+from freeman.param_functions import Body, Cookie, File, Form, Header, Path, Query
 
 api = BoltAPI()
 
@@ -286,7 +286,7 @@ async def contact(data: Annotated[ContactForm, Form()]):
 
 
 # File uploads with validation
-from django_bolt import FileSize
+from freeman import FileSize
 
 @api.post("/upload")
 async def upload(
@@ -343,8 +343,8 @@ async def update_settings(data: Annotated[UpdatePayload, Body()]):
 ### Response types
 
 ```python
-from django_bolt import BoltAPI, JSON, Response, StreamingResponse
-from django_bolt.responses import FileResponse, HTML, PlainText, Redirect
+from freeman import BoltAPI, JSON, Response, StreamingResponse
+from freeman.responses import FileResponse, HTML, PlainText, Redirect
 
 api = BoltAPI()
 
@@ -425,7 +425,7 @@ async def stream():
 import asyncio
 import json
 
-from django_bolt import BoltAPI, StreamingResponse, no_compress
+from freeman import BoltAPI, StreamingResponse, no_compress
 
 api = BoltAPI()
 
@@ -446,7 +446,7 @@ async def events():
 ### WebSocket
 
 ```python
-from django_bolt import BoltAPI, WebSocket, WebSocketDisconnect
+from freeman import BoltAPI, WebSocket, WebSocketDisconnect
 
 api = BoltAPI()
 
@@ -478,7 +478,7 @@ async def chat(websocket: WebSocket, room: str):
 ### Authentication and guards
 
 ```python
-from django_bolt import (
+from freeman import (
     AllowAny,
     APIKeyAuthentication,
     BoltAPI,
@@ -501,7 +501,7 @@ api = BoltAPI()
 async def login(username: str, password: str):
     user = await verify_credentials(username, password)  # your auth logic
     if not user:
-        from django_bolt.exceptions import HTTPException
+        from freeman.exceptions import HTTPException
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = create_jwt_for_user(user)
     return {"access_token": token}
@@ -573,7 +573,7 @@ async def public():
 ### Middleware (CORS, rate limiting, custom)
 
 ```python
-from django_bolt import BoltAPI, BaseMiddleware, Request, Response, cors, middleware, no_compress, rate_limit, skip_middleware
+from freeman import BoltAPI, BaseMiddleware, Request, Response, cors, middleware, no_compress, rate_limit, skip_middleware
 
 api = BoltAPI()
 
@@ -609,7 +609,7 @@ async def internal():
 @api.get("/stream")
 @no_compress
 async def stream():
-    from django_bolt import StreamingResponse
+    from freeman import StreamingResponse
     async def gen():
         yield "chunk1"
         yield "chunk2"
@@ -637,7 +637,7 @@ async def upload(request: Request):
 ### Pagination
 
 ```python
-from django_bolt import (
+from freeman import (
     BoltAPI,
     CursorPagination,
     LimitOffsetPagination,
@@ -693,7 +693,7 @@ async def feed(request):
 ### OpenAPI documentation
 
 ```python
-from django_bolt import (
+from freeman import (
     BoltAPI,
     OpenAPIConfig,
     RapidocRenderPlugin,
@@ -748,8 +748,8 @@ async def list_items():
 ### Error handling
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.exceptions import HTTPException
+from freeman import BoltAPI
+from freeman.exceptions import HTTPException
 
 api = BoltAPI()
 
@@ -772,8 +772,8 @@ async def create_item(name: str, price: float):
 ### Testing
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 api = BoltAPI()
 
@@ -813,7 +813,7 @@ with TestClient(api) as client:
 
 ```python
 # users/api.py
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI(prefix="/users")
 
@@ -828,7 +828,7 @@ async def get_user(user_id: int):
 
 ```python
 # orders/api.py
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI(prefix="/orders")
 
@@ -853,7 +853,7 @@ Place the task into one bucket before writing code:
 
 ### Step 2: Start from the minimal shape
 
-1. Add `"django_bolt"` to `INSTALLED_APPS`
+1. Add `"freeman"` to `INSTALLED_APPS`
 2. Create an `api.py` in the project or app directory
 3. Instantiate `BoltAPI()`
 4. Add async route handlers with typed parameters
@@ -868,14 +868,14 @@ If the user already has a Django project, preserve their existing models, admin,
 | Simple JSON body | `msgspec.Struct` |
 | Rich validation / reusable fields | `Serializer` with `field_validator` |
 | Output shape + docs | `response_model` on the route |
-| Path/query/header/cookie/form/file params | Parameter markers from `django_bolt.param_functions` |
+| Path/query/header/cookie/form/file params | Parameter markers from `freeman.param_functions` |
 | Auth | `JWTAuthentication()`, `APIKeyAuthentication()`, or session auth |
 | Permissions | Guards: `IsAuthenticated`, `IsAdminUser`, `IsStaff`, `HasPermission` |
 | CRUD organization | `APIView` or function-based routes |
 | Real-time | `@api.websocket()` with `WebSocket` |
 | One-way live updates | `StreamingResponse(..., media_type="text/event-stream")` |
 | API docs | `OpenAPIConfig` (served at `/docs` by default) |
-| Tests | `django_bolt.testing.TestClient` |
+| Tests | `freeman.testing.TestClient` |
 
 ### Step 4: Write short, copyable examples
 
@@ -938,9 +938,9 @@ If the user already has a Django project, preserve their existing models, admin,
 
 ## Troubleshooting
 
-### "Module django_bolt not found"
+### "Module freeman not found"
 
-CRITICAL: Ensure `"django_bolt"` is in `INSTALLED_APPS` in `settings.py`. The package is `django-bolt` (hyphen) but the Python module is `django_bolt` (underscore).
+CRITICAL: Ensure `"freeman"` is in `INSTALLED_APPS` in `settings.py`. The package is `django-bolt` (hyphen) but the Python module is `freeman` (underscore).
 
 ### Server won't start with runbolt
 

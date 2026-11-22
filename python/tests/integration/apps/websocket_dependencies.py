@@ -10,8 +10,8 @@ import asyncio
 import json
 from typing import Annotated
 
-from django_bolt import BoltAPI, Depends, WebSocket
-from django_bolt.param_functions import Header, Query
+from freeman import BoltAPI, Depends, WebSocket
+from freeman.param_functions import Header, Query
 
 api = BoltAPI()
 

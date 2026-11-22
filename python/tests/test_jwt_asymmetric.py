@@ -30,9 +30,9 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from django.core.exceptions import ImproperlyConfigured
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.testing import TestClient
 
 HS_SECRET = "asymmetric-test-secret"
 

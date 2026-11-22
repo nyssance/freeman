@@ -9,13 +9,13 @@ import functools
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, Router, ViewSet, action
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated
-from django_bolt.middleware import TimingMiddleware, cors, middleware, no_compress, rate_limit, skip_middleware
-from django_bolt.pagination import PageNumberPagination, paginate
-from django_bolt.responses import PlainText
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView
+from freeman import BoltAPI, Router, ViewSet, action
+from freeman.auth import APIKeyAuthentication, IsAuthenticated
+from freeman.middleware import TimingMiddleware, cors, middleware, no_compress, rate_limit, skip_middleware
+from freeman.pagination import PageNumberPagination, paginate
+from freeman.responses import PlainText
+from freeman.testing import TestClient
+from freeman.views import APIView
 
 from .test_models import Article  # noqa: PLC0415
 

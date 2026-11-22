@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from django_bolt import JSON, BoltAPI
-from django_bolt.auth import (
+from freeman import JSON, BoltAPI
+from freeman.auth import (
     InMemoryRevocation,
     IsAuthenticated,
     JWTAuthentication,
@@ -12,7 +12,7 @@ from django_bolt.auth import (
     rotate_refresh_token,
     set_token_cookies,
 )
-from django_bolt.exceptions import Unauthorized
+from freeman.exceptions import Unauthorized
 
 SECRET = "token-lifecycle-server-integration-secret"
 USER_ID = "lifecycle-user"

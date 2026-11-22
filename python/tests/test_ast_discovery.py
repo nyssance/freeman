@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from django_bolt.management.commands.runbolt import find_bolt_api_names
+from freeman.management.commands.runbolt import find_bolt_api_names
 
 
 def _write_module(tmp_path: Path, module_name: str, source: str) -> str:
@@ -41,7 +41,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_simple",
             """
-            from django_bolt.api import BoltAPI
+            from freeman.api import BoltAPI
             app = BoltAPI()
         """,
         )
@@ -52,7 +52,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_canonical",
             """
-            from django_bolt.api import BoltAPI
+            from freeman.api import BoltAPI
             api = BoltAPI()
         """,
         )
@@ -85,7 +85,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_alias",
             """
-            from django_bolt.api import BoltAPI as Bolt
+            from freeman.api import BoltAPI as Bolt
             v1 = Bolt()
         """,
         )
@@ -96,8 +96,8 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_attr",
             """
-            import django_bolt.api
-            app = django_bolt.api.BoltAPI()
+            import freeman.api
+            app = freeman.api.BoltAPI()
         """,
         )
         assert find_bolt_api_names(name) == ["app"]
@@ -107,7 +107,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_alias_module",
             """
-            import django_bolt.api as bolt
+            import freeman.api as bolt
             app = bolt.BoltAPI()
         """,
         )
@@ -118,7 +118,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_annassign",
             """
-            from django_bolt.api import BoltAPI
+            from freeman.api import BoltAPI
             app: BoltAPI = BoltAPI()
         """,
         )
@@ -129,7 +129,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_multi",
             """
-            from django_bolt.api import BoltAPI
+            from freeman.api import BoltAPI
             v1 = BoltAPI()
             v2 = BoltAPI()
         """,
@@ -141,7 +141,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_ignore",
             """
-            from django_bolt.api import BoltAPI
+            from freeman.api import BoltAPI
             api = BoltAPI()
             other = SomethingElse()
             x = int("5")
@@ -154,7 +154,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_nested",
             """
-            from django_bolt.api import BoltAPI
+            from freeman.api import BoltAPI
             def create():
                 inner = BoltAPI()
                 return inner
@@ -191,7 +191,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_multitarget",
             """
-            from django_bolt.api import BoltAPI
+            from freeman.api import BoltAPI
             a = b = BoltAPI()
         """,
         )
@@ -202,7 +202,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_args",
             """
-            from django_bolt.api import BoltAPI
+            from freeman.api import BoltAPI
             app = BoltAPI(enable_logging=True, trailing_slash=False)
         """,
         )
@@ -213,7 +213,7 @@ class TestFindBoltApiNames:
             tmp_path,
             "_test_star",
             """
-            from django_bolt.api import *
+            from freeman.api import *
             app = BoltAPI()
         """,
         )

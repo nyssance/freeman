@@ -19,10 +19,10 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
 
-import django_bolt.auth
-import django_bolt.auth.guards
-from django_bolt import BoltAPI
-from django_bolt.auth import (
+import freeman.auth
+import freeman.auth.guards
+from freeman import BoltAPI
+from freeman.auth import (
     AllowAny,
     APIKeyAuthentication,
     IsAuthenticated,
@@ -30,7 +30,7 @@ from django_bolt.auth import (
     Requires,
     create_jwt_for_user,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 pytestmark = pytest.mark.django_db
 
@@ -464,8 +464,8 @@ class TestRegistrationFailures:
 
     def test_no_guard_base_class(self):
         """There is no class to subclass. A custom check is a named Requires."""
-        assert not hasattr(django_bolt.auth, "BasePermission")
-        assert not hasattr(django_bolt.auth.guards, "BasePermission")
+        assert not hasattr(freeman.auth, "BasePermission")
+        assert not hasattr(freeman.auth.guards, "BasePermission")
 
     def test_home_made_guard_with_allow_any_metadata_fails_loudly(self):
         """A look-alike with its own to_metadata() cannot register (#392)."""

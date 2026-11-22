@@ -21,7 +21,7 @@ class Article(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -37,7 +37,7 @@ class Author(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
     def __str__(self):
         return self.name
@@ -50,7 +50,7 @@ class Tag(models.Model):
     description = models.TextField(blank=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
     def __str__(self):
         return self.name
@@ -68,7 +68,7 @@ class BlogPost(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -84,7 +84,7 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
         ordering = ["created_at"]
 
     def __str__(self):
@@ -103,7 +103,7 @@ class User(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -123,7 +123,7 @@ class UserProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
     def __str__(self):
         return f"Profile for {self.user.username}"
@@ -137,7 +137,7 @@ class Document(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
     def __str__(self):
         return self.title
@@ -150,7 +150,7 @@ class Country(models.Model):
     name = models.CharField(max_length=100)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
 
 class Release(models.Model):
@@ -162,4 +162,4 @@ class Release(models.Model):
     channel = models.CharField(max_length=20)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"

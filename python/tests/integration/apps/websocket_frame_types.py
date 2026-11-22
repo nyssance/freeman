@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket, WebSocketException
+from freeman import BoltAPI, WebSocket, WebSocketException
 
 api = BoltAPI()
 

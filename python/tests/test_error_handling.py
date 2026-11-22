@@ -10,8 +10,8 @@ import pytest
 from django.conf import settings  # noqa: PLC0415
 from django.core.exceptions import PermissionDenied
 
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import (
+from freeman import BoltAPI
+from freeman.error_handlers import (
     BoltError,
     bolt_error_from_exception,
     format_error_response,
@@ -23,7 +23,7 @@ from django_bolt.error_handlers import (
     request_validation_error_handler,
     response_validation_error_handler,
 )
-from django_bolt.exceptions import (
+from freeman.exceptions import (
     BadRequest,
     BoltException,
     Forbidden,
@@ -39,8 +39,8 @@ from django_bolt.exceptions import (
     ValidationException,
     parse_msgspec_decode_error,
 )
-from django_bolt.responses import JSON, StreamingResponse
-from django_bolt.testing import TestClient
+from freeman.responses import JSON, StreamingResponse
+from freeman.testing import TestClient
 
 
 class TestExceptions:
@@ -69,7 +69,7 @@ class TestExceptions:
         async def busy():
             raise TooManyRequests(detail="Slow down", headers={"Retry-After": value})
 
-        with caplog.at_level(logging.ERROR, logger="django_bolt"), TestClient(api) as client:
+        with caplog.at_level(logging.ERROR, logger="freeman"), TestClient(api) as client:
             response = client.get("/busy")
         assert response.status_code == 429
         assert response.headers["retry-after"] == sent
@@ -354,7 +354,7 @@ class TestErrorHandlers:
             [{"loc": ["response", "id"], "msg": "Field required", "type": "missing"}, "plain"]
         )
         # The body has the errors only in debug mode.
-        with caplog.at_level(logging.ERROR, logger="django_bolt.error_handlers"):
+        with caplog.at_level(logging.ERROR, logger="freeman.error_handlers"):
             status, _, body = response_validation_error_handler(exc, debug=True)
 
         data = json.loads(body)
@@ -382,7 +382,7 @@ class TestErrorHandlers:
 
     def test_generic_exception_handler_logs_the_server_error(self, caplog):
         exc = ValueError("secret value")
-        with caplog.at_level(logging.ERROR, logger="django_bolt.error_handlers"):
+        with caplog.at_level(logging.ERROR, logger="freeman.error_handlers"):
             generic_exception_handler(exc, debug=False)
 
         [record] = caplog.records
@@ -463,7 +463,7 @@ class TestErrorHandlers:
         exc = ValueError("Test exception")
 
         # Mock the ExceptionReporter where it's used (in error_handlers module)
-        with patch("django_bolt.error_handlers.ExceptionReporter", side_effect=Exception("HTML failed")):
+        with patch("freeman.error_handlers.ExceptionReporter", side_effect=Exception("HTML failed")):
             status, headers, body = generic_exception_handler(exc, debug=True, request=None)
 
         assert status == 500, "Fallback must return 500 status"
@@ -490,7 +490,7 @@ class TestErrorHandlers:
         try:
             fail()
         except ValueError as exc:
-            with patch("django_bolt.error_handlers.ExceptionReporter", side_effect=Exception("HTML failed")):
+            with patch("freeman.error_handlers.ExceptionReporter", side_effect=Exception("HTML failed")):
                 status, _, body = generic_exception_handler(exc, debug=True)
 
         data = json.loads(body)
@@ -507,8 +507,8 @@ class TestErrorHandlers:
 
     def test_generic_exception_handler_debug_json_logs_the_report_failure_at_debug_level(self, caplog):
         with (
-            caplog.at_level(logging.DEBUG, logger="django_bolt.error_handlers"),
-            patch("django_bolt.error_handlers.ExceptionReporter", side_effect=Exception("HTML failed")),
+            caplog.at_level(logging.DEBUG, logger="freeman.error_handlers"),
+            patch("freeman.error_handlers.ExceptionReporter", side_effect=Exception("HTML failed")),
         ):
             generic_exception_handler(ValueError("x"), debug=True)
 
@@ -1061,7 +1061,7 @@ def test_a_status_that_is_not_a_final_http_status_is_a_500(route, code, capfd):
     assert response.json() == {"detail": "Internal Server Error"}
     # The Rust core writes its log records to stderr.
     assert (
-        f"[django-bolt] ERROR django_bolt::handler: The response status must be an int from 200 to 599, got {code}."
+        f"[django-bolt] ERROR freeman::handler: The response status must be an int from 200 to 599, got {code}."
         " Bolt sends a 500."
     ) in capfd.readouterr().err.splitlines()
 
@@ -1115,7 +1115,7 @@ def _validation_log_messages(caplog) -> list[str]:
     return [
         record.getMessage()
         for record in caplog.records
-        if record.name == "django_bolt.error_handlers" and record.levelno == logging.ERROR
+        if record.name == "freeman.error_handlers" and record.levelno == logging.ERROR
     ]
 
 
@@ -1127,7 +1127,7 @@ class TestResponseValidationDisclosure:
         settings.DEBUG = False
         with (
             TestClient(_bad_response_api(), raise_server_exceptions=False) as client,
-            caplog.at_level(logging.ERROR, logger="django_bolt"),
+            caplog.at_level(logging.ERROR, logger="freeman"),
         ):
             response = client.get(path)
 
@@ -1194,7 +1194,7 @@ class TestResponseValidationDisclosure:
         api = _bad_response_api(error_formatter=formatter)
         with (
             TestClient(api, raise_server_exceptions=False) as client,
-            caplog.at_level(logging.ERROR, logger="django_bolt"),
+            caplog.at_level(logging.ERROR, logger="freeman"),
         ):
             response = client.get("/async-bad")
 

@@ -1397,7 +1397,7 @@ pub fn parse_auth_backend(dict: &HashMap<String, Py<PyAny>>, py: Python) -> PyRe
 /// Rust cannot read a Django session. For a session request, Python loads
 /// the user through Django and calls `check`. The guards keep one
 /// implementation: `evaluate_guards`.
-#[pyclass(frozen, module = "django_bolt._core")]
+#[pyclass(frozen, module = "freeman._core")]
 pub struct GuardCheck {
     guards: GuardSet,
 }

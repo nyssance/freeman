@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import msgspec
 
-from django_bolt.serializers import Serializer
+from freeman.serializers import Serializer
 
 
 class Tag(Serializer):

@@ -21,13 +21,13 @@ import jwt
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, Request, action
-from django_bolt.auth.backends import JWTAuthentication
-from django_bolt.auth.guards import IsAuthenticated, Requires
-from django_bolt.exceptions import HTTPException
-from django_bolt.params import Depends
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView, ViewSet
+from freeman import BoltAPI, Request, action
+from freeman.auth.backends import JWTAuthentication
+from freeman.auth.guards import IsAuthenticated, Requires
+from freeman.exceptions import HTTPException
+from freeman.params import Depends
+from freeman.testing import TestClient
+from freeman.views import APIView, ViewSet
 
 # --- Test Fixtures ---
 

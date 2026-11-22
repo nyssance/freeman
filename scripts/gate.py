@@ -40,15 +40,32 @@ def bombardier() -> str:
         (str(p) for p in (Path.home() / "go/bin/bombardier", Path.home() / ".local/bin/bombardier") if p.exists()), None
     )
     if not found:
-        sys.exit("bombardier is not installed: brew install bombardier, or go install github.com/codesenberg/bombardier@latest")
+        sys.exit(
+            "bombardier is not installed: brew install bombardier, or go install github.com/codesenberg/bombardier@latest"
+        )
     return found
 
 
 class Server:
     def __enter__(self):
         self.process = subprocess.Popen(
-            [sys.executable, "manage.py", "runbolt", "--host", "127.0.0.1", "--port", str(PORT), "--processes", "1", "--workers", "1"],
-            cwd=EXAMPLE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+            [
+                sys.executable,
+                "manage.py",
+                "runbolt",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(PORT),
+                "--processes",
+                "1",
+                "--workers",
+                "1",
+            ],
+            cwd=EXAMPLE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
         for _ in range(120):
             try:
@@ -65,13 +82,17 @@ class Server:
         self.process.wait()
 
     def rss_mb(self) -> float:
-        out = subprocess.run(["ps", "-o", "rss=", "-g", str(os.getpgid(self.process.pid))], capture_output=True, text=True)
+        out = subprocess.run(
+            ["ps", "-o", "rss=", "-g", str(os.getpgid(self.process.pid))], capture_output=True, text=True
+        )
         return sum(int(x) for x in out.stdout.split()) / 1024
 
 
 def load(path: str, connections: int, duration: str) -> dict:
     out = subprocess.run(
-        [bombardier(), "-c", str(connections), "-d", duration, "-o", "json", "-p", "r", BASE_URL + path], capture_output=True, text=True
+        [bombardier(), "-c", str(connections), "-d", duration, "-o", "json", "-p", "r", BASE_URL + path],
+        capture_output=True,
+        text=True,
     )
     return json.loads(out.stdout)["result"]
 
@@ -81,9 +102,13 @@ def perf(args) -> int:
     with Server():
         for name, (path, connections) in PERF_CASES.items():
             load(path, connections, "2s")
-            results[name] = max(round(load(path, connections, args.duration)["rps"]["mean"]) for _ in range(args.rounds))
+            results[name] = max(
+                round(load(path, connections, args.duration)["rps"]["mean"]) for _ in range(args.rounds)
+            )
     if args.record:
-        BASELINE.write_text(json.dumps({"machine": platform.node(), "python": platform.python_version(), "rps": results}, indent=2))
+        BASELINE.write_text(
+            json.dumps({"machine": platform.node(), "python": platform.python_version(), "rps": results}, indent=2)
+        )
         print(f"baseline written: {results}")
         return 0
     if not BASELINE.exists():
@@ -101,7 +126,10 @@ def perf(args) -> int:
 def memory(args) -> int:
     with Server() as server:
         procs = [
-            subprocess.Popen([bombardier(), "-c", "20", "-d", f"{args.seconds}s", "-p", "r", "-o", "json", BASE_URL + path], stdout=subprocess.DEVNULL)
+            subprocess.Popen(
+                [bombardier(), "-c", "20", "-d", f"{args.seconds}s", "-p", "r", "-o", "json", BASE_URL + path],
+                stdout=subprocess.DEVNULL,
+            )
             for path in MEMORY_PATHS
         ]
         samples = []
@@ -113,10 +141,12 @@ def memory(args) -> int:
         sys.exit("too few samples; raise --seconds")
     # Warm-up allocations land in the first third. Growth is judged after it.
     third = len(samples) // 3
-    middle, last = max(samples[third:2 * third]), max(samples[2 * third:])
+    middle, last = max(samples[third : 2 * third]), max(samples[2 * third :])
     growth = (last - middle) / middle
     ok = growth <= args.limit
-    print(f"{'ok  ' if ok else 'FAIL'} middle third peak {middle:.1f} MB, last third peak {last:.1f} MB, growth {growth:+.1%} (limit {args.limit:+.0%})")
+    print(
+        f"{'ok  ' if ok else 'FAIL'} middle third peak {middle:.1f} MB, last third peak {last:.1f} MB, growth {growth:+.1%} (limit {args.limit:+.0%})"
+    )
     return 0 if ok else 1
 
 

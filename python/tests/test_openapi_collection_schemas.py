@@ -14,9 +14,9 @@ import msgspec
 import pytest
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
+from freeman import BoltAPI
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
 
 INTEGER = {"type": "integer"}
 STRING = {"type": "string"}

@@ -8,9 +8,9 @@ from typing import Annotated
 
 import msgspec
 
-from django_bolt import BoltAPI
-from django_bolt.param_functions import Header
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.param_functions import Header
+from freeman.testing import TestClient
 
 
 def test_test_client_comprehensive():

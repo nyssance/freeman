@@ -10,10 +10,10 @@ import msgspec
 import pytest
 from django.http import QueryDict
 
-from django_bolt import BoltAPI, _core
-from django_bolt.param_functions import Header
-from django_bolt.responses import PlainText
-from django_bolt.testing import AsyncTestClient, TestClient
+from freeman import BoltAPI, _core
+from freeman.param_functions import Header
+from freeman.responses import PlainText
+from freeman.testing import AsyncTestClient, TestClient
 
 
 def test_simple_get_request():

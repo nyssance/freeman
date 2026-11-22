@@ -9,8 +9,8 @@ from typing import Annotated, NewType
 
 import msgspec
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.param_functions import Query
+from freeman import BoltAPI, WebSocket
+from freeman.param_functions import Query
 
 api = BoltAPI()
 

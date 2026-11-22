@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.testing import WebSocketTestClient
+from freeman import BoltAPI, WebSocket
+from freeman.testing import WebSocketTestClient
 
 
 async def echo_app(scope, receive, send):

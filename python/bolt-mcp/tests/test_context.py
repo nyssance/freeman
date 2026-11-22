@@ -11,8 +11,8 @@ import msgspec
 from _helpers import _parse_all_sse, initialize, mcp_headers, parse_rpc, post_rpc_modern
 from bolt_mcp import MCP, Context, mount_mcp
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 
 def _build(**mcp_kwargs):

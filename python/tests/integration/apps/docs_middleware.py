@@ -1,7 +1,7 @@
 """Multiple APIs with Django middleware on the documentation owner."""
 
-from django_bolt import BoltAPI
-from django_bolt.openapi import OpenAPIConfig, SwaggerRenderPlugin
+from freeman import BoltAPI
+from freeman.openapi import OpenAPIConfig, SwaggerRenderPlugin
 
 api = BoltAPI(
     django_middleware=["debug_toolbar.middleware.DebugToolbarMiddleware"],

@@ -11,10 +11,10 @@ import msgspec
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import CompressionConfig, no_compress, skip_middleware
-from django_bolt.responses import HTML, PlainText, Response, StreamingResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.middleware import CompressionConfig, no_compress, skip_middleware
+from freeman.responses import HTML, PlainText, Response, StreamingResponse
+from freeman.testing import TestClient
 
 
 def test_compression_enabled_by_default():

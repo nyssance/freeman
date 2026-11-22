@@ -7,7 +7,7 @@ it closes with 1000. The mounted ASGI app sends the raw ``websocket.close``.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket
 
 api = BoltAPI()
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import problem_details
-from django_bolt.exceptions import HTTPException
+from freeman import BoltAPI
+from freeman.error_handlers import problem_details
+from freeman.exceptions import HTTPException
 
 
 @asynccontextmanager

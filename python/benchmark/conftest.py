@@ -183,7 +183,7 @@ def auth_token(bench_server: Connection) -> str:
     """Make a JWT for the benchmark user with the shipped helper."""
     from django.contrib.auth.models import User  # noqa: PLC0415
 
-    from django_bolt.auth import create_jwt_for_user  # noqa: PLC0415
+    from freeman.auth import create_jwt_for_user  # noqa: PLC0415
 
     user, _ = User.objects.get_or_create(username="benchuser", defaults={"email": "bench@example.com"})
     return create_jwt_for_user(user)

@@ -53,13 +53,13 @@
 //!   covers it. Bolt refuses a [`HandlerV1`] smaller than v1 at startup. It
 //!   sends 500 for a [`Response`] smaller than v1.
 //! * A change to these types that is not compatible gets a new capsule name,
-//!   for example `django_bolt.native_handler.v2`.
+//!   for example `freeman.native_handler.v2`.
 #![deny(missing_docs)]
 
 use core::ffi::{CStr, c_char, c_void};
 
 /// The name of the capsule that holds a `*const HandlerV1`.
-pub const CAPSULE_NAME: &CStr = c"django_bolt.native_handler.v1";
+pub const CAPSULE_NAME: &CStr = c"freeman.native_handler.v1";
 
 /// Bytes borrowed across the ABI.
 #[repr(C)]

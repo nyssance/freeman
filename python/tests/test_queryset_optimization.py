@@ -8,8 +8,8 @@ from typing import get_origin
 
 import msgspec
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 
 class UserSchema(msgspec.Struct):

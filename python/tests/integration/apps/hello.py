@@ -6,7 +6,7 @@ an HTTP request end-to-end.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 

@@ -149,7 +149,7 @@ BOLT_MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 You can also use the `FileSize` enum for readability:
 
 ```python
-from django_bolt import FileSize
+from freeman import FileSize
 
 BOLT_MAX_UPLOAD_SIZE = FileSize.MB_10
 ```
@@ -361,7 +361,7 @@ LOGGING = {
         },
     },
     "loggers": {
-        "django_bolt": {
+        "freeman": {
             "handlers": ["console"],
             "level": "INFO",
         },
@@ -507,8 +507,8 @@ The dev reloader follows a Django-style source watch list: Python modules and HT
 Configure via `OpenAPIConfig` in your api.py:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.openapi import OpenAPIConfig
+from freeman import BoltAPI
+from freeman.openapi import OpenAPIConfig
 
 api = BoltAPI(
     openapi_config=OpenAPIConfig(
@@ -545,7 +545,7 @@ See [Static Files - Content Security Policy](../topics/static-files.md#content-s
 Configure via `CompressionConfig`:
 
 ```python
-from django_bolt import BoltAPI, CompressionConfig
+from freeman import BoltAPI, CompressionConfig
 
 api = BoltAPI(
     compression=CompressionConfig(

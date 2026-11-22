@@ -13,12 +13,12 @@ from typing import Any
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.auth.backends import JWTAuthentication
-from django_bolt.auth.guards import IsAuthenticated  # noqa: PLC0415
-from django_bolt.params import Depends
-from django_bolt.serializers import Serializer
-from django_bolt.views import (
+from freeman import BoltAPI
+from freeman.auth.backends import JWTAuthentication
+from freeman.auth.guards import IsAuthenticated  # noqa: PLC0415
+from freeman.params import Depends
+from freeman.serializers import Serializer
+from freeman.views import (
     APIView,
     ViewSet,
 )
@@ -240,7 +240,7 @@ def test_bolt_api_view_class_level_guards(api):
 
 def test_bolt_api_view_route_level_guard_override(api):
     """Test route-level guards override class-level guards."""
-    from django_bolt.auth.guards import Requires  # noqa: PLC0415
+    from freeman.auth.guards import Requires  # noqa: PLC0415
 
     # Override with route-level guards
     @api.view("/admin", guards=[Requires("is_superuser", True)])

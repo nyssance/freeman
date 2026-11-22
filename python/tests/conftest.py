@@ -56,7 +56,7 @@ def _gil_stays_disabled():
 # One database directory per test process (each xdist worker has its own).
 # Django keeps this path for the life of the process. `pytest_unconfigure`
 # removes the directory, and `django_db_setup` makes it again.
-_DB_DIR = tempfile.mkdtemp(prefix="django_bolt_test_")
+_DB_DIR = tempfile.mkdtemp(prefix="freeman_test_")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -100,8 +100,8 @@ def pytest_configure(config):
                 "django.contrib.sessions",
                 "django.contrib.messages",
                 "django.contrib.staticfiles",
-                "django_bolt",
-                "django_bolt.auth.revocation_db",
+                "freeman",
+                "freeman.auth.revocation_db",
             ],
             MIDDLEWARE=[
                 "django.middleware.security.SecurityMiddleware",

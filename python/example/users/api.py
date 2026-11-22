@@ -4,16 +4,16 @@ from typing import Annotated
 
 import msgspec
 
-from django_bolt import BoltAPI
-from django_bolt.pagination import (
+from freeman import BoltAPI
+from freeman.pagination import (
     CursorPagination,
     LimitOffsetPagination,
     PageNumberPagination,
     paginate,
 )
-from django_bolt.params import Depends
-from django_bolt.serializers import Serializer
-from django_bolt.views import ModelViewSet, ViewSet
+from freeman.params import Depends
+from freeman.serializers import Serializer
+from freeman.views import ModelViewSet, ViewSet
 
 from .models import User
 

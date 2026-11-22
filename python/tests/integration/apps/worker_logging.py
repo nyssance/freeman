@@ -12,7 +12,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 logger = logging.getLogger("worker_logging")
 SHUTDOWN_RECORDS = 2000

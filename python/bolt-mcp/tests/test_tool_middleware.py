@@ -6,8 +6,8 @@ import pytest
 from _helpers import initialize, parse_rpc, post_rpc, post_rpc_modern
 from bolt_mcp import MCP, Context, ToolCall, mount_mcp
 
-from django_bolt import BoltAPI, IsAuthenticated
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, IsAuthenticated
+from freeman.testing import TestClient
 
 TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 

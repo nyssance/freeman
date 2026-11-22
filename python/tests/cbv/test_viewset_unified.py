@@ -12,8 +12,8 @@ This test suite verifies that the new unified ViewSet pattern works correctly:
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, ViewSet, action
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, ViewSet, action
+from freeman.testing import TestClient
 from tests.test_models import Article
 
 # --- Schemas ---

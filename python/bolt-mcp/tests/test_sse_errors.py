@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from _helpers import make_server
 
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 
 def test_get_on_stateless_server_returns_405():

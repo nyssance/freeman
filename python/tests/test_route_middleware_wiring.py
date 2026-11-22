@@ -12,11 +12,11 @@ from __future__ import annotations
 import gc
 import weakref
 
-from django_bolt import BoltAPI
-from django_bolt.decorators import action
-from django_bolt.middleware import middleware, rate_limit, skip_middleware
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView, ViewSet
+from freeman import BoltAPI
+from freeman.decorators import action
+from freeman.middleware import middleware, rate_limit, skip_middleware
+from freeman.testing import TestClient
+from freeman.views import APIView, ViewSet
 
 
 def _header_middleware(header: str) -> type:

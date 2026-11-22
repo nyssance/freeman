@@ -6,8 +6,8 @@ process and over a real server, and expects the same answers.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, Request
-from django_bolt.responses import JSON
+from freeman import BoltAPI, Request
+from freeman.responses import JSON
 
 api = BoltAPI()
 

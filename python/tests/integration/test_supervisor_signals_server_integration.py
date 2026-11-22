@@ -27,7 +27,10 @@ def _alive(pid: int) -> bool:
 
 @pytest.mark.server_integration
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Multiprocess runs only on Linux.")
-@pytest.mark.parametrize("signum", [signal.SIGHUP, signal.SIGQUIT], ids=["SIGHUP", "SIGQUIT"])
+# Windows has neither signal. The test is skipped there, but the decorator still runs at import.
+@pytest.mark.parametrize(
+    "signum", [getattr(signal, "SIGHUP", None), getattr(signal, "SIGQUIT", None)], ids=["SIGHUP", "SIGQUIT"]
+)
 def test_supervisor_stops_its_workers_on_signal(make_server_project, signum):
     project = make_server_project(api_module=app_module("multiprocess_pid"))
     with project.start(processes=2) as server:

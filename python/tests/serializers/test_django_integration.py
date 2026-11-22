@@ -29,9 +29,9 @@ from typing import Annotated, Any
 import pytest
 from django.db import models
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import RequestValidationError
-from django_bolt.serializers import (
+from freeman import BoltAPI
+from freeman.exceptions import RequestValidationError
+from freeman.serializers import (
     URL,
     Email,
     Meta,
@@ -45,13 +45,13 @@ from django_bolt.serializers import (
     field_validator,
     model_validator,
 )
-from django_bolt.serializers.types import (
+from freeman.serializers.types import (
     Latitude,
     Longitude,
     Percentage,
     Username,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 # Import test models
 from tests.test_models import (  # noqa: PLC0415
@@ -72,7 +72,7 @@ class Invoice(models.Model):
     discount = models.DecimalField(max_digits=6, decimal_places=2, null=True)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
 
 # =============================================================================

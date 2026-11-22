@@ -18,10 +18,10 @@ import asyncio
 import brotlicffi as brotli
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import CompressionConfig, no_compress
-from django_bolt.responses import EventSourceResponse, StreamingResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.middleware import CompressionConfig, no_compress
+from freeman.responses import EventSourceResponse, StreamingResponse
+from freeman.testing import TestClient
 
 
 def _make_text_api(chunks: list[str], *, compression=None) -> BoltAPI:

@@ -2,9 +2,9 @@
 
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import cors
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.middleware import cors
+from freeman.testing import TestClient
 
 
 def test_cors_uses_global_origins_when_no_route_config():

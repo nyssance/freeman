@@ -8,8 +8,8 @@ import logging
 
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.logging import LoggingConfig
+from freeman import BoltAPI
+from freeman.logging import LoggingConfig
 
 
 class TestMergedAPILoggingPreservation:

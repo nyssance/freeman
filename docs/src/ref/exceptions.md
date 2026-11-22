@@ -4,10 +4,10 @@ icon: lucide/alert-triangle
 
 # Exceptions Reference
 
-All exceptions are importable from `django_bolt.exceptions`.
+All exceptions are importable from `freeman.exceptions`.
 
 ```python
-from django_bolt.exceptions import (
+from freeman.exceptions import (
     HTTPException,
     RequestValidationError,
     ResponseValidationError,
@@ -71,7 +71,7 @@ A status with no standard phrase, such as 499, gets the detail `Client Error` (4
 **Usage:**
 
 ```python
-from django_bolt.exceptions import NotFound, BadRequest
+from freeman.exceptions import NotFound, BadRequest
 
 @api.get("/users/{user_id}")
 async def get_user(user_id: int):

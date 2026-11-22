@@ -29,8 +29,8 @@ import time
 
 import pytest
 
-from django_bolt import BoltAPI, StreamingResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, StreamingResponse
+from freeman.testing import TestClient
 
 
 @pytest.fixture(scope="module")

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import asyncio
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import HTTPException
-from django_bolt.logging import LoggingConfig
+from freeman import BoltAPI
+from freeman.exceptions import HTTPException
+from freeman.logging import LoggingConfig
 
 api = BoltAPI()
 sampled = BoltAPI(logging_config=LoggingConfig(sample_rate=0.0))

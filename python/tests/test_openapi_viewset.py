@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt import BoltAPI, ModelViewSet, ViewSet
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator, _extract_path_param_names
-from django_bolt.serializers import Serializer
-from django_bolt.views import APIView, CreateMixin, PartialUpdateMixin, UpdateMixin
+from freeman import BoltAPI, ModelViewSet, ViewSet
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator, _extract_path_param_names
+from freeman.serializers import Serializer
+from freeman.views import APIView, CreateMixin, PartialUpdateMixin, UpdateMixin
 from tests.test_models import Article
 
 

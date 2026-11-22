@@ -20,13 +20,13 @@ from typing import Annotated, Any, Literal, TypedDict
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt._kwargs import create_body_extractor, get_msgspec_decoder
-from django_bolt._kwargs.extractors import _DECODER_CACHE
-from django_bolt.error_handlers import handle_exception, msgspec_validation_error_to_dict
-from django_bolt.exceptions import RequestValidationError, parse_msgspec_decode_error
-from django_bolt.params import Body, Cookie, Depends, File, Form, Header, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman._kwargs import create_body_extractor, get_msgspec_decoder
+from freeman._kwargs.extractors import _DECODER_CACHE
+from freeman.error_handlers import handle_exception, msgspec_validation_error_to_dict
+from freeman.exceptions import RequestValidationError, parse_msgspec_decode_error
+from freeman.params import Body, Cookie, Depends, File, Form, Header, Query
+from freeman.testing import TestClient
 
 
 @dataclasses.dataclass

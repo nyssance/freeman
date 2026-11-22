@@ -42,10 +42,10 @@ from typing import Annotated
 
 import httpx
 
-from django_bolt import BoltAPI, _core
-from django_bolt.concurrency import sync_to_thread
-from django_bolt.exceptions import HTTPException
-from django_bolt.params import Depends
+from freeman import BoltAPI, _core
+from freeman.concurrency import sync_to_thread
+from freeman.exceptions import HTTPException
+from freeman.params import Depends
 
 api = BoltAPI()
 PAYLOAD = {"message": "hello", "n": 1}

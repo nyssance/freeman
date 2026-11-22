@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 
-from django_bolt import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket
 
 api = BoltAPI()
 

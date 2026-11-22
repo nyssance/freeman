@@ -11,9 +11,9 @@ from typing import Annotated
 
 import pytest
 
-from django_bolt import BoltAPI, Depends, WebSocket
-from django_bolt.param_functions import Header, Query
-from django_bolt.testing import WebSocketTestClient
+from freeman import BoltAPI, Depends, WebSocket
+from freeman.param_functions import Header, Query
+from freeman.testing import WebSocketTestClient
 
 
 def room_settings(

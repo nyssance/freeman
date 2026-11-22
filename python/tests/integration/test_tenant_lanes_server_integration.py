@@ -36,7 +36,7 @@ _SHARED_APPS = [
     "tests.integration.apps._tenants",
     "django.contrib.contenttypes",
     "django.contrib.auth",
-    "django_bolt",
+    "freeman",
 ]
 _TENANT_APPS = ["django.contrib.contenttypes", "django.contrib.auth"]
 

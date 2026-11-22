@@ -17,8 +17,8 @@ from types import SimpleNamespace
 
 from django.db import connection
 
-from django_bolt import BoltAPI, Request
-from django_bolt.auth import JWTAuthentication
+from freeman import BoltAPI, Request
+from freeman.auth import JWTAuthentication
 
 SECRET = "user-sync-fastpath-secret-longer-than-32-characters"
 

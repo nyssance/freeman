@@ -37,8 +37,8 @@ def test_python_examples_parse_and_import_names_that_exist(page):
 
 def test_a_missing_name_is_found():
     """The check reads the source, so it must also see a name that is not there."""
-    tree = check_doc_snippets.ast.parse("from django_bolt import BoltAPI, NoSuchName\nimport django_bolt.no_module")
-    assert check_doc_snippets.missing_imports(tree) == [(1, "django_bolt.NoSuchName"), (2, "django_bolt.no_module")]
+    tree = check_doc_snippets.ast.parse("from freeman import BoltAPI, NoSuchName\nimport freeman.no_module")
+    assert check_doc_snippets.missing_imports(tree) == [(1, "freeman.NoSuchName"), (2, "freeman.no_module")]
 
 
 def test_the_readmes_are_checked():

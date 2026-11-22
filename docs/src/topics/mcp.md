@@ -23,7 +23,7 @@ Requires `django-bolt` and Python 3.12+. The MCP endpoint is mounted on an ordin
 ## Quick start
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 from bolt_mcp import MCP
 
 api = BoltAPI()
@@ -409,7 +409,7 @@ Pass `auth` / `guards` to `mount_mcp` — the same authentication and permission
 `auth` *attempts* to validate a Bearer token but does **not** reject anonymous callers: a valid token's claims land in `request.context`, while requests without one still reach unguarded tools. So a single `/mcp` endpoint can serve both public and protected tools:
 
 ```python
-from django_bolt import JWTAuthentication
+from freeman import JWTAuthentication
 
 api.mount_mcp(mcp, auth=[JWTAuthentication()])   # validate tokens; don't block anonymous
 ```
@@ -417,7 +417,7 @@ api.mount_mcp(mcp, auth=[JWTAuthentication()])   # validate tokens; don't block 
 **Per-tool guards** do the gating. A tool whose guard fails is hidden from `tools/list` *and* rejected on `tools/call`, so an anonymous client never even sees the protected tools:
 
 ```python
-from django_bolt import IsAuthenticated, Request, Requires
+from freeman import IsAuthenticated, Request, Requires
 
 @mcp.tool(guards=[IsAuthenticated()])          # any valid token
 async def whoami(request: Request) -> dict:
@@ -551,7 +551,7 @@ For trivial cases set attributes inline instead of subclassing: `AuthorizationSe
 | `redirect_uri_allowed(registered, redirect_uri)` | `/authorize` | change redirect-URI matching |
 | `code_redirect_response(redirect_url)` | consent approved | change how the code reaches the client |
 
-**Loopback clients.** After consent, an `https` redirect URI receives a plain 302. A loopback redirect URI (`http://localhost`, `http://127.0.0.1`, `http://[::1]`) receives an interstitial page. Some browsers block the `https → http://localhost` redirect. Firefox with HTTPS-Only mode is one example. Then the "Allow" button seems to do nothing. The interstitial page prevents this. It navigates with JavaScript, keeps a click-through link, and shows the code for copy-paste. To force the raw 302, override `code_redirect_response(redirect_url)`. Return `Redirect(redirect_url, status_code=302)` from `django_bolt.responses`.
+**Loopback clients.** After consent, an `https` redirect URI receives a plain 302. A loopback redirect URI (`http://localhost`, `http://127.0.0.1`, `http://[::1]`) receives an interstitial page. Some browsers block the `https → http://localhost` redirect. Firefox with HTTPS-Only mode is one example. Then the "Allow" button seems to do nothing. The interstitial page prevents this. It navigates with JavaScript, keeps a click-through link, and shows the code for copy-paste. To force the raw 302, override `code_redirect_response(redirect_url)`. Return `Redirect(redirect_url, status_code=302)` from `freeman.responses`.
 
 #### Endpoints
 
@@ -619,8 +619,8 @@ The transport defaults to localhost-only Host validation for DNS-rebinding prote
 Use Django-Bolt's `TestClient` — it runs requests through the full Rust pipeline in-process, so MCP tools, framing, and auth are exercised end to end:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 from bolt_mcp import MCP
 
 api = BoltAPI()

@@ -55,7 +55,7 @@ Bolt refuses a value with no clear JSON form, such as a `ZoneInfo`, a `datetime.
 Use the `JSON` class for more control:
 
 ```python
-from django_bolt import JSON
+from freeman import JSON
 
 @api.post("/users")
 async def create_user():
@@ -71,7 +71,7 @@ async def create_user():
 You can use built-in status code constants for readability:
 
 ```python
-from django_bolt import status
+from freeman import status
 
 @api.post("/users", status_code=status.HTTP_201_CREATED)
 async def create_user():
@@ -93,7 +93,7 @@ if status.is_server_error(response.status_code):
 Return plain text responses:
 
 ```python
-from django_bolt.responses import PlainText
+from freeman.responses import PlainText
 
 @api.get("/hello")
 async def hello():
@@ -109,7 +109,7 @@ async def status():
 Return HTML content:
 
 ```python
-from django_bolt.responses import HTML
+from freeman.responses import HTML
 
 @api.get("/page")
 async def page():
@@ -132,8 +132,8 @@ async def template():
 Use the `render()` function to render Django templates. It works like [Django's `render()` shortcut](https://docs.djangoproject.com/en/dev/topics/http/shortcuts/#render):
 
 ```python
-from django_bolt import Request
-from django_bolt.shortcuts import render
+from freeman import Request
+from freeman.shortcuts import render
 
 @api.get("/page")
 async def show_page(request: Request):
@@ -157,8 +157,8 @@ async def account(request: Request):
 `render()` renders the template at once. To render it later, return a `TemplateResponse`. It is the `TemplateResponse` class of Django, with the same arguments:
 
 ```python
-from django_bolt import Request
-from django_bolt.responses import TemplateResponse
+from freeman import Request
+from freeman.responses import TemplateResponse
 
 @api.get("/page")
 async def show_page(request: Request):
@@ -205,7 +205,7 @@ Parameters:
 Redirect to another URL:
 
 ```python
-from django_bolt.responses import Redirect
+from freeman.responses import Redirect
 
 @api.get("/old-page")
 async def old_page():
@@ -231,7 +231,7 @@ Redirect status codes:
 Use `File` for small files that can be loaded into memory:
 
 ```python
-from django_bolt.responses import File
+from freeman.responses import File
 
 @api.get("/download")
 async def download():
@@ -247,7 +247,7 @@ async def download():
 Use `FileResponse` for larger files that should be streamed:
 
 ```python
-from django_bolt.responses import FileResponse
+from freeman.responses import FileResponse
 
 @api.get("/video")
 async def video():
@@ -280,7 +280,7 @@ A `FileResponse` for a path outside these directories raises `ResponseFileNotAll
 Stream data incrementally using generators:
 
 ```python
-from django_bolt import StreamingResponse
+from freeman import StreamingResponse
 
 @api.get("/stream")
 async def stream():
@@ -313,7 +313,7 @@ async def async_stream():
 Bolt sends the status and the headers before the first chunk.
 Thus an error in the generator cannot become a 500.
 The body ends at the error, and the client gets the chunks before it.
-Bolt logs the error with its traceback to the `django_bolt.streaming` logger, at level ERROR.
+Bolt logs the error with its traceback to the `freeman.streaming` logger, at level ERROR.
 
 ### Server-Sent Events (SSE)
 
@@ -321,7 +321,7 @@ For SSE endpoints, see the dedicated [Server-Sent Events guide](sse.md). Django-
 
 ```python
 from collections.abc import AsyncIterable
-from django_bolt.responses import EventSourceResponse
+from freeman.responses import EventSourceResponse
 
 @api.get("/events", response_class=EventSourceResponse)
 async def events() -> AsyncIterable[dict]:
@@ -335,7 +335,7 @@ async def events() -> AsyncIterable[dict]:
 Use the `Response` class for complete control:
 
 ```python
-from django_bolt import Response
+from freeman import Response
 
 @api.options("/items")
 async def options_items():
@@ -351,7 +351,7 @@ A change through `response.headers` does not change the dict that you gave.
 Thus many responses can use one module-level dict.
 
 ```python
-from django_bolt import JSON
+from freeman import JSON
 
 COMMON_HEADERS = {"X-Service": "api"}
 
@@ -367,7 +367,7 @@ async def list_items():
 Use the `.set_cookie()` method on any response type:
 
 ```python
-from django_bolt import Response, JSON
+from freeman import Response, JSON
 
 @api.post("/login")
 async def login():
@@ -468,8 +468,8 @@ async def refresh():
 The `.set_cookie()` and `.delete_cookie()` methods work on all response types:
 
 ```python
-from django_bolt import Response, JSON, StreamingResponse
-from django_bolt.responses import HTML, PlainText, Redirect
+from freeman import Response, JSON, StreamingResponse
+from freeman.responses import HTML, PlainText, Redirect
 
 # JSON
 JSON({"ok": True}).set_cookie("api_token", "secret")
@@ -492,7 +492,7 @@ StreamingResponse(generate()).set_cookie("stream_id", "12345")
 For advanced use cases, create `Cookie` objects directly:
 
 ```python
-from django_bolt import Cookie
+from freeman import Cookie
 
 cookie = Cookie(
     name="session",
@@ -689,7 +689,7 @@ A route with `validate_response=False` does no such check. It sends a `str` as `
 For 204 No Content responses:
 
 ```python
-from django_bolt import Response
+from freeman import Response
 
 @api.delete("/items/{item_id}", status_code=204)
 async def delete_item(item_id: int):

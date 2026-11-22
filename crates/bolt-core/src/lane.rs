@@ -333,14 +333,14 @@ fn run_call(
     }
 }
 
-/// Call a no-argument function of `django_bolt.concurrency` on the lane thread.
+/// Call a no-argument function of `freeman.concurrency` on the lane thread.
 fn call_concurrency(function: &str) {
     Python::attach(|py| call_concurrency_attached(py, function));
 }
 
 fn call_concurrency_attached(py: Python<'_>, function: &str) {
     let called = py
-        .import(intern!(py, "django_bolt.concurrency"))
+        .import(intern!(py, "freeman.concurrency"))
         .and_then(|module| module.call_method0(function));
     if let Err(err) = called {
         log::warn!("request lane: {function} failed: {err}");
@@ -439,7 +439,7 @@ pub fn stop_idle_lanes(py: Python<'_>) {
 
 /// The lane of one async request. It takes a lane at the first `submit`, so a
 /// request with no sync work costs nothing. asgiref uses it as an executor.
-#[pyclass(module = "django_bolt._core")]
+#[pyclass(module = "freeman._core")]
 pub struct RequestLane {
     lane: Mutex<Option<IdleLane>>,
 }

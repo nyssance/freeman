@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from _helpers import INITIALIZE_PARAMS, make_server, mcp_headers, post_rpc, rpc_body
 
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600

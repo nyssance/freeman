@@ -15,7 +15,7 @@ from urllib.parse import quote
 import msgspec
 import pytest
 
-from django_bolt import (
+from freeman import (
     BoltAPI,
     CursorPagination,
     LimitOffsetPagination,
@@ -26,8 +26,8 @@ from django_bolt import (
     ViewSet,
     paginate,
 )
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
 
 from .test_models import Article, Author, BlogPost, Comment, Release, User, UserProfile
 

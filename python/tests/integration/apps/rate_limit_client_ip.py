@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, Request
-from django_bolt.middleware import rate_limit
+from freeman import BoltAPI, Request
+from freeman.middleware import rate_limit
 
 api = BoltAPI()
 

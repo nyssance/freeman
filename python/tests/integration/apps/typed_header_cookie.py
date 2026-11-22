@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.params import Cookie, Header
+from freeman import BoltAPI, WebSocket
+from freeman.params import Cookie, Header
 
 api = BoltAPI()
 

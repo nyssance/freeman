@@ -19,7 +19,7 @@ from typing import ClassVar
 import httpx
 import pytest
 
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 from .apps import app_module
 from .apps import dispatch_probes as probes_app

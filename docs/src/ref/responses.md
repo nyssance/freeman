@@ -11,7 +11,7 @@ This page documents all response types available in Django-Bolt.
 Generic response with custom headers.
 
 ```python
-from django_bolt import Response
+from freeman import Response
 
 return Response(
     {"data": "value"},
@@ -34,7 +34,7 @@ return Response(
 Explicit JSON response with status and headers.
 
 ```python
-from django_bolt import JSON
+from freeman import JSON
 
 return JSON(
     {"id": 1, "name": "Item"},
@@ -56,7 +56,7 @@ return JSON(
 Plain text response.
 
 ```python
-from django_bolt.responses import PlainText
+from freeman.responses import PlainText
 
 return PlainText("Hello, World!")
 ```
@@ -74,7 +74,7 @@ return PlainText("Hello, World!")
 HTML response.
 
 ```python
-from django_bolt.responses import HTML
+from freeman.responses import HTML
 
 return HTML("<h1>Hello</h1>")
 ```
@@ -92,7 +92,7 @@ return HTML("<h1>Hello</h1>")
 HTTP redirect response.
 
 ```python
-from django_bolt.responses import Redirect
+from freeman.responses import Redirect
 
 return Redirect("/new-location")
 return Redirect("/new-location", status_code=301)  # Permanent
@@ -121,7 +121,7 @@ return Redirect("/new-location", status_code=301)  # Permanent
 In-memory file download.
 
 ```python
-from django_bolt.responses import File
+from freeman.responses import File
 
 return File(
     "/path/to/file.pdf",
@@ -145,7 +145,7 @@ return File(
 Streaming file response for large files.
 
 ```python
-from django_bolt.responses import FileResponse
+from freeman.responses import FileResponse
 
 return FileResponse(
     "/path/to/large-video.mp4",
@@ -181,7 +181,7 @@ Server-Sent Events response with automatic SSE framing, compression skipping, an
 
 ```python
 from collections.abc import AsyncIterable
-from django_bolt.responses import EventSourceResponse
+from freeman.responses import EventSourceResponse
 
 @api.get("/events", response_class=EventSourceResponse)
 async def events() -> AsyncIterable[dict]:
@@ -193,7 +193,7 @@ async def events() -> AsyncIterable[dict]:
 ### Explicit pattern
 
 ```python
-from django_bolt.responses import EventSourceResponse
+from freeman.responses import EventSourceResponse
 
 @api.get("/events")
 async def events():
@@ -223,7 +223,7 @@ async def events():
 Represents a single SSE event with full control over all fields.
 
 ```python
-from django_bolt.responses import ServerSentEvent
+from freeman.responses import ServerSentEvent
 
 yield ServerSentEvent(data={"count": 1}, event="update", id="1")
 yield ServerSentEvent(raw_data="plain text", comment="keepalive")
@@ -246,7 +246,7 @@ yield ServerSentEvent(retry=5000)
 Build SSE wire-format bytes from pre-serialized data.
 
 ```python
-from django_bolt.responses import format_sse_event
+from freeman.responses import format_sse_event
 
 # Simple data event
 frame = format_sse_event(data_str='{"count": 1}')
@@ -266,7 +266,7 @@ frame = format_sse_event(data_bytes=b'{"count": 1}')
 General-purpose streaming response for generators.
 
 ```python
-from django_bolt import StreamingResponse
+from freeman import StreamingResponse
 
 def generate():
     for i in range(100):

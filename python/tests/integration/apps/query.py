@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import msgspec
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 

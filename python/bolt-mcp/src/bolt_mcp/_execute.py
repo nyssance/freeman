@@ -13,8 +13,8 @@ from typing import Any
 
 import msgspec
 
-from django_bolt._json import default_serializer
-from django_bolt._json import encode as json_encode
+from freeman._json import default_serializer
+from freeman._json import encode as json_encode
 
 from .context import McpClientError
 from .registry import ToolDef

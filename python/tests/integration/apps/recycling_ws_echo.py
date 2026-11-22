@@ -6,7 +6,7 @@ closes the connection with 1012 (Service Restart) instead of dropping it.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket
 
 api = BoltAPI()
 

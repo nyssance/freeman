@@ -55,7 +55,7 @@ async def login_link(request):
 For better IDE support, use the `Request` type:
 
 ```python
-from django_bolt import Request
+from freeman import Request
 
 @api.get("/profile", auth=[JWTAuthentication()], guards=[IsAuthenticated()])
 async def profile(request: Request):
@@ -93,7 +93,7 @@ Invalid conversions return a 422 Unprocessable Entity.
 Path parameters are also available on the request object itself:
 
 ```python
-from django_bolt import Request
+from freeman import Request
 
 @api.get("/users/{user_id}")
 async def get_user(request: Request):
@@ -134,7 +134,7 @@ Declare a `list`, `set`, `frozenset` or `tuple` to take each value of a repeated
 
 ```python
 from typing import Annotated
-from django_bolt.param_functions import Query
+from freeman.param_functions import Query
 
 @api.get("/items")
 async def items(tag: Annotated[set[int], Query()]):
@@ -173,7 +173,7 @@ The constraints apply to path, query, header, cookie and form parameters.
 On `int | None`, they apply to the `int` value, and the parameter stays optional.
 The OpenAPI schema shows them, for example `minimum: 1`.
 A constraint that msgspec cannot apply, for example `ge` on a `Decimal`, raises `TypeError` when the route registers.
-The types in `django_bolt.serializers.types`, such as `PositiveInt`, work the same way.
+The types in `freeman.serializers.types`, such as `PositiveInt`, work the same way.
 
 `Query()` and `Path()` also take the constraint arguments `gt`, `ge`, `lt`, `le`, `min_length`, `max_length` and `pattern`.
 Bolt applies them as `msgspec.Meta`:
@@ -325,7 +325,7 @@ A request with no body then gives the default. A body that is present must be va
 
 ```python
 from typing import Annotated
-from django_bolt.params import Body
+from freeman.params import Body
 
 @api.post("/items")
 async def create_item(
@@ -389,7 +389,7 @@ Extract specific headers:
 
 ```python
 from typing import Annotated
-from django_bolt.param_functions import Header
+from freeman.param_functions import Header
 
 @api.get("/auth")
 async def check_auth(
@@ -452,7 +452,7 @@ Extract cookie values:
 
 ```python
 from typing import Annotated
-from django_bolt.param_functions import Cookie
+from freeman.param_functions import Cookie
 
 @api.get("/session")
 async def get_session(
@@ -519,7 +519,7 @@ request.session.clear()  # Clear cached data
 ### Complete example
 
 ```python
-from django_bolt import BoltAPI, Request
+from freeman import BoltAPI, Request
 from django.contrib.auth import alogin, alogout
 
 api = BoltAPI(django_middleware=True)
@@ -556,7 +556,7 @@ async def logout(request: Request):
 
 ```python
 from typing import Annotated
-from django_bolt.param_functions import Form
+from freeman.param_functions import Form
 
 @api.post("/login")
 async def login(
@@ -592,7 +592,7 @@ Group form fields into a struct:
 ```python
 import msgspec
 from typing import Annotated
-from django_bolt.param_functions import Form
+from freeman.param_functions import Form
 
 class LoginForm(msgspec.Struct):
     username: str
@@ -607,7 +607,7 @@ async def login(form: Annotated[LoginForm, Form()]):
 With `Serializer` for custom validation:
 
 ```python
-from django_bolt.serializers import Serializer, field_validator
+from freeman.serializers import Serializer, field_validator
 
 class RegisterForm(Serializer):
     username: str
@@ -739,8 +739,8 @@ There are two levels of file size validation in Django-Bolt:
 BOLT_MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # In your view
-from django_bolt import FileSize, UploadFile
-from django_bolt.param_functions import File
+from freeman import FileSize, UploadFile
+from freeman.param_functions import File
 from typing import Annotated
 
 @api.post("/upload")
@@ -765,8 +765,8 @@ Django-Bolt provides the `UploadFile` class for handling file uploads with Djang
 
 ```python
 from typing import Annotated
-from django_bolt import UploadFile
-from django_bolt.params import File
+from freeman import UploadFile
+from freeman.params import File
 
 @api.post("/upload")
 async def upload(file: Annotated[UploadFile, File()]):
@@ -802,7 +802,7 @@ async def upload(file: Annotated[UploadFile, File()]):
 Use `File()` parameters to validate uploads:
 
 ```python
-from django_bolt import FileSize
+from freeman import FileSize
 
 @api.post("/upload")
 async def upload(
@@ -831,7 +831,7 @@ str also raises `TypeError`. An empty iterable raises `ValueError`. Omit
 Use the `FileSize` enum for readable size limits:
 
 ```python
-from django_bolt import FileSize
+from freeman import FileSize
 
 File(max_size=FileSize.MB_1)   # 1 MB
 File(max_size=FileSize.MB_5)   # 5 MB
@@ -989,7 +989,7 @@ Configure file upload limits in settings:
 
 ```python
 # settings.py
-from django_bolt import FileSize
+from freeman import FileSize
 
 # Maximum upload size (requests exceeding this are rejected)
 BOLT_MAX_UPLOAD_SIZE = FileSize.MB_10  # 10 MB global limit
@@ -1006,7 +1006,7 @@ See [Settings Reference](../ref/settings.md#file-upload-settings) for more detai
 Use `Depends` for reusable parameter extractors:
 
 ```python
-from django_bolt import Depends
+from freeman import Depends
 
 async def get_pagination(page: int = 1, limit: int = 20):
     return {"page": page, "limit": limit, "offset": (page - 1) * limit}

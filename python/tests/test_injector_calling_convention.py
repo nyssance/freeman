@@ -15,9 +15,9 @@ from typing import Annotated
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, Depends, UploadFile
-from django_bolt.param_functions import Cookie, File, Form, Header
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Depends, UploadFile
+from freeman.param_functions import Cookie, File, Form, Header
+from freeman.testing import TestClient
 
 Count = Annotated[int, msgspec.Meta(ge=0)]
 

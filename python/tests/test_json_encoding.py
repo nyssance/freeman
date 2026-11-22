@@ -12,8 +12,8 @@ import msgspec
 import pytest
 from django.utils.safestring import mark_safe
 
-from django_bolt import BoltAPI, _json
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, _json
+from freeman.testing import TestClient
 
 
 class MyDecimal(Decimal):

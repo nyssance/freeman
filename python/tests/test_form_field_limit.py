@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from django_bolt import BoltAPI
-from django_bolt.param_functions import Form
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.param_functions import Form
+from freeman.testing import TestClient
 
 FORM = {"content-type": "application/x-www-form-urlencoded"}
 

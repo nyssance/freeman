@@ -27,7 +27,7 @@ urlpatterns = [
     # Register a reverse-only entry for every named Bolt route, so Django's
     # reverse()/{% url %} can resolve them even though they're served in Rust.
     # See missions/api.py (reverse_demo) and missions/dashboard.html.
-    path("", include("django_bolt.urls")),
+    path("", include("freeman.urls")),
     path("", views.index, name="index"),
     path("sse", views.sse, name="sse"),
     path("missions/", views.missions_page, name="django-missions"),

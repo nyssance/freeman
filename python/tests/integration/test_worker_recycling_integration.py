@@ -29,7 +29,7 @@ import time
 import httpx
 import pytest
 
-from django_bolt.workers import MIB, get_rss_bytes
+from freeman.workers import MIB, get_rss_bytes
 
 from .apps import app_module
 from .helpers import SimpleWebSocketClient, child_pids, generate_load

@@ -43,9 +43,9 @@ from django.db import DatabaseError, connection, connections, transaction
 from django.db.backends.signals import connection_created
 from django.db.backends.sqlite3.base import DatabaseWrapper as SQLiteWrapper
 
-from django_bolt import BoltAPI, concurrency
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, concurrency
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.testing import TestClient
 from tests.thread_pools import shutdown_closing_connections
 
 SECRET = "broken-connection-recovery-secret-key-32b"

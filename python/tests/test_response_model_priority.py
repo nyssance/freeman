@@ -17,11 +17,11 @@ import sys
 import msgspec
 import pytest
 
-import django_bolt.api as api_module
-from django_bolt import BoltAPI
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
-from django_bolt.typing import is_msgspec_struct
+import freeman.api as api_module
+from freeman import BoltAPI
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
+from freeman.typing import is_msgspec_struct
 
 
 # Test serializers

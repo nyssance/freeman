@@ -12,9 +12,9 @@ import pytest
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import connection, models
 
-from django_bolt.exceptions import RequestValidationError
-from django_bolt.serializers import Serializer, create_serializer
-from django_bolt.serializers.fields import get_msgspec_type_for_django_field
+from freeman.exceptions import RequestValidationError
+from freeman.serializers import Serializer, create_serializer
+from freeman.serializers.fields import get_msgspec_type_for_django_field
 
 
 class StatusEnum(models.TextChoices):
@@ -39,8 +39,8 @@ class EnumChoiceArticle(models.Model):
     priority = models.IntegerField(choices=PriorityEnum, default=PriorityEnum.LOW)
 
     class Meta:
-        app_label = "django_bolt"
-        db_table = "django_bolt_enum_choice_article"
+        app_label = "freeman"
+        db_table = "freeman_enum_choice_article"
 
 
 class EnumChoiceArticleSerializer(Serializer):
@@ -124,8 +124,8 @@ class TestChoicesFieldDetection:
             (models.TimeField(), time),
             (models.DurationField(), str),
             (models.UUIDField(), UUID),
-            (models.ForeignKey("django_bolt.Author", on_delete=models.CASCADE), int),
-            (models.ManyToManyField("django_bolt.Tag"), list[int]),
+            (models.ForeignKey("freeman.Author", on_delete=models.CASCADE), int),
+            (models.ManyToManyField("freeman.Tag"), list[int]),
             (models.JSONField(), Any),
             (models.TextField(null=True), str | None),
             (models.CharField(max_length=7), Annotated[str, msgspec.Meta(max_length=7)]),

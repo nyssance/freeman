@@ -67,7 +67,7 @@ The router sets `scope["url_route"]["kwargs"]`. Use `@api.websocket("/ws/room/{r
 Mount a generic ASGI app under a static prefix:
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -107,7 +107,7 @@ For `api.mount_asgi("/metrics", app)`:
 Mount Django's ASGI app under a prefix:
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 api.mount_django("/django")

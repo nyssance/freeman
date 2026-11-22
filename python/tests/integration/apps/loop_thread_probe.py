@@ -19,7 +19,7 @@ import os
 import sys
 import threading
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 PROBE_MARKER = "probe: the event loop thread started"
 

@@ -6,8 +6,8 @@ import pytest
 from _helpers import initialize, make_server, parse_rpc, post_rpc
 from bolt_mcp import MCP, mount_mcp
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 
 def test_resources_list_and_read():

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import HTTPException
-from django_bolt.logging import LoggingConfig
+from freeman import BoltAPI
+from freeman.exceptions import HTTPException
+from freeman.logging import LoggingConfig
 
 api = BoltAPI()
 named = BoltAPI(logging_config=LoggingConfig(logger_name="myapp.api"))

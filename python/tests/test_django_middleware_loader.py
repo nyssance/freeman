@@ -14,14 +14,14 @@ from django.middleware.common import CommonMiddleware
 from django.test import override_settings
 from django.utils.module_loading import import_string
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import DjangoMiddlewareStack, TimingMiddleware, django_loader
-from django_bolt.middleware.django_loader import (
+from freeman import BoltAPI
+from freeman.middleware import DjangoMiddlewareStack, TimingMiddleware, django_loader
+from freeman.middleware.django_loader import (
     DEFAULT_EXCLUDED_MIDDLEWARE,
     get_django_middleware_setting,
     load_django_middleware,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 # =============================================================================
 # Test Default Exclusions

@@ -3,7 +3,7 @@
 # See CONTRIBUTING.md. Not a member of the main workspace: cargo-fuzz builds
 # it with nightly and a sanitizer.
 [package]
-name = "django-bolt-fuzz"
+name = "freeman-fuzz"
 version = "0.0.0"
 edition = "2024"
 publish = false

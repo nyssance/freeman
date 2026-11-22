@@ -24,11 +24,11 @@ from django.template import engines
 from django.utils.decorators import async_only_middleware
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI, Depends, Request, Router
-from django_bolt.auth import JWTAuthentication
-from django_bolt.concurrency import in_lane_mode, run_in_orm_executor, run_orm_blocking, sync_to_thread
-from django_bolt.middleware import DjangoMiddleware, DjangoMiddlewareStack, middleware
-from django_bolt.testing import AsyncTestClient, TestClient
+from freeman import BoltAPI, Depends, Request, Router
+from freeman.auth import JWTAuthentication
+from freeman.concurrency import in_lane_mode, run_in_orm_executor, run_orm_blocking, sync_to_thread
+from freeman.middleware import DjangoMiddleware, DjangoMiddlewareStack, middleware
+from freeman.testing import AsyncTestClient, TestClient
 
 
 @pytest.mark.django_db(transaction=True)

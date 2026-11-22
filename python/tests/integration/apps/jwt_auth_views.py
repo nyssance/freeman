@@ -1,7 +1,7 @@
 """JWTAuthViews with the revocation store that the setting ``REVOCATION_STORE`` names.
 
 ``"cache"`` uses ``DjangoCacheRevocation`` on the ``default`` cache. ``"database"`` uses
-``DjangoORMRevocation`` on the table of ``django_bolt.auth.revocation_db``.
+``DjangoORMRevocation`` on the table of ``freeman.auth.revocation_db``.
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ import os
 
 from django.conf import settings
 
-from django_bolt import BoltAPI
-from django_bolt.auth import DjangoCacheRevocation, DjangoORMRevocation, JWTAuthViews
+from freeman import BoltAPI
+from freeman.auth import DjangoCacheRevocation, DjangoORMRevocation, JWTAuthViews
 
 SECRET = "jwt-auth-views-server-integration-secret"
 STORES = {"cache": DjangoCacheRevocation, "database": DjangoORMRevocation}

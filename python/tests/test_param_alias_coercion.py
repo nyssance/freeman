@@ -12,9 +12,9 @@ from typing import Annotated
 
 import pytest
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.param_functions import Cookie, Form, Header, Path, Query
-from django_bolt.testing import TestClient, WebSocketTestClient
+from freeman import BoltAPI, WebSocket
+from freeman.param_functions import Cookie, Form, Header, Path, Query
+from freeman.testing import TestClient, WebSocketTestClient
 
 
 # Function scope: each test registers its routes, so a mutation tool sees

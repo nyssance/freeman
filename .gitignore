@@ -11,12 +11,12 @@ target/
 .venv-ft
 ignore/
 db.sqlite3
-python/django_bolt/_core.cpython-312-x86_64-linux-gnu.so
+python/freeman/_core.cpython-312-x86_64-linux-gnu.so
 # Version-specific builds, e.g. the free-threaded cp314t module
-python/django_bolt/_core.cpython-*.so
+python/freeman/_core.cpython-*.so
 plan.md
-python/django_bolt/_core.abi3.so
-python/django_bolt/_core.pyd
+python/freeman/_core.abi3.so
+python/freeman/_core.pyd
 .vscode/
 # Lock files (not used in this project)
 poetry.lock

@@ -22,16 +22,16 @@ import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
 
-from django_bolt import BoltAPI, action
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
-from django_bolt.auth.guards import Requires
-from django_bolt.auth.jwt_utils import create_jwt_for_user, get_current_user
-from django_bolt.exceptions import HTTPException
-from django_bolt.middleware import cors, rate_limit, skip_middleware
-from django_bolt.params import Body, Cookie, Depends, Header, Path, Query
-from django_bolt.responses import StreamingResponse
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView, ViewSet
+from freeman import BoltAPI, action
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
+from freeman.auth.guards import Requires
+from freeman.auth.jwt_utils import create_jwt_for_user, get_current_user
+from freeman.exceptions import HTTPException
+from freeman.middleware import cors, rate_limit, skip_middleware
+from freeman.params import Body, Cookie, Depends, Header, Path, Query
+from freeman.responses import StreamingResponse
+from freeman.testing import TestClient
+from freeman.views import APIView, ViewSet
 
 # --- Fixtures ---
 
@@ -432,7 +432,7 @@ def test_is_admin_guard_with_class_view(api):
 @pytest.mark.django_db
 def test_has_permission_guard_with_class_view(api):
     """Test a permissions Requires guard with class-based views."""
-    from django_bolt.auth.jwt_utils import create_jwt_for_user  # noqa: PLC0415
+    from freeman.auth.jwt_utils import create_jwt_for_user  # noqa: PLC0415
 
     # Create permission
     content_type = ContentType.objects.get_for_model(User)
@@ -842,7 +842,7 @@ def test_viewset_with_multiple_custom_actions(api):
 
 def test_custom_action_with_auth_and_guards(api):
     """Test custom action methods INSIDE ViewSet with authentication and guards."""
-    from django_bolt.auth import APIKeyAuthentication, IsAuthenticated  # noqa: PLC0415
+    from freeman.auth import APIKeyAuthentication, IsAuthenticated  # noqa: PLC0415
 
     @api.viewset("/documents")
     class DocumentViewSet(ViewSet):

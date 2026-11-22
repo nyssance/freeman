@@ -22,9 +22,9 @@ import msgspec
 import pytest
 import typing_extensions
 
-from django_bolt import BoltAPI
-from django_bolt.serializers import Serializer, computed_field, field
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.serializers import Serializer, computed_field, field
+from freeman.testing import TestClient
 
 SECRET = "s3cret-value"
 T = TypeVar("T")

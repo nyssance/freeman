@@ -14,10 +14,10 @@ import time
 import jwt
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, Requires
-from django_bolt.middleware import cors
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication, Requires
+from freeman.middleware import cors
+from freeman.testing import TestClient
 
 
 class TestCorsPreflightOn404Routes:

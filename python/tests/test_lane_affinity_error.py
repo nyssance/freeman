@@ -19,23 +19,23 @@ import pytest
 from django.test import override_settings
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI, Request
-from django_bolt.auth import JWTAuthentication
-from django_bolt.concurrency import LaneAffinityError
-from django_bolt.middleware import DjangoMiddlewareStack
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Request
+from freeman.auth import JWTAuthentication
+from freeman.concurrency import LaneAffinityError
+from freeman.middleware import DjangoMiddlewareStack
+from freeman.testing import TestClient
 
 SECRET = "lane-affinity-error-secret-longer-than-32-characters"
 
 
 @pytest.fixture(autouse=True)
 def _bolt_logs_reach_caplog(monkeypatch):
-    """Bolt's logging setup stops ``django_bolt`` records at its own handler.
+    """Bolt's logging setup stops ``freeman`` records at its own handler.
 
     An earlier test can leave that setup in place. ``caplog`` listens on the
     root logger, so the records must propagate for these tests.
     """
-    monkeypatch.setattr(logging.getLogger("django_bolt"), "propagate", True)
+    monkeypatch.setattr(logging.getLogger("freeman"), "propagate", True)
 
 
 class _NoOpMiddleware(MiddlewareMixin):
@@ -92,7 +92,7 @@ def test_the_error_names_the_route_and_the_handler(caplog):
 
 
 def test_dev_mode_logs_the_fix_one_time_for_each_route(caplog):
-    caplog.set_level(logging.WARNING, logger="django_bolt")
+    caplog.set_level(logging.WARNING, logger="freeman")
     with override_settings(DEBUG=True), TestClient(_api(), raise_server_exceptions=False) as client:
         for _ in range(3):
             assert client.get("/profile/ann", headers=_headers()).status_code == 500
@@ -105,7 +105,7 @@ def test_dev_mode_logs_the_fix_one_time_for_each_route(caplog):
 @pytest.mark.parametrize("debug", [False])
 def test_no_hint_outside_dev_mode(caplog, debug, monkeypatch):
     monkeypatch.delenv("DJANGO_BOLT_DEV_WORKER", raising=False)
-    caplog.set_level(logging.WARNING, logger="django_bolt")
+    caplog.set_level(logging.WARNING, logger="freeman")
     with override_settings(DEBUG=debug), TestClient(_api(), raise_server_exceptions=False) as client:
         assert client.get("/profile/ann", headers=_headers()).status_code == 500
 
@@ -130,7 +130,7 @@ def test_the_error_names_the_qualified_name_of_the_handler(caplog):
 
 
 def test_the_dev_mode_hint_names_the_handler_the_route_and_the_fix(caplog):
-    caplog.set_level(logging.WARNING, logger="django_bolt")
+    caplog.set_level(logging.WARNING, logger="freeman")
     with override_settings(DEBUG=True), TestClient(_api(), raise_server_exceptions=False) as client:
         assert client.get("/profile/ann", headers=_headers()).status_code == 500
 
@@ -148,7 +148,7 @@ def test_the_dev_mode_hint_names_the_handler_the_route_and_the_fix(caplog):
 def test_the_dev_worker_of_runbolt_logs_the_hint_with_debug_off(caplog, monkeypatch):
     """``runbolt --dev`` sets DJANGO_BOLT_DEV_WORKER=1 in its worker."""
     monkeypatch.setenv("DJANGO_BOLT_DEV_WORKER", "1")
-    caplog.set_level(logging.WARNING, logger="django_bolt")
+    caplog.set_level(logging.WARNING, logger="freeman")
     with override_settings(DEBUG=False), TestClient(_api(), raise_server_exceptions=False) as client:
         assert client.get("/profile/ann", headers=_headers()).status_code == 500
 

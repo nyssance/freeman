@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
-from django_bolt.middleware import rate_limit
+from freeman import BoltAPI, WebSocket
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
+from freeman.middleware import rate_limit
 
 api = BoltAPI()
 

@@ -6,8 +6,8 @@ Server-Sent Events is a standard for pushing real-time updates from server to cl
 
 ```python
 from collections.abc import AsyncIterable
-from django_bolt import BoltAPI
-from django_bolt.responses import EventSourceResponse
+from freeman import BoltAPI
+from freeman.responses import EventSourceResponse
 
 api = BoltAPI()
 
@@ -46,7 +46,7 @@ Works with any serializable type: dicts, msgspec Structs, lists.
 Return `EventSourceResponse` directly when you need control over status code, headers, or ping interval:
 
 ```python
-from django_bolt.responses import EventSourceResponse
+from freeman.responses import EventSourceResponse
 
 @api.get("/stream")
 async def stream():
@@ -62,7 +62,7 @@ async def stream():
 For full control over SSE fields (event type, ID, retry, comments), yield `ServerSentEvent` objects:
 
 ```python
-from django_bolt.responses import EventSourceResponse, ServerSentEvent
+from freeman.responses import EventSourceResponse, ServerSentEvent
 
 @api.get("/sse-events", response_class=EventSourceResponse)
 async def sse_events() -> AsyncIterable[ServerSentEvent]:
@@ -191,7 +191,7 @@ This also applies to legacy `StreamingResponse(media_type="text/event-stream")` 
 Low-level function to build SSE wire-format bytes manually:
 
 ```python
-from django_bolt.responses import format_sse_event
+from freeman.responses import format_sse_event
 
 # Data-only event
 format_sse_event(data_str='{"count": 1}')
@@ -211,8 +211,8 @@ format_sse_event(data_str="payload", event="update", id="42", retry=5000)
 If you need manual control over SSE wire framing, use `StreamingResponse` directly:
 
 ```python
-from django_bolt import StreamingResponse
-from django_bolt.middleware import no_compress
+from freeman import StreamingResponse
+from freeman.middleware import no_compress
 
 @api.get("/raw-sse")
 @no_compress
@@ -232,9 +232,9 @@ async def raw_sse():
 ## Testing
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.responses import EventSourceResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.responses import EventSourceResponse
+from freeman.testing import TestClient
 
 api = BoltAPI()
 

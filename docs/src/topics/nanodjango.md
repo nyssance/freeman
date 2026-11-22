@@ -4,7 +4,7 @@ icon: lucide/package
 
 # nanodjango integration
 
-[nanodjango](https://github.com/radiac/nanodjango) is a single-file Django framework for quick demos, prototypes, and small apps. Django-Bolt ships a nanodjango plugin that lets you run Bolt's Rust/Actix server inside a nanodjango app without manually wiring `INSTALLED_APPS`, `BOLT_API`, or import order -- just import `BoltAPI` from `django_bolt.nanodjango` and start defining routes.
+[nanodjango](https://github.com/radiac/nanodjango) is a single-file Django framework for quick demos, prototypes, and small apps. Django-Bolt ships a nanodjango plugin that lets you run Bolt's Rust/Actix server inside a nanodjango app without manually wiring `INSTALLED_APPS`, `BOLT_API`, or import order -- just import `BoltAPI` from `freeman.nanodjango` and start defining routes.
 
 ## Install
 
@@ -32,7 +32,7 @@ A complete single-file app, `helloworld.py`. With [uv's inline script metadata](
 # ///
 
 from nanodjango import Django
-from django_bolt.nanodjango import BoltAPI
+from freeman.nanodjango import BoltAPI
 
 app = Django()
 bolt = BoltAPI()
@@ -96,11 +96,11 @@ nanodjango manage myapp.py runbolt --port 8000
 
 Without this plugin, using Django-Bolt in a single-file nanodjango app requires manually configuring `INSTALLED_APPS`, `BOLT_API`, and getting the import order right (django-bolt must be imported after Django settings are configured).
 
-The `django_bolt.nanodjango` plugin handles all of that:
+The `freeman.nanodjango` plugin handles all of that:
 
-- Adds `django_bolt` to `INSTALLED_APPS` automatically
+- Adds `freeman` to `INSTALLED_APPS` automatically
 - Configures `BOLT_API` (the setting that tells `runbolt` where to find your API instance) by detecting the variable name at decoration time
-- Subclasses `django_bolt.BoltAPI` so `runbolt`'s autodiscovery accepts it
+- Subclasses `freeman.BoltAPI` so `runbolt`'s autodiscovery accepts it
 - Registers as a nanodjango plugin via setuptools entry points (no config needed)
 - Supports `nanodjango convert` by detecting `BoltAPI` and `Router` instances, route-decorated functions and classes, and mount calls in the AST and moving them to `api.py` in the generated project
 
@@ -114,7 +114,7 @@ Use `mount_django` to serve everything on one port. Bolt routes are handled nati
 
 ```python
 from nanodjango import Django
-from django_bolt.nanodjango import BoltAPI
+from freeman.nanodjango import BoltAPI
 
 app = Django()
 api = BoltAPI()
@@ -192,8 +192,8 @@ import asyncio
 from collections.abc import AsyncIterable
 
 from nanodjango import Django
-from django_bolt.nanodjango import BoltAPI
-from django_bolt.responses import EventSourceResponse
+from freeman.nanodjango import BoltAPI
+from freeman.responses import EventSourceResponse
 
 app = Django()
 bolt = BoltAPI()
@@ -216,8 +216,8 @@ WebSocket endpoints work the same way as in a non-nanodjango Bolt app -- the plu
 
 ```python
 from nanodjango import Django
-from django_bolt import WebSocket, WebSocketDisconnect
-from django_bolt.nanodjango import BoltAPI
+from freeman import WebSocket, WebSocketDisconnect
+from freeman.nanodjango import BoltAPI
 
 app = Django()
 bolt = BoltAPI()
@@ -259,7 +259,7 @@ def make_bolt():
 bolt = make_bolt()
 ```
 
-The plugin emits a warning to the `django_bolt.nanodjango` logger when auto-detection fails, so you'll see the issue at startup rather than getting a silent empty router.
+The plugin emits a warning to the `freeman.nanodjango` logger when auto-detection fails, so you'll see the issue at startup rather than getting a silent empty router.
 
 ## Converting to a full project
 
@@ -294,12 +294,12 @@ settings.configure(
     INSTALLED_APPS=[
         "django.contrib.contenttypes",
         "django.contrib.auth",
-        "django_bolt",
+        "freeman",
     ],
     BOLT_API=["__main__:api"],
 )
 
-from django_bolt import BoltAPI  # must be after settings.configure()
+from freeman import BoltAPI  # must be after settings.configure()
 
 api = BoltAPI()
 
@@ -316,7 +316,7 @@ if __name__ == "__main__":
 
 ```python
 from nanodjango import Django
-from django_bolt.nanodjango import BoltAPI
+from freeman.nanodjango import BoltAPI
 
 app = Django()
 bolt = BoltAPI()

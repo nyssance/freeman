@@ -15,10 +15,10 @@ import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import File as DjangoFile
 
-from django_bolt import BoltAPI, FileSize, UploadFile
-from django_bolt.datastructures import UploadFile as UploadFileClass
-from django_bolt.params import File, Form
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, FileSize, UploadFile
+from freeman.datastructures import UploadFile as UploadFileClass
+from freeman.params import File, Form
+from freeman.testing import TestClient
 from tests.test_models import Document
 
 

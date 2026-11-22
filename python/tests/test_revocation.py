@@ -12,9 +12,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.db import IntegrityError
 
-from django_bolt import BoltAPI
-from django_bolt.auth import JWTAuthentication, JWTAuthViews
-from django_bolt.auth.revocation import (
+from freeman import BoltAPI
+from freeman.auth import JWTAuthentication, JWTAuthViews
+from freeman.auth.revocation import (
     _DEFAULT_TTL_SECONDS,
     DjangoCacheRevocation,
     DjangoORMRevocation,
@@ -22,8 +22,8 @@ from django_bolt.auth.revocation import (
     RevocationStore,
     _ttl_for,
 )
-from django_bolt.auth.revocation_db.models import RevokedToken
-from django_bolt.testing import TestClient
+from freeman.auth.revocation_db.models import RevokedToken
+from freeman.testing import TestClient
 
 # ---------------------------------------------------------------------------
 # InMemoryRevocation
@@ -323,7 +323,7 @@ def test_orm_revocation_valid_model_path():
     """A two-part model path 'app.Model' should work without error."""
     store = DjangoORMRevocation(model="myapp.RevokedToken")
     mock_model = MagicMock()
-    with patch("django_bolt.auth.revocation.apps.get_model", return_value=mock_model):
+    with patch("freeman.auth.revocation.apps.get_model", return_value=mock_model):
         result = store.model
     assert result is mock_model
 
@@ -551,7 +551,7 @@ def test_cache_without_atomic_operations_is_rejected(settings, tmp_path, backend
 
 @pytest.fixture
 def orm_store(transactional_db):
-    """Build a ``DjangoORMRevocation`` factory on the table of ``django_bolt.auth.revocation_db``."""
+    """Build a ``DjangoORMRevocation`` factory on the table of ``freeman.auth.revocation_db``."""
     return lambda **kwargs: DjangoORMRevocation(**kwargs)
 
 

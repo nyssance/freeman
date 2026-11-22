@@ -17,8 +17,8 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 from django.utils import timezone
 
-from django_bolt import BoltAPI, CurrentUser, Request, Router
-from django_bolt.auth import (
+from freeman import BoltAPI, CurrentUser, Request, Router
+from freeman.auth import (
     AllowAny,
     APIKeyAuthentication,
     IsAuthenticated,
@@ -27,13 +27,13 @@ from django_bolt.auth import (
     SessionAuthentication,
     create_jwt_for_user,
 )
-from django_bolt.auth.session import auth_without_session
-from django_bolt.concurrency import in_lane_mode
-from django_bolt.error_handlers import problem_details
-from django_bolt.exceptions import HTTPException
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.testing import TestClient, WebSocketTestClient
+from freeman.auth.session import auth_without_session
+from freeman.concurrency import in_lane_mode
+from freeman.error_handlers import problem_details
+from freeman.exceptions import HTTPException
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.testing import TestClient, WebSocketTestClient
 
 from .test_models import User as UserWithoutSuperuser
 
@@ -600,7 +600,7 @@ def test_a_permissions_guard_needs_the_sync_permissions_method_of_the_user_model
             return {"reports.view"}
 
     def add_route(user_model):
-        monkeypatch.setattr("django_bolt.auth.session.get_user_model", lambda: user_model)
+        monkeypatch.setattr("freeman.auth.session.get_user_model", lambda: user_model)
         api = BoltAPI()
 
         @api.get("/reports", auth=[SessionAuthentication()], guards=[Requires("permissions", "reports.view")])

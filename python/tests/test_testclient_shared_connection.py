@@ -17,11 +17,11 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.db import connection, connections
 
-from django_bolt import BoltAPI
-from django_bolt.testing import AsyncTestClient, TestClient
-from django_bolt.testing import client as client_module
-from django_bolt.testing.client import BoltTestClientWarning
-from django_bolt.testing.dbshare import (
+from freeman import BoltAPI
+from freeman.testing import AsyncTestClient, TestClient
+from freeman.testing import client as client_module
+from freeman.testing.client import BoltTestClientWarning
+from freeman.testing.dbshare import (
     DEFAULT_LOCK_TIMEOUT,
     SharedConnections,
     SharedTestConnectionError,

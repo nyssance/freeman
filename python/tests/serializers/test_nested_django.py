@@ -17,8 +17,8 @@ import msgspec
 import pytest
 from msgspec import Meta
 
-from django_bolt.exceptions import RequestValidationError, SerializationError
-from django_bolt.serializers import Serializer, field, field_validator
+from freeman.exceptions import RequestValidationError, SerializationError
+from freeman.serializers import Serializer, field, field_validator
 from tests.test_models import Author, BlogPost, Comment, Tag
 
 

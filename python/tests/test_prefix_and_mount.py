@@ -11,13 +11,13 @@ from typing import Annotated
 
 import pytest
 
-from django_bolt import BoltAPI, Router, WebSocket
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated
-from django_bolt.middleware import Middleware
-from django_bolt.openapi import OpenAPIConfig, SwaggerRenderPlugin
-from django_bolt.params import Query
-from django_bolt.testing import TestClient, WebSocketTestClient
-from django_bolt.views import APIView, ViewSet
+from freeman import BoltAPI, Router, WebSocket
+from freeman.auth import APIKeyAuthentication, IsAuthenticated
+from freeman.middleware import Middleware
+from freeman.openapi import OpenAPIConfig, SwaggerRenderPlugin
+from freeman.params import Query
+from freeman.testing import TestClient, WebSocketTestClient
+from freeman.views import APIView, ViewSet
 
 
 class TestMountPathNormalization:

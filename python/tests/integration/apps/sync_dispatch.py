@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import asyncio
 
-from django_bolt import BoltAPI
-from django_bolt.responses import PlainText
+from freeman import BoltAPI
+from freeman.responses import PlainText
 
 api = BoltAPI()
 

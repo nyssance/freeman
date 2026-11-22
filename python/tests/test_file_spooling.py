@@ -7,10 +7,10 @@ from typing import Annotated
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.datastructures import UploadFile
-from django_bolt.params import File
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.datastructures import UploadFile
+from freeman.params import File
+from freeman.testing import TestClient
 
 
 @pytest.fixture(autouse=True)

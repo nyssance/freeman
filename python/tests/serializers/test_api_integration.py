@@ -24,10 +24,10 @@ import pytest
 from asgiref.sync import sync_to_async
 from msgspec import Meta
 
-from django_bolt.api import BoltAPI
-from django_bolt.exceptions import BadRequest
-from django_bolt.responses import JSON
-from django_bolt.serializers import (
+from freeman.api import BoltAPI
+from freeman.exceptions import BadRequest
+from freeman.responses import JSON
+from freeman.serializers import (
     Email,
     NonEmptyStr,
     Serializer,
@@ -36,7 +36,7 @@ from django_bolt.serializers import (
     field_validator,
     model_validator,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 from tests.test_models import Author, BlogPost, Comment, Tag, User
 
 # ============================================================================

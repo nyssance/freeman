@@ -13,9 +13,9 @@ from typing import Annotated
 
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.param_functions import Header, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.param_functions import Header, Query
+from freeman.testing import TestClient
 
 VALUES = [
     "5cd2b626-39a7-4893-b8ca-7a1c3478d754",

@@ -8,17 +8,17 @@ from datetime import UTC, datetime
 import pytest
 from django.http import HttpResponse
 
-from django_bolt import JSON, BoltAPI, Cookie, Response, StreamingResponse
-from django_bolt.cookies import make_delete_cookie
-from django_bolt.responses import HTML, File, FileResponse, PlainText, Redirect
-from django_bolt.serialization import (
+from freeman import JSON, BoltAPI, Cookie, Response, StreamingResponse
+from freeman.cookies import make_delete_cookie
+from freeman.responses import HTML, File, FileResponse, PlainText, Redirect
+from freeman.serialization import (
     compile_response_handlers,
     serialize_html_response,
     serialize_plaintext_response,
     serialize_redirect_response,
     serialize_response,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 
 class TestCookieSerialization:
@@ -541,10 +541,10 @@ class TestSerializationWithCookies:
 
 
 class TestCookieImport:
-    """Tests for Cookie class import from django_bolt."""
+    """Tests for Cookie class import from freeman."""
 
     def test_cookie_import(self):
-        """Test that Cookie can be imported from django_bolt."""
+        """Test that Cookie can be imported from freeman."""
         cookie = Cookie("test", "value")
         assert cookie.name == "test"
         assert cookie.value == "value"

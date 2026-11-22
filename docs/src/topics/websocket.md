@@ -9,7 +9,7 @@ Django-Bolt provides WebSocket support for real-time bidirectional communication
 ## Basic WebSocket endpoint
 
 ```python
-from django_bolt import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket
 
 api = BoltAPI()
 
@@ -159,7 +159,7 @@ convert rejects the upgrade with a 400. The body names the parameter:
 ```python
 from typing import Annotated
 
-from django_bolt.param_functions import Query
+from freeman.param_functions import Query
 
 @api.websocket("/ws/feed")
 async def feed(websocket: WebSocket, limit: Annotated[int, Query()] = 10):
@@ -199,7 +199,7 @@ does not log an error. `WebSocketClose` is the same exception with code 1000
 as its default:
 
 ```python
-from django_bolt import WebSocketException
+from freeman import WebSocketException
 
 @api.websocket("/ws/rooms/{room}")
 async def room(websocket: WebSocket, room: str):
@@ -241,7 +241,7 @@ handler accepts or refuses the handshake.
 ### Handling client disconnect
 
 ```python
-from django_bolt import WebSocketDisconnect
+from freeman import WebSocketDisconnect
 
 @api.websocket("/ws")
 async def handler(websocket: WebSocket):
@@ -272,7 +272,7 @@ Common WebSocket close codes:
 Access close codes:
 
 ```python
-from django_bolt import CloseCode
+from freeman import CloseCode
 
 await websocket.close(code=CloseCode.NORMAL)
 ```
@@ -322,7 +322,7 @@ The handshake sets `Sec-WebSocket-Protocol`, `Sec-WebSocket-Accept`,
 Apply authentication to WebSocket endpoints:
 
 ```python
-from django_bolt.auth import JWTAuthentication, IsAuthenticated
+from freeman.auth import JWTAuthentication, IsAuthenticated
 
 @api.websocket(
     "/ws/protected",
@@ -352,7 +352,7 @@ replaces the credential, so the test runs the authentication and the guards of
 the server:
 
 ```python
-from django_bolt.testing import WebSocketTestClient
+from freeman.testing import WebSocketTestClient
 
 async with WebSocketTestClient(
     api,
@@ -403,7 +403,7 @@ Close the connection if the token is not valid. See
 Check the connection state:
 
 ```python
-from django_bolt import WebSocketState
+from freeman import WebSocketState
 
 if websocket.state == WebSocketState.CONNECTED:
     await websocket.send_text("Still connected")
@@ -457,7 +457,7 @@ Use the `WebSocketTestClient`:
 ```python
 import pytest
 
-from django_bolt.testing import WebSocketTestClient
+from freeman.testing import WebSocketTestClient
 
 
 @pytest.mark.asyncio
@@ -475,7 +475,7 @@ When the handler closes the connection, the receive methods raise `ConnectionClo
 Its `code` attribute has the close code:
 
 ```python
-from django_bolt.testing import ConnectionClosed, WebSocketTestClient
+from freeman.testing import ConnectionClosed, WebSocketTestClient
 
 @api.websocket("/ws/once")
 async def once(websocket: WebSocket):
@@ -492,7 +492,7 @@ assert closed.value.code == 4001
 server does. A refused handshake fails the `async with`:
 
 ```python
-from django_bolt.testing import HandshakeRejected, WebSocketTestClient
+from freeman.testing import HandshakeRejected, WebSocketTestClient
 
 with pytest.raises(HandshakeRejected) as rejected:
     async with WebSocketTestClient(api, "/ws/rooms/closed"):

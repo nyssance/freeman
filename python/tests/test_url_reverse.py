@@ -3,7 +3,7 @@
 Covers route-name derivation (every derived name is taken verbatim from its
 Python identifier, exactly like an explicit ``name=``), opt-in per-API
 namespaces, Bolt-to-Django path conversion, and the reverse-only urlpatterns
-that ``django_bolt.urls`` contributes to ``ROOT_URLCONF`` so Django's native
+that ``freeman.urls`` contributes to ``ROOT_URLCONF`` so Django's native
 ``reverse()`` resolves Bolt names.
 """
 
@@ -17,9 +17,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.urls import NoReverseMatch
 from django.urls import reverse as django_reverse
 
-from django_bolt import BoltAPI, ViewSet, action
-from django_bolt.urls import _to_django_route, build_urlpatterns
-from django_bolt.views import APIView
+from freeman import BoltAPI, ViewSet, action
+from freeman.urls import _to_django_route, build_urlpatterns
+from freeman.views import APIView
 
 _urlconf_counter = 0
 

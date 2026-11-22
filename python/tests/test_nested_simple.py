@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django_bolt.serializers import Serializer
+from freeman.serializers import Serializer
 
 
 def test_nested_annotation():

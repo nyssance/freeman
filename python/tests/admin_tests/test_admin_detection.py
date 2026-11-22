@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from django.conf import settings
 
-from django_bolt.admin.admin_detection import should_enable_admin
+from freeman.admin.admin_detection import should_enable_admin
 
 QSESSIONS_MIDDLEWARE = "tests.admin_tests.fake_qsessions.SessionMiddleware"
 DJANGO_SESSION_MIDDLEWARE = "django.contrib.sessions.middleware.SessionMiddleware"

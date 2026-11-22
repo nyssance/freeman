@@ -7,9 +7,9 @@ on the default ``BoltAPI().compression``. ``/events/raw`` opts out via
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import no_compress
-from django_bolt.responses import EventSourceResponse, StreamingResponse
+from freeman import BoltAPI
+from freeman.middleware import no_compress
+from freeman.responses import EventSourceResponse, StreamingResponse
 
 api = BoltAPI()
 

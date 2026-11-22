@@ -11,7 +11,7 @@ This page documents the `BoltAPI` class and its methods.
 The main class for creating Django-Bolt APIs.
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 ```
@@ -57,7 +57,7 @@ Python middleware order is: `Global -> Router -> Route -> Handler` (reversed on 
 Function-style route middleware:
 
 ```python
-from django_bolt.middleware import middleware
+from freeman.middleware import middleware
 
 @middleware
 async def audit_middleware(request, call_next):
@@ -74,8 +74,8 @@ async def reports():
 Class-based middleware:
 
 ```python
-from django_bolt import BoltAPI, Router
-from django_bolt.middleware import Middleware
+from freeman import BoltAPI, Router
+from freeman.middleware import Middleware
 
 class RequestIdMiddleware(Middleware):
     async def process_request(self, request):
@@ -285,7 +285,7 @@ Use `clear_root_path=True` when Django URL patterns already include the mount pr
 
 #### api.native_route(method, path, capsule)
 
-Serve `method path` with a Rust handler from another extension module. `capsule` is the `django_bolt.native_handler.v1` capsule of the handler. The request does not go into Python.
+Serve `method path` with a Rust handler from another extension module. `capsule` is the `freeman.native_handler.v1` capsule of the handler. The request does not go into Python.
 
 ```python
 api.native_route("GET", "/native/users/{id}", my_extension.user_handler())
@@ -300,7 +300,7 @@ See [Native Routes](../topics/native-routes.md) for what Bolt does for a native 
 Mark a parameter as a dependency.
 
 ```python
-from django_bolt import Depends
+from freeman import Depends
 
 async def get_db():
     return Database()
@@ -322,7 +322,7 @@ Dependencies can:
 Built-in dependency for getting the authenticated user.
 
 ```python
-from django_bolt.auth import get_current_user
+from freeman.auth import get_current_user
 
 @api.get("/me", auth=[JWTAuthentication()], guards=[IsAuthenticated()])
 async def me(user=Depends(get_current_user)):
@@ -347,7 +347,7 @@ The request dict contains:
 ### Type-safe Request
 
 ```python
-from django_bolt import Request
+from freeman import Request
 
 @api.get("/info")
 async def info(request: Request):
@@ -362,7 +362,7 @@ async def info(request: Request):
 Base class for HTTP errors.
 
 ```python
-from django_bolt.exceptions import HTTPException
+from freeman.exceptions import HTTPException
 
 raise HTTPException(status_code=404, detail="Not found")
 ```
@@ -381,7 +381,7 @@ raise HTTPException(status_code=404, detail="Not found")
 | `InternalServerError` | 500 |
 
 ```python
-from django_bolt.exceptions import NotFound, BadRequest
+from freeman.exceptions import NotFound, BadRequest
 
 raise NotFound(detail="User not found")
 raise BadRequest(detail="Invalid input")
@@ -392,7 +392,7 @@ raise BadRequest(detail="Invalid input")
 For validation errors with field-level details.
 
 ```python
-from django_bolt.exceptions import RequestValidationError
+from freeman.exceptions import RequestValidationError
 
 errors = [
     {"loc": ["body", "email"], "msg": "Invalid email", "type": "value_error"}
@@ -407,7 +407,7 @@ raise RequestValidationError(errors)
 Extract a header value.
 
 ```python
-from django_bolt.param_functions import Header
+from freeman.param_functions import Header
 
 async def handler(auth: Annotated[str, Header(alias="Authorization")]):
     pass
@@ -418,7 +418,7 @@ async def handler(auth: Annotated[str, Header(alias="Authorization")]):
 Extract a cookie value.
 
 ```python
-from django_bolt.param_functions import Cookie
+from freeman.param_functions import Cookie
 
 async def handler(session: Annotated[str, Cookie(alias="sessionid")]):
     pass
@@ -429,7 +429,7 @@ async def handler(session: Annotated[str, Cookie(alias="sessionid")]):
 Extract form data.
 
 ```python
-from django_bolt.param_functions import Form
+from freeman.param_functions import Form
 
 async def handler(username: Annotated[str, Form()]):
     pass
@@ -440,7 +440,7 @@ async def handler(username: Annotated[str, Form()]):
 Extract uploaded files.
 
 ```python
-from django_bolt.param_functions import File
+from freeman.param_functions import File
 
 async def handler(files: Annotated[list[dict], File(alias="file")]):
     pass

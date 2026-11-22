@@ -34,12 +34,12 @@ from allauth.headless.internal.sessionkit import authenticate_by_x_session_token
 from allauth.headless.tokens.strategies.jwt.internal import get_token_session, validate_token_user
 from asgiref.sync import sync_to_async
 
-from django_bolt import BoltAPI, CurrentUser, Depends, OptionalCurrentUser, Request
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.concurrency import sync_to_thread
-from django_bolt.exceptions import Unauthorized
-from django_bolt.middleware import DjangoMiddleware
-from django_bolt.param_functions import Header
+from freeman import BoltAPI, CurrentUser, Depends, OptionalCurrentUser, Request
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.concurrency import sync_to_thread
+from freeman.exceptions import Unauthorized
+from freeman.middleware import DjangoMiddleware
+from freeman.param_functions import Header
 
 DJANGO_MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",

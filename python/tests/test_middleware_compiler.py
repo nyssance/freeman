@@ -1,4 +1,4 @@
-"""Route metadata that django_bolt.middleware.compiler gives to Rust.
+"""Route metadata that freeman.middleware.compiler gives to Rust.
 
 Each test sends requests with TestClient and checks the response. A test
 reads route metadata only when the response cannot show the difference.
@@ -15,12 +15,12 @@ import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
-from django_bolt import BoltAPI, UploadFile
-from django_bolt.auth import JWTAuthentication, Requires
-from django_bolt.middleware import no_compress
-from django_bolt.middleware.compiler import _build_policy_without_nonce
-from django_bolt.param_functions import File, Form, Header, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, UploadFile
+from freeman.auth import JWTAuthentication, Requires
+from freeman.middleware import no_compress
+from freeman.middleware.compiler import _build_policy_without_nonce
+from freeman.param_functions import File, Form, Header, Query
+from freeman.testing import TestClient
 
 try:
     from django.utils.csp import CSP, build_policy

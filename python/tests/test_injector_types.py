@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django_bolt._kwargs.model import (
+from freeman._kwargs.model import (
     _NO_PARAMS,
     HandlerPattern,
     _injector_no_params,

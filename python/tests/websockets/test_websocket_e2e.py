@@ -23,7 +23,7 @@ if not settings.configured:
         INSTALLED_APPS=[
             "django.contrib.contenttypes",
             "django.contrib.auth",
-            "django_bolt",
+            "freeman",
         ],
         DATABASES={
             "default": {
@@ -35,10 +35,10 @@ if not settings.configured:
     )
     django.setup()
 
-from django_bolt import BoltAPI, WebSocket, WebSocketDisconnect, WebSocketState
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, Requires
-from django_bolt.testing import ConnectionClosed, WebSocketTestClient
-from django_bolt.websocket import CloseCode
+from freeman import BoltAPI, WebSocket, WebSocketDisconnect, WebSocketState
+from freeman.auth import IsAuthenticated, JWTAuthentication, Requires
+from freeman.testing import ConnectionClosed, WebSocketTestClient
+from freeman.websocket import CloseCode
 
 # Test secret for JWT tokens
 E2E_JWT_SECRET = "test-secret-key-for-websocket-e2e-jwt"

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 

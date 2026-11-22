@@ -28,7 +28,7 @@ Keep the toolbar behind `DEBUG`.
 DEBUG = True
 
 INSTALLED_APPS = [
-    "django_bolt",
+    "freeman",
     "django.contrib.staticfiles",
     # ...
 ]
@@ -72,7 +72,7 @@ Run the toolbar middleware on Bolt routes, and mount the toolbar views at the si
 ```python
 # api.py
 from django.conf import settings
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 DEBUG_TOOLBAR_MIDDLEWARE = (
     ["debug_toolbar.middleware.DebugToolbarMiddleware"] if "debug_toolbar" in settings.INSTALLED_APPS else None

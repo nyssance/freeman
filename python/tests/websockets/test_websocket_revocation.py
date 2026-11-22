@@ -11,9 +11,9 @@ import time
 import jwt
 import pytest
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.testing import WebSocketTestClient
+from freeman import BoltAPI, WebSocket
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.testing import WebSocketTestClient
 
 SECRET = "websocket-revocation-secret-longer-than-32-characters"
 

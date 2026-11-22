@@ -190,7 +190,7 @@ pub fn close_test_worker_connections(py: Python<'_>) -> PyResult<()> {
             Box::pin(async move {
                 Python::attach(|py| {
                     let closed = py
-                        .import("django_bolt.concurrency")
+                        .import("freeman.concurrency")
                         .and_then(|module| module.call_method0("close_lane_connections"));
                     if let Err(err) = closed {
                         err.print(py);
@@ -218,7 +218,7 @@ pub fn close_test_worker_connections(py: Python<'_>) -> PyResult<()> {
 /// test. `runbolt` never replaces the pool, so its loops keep their first pool.
 fn refresh_default_executor(py: Python<'_>) -> PyResult<()> {
     let pool = py
-        .import("django_bolt.concurrency")?
+        .import("freeman.concurrency")?
         .call_method0("_get_default_executor")?;
     bolt_loop::current_loop(py)?
         .loop_obj()
@@ -253,7 +253,7 @@ pub struct TestAppState {
 /// keeps one for each API. A test app reads `BOLT_RATE_LIMIT_IPV6_PREFIX`, and
 /// gets the buckets for that prefix. Thus a new prefix gives new buckets, as a
 /// restart of the server does.
-#[pyclass(frozen, name = "TestRateLimiters", module = "django_bolt._core")]
+#[pyclass(frozen, name = "TestRateLimiters", module = "freeman._core")]
 #[derive(Default)]
 pub struct TestRateLimiters(parking_lot::Mutex<Vec<Arc<RateLimiters>>>);
 
@@ -1304,7 +1304,7 @@ mod native_test_handler {
     };
 }
 
-/// A `django_bolt.native_handler.v1` capsule for bolt's own tests. `kind` is
+/// A `freeman.native_handler.v1` capsule for bolt's own tests. `kind` is
 /// `ok`, `null_response`, `small_response`, `no_call` or `too_small`.
 #[pyfunction]
 #[pyo3(signature = (kind="ok"))]

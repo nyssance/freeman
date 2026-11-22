@@ -8,13 +8,13 @@ import msgspec
 import pytest
 from django.test import override_settings
 
-from django_bolt import JSON, BoltAPI, Response, StreamingResponse
-from django_bolt.exceptions import HTTPException
-from django_bolt.param_functions import Cookie, Depends, Form, Header, Query
-from django_bolt.param_functions import File as FileParam
-from django_bolt.responses import HTML, File, FileResponse, PlainText, Redirect
-from django_bolt.serializers import Serializer, field_validator
-from django_bolt.testing import TestClient
+from freeman import JSON, BoltAPI, Response, StreamingResponse
+from freeman.exceptions import HTTPException
+from freeman.param_functions import Cookie, Depends, Form, Header, Query
+from freeman.param_functions import File as FileParam
+from freeman.responses import HTML, File, FileResponse, PlainText, Redirect
+from freeman.serializers import Serializer, field_validator
+from freeman.testing import TestClient
 
 
 @pytest.fixture(scope="module")

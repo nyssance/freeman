@@ -3,10 +3,10 @@ import builtins
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, ModelViewSet, PageNumberPagination, ReadOnlyModelViewSet, ViewSet, action, paginate
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView
+from freeman import BoltAPI, ModelViewSet, PageNumberPagination, ReadOnlyModelViewSet, ViewSet, action, paginate
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
+from freeman.views import APIView
 from tests.test_models import Article
 
 

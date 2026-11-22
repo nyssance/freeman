@@ -9,7 +9,7 @@ core — no Starlette or Python-SDK stack in the request path. Dual-era: speaks 
 session-based revisions on the same endpoint.
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 from bolt_mcp import MCP
 
 api = BoltAPI()
@@ -118,7 +118,7 @@ explicitly before mounting.
 **Tier 1 — reuse django-bolt auth** (validated in Rust before the handler):
 
 ```python
-from django_bolt import JWTAuthentication, IsAuthenticated
+from freeman import JWTAuthentication, IsAuthenticated
 
 api.mount_mcp(mcp, auth=[JWTAuthentication(secret=...)], guards=[IsAuthenticated()])
 ```

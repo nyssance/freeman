@@ -416,8 +416,8 @@ impl PyRequest {
             Ok(Some(auser)) => Ok(auser.unbind()),
             _ => {
                 // Share the Bolt user when no middleware provides an async getter.
-                let django_bolt_module = py.import("django_bolt.auth.anonymous")?;
-                let auser_fallback = django_bolt_module.getattr("auser_fallback")?;
+                let freeman_module = py.import("freeman.auth.anonymous")?;
+                let auser_fallback = freeman_module.getattr("auser_fallback")?;
                 let partial = py.import("functools")?.getattr("partial")?;
                 Ok(partial.call1((auser_fallback, self.user(py)))?.unbind())
             }
@@ -456,7 +456,7 @@ impl PyRequest {
     ///     http://example.com/users?page=2
     ///
     /// Django's HttpRequest.build_absolute_uri() builds the URL, in
-    /// `django_bolt._absolute_uri`. Django joins the location. When it builds
+    /// `freeman._absolute_uri`. Django joins the location. When it builds
     /// the URL from the request host, a host outside `ALLOWED_HOSTS` raises
     /// `DisallowedHost`. An absolute location comes back with no host check.
     /// The resolved scheme is the scheme, unless `SECURE_PROXY_SSL_HEADER`
@@ -464,7 +464,7 @@ impl PyRequest {
     #[pyo3(signature = (location=None))]
     fn build_absolute_uri(&self, py: Python<'_>, location: Option<&str>) -> PyResult<String> {
         let scheme = self.resolved_scheme();
-        py.import("django_bolt._absolute_uri")?
+        py.import("freeman._absolute_uri")?
             .getattr("build_absolute_uri")?
             .call1((
                 self.META(py)?,
@@ -480,10 +480,10 @@ impl PyRequest {
     ///
     /// It is the scheme of `build_absolute_uri()`: the resolved scheme, unless
     /// `SECURE_PROXY_SSL_HEADER` applies. Django's `HttpRequest.scheme` gives
-    /// it, in `django_bolt._absolute_uri`. Nothing runs before the first read.
+    /// it, in `freeman._absolute_uri`. Nothing runs before the first read.
     #[getter]
     fn scheme(&self, py: Python<'_>) -> PyResult<String> {
-        py.import("django_bolt._absolute_uri")?
+        py.import("freeman._absolute_uri")?
             .getattr("scheme")?
             .call1((self.META(py)?, self.resolved_scheme()))?
             .extract()

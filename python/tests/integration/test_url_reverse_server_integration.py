@@ -1,7 +1,7 @@
 """Server integration test for Bolt URL reversing.
 
 Boots a real ``runbolt`` server whose ``ROOT_URLCONF`` wires Bolt routes in with
-the documented ``path("", include("django_bolt.urls"))``, then hits an endpoint
+the documented ``path("", include("freeman.urls"))``, then hits an endpoint
 that renders a Django template. This proves the ``{% url %}`` tag (and the native
 ``reverse()`` it calls) resolves Bolt route names end-to-end in a real process.
 """
@@ -18,7 +18,7 @@ pytestmark = pytest.mark.server_integration
 _URLS = """
 from django.urls import include, path
 
-urlpatterns = [path("", include("django_bolt.urls"))]
+urlpatterns = [path("", include("freeman.urls"))]
 """
 
 _TEMPLATES = [

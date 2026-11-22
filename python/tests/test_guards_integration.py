@@ -12,15 +12,15 @@ import pytest
 from django.conf import settings  # noqa: PLC0415
 from django.core.management import call_command  # noqa: PLC0415
 
-from django_bolt import BoltAPI, Router
-from django_bolt.auth import (
+from freeman import BoltAPI, Router
+from freeman.auth import (
     AllowAny,
     APIKeyAuthentication,
     IsAuthenticated,
     JWTAuthentication,
     Requires,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 
 def create_token(user_id="user123", is_staff=False, is_superuser=False, permissions=None):
@@ -47,7 +47,7 @@ def api():
             INSTALLED_APPS=[
                 "django.contrib.contenttypes",
                 "django.contrib.auth",
-                "django_bolt",
+                "freeman",
             ],
             DATABASES={
                 "default": {

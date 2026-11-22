@@ -13,7 +13,7 @@ Django-Bolt provides a structured exception hierarchy for HTTP errors and automa
 The base class for all HTTP errors:
 
 ```python
-from django_bolt.exceptions import HTTPException
+from freeman.exceptions import HTTPException
 
 raise HTTPException(status_code=400, detail="Bad request")
 ```
@@ -41,7 +41,7 @@ A detail of another type becomes its text, so `detail=42` gives `"42"`. An empty
 Django-Bolt provides pre-configured exceptions for common status codes:
 
 ```python
-from django_bolt.exceptions import (
+from freeman.exceptions import (
     # 4xx Client Errors
     BadRequest,           # 400
     Unauthorized,         # 401
@@ -119,7 +119,7 @@ Response:
 Raised when request validation fails. Django-Bolt's Serializer **automatically collects all validation errors** from `@field_validator` and `@model_validator` before raising, so users see all issues at once:
 
 ```python
-from django_bolt.serializers import Serializer, field_validator
+from freeman.serializers import Serializer, field_validator
 
 class UserSerializer(Serializer):
     email: str
@@ -145,7 +145,7 @@ UserSerializer(email="invalid", age=-5)
 You can also raise manually:
 
 ```python
-from django_bolt.exceptions import RequestValidationError
+from freeman.exceptions import RequestValidationError
 
 errors = [
     {
@@ -186,7 +186,7 @@ Response (422 Unprocessable Entity):
 Raised when response validation fails (returns 500):
 
 ```python
-from django_bolt.exceptions import ResponseValidationError
+from freeman.exceptions import ResponseValidationError
 
 errors = [
     {
@@ -211,7 +211,7 @@ Django-Bolt provides built-in error handlers:
 Handles `HTTPException` and its subclasses:
 
 ```python
-from django_bolt.error_handlers import http_exception_handler
+from freeman.error_handlers import http_exception_handler
 
 exc = NotFound(detail="User not found")
 status, headers, body = http_exception_handler(exc)
@@ -224,7 +224,7 @@ status, headers, body = http_exception_handler(exc)
 Handles `RequestValidationError`:
 
 ```python
-from django_bolt.error_handlers import request_validation_error_handler
+from freeman.error_handlers import request_validation_error_handler
 
 errors = [{"loc": ["body"], "msg": "Invalid", "type": "value_error"}]
 exc = RequestValidationError(errors)
@@ -237,7 +237,7 @@ status, headers, body = request_validation_error_handler(exc)
 Handles unexpected exceptions:
 
 ```python
-from django_bolt.error_handlers import generic_exception_handler
+from freeman.error_handlers import generic_exception_handler
 
 exc = ValueError("Something went wrong")
 
@@ -259,7 +259,7 @@ The main entry point that routes to appropriate handlers. It maps some Django ex
 - `SuspiciousOperation`, for example `DisallowedHost`, gives 400. Bolt logs it to the `django.security.<class name>` logger, as Django does. With `DEBUG=False`, the detail is `Bad Request`.
 
 ```python
-from django_bolt.error_handlers import handle_exception
+from freeman.error_handlers import handle_exception
 
 # Automatically detects exception type
 status, headers, body = handle_exception(some_exception)
@@ -286,7 +286,7 @@ The debug parameter defaults to Django's `DEBUG` setting.
 Django-Bolt converts `msgspec.ValidationError` to the standard error format:
 
 ```python
-from django_bolt.error_handlers import msgspec_validation_error_to_dict
+from freeman.error_handlers import msgspec_validation_error_to_dict
 
 try:
     msgspec.json.decode(b'{"age": "invalid"}', type=MyStruct)
@@ -348,8 +348,8 @@ Without a formatter, the errors keep their default body.
 Use the built-in `problem_details` formatter:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import problem_details
+from freeman import BoltAPI
+from freeman.error_handlers import problem_details
 
 api = BoltAPI(error_formatter=problem_details)
 ```
@@ -383,9 +383,9 @@ The keys of a `dict` detail become extension members. A `list` detail becomes th
 A formatter gets a `BoltError` and the request. It returns a `Response`, `JSON`, `PlainText` or `HTML`:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import BoltError
-from django_bolt.responses import Response
+from freeman import BoltAPI
+from freeman.error_handlers import BoltError
+from freeman.responses import Response
 
 
 def format_error(error: BoltError, request) -> Response:
@@ -468,9 +468,9 @@ Use `error_schema` to declare the body of your own formatter:
 ```python
 import msgspec
 
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import BoltError, error_schema
-from django_bolt.responses import Response
+from freeman import BoltAPI
+from freeman.error_handlers import BoltError, error_schema
+from freeman.responses import Response
 
 
 class ErrorBody(msgspec.Struct):
@@ -499,8 +499,8 @@ A route with a parameter or a request body can declare its own 422, for example 
 ## Example: Custom error handling
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.exceptions import HTTPException, NotFound, BadRequest
+from freeman import BoltAPI
+from freeman.exceptions import HTTPException, NotFound, BadRequest
 
 api = BoltAPI()
 

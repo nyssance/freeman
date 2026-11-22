@@ -22,11 +22,11 @@ from typing import Generic, TypeVar
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, ModelViewSet
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import OpenAPIStrictError, SchemaGenerator
-from django_bolt.pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, paginate
-from django_bolt.responses import (
+from freeman import BoltAPI, ModelViewSet
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import OpenAPIStrictError, SchemaGenerator
+from freeman.pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, paginate
+from freeman.responses import (
     HTML,
     EventSourceResponse,
     File,
@@ -35,8 +35,8 @@ from django_bolt.responses import (
     Redirect,
     StreamingResponse,
 )
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
 
 from .test_models import Article
 

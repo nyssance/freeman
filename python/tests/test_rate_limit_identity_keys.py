@@ -11,10 +11,10 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth import get_user_model
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication, create_jwt_for_user
-from django_bolt.middleware import rate_limit
-from django_bolt.testing import TestClient, WebSocketTestClient
+from freeman import BoltAPI, WebSocket
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication, create_jwt_for_user
+from freeman.middleware import rate_limit
+from freeman.testing import TestClient, WebSocketTestClient
 
 SECRET = "rate-limit-identity-secret"
 BURST = 3

@@ -18,11 +18,11 @@ import msgspec
 import pytest
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.param_functions import Cookie, File, Form, Header, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.param_functions import Cookie, File, Form, Header, Query
+from freeman.testing import TestClient
 
 SCALARS = [
     (datetime.datetime, {"type": "string", "format": "date-time"}),

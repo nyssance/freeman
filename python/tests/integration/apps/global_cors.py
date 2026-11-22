@@ -6,7 +6,7 @@ The allowed origin is configured via ``CORS_ALLOWED_ORIGINS`` in the test's
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 

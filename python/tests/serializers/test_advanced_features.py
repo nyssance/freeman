@@ -8,10 +8,10 @@ import msgspec
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import RequestValidationError
-from django_bolt.param_functions import Body, Cookie, Form, Header, Query
-from django_bolt.serializers import (
+from freeman import BoltAPI
+from freeman.exceptions import RequestValidationError
+from freeman.param_functions import Body, Cookie, Form, Header, Query
+from freeman.serializers import (
     Serializer,
     SerializerView,
     computed_field,
@@ -19,7 +19,7 @@ from django_bolt.serializers import (
     field_validator,
     model_validator,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 from .read_only_bases import Author, AuthoredChild, TaggedBase
 from .read_only_bases_pep649 import LazyBareChild, LazyChild

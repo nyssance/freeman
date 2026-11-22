@@ -19,11 +19,11 @@ import pytest
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
-from django_bolt import BoltAPI
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated
-from django_bolt.concurrency import check_pool_environment, run_in_orm_executor, run_orm_blocking, sync_to_thread
-from django_bolt.middleware import DjangoMiddleware, DjangoMiddlewareStack
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import APIKeyAuthentication, IsAuthenticated
+from freeman.concurrency import check_pool_environment, run_in_orm_executor, run_orm_blocking, sync_to_thread
+from freeman.middleware import DjangoMiddleware, DjangoMiddlewareStack
+from freeman.testing import TestClient
 
 _tenant: contextvars.ContextVar[str | None] = contextvars.ContextVar("tenant", default=None)
 

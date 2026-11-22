@@ -14,16 +14,16 @@ import threading
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, Depends
-from django_bolt.openapi.config import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.responses import HTML, JSON, PlainText
-from django_bolt.serialization import (
+from freeman import BoltAPI, Depends
+from freeman.openapi.config import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.responses import HTML, JSON, PlainText
+from freeman.serialization import (
     serialize_response,
     serialize_response_sync,
 )
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
 from tests.test_models import Article
 
 # ============================================================================
@@ -722,7 +722,7 @@ def test_a_bool_is_not_the_status_of_a_tuple(prefix, flag, capfd):
     assert response.status_code == 500
     # The Rust core writes its log records to stderr.
     assert (
-        f"[django-bolt] ERROR django_bolt::handler: The response status must be an int from 200 to 599, got {flag}."
+        f"[django-bolt] ERROR freeman::handler: The response status must be an int from 200 to 599, got {flag}."
         " Bolt sends a 500."
     ) in capfd.readouterr().err.splitlines()
 

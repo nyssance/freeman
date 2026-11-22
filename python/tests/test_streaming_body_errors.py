@@ -10,10 +10,10 @@ import logging
 
 import pytest
 
-from django_bolt import BoltAPI, StreamingResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, StreamingResponse
+from freeman.testing import TestClient
 
-STREAM_LOGGER = "django_bolt.streaming"
+STREAM_LOGGER = "freeman.streaming"
 
 
 class FailsOnceIterator:

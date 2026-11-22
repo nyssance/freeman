@@ -4,7 +4,7 @@ import pytest
 from django.core.management import CommandError
 from django.test import override_settings
 
-from django_bolt.management.commands.runbolt import Command
+from freeman.management.commands.runbolt import Command
 
 
 def test_bolt_api_entrypoint_missing_module_raises_command_error():

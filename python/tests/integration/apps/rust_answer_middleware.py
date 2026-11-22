@@ -10,10 +10,10 @@ import threading
 
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated
-from django_bolt.logging import LoggingConfig
-from django_bolt.middleware import DjangoMiddleware, rate_limit
+from freeman import BoltAPI
+from freeman.auth import APIKeyAuthentication, IsAuthenticated
+from freeman.logging import LoggingConfig
+from freeman.middleware import DjangoMiddleware, rate_limit
 
 _state = threading.local()
 

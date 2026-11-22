@@ -21,11 +21,11 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.db import models
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
-from django_bolt.auth.pk_loader import _pk_query_cache
-from django_bolt.auth.user_loader import load_user_by_pk_sync
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
+from freeman.auth.pk_loader import _pk_query_cache
+from freeman.auth.user_loader import load_user_by_pk_sync
+from freeman.testing import TestClient
 
 pytestmark = pytest.mark.django_db
 
@@ -54,7 +54,7 @@ class FilteredAccount(models.Model):
     objects = FilteredAccountManager()
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
 
 class UuidAccount(models.Model):
@@ -64,7 +64,7 @@ class UuidAccount(models.Model):
     username = models.CharField(max_length=100)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
 
 class ConverterArgumentsField(models.CharField):
@@ -81,7 +81,7 @@ class SnapshotAccount(models.Model):
     origin = ConverterArgumentsField(max_length=100)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
     @classmethod
     def from_db(cls, db, field_names, values, **kwargs):
@@ -204,7 +204,7 @@ def test_default_user_model_takes_compiled_path():
     ever falls back, authenticated request throughput silently halves."""
     from django.db import DEFAULT_DB_ALIAS, router  # noqa: PLC0415
 
-    from django_bolt.auth.pk_loader import _compiled_pk_query  # noqa: PLC0415
+    from freeman.auth.pk_loader import _compiled_pk_query  # noqa: PLC0415
 
     alias = router.db_for_read(User) or DEFAULT_DB_ALIAS
     assert _compiled_pk_query(User, alias) is not None

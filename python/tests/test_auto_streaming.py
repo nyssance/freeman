@@ -18,11 +18,11 @@ from collections.abc import AsyncIterable, AsyncIterator, Iterable, Iterator
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import BoltError
-from django_bolt.responses import JSON
-from django_bolt.serializers import Serializer, field
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.error_handlers import BoltError
+from freeman.responses import JSON
+from freeman.serializers import Serializer, field
+from freeman.testing import TestClient
 
 NDJSON = "application/x-ndjson"
 OCTET_STREAM = "application/octet-stream"

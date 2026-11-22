@@ -15,14 +15,14 @@ from typing import Annotated
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, Depends, UploadFile, ViewSet
-from django_bolt._kwargs.model import compile_binder
-from django_bolt.dependencies import compile_dependency
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.param_functions import Body, Cookie, File, Form, Header, Path, Query
-from django_bolt.params import Param
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Depends, UploadFile, ViewSet
+from freeman._kwargs.model import compile_binder
+from freeman.dependencies import compile_dependency
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.param_functions import Body, Cookie, File, Form, Header, Path, Query
+from freeman.params import Param
+from freeman.testing import TestClient
 
 
 def _values(

@@ -9,14 +9,14 @@ import msgspec
 import pytest
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import ResponseValidationError
-from django_bolt.middleware import Middleware
-from django_bolt.openapi.config import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.responses import EventSourceResponse
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.exceptions import ResponseValidationError
+from freeman.middleware import Middleware
+from freeman.openapi.config import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.responses import EventSourceResponse
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
 
 
 class Cat(msgspec.Struct, tag=True, tag_field="_type"):

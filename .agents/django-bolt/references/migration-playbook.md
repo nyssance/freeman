@@ -38,5 +38,5 @@ Only use this when the user explicitly asks to port existing code to Django-Bolt
 
 - Forgetting to switch to Django async ORM methods (`aget`, `acreate`, `afirst`, etc.)
 - Copying DRF `serializer.is_valid()` patterns instead of letting Django-Bolt validate typed inputs automatically
-- Not adding `"django_bolt"` to `INSTALLED_APPS`
+- Not adding `"freeman"` to `INSTALLED_APPS`
 - Using `uvicorn` or `gunicorn` instead of `python manage.py runbolt`

@@ -22,10 +22,10 @@ from testproject.api import api
 from users.api import api as users_api
 from users.models import User
 
-from django_bolt import BoltAPI
-from django_bolt.auth import create_jwt_for_user
-from django_bolt.responses import EventSourceResponse, StreamingResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import create_jwt_for_user
+from freeman.responses import EventSourceResponse, StreamingResponse
+from freeman.testing import TestClient
 
 
 # ── TestClient basics ─────────────────────────────────────────────────────────

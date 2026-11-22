@@ -5,8 +5,8 @@ from __future__ import annotations
 from _helpers import initialize, parse_rpc, post_rpc
 from bolt_mcp import MCP, expose_as_tool, expose_routes, mount_mcp
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 
 def _build():

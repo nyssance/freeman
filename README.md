@@ -1,6 +1,7 @@
-> **Freeman** is a fork of [django-bolt](https://github.com/dj-bolt/django-bolt) (MIT), taken at upstream commit `23c1990`.
-> The distribution is named `freeman`. The import name is still `django_bolt` at this stage, so the two cannot be installed together.
-> Everything below is the upstream README and has not been rewritten yet.
+> **Freeman** is an independent project. Its Rust core started from [django-bolt](https://github.com/dj-bolt/django-bolt) (MIT) at commit `23c1990`, and the Python layer is being rewritten. It does not track upstream.
+> The distribution and the import name are both `freeman`: `from freeman import BoltAPI`, and `"freeman"` in `INSTALLED_APPS`.
+> Class names, the `runbolt` command, the `BOLT_*` settings and the `DJANGO_BOLT_*` environment variables still have their original names.
+> Everything below is the django-bolt README with the import name replaced. It has not been rewritten yet.
 
 <div align="center">
   <img src="docs/logo.png" alt="Django-Bolt" width="400"/>
@@ -40,7 +41,7 @@
 Think Django REST Framework or Django Ninja, with a Rust engine underneath and **no gunicorn or uvicorn required**.
 
 ```python
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -77,7 +78,7 @@ pip install django-bolt      # or: uv add django-bolt
 # myproject/settings.py
 INSTALLED_APPS = [
     ...,
-    "django_bolt",
+    "freeman",
 ]
 ```
 
@@ -89,7 +90,7 @@ Create an `api.py` next to your `settings.py` (or inside any Django app — Bolt
 # myproject/api.py
 import msgspec
 from django.contrib.auth import get_user_model
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 User = get_user_model()
 api = BoltAPI()
@@ -125,8 +126,8 @@ Your API is live at `http://localhost:8000/users/1` and interactive docs at `htt
 ```python
 import msgspec
 from typing import Annotated
-from django_bolt import BoltAPI
-from django_bolt.param_functions import Header
+from freeman import BoltAPI
+from freeman.param_functions import Header
 
 api = BoltAPI()
 
@@ -149,7 +150,7 @@ async def create_user(
 <summary><b>Authentication & guards (evaluated in Rust)</b></summary>
 
 ```python
-from django_bolt.auth import JWTAuthentication, IsAuthenticated, Requires
+from freeman.auth import JWTAuthentication, IsAuthenticated, Requires
 
 IsStaff = Requires("is_staff", True)
 
@@ -166,8 +167,8 @@ JWT signature checks, expiry, API-key lookup, and guard evaluation all happen be
 <summary><b>Serializers & ModelViewSet</b></summary>
 
 ```python
-from django_bolt import ModelViewSet, PageNumberPagination
-from django_bolt.serializers import Serializer
+from freeman import ModelViewSet, PageNumberPagination
+from freeman.serializers import Serializer
 from myapp.models import Article
 
 class ArticleSchema(Serializer):
@@ -193,7 +194,7 @@ One `Serializer` class, many projections — no more `UserListSerializer` / `Use
 <summary><b>WebSockets & Server-Sent Events</b></summary>
 
 ```python
-from django_bolt import WebSocket, StreamingResponse
+from freeman import WebSocket, StreamingResponse
 
 @api.websocket("/ws/echo")
 async def echo(websocket: WebSocket):
@@ -234,7 +235,7 @@ Expose tools, resources, and prompts over MCP Streamable HTTP, backed by the off
 <summary><b>Middleware: CORS, rate limiting, compression</b></summary>
 
 ```python
-from django_bolt.middleware import cors, rate_limit
+from freeman.middleware import cors, rate_limit
 
 @api.get("/public")
 @cors(origins=["https://example.com"])

@@ -7,8 +7,8 @@ import msgspec
 from _helpers import make_server, parse_rpc, post_rpc_modern
 from bolt_mcp import MCP, mount_mcp
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 HEADER_MISMATCH = -32020
 UNSUPPORTED_PROTOCOL_VERSION = -32022

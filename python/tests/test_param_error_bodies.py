@@ -13,10 +13,10 @@ from typing import Annotated
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, UploadFile
-from django_bolt.middleware import ErrorHandlerMiddleware
-from django_bolt.params import Cookie, File, Form, Header, Path, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, UploadFile
+from freeman.middleware import ErrorHandlerMiddleware
+from freeman.params import Cookie, File, Form, Header, Path, Query
+from freeman.testing import TestClient
 
 
 class Filters(msgspec.Struct):

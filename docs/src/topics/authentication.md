@@ -13,8 +13,8 @@ JWT (JSON Web Token) is the most common authentication method for APIs. Django-B
 ### Basic usage
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.auth import JWTAuthentication, IsAuthenticated
+from freeman import BoltAPI
+from freeman.auth import JWTAuthentication, IsAuthenticated
 
 api = BoltAPI()
 
@@ -58,8 +58,8 @@ Use `create_jwt_for_user` to generate tokens for Django users:
 
 ```python
 from django.contrib.auth import aauthenticate
-from django_bolt.auth import create_jwt_for_user
-from django_bolt.exceptions import Unauthorized
+from freeman.auth import create_jwt_for_user
+from freeman.exceptions import Unauthorized
 import msgspec
 
 class LoginRequest(msgspec.Struct):
@@ -138,7 +138,7 @@ async def get_me(request):
 To get the user as a parameter, use `CurrentUser`. It works in sync and async handlers:
 
 ```python
-from django_bolt import CurrentUser, OptionalCurrentUser
+from freeman import CurrentUser, OptionalCurrentUser
 
 @api.get("/me", auth=[JWTAuthentication()])
 async def get_me(user: CurrentUser):
@@ -197,8 +197,8 @@ pk-based query, even in the same app.
 Alternatively, use the `get_current_user` dependency:
 
 ```python
-from django_bolt import Depends
-from django_bolt.auth import get_current_user
+from freeman import Depends
+from freeman.auth import get_current_user
 
 @api.get("/me", auth=[JWTAuthentication()], guards=[IsAuthenticated()])
 async def get_me(user=Depends(get_current_user)):
@@ -385,7 +385,7 @@ For the conventional password-and-cookie flow, `JWTAuthViews` registers all
 four routes and documents them in OpenAPI:
 
 ```python
-from django_bolt.auth import InMemoryRevocation, JWTAuthViews
+from freeman.auth import InMemoryRevocation, JWTAuthViews
 
 auth_views = JWTAuthViews(store=InMemoryRevocation())
 auth_views.register(api)
@@ -418,7 +418,7 @@ token with the public key:
 ```python
 from pathlib import Path
 
-from django_bolt.auth import InMemoryRevocation, JWTAuthentication, JWTAuthViews
+from freeman.auth import InMemoryRevocation, JWTAuthentication, JWTAuthViews
 
 PUBLIC_KEY = Path("jwt-public.pem").read_text()
 
@@ -446,9 +446,9 @@ password, magic link, OAuth callback, or any other flow:
 
 ```python
 from django.contrib.auth import aauthenticate
-from django_bolt.auth import create_token_pair, set_token_cookies
-from django_bolt.exceptions import Unauthorized
-from django_bolt.responses import JSON
+from freeman.auth import create_token_pair, set_token_cookies
+from freeman.exceptions import Unauthorized
+from freeman.responses import JSON
 
 @api.post("/auth/login")
 async def login(credentials: LoginRequest):
@@ -485,7 +485,7 @@ so a refresh token can never authenticate a normal endpoint. Both checks
 run in Rust before your handler is called.
 
 ```python
-from django_bolt.auth import (
+from freeman.auth import (
     DjangoCacheRevocation,
     IsAuthenticated,
     JWTAuthentication,
@@ -493,8 +493,8 @@ from django_bolt.auth import (
     rotate_refresh_token,
     set_token_cookies,
 )
-from django_bolt.exceptions import Unauthorized
-from django_bolt.responses import JSON
+from freeman.exceptions import Unauthorized
+from freeman.responses import JSON
 
 store = DjangoCacheRevocation()
 
@@ -604,7 +604,7 @@ cap.
 For service-to-service communication, use API key authentication:
 
 ```python
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated
+from freeman.auth import APIKeyAuthentication, IsAuthenticated
 
 api_keys = {"sk-prod-123abc", "sk-prod-456def"}
 
@@ -661,8 +661,8 @@ A client then sends `Authorization: Bearer <key>`, `Authorization: ApiKey <key>`
 Put the backend on a route, as any other backend:
 
 ```python
-from django_bolt import CurrentUser
-from django_bolt.auth import IsAuthenticated, Requires, SessionAuthentication
+from freeman import CurrentUser
+from freeman.auth import IsAuthenticated, Requires, SessionAuthentication
 
 @api.get("/me", auth=[SessionAuthentication()], guards=[IsAuthenticated()])
 async def me(user: CurrentUser):
@@ -713,9 +713,9 @@ Use Django's async login/logout functions:
 from typing import Annotated
 from django.contrib.auth import alogin, alogout
 from django.contrib.auth.models import User
-from django_bolt import Request
-from django_bolt.auth import AllowAny, SessionAuthentication
-from django_bolt.params import Form
+from freeman import Request
+from freeman.auth import AllowAny, SessionAuthentication
+from freeman.params import Form
 
 @api.post("/login", auth=[SessionAuthentication()], guards=[AllowAny()])
 async def login(
@@ -943,7 +943,7 @@ to call `is_revoked()` manually.
 ### In-memory revocation (development)
 
 ```python
-from django_bolt.auth import JWTAuthentication, InMemoryRevocation, IsAuthenticated
+from freeman.auth import JWTAuthentication, InMemoryRevocation, IsAuthenticated
 
 store = InMemoryRevocation()
 jwt_auth = JWTAuthentication(revocation_store=store)
@@ -969,7 +969,7 @@ check needed.
 ### Django cache revocation (production)
 
 ```python
-from django_bolt.auth import DjangoCacheRevocation
+from freeman.auth import DjangoCacheRevocation
 
 store = DjangoCacheRevocation(
     cache_alias="default",
@@ -993,12 +993,12 @@ Add the app that has the table, then run `python manage.py migrate`:
 ```python
 INSTALLED_APPS = [
     # ...
-    "django_bolt.auth.revocation_db",
+    "freeman.auth.revocation_db",
 ]
 ```
 
 ```python
-from django_bolt.auth import DjangoORMRevocation
+from freeman.auth import DjangoORMRevocation
 
 store = DjangoORMRevocation(default_ttl=86400 * 7, leeway=60)
 ```
@@ -1009,7 +1009,7 @@ cleanup task should delete expired rows:
 ```python
 from datetime import UTC, datetime
 
-from django_bolt.auth.revocation_db.models import RevokedToken
+from freeman.auth.revocation_db.models import RevokedToken
 
 
 async def cleanup_expired_tokens():
@@ -1057,8 +1057,8 @@ To reject the token at logout, check its session in a revocation handler:
 ```python
 from allauth.headless.tokens.strategies.jwt.internal import get_token_session, validate_token_user
 
-from django_bolt.auth import JWTAuthentication
-from django_bolt.concurrency import sync_to_thread
+from freeman.auth import JWTAuthentication
+from freeman.concurrency import sync_to_thread
 
 
 def _session_is_valid(claims: dict) -> bool:
@@ -1108,7 +1108,7 @@ argument for this. Its default is 60 seconds, the same as the default of
 the same value to the store:
 
 ```python
-from django_bolt.auth import DjangoCacheRevocation, JWTAuthentication
+from freeman.auth import DjangoCacheRevocation, JWTAuthentication
 
 store = DjangoCacheRevocation(leeway=120)
 jwt_auth = JWTAuthentication(leeway=120, revocation_store=store)
@@ -1123,7 +1123,7 @@ until the process stops, so it has no `leeway`.
 Use `AllowAny` to explicitly allow unauthenticated access:
 
 ```python
-from django_bolt.auth import AllowAny
+from freeman.auth import AllowAny
 
 @api.get("/public", guards=[AllowAny()])
 async def public_endpoint():
@@ -1136,7 +1136,7 @@ Configure default authentication and guards for all endpoints in `settings.py`:
 
 ```python
 # settings.py
-from django_bolt.auth import JWTAuthentication, IsAuthenticated
+from freeman.auth import JWTAuthentication, IsAuthenticated
 
 # Default authentication backends for all endpoints
 BOLT_AUTHENTICATION_CLASSES = [

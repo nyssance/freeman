@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from django_bolt import BoltAPI
-from django_bolt.param_functions import Form, Query
+from freeman import BoltAPI
+from freeman.param_functions import Form, Query
 
 api = BoltAPI()
 

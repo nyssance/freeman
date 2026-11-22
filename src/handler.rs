@@ -68,7 +68,7 @@ const SKIP_CORS_HEADER_VALUE: HeaderValue = HeaderValue::from_static("true");
 
 fn get_streaming_response_class(py: Python<'_>) -> &Py<PyAny> {
     STREAMING_RESPONSE_CLASS.get_or_init(py, || {
-        py.import("django_bolt.responses")
+        py.import("freeman.responses")
             .unwrap()
             .getattr("StreamingResponse")
             .unwrap()

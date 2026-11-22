@@ -48,8 +48,8 @@ pub fn format_cookie_date(value: &Bound<'_, PyDateTime>) -> PyResult<String> {
     ))
 }
 
-pyo3::import_exception!(django_bolt.exceptions, ResponseFileNotFound);
-pyo3::import_exception!(django_bolt.exceptions, ResponseFileNotAllowed);
+pyo3::import_exception!(freeman.exceptions, ResponseFileNotFound);
+pyo3::import_exception!(freeman.exceptions, ResponseFileNotAllowed);
 
 /// Win32 error for a symlink loop. Rust gives it no stable `ErrorKind`.
 #[cfg(windows)]

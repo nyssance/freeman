@@ -22,13 +22,13 @@ from django.db.models import QuerySet
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import is_server_exception
-from django_bolt.exceptions import HTTPException, RequestValidationError, ResponseValidationError
-from django_bolt.logging import LoggingConfig, LoggingMiddleware
-from django_bolt.params import Query
-from django_bolt.responses import JSON, File, FileResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.error_handlers import is_server_exception
+from freeman.exceptions import HTTPException, RequestValidationError, ResponseValidationError
+from freeman.logging import LoggingConfig, LoggingMiddleware
+from freeman.params import Query
+from freeman.responses import JSON, File, FileResponse
+from freeman.testing import TestClient
 
 from .test_models import Article
 

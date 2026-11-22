@@ -7,9 +7,9 @@
 # tests to a work directory, in the layout that [tool.mutmut] names, and runs
 # mutmut there. The built extension (_core) is copied with the package.
 #
-# Needs: the extension built into python/django_bolt (`just build`).
+# Needs: the extension built into python/freeman (`just build`).
 # Arguments: mutant names for `mutmut run`, to run only those mutants. A name
-# can have the wildcards of fnmatch, for example "django_bolt.api.xǁBoltAPIǁ_dispatch*".
+# can have the wildcards of fnmatch, for example "freeman.api.xǁBoltAPIǁ_dispatch*".
 # Output: $MUTMUT_DIR (default: mutants-work/), with the mutmut results in
 # mutants/ and a summary in summary.txt. A relative MUTMUT_DIR starts at the
 # repository root. The script removes MUTMUT_DIR only when it made it before.
@@ -26,7 +26,7 @@ fi
 rm -rf "$work"
 mkdir -p "$work"
 touch "$work/$marker"
-cp -R python/django_bolt "$work/django_bolt"
+cp -R python/freeman "$work/freeman"
 cp -R python/tests "$work/tests"
 cp pytest.ini pyproject.toml "$work/"
 

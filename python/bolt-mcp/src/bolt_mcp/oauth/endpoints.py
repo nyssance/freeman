@@ -18,9 +18,9 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import msgspec
 from asgiref.sync import sync_to_async
 
-from django_bolt import BoltAPI, Request
-from django_bolt._json import decode as json_decode
-from django_bolt.responses import HTML, JSON, Redirect
+from freeman import BoltAPI, Request
+from freeman._json import decode as json_decode
+from freeman.responses import HTML, JSON, Redirect
 
 from . import consent, metadata, pkce, sessions, store, tokens
 from .config import AuthorizationServer

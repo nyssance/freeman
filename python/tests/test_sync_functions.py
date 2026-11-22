@@ -13,12 +13,12 @@ import jwt
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.exceptions import HTTPException
-from django_bolt.middleware import cors, rate_limit
-from django_bolt.params import Depends, Header, Query
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.exceptions import HTTPException
+from freeman.middleware import cors, rate_limit
+from freeman.params import Depends, Header, Query
+from freeman.testing import TestClient
 
 from .test_models import Article
 

@@ -19,12 +19,12 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import QuerySet
 from django.http import HttpResponse
 
-from django_bolt import BoltAPI
-from django_bolt.error_handlers import problem_details
-from django_bolt.exceptions import HTTPException, ResponseValidationError
-from django_bolt.middleware import DjangoMiddlewareStack
-from django_bolt.responses import JSON, StreamingResponse
-from django_bolt.testing import AsyncTestClient, TestClient
+from freeman import BoltAPI
+from freeman.error_handlers import problem_details
+from freeman.exceptions import HTTPException, ResponseValidationError
+from freeman.middleware import DjangoMiddlewareStack
+from freeman.responses import JSON, StreamingResponse
+from freeman.testing import AsyncTestClient, TestClient
 
 from .test_models import Article
 
@@ -268,7 +268,7 @@ def test_the_exception_of_a_queryset_that_loads_after_a_sync_dispatch_is_raised(
 def test_a_client_without_the_option_keeps_no_exception(caplog):
     """A client with the option does not make a later client keep the exception in the request."""
     # A log record holds the exception. This test looks only at the request.
-    for logger in ("django.server", "django_bolt"):
+    for logger in ("django.server", "freeman"):
         caplog.set_level(logging.CRITICAL, logger=logger)
     raised = []
     api = BoltAPI()
@@ -376,7 +376,7 @@ def test_an_exception_of_a_streaming_body_is_raised(path, message, caplog):
     with TestClient(make_stream_api()) as client, pytest.raises(Boom, match=f"^{message}$"):
         client.get(path)
     # The server still logs the error, as runbolt does.
-    assert any(record.name == "django_bolt.streaming" for record in caplog.records)
+    assert any(record.name == "freeman.streaming" for record in caplog.records)
 
 
 @pytest.mark.parametrize(("path", "message"), STREAMS)

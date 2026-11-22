@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.testing import HandshakeRejected, WebSocketTestClient
+from freeman import BoltAPI, WebSocket
+from freeman.testing import HandshakeRejected, WebSocketTestClient
 
 
 def _chat_api() -> BoltAPI:

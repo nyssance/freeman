@@ -21,11 +21,11 @@ from urllib.parse import parse_qsl
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.middleware import DjangoMiddlewareStack
-from django_bolt.param_functions import Cookie, File, Form, Header, Path, Query
-from django_bolt.serializers.types import PositiveInt
-from django_bolt.testing import TestClient, WebSocketTestClient
+from freeman import BoltAPI, WebSocket
+from freeman.middleware import DjangoMiddlewareStack
+from freeman.param_functions import Cookie, File, Form, Header, Path, Query
+from freeman.serializers.types import PositiveInt
+from freeman.testing import TestClient, WebSocketTestClient
 
 UserId = NewType("UserId", int)
 type Page = int

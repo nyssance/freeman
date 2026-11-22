@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 
 @pytest.fixture(scope="module")

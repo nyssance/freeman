@@ -10,9 +10,9 @@ from datetime import UTC, datetime, timedelta, timezone
 import jwt as pyjwt
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.auth import JWTAuthentication, Requires, Token
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import JWTAuthentication, Requires, Token
+from freeman.testing import TestClient
 
 
 class TestTokenCreation:

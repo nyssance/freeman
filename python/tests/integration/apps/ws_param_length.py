@@ -7,7 +7,7 @@ must be rejected with an HTTP 400 before the handler runs.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket
 
 api = BoltAPI()
 

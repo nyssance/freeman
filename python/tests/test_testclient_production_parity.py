@@ -13,9 +13,9 @@ import asyncio
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI, Request, WebSocket
-from django_bolt.middleware import rate_limit
-from django_bolt.testing import AsyncTestClient, TestClient, WebSocketTestClient
+from freeman import BoltAPI, Request, WebSocket
+from freeman.middleware import rate_limit
+from freeman.testing import AsyncTestClient, TestClient, WebSocketTestClient
 from tests.integration.apps.testclient_parity import api
 from tests.integration.parity_cases import CASES, PREFLIGHT, ParityCase
 

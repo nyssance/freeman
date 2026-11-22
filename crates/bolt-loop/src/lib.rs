@@ -175,10 +175,7 @@ fn get_worker_fn<'py>(
     name: &str,
 ) -> PyResult<&'static Py<PyAny>> {
     slot.get_or_try_init(py, || {
-        Ok(py
-            .import("django_bolt._worker_loop")?
-            .getattr(name)?
-            .unbind())
+        Ok(py.import("freeman._worker_loop")?.getattr(name)?.unbind())
     })
 }
 

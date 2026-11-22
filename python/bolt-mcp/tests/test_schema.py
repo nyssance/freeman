@@ -6,7 +6,7 @@ import pytest
 from _helpers import initialize, make_server, parse_rpc, post_rpc
 from bolt_mcp import MCP
 
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 
 def _list_tools(client, session_id):

@@ -10,8 +10,8 @@ from typing import Annotated
 
 import msgspec
 
-from django_bolt import BoltAPI
-from django_bolt.params import Form
+from freeman import BoltAPI
+from freeman.params import Form
 
 api = BoltAPI()
 

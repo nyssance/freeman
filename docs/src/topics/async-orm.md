@@ -254,7 +254,7 @@ async def list_articles(page: int = 1, page_size: int = 20):
 In ViewSets, optimize the queryset at the class level:
 
 ```python
-from django_bolt.views import ViewSet
+from freeman.views import ViewSet
 
 @api.viewset("/articles")
 class ArticleViewSet(ViewSet):

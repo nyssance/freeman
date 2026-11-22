@@ -6,9 +6,9 @@ import time
 
 import jwt
 
-from django_bolt import BoltAPI, Router
-from django_bolt.auth import AllowAny, IsAuthenticated, JWTAuthentication
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Router
+from freeman.auth import AllowAny, IsAuthenticated, JWTAuthentication
+from freeman.testing import TestClient
 
 
 def _token(secret: str) -> dict[str, str]:

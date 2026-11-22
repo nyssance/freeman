@@ -15,14 +15,14 @@ import jwt
 import pytest
 from django.contrib.auth.models import User
 
-from django_bolt import BoltAPI, CurrentUser
-from django_bolt.auth import (
+from freeman import BoltAPI, CurrentUser
+from freeman.auth import (
     APIKeyAuthentication,
     IsAuthenticated,
     JWTAuthentication,
 )
-from django_bolt.exceptions import HTTPException
-from django_bolt.testing import TestClient
+from freeman.exceptions import HTTPException
+from freeman.testing import TestClient
 
 
 def create_jwt_token(user_id="testuser", **kwargs):

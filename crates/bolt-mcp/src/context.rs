@@ -63,7 +63,7 @@ pub fn level_rank(level: &str) -> Option<u8> {
     }
 }
 
-#[pyclass(frozen, name = "McpCallContext", module = "django_bolt._core")]
+#[pyclass(frozen, name = "McpCallContext", module = "freeman._core")]
 pub struct McpPyContext {
     pub tx: tokio::sync::mpsc::UnboundedSender<CtxEvent>,
     pub has_progress_token: bool,
@@ -207,7 +207,7 @@ pub fn resolve_reply_future(reply: &Py<PyAny>, envelope_json: &str) {
         let result: PyResult<()> = (|| {
             let resolve = MCP_RESOLVE_FUTURE.get_or_try_init(py, || {
                 Ok::<_, PyErr>(
-                    py.import("django_bolt._worker_loop")?
+                    py.import("freeman._worker_loop")?
                         .getattr("mcp_resolve_future")?
                         .unbind(),
                 )

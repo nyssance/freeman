@@ -16,14 +16,14 @@ import pytest
 from django.db import connection, models
 from django.db.models.signals import post_init
 
-from django_bolt import BoltAPI
-from django_bolt.serialization import (
+from freeman import BoltAPI
+from freeman.serialization import (
     _compile_serializer_values_evaluators,
     _serializer_values_path_eligible,
 )
-from django_bolt.serializers import Serializer, computed_field
-from django_bolt.serializers.fields import field
-from django_bolt.testing import TestClient
+from freeman.serializers import Serializer, computed_field
+from freeman.serializers.fields import field
+from freeman.testing import TestClient
 
 
 class ValuesPathUser(models.Model):
@@ -32,7 +32,7 @@ class ValuesPathUser(models.Model):
     score = models.IntegerField(default=0)
 
     class Meta:
-        app_label = "django_bolt"
+        app_label = "freeman"
 
 
 class PlainUserSerializer(Serializer):

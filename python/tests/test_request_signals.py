@@ -10,10 +10,10 @@ from django.core.signals import request_finished, request_started
 from django.db import close_old_connections
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import HTTPException
-from django_bolt.params import Header
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.exceptions import HTTPException
+from freeman.params import Header
+from freeman.testing import TestClient
 
 
 @pytest.fixture

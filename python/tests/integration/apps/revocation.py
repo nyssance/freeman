@@ -13,8 +13,8 @@ import uuid
 
 import jwt
 
-from django_bolt import BoltAPI
-from django_bolt.auth import InMemoryRevocation, IsAuthenticated, JWTAuthentication
+from freeman import BoltAPI
+from freeman.auth import InMemoryRevocation, IsAuthenticated, JWTAuthentication
 
 SECRET = "revocation-server-integration-secret"
 

@@ -1,6 +1,6 @@
 """bolt-mcp: build MCP servers on django-bolt.
 
-    from django_bolt import BoltAPI
+    from freeman import BoltAPI
     from bolt_mcp import MCP
 
     api = BoltAPI()

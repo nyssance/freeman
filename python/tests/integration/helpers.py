@@ -586,7 +586,7 @@ class ServerProject:
             [
                 "from __future__ import annotations",
                 "",
-                "from django_bolt import BoltAPI",
+                "from freeman import BoltAPI",
                 "",
                 "api = BoltAPI()",
                 "",
@@ -800,7 +800,7 @@ def create_server_project(
     all_installed_apps = [
         "django.contrib.contenttypes",
         "django.contrib.auth",
-        "django_bolt",
+        "freeman",
         *installed_apps,
     ]
 

@@ -11,9 +11,9 @@ from __future__ import annotations
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.middleware import rate_limit
-from django_bolt.testing import WebSocketTestClient
+from freeman import BoltAPI, WebSocket
+from freeman.middleware import rate_limit
+from freeman.testing import WebSocketTestClient
 
 # --- Origin Validation Tests ---
 

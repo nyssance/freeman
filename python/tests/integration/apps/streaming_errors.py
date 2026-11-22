@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, StreamingResponse
+from freeman import BoltAPI, StreamingResponse
 
 api = BoltAPI()
 

@@ -56,7 +56,7 @@ fn handler_from_capsule(py: Python<'_>, capsule: &Py<PyAny>) -> PyResult<NativeH
     let ptr = unsafe {
         if pyo3::ffi::PyCapsule_IsValid(obj, name) != 1 {
             return Err(PyTypeError::new_err(
-                "expected a django_bolt.native_handler.v1 capsule",
+                "expected a freeman.native_handler.v1 capsule",
             ));
         }
         pyo3::ffi::PyCapsule_GetPointer(obj, name) as *const abi::HandlerV1

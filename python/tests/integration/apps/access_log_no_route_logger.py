@@ -6,9 +6,9 @@ so the health path is ``/named/health``.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.logging import LoggingConfig
-from django_bolt.openapi import OpenAPIConfig
+from freeman import BoltAPI
+from freeman.logging import LoggingConfig
+from freeman.openapi import OpenAPIConfig
 
 api = BoltAPI(openapi_config=OpenAPIConfig(title="API", version="1.0.0", enabled=False))
 named = BoltAPI(logging_config=LoggingConfig(logger_name="myapp.api"))

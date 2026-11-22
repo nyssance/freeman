@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import msgspec
 
-from django_bolt import BoltAPI, UploadFile
-from django_bolt.params import File
+from freeman import BoltAPI, UploadFile
+from freeman.params import File
 
 api = BoltAPI()
 

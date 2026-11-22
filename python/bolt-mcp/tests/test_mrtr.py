@@ -5,8 +5,8 @@ from __future__ import annotations
 from _helpers import _parse_all_sse, parse_rpc, post_rpc_modern
 from bolt_mcp import MCP, Context, mount_mcp
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 ELICIT_CAPS = {"elicitation": {}}
 

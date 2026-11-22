@@ -6,8 +6,8 @@ echoes text frames until the client sends ``bye``.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.websocket import CloseCode
+from freeman import BoltAPI, WebSocket
+from freeman.websocket import CloseCode
 
 api = BoltAPI()
 

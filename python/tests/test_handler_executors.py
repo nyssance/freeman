@@ -16,10 +16,10 @@ import msgspec
 import pytest
 from django.test import override_settings
 
-from django_bolt import JSON, BoltAPI, Depends
-from django_bolt.middleware import Middleware
-from django_bolt.responses import Redirect
-from django_bolt.testing import TestClient
+from freeman import JSON, BoltAPI, Depends
+from freeman.middleware import Middleware
+from freeman.responses import Redirect
+from freeman.testing import TestClient
 from tests.test_models import Article
 
 

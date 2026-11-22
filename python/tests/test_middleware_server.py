@@ -11,10 +11,10 @@ import jwt
 import pytest
 from django.conf import settings
 
-from django_bolt import BoltAPI, StreamingResponse
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
-from django_bolt.middleware import Middleware, cors, rate_limit
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, StreamingResponse
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
+from freeman.middleware import Middleware, cors, rate_limit
+from freeman.testing import TestClient
 
 # One token a second: BURST + 1 requests must take a second before a refilled
 # token turns the 429 into a 200.
@@ -33,7 +33,7 @@ def api():
             INSTALLED_APPS=[
                 "django.contrib.contenttypes",
                 "django.contrib.auth",
-                "django_bolt",
+                "freeman",
             ],
             DATABASES={
                 "default": {

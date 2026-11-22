@@ -10,8 +10,8 @@ from django.contrib.auth.models import User
 from django.db import connection, connections
 from django.db.utils import OperationalError
 
-from django_bolt import BoltAPI, concurrency
-from django_bolt.health import (
+from freeman import BoltAPI, concurrency
+from freeman.health import (
     HealthCheck,
     _health_check,
     add_health_check,
@@ -20,7 +20,7 @@ from django_bolt.health import (
     ready_handler,
     register_health_checks,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 from tests.thread_pools import shutdown_closing_connections
 
 

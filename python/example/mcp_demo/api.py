@@ -26,7 +26,7 @@ import msgspec
 from bolt_mcp import MCP, AuthorizationServer, Context, principal
 from users.models import User
 
-from django_bolt import BoltAPI, IsAuthenticated, Request, Requires
+from freeman import BoltAPI, IsAuthenticated, Request, Requires
 
 api = BoltAPI()
 # Stateful (the default): required by the sample/elicit tools below. Run --processes 1.

@@ -5,16 +5,16 @@ Tests for OpenAPI tags, summary, and description metadata.
 import pytest
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI, Router
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.decorators import ActionHandler, action
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.openapi.spec import Tag
-from django_bolt.responses import Redirect
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView, ViewSet
-from django_bolt.websocket import WebSocket
+from freeman import BoltAPI, Router
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.decorators import ActionHandler, action
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.openapi.spec import Tag
+from freeman.responses import Redirect
+from freeman.testing import TestClient
+from freeman.views import APIView, ViewSet
+from freeman.websocket import WebSocket
 
 
 def test_route_decorator_with_tags():

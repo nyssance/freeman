@@ -3,7 +3,7 @@ from typing import Annotated
 import pytest
 from django.contrib.auth.models import User
 
-from django_bolt import (
+from freeman import (
     BoltAPI,
     CreateMixin,
     DestroyMixin,
@@ -14,9 +14,9 @@ from django_bolt import (
     ViewSet,
     action,
 )
-from django_bolt.params import Depends
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
+from freeman.params import Depends
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
 from tests.test_models import Article
 
 

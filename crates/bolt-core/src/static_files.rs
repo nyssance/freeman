@@ -98,8 +98,8 @@ fn is_plain_relative(path: &str) -> bool {
 /// Find a static file using Django's staticfiles finders (for app-level static files)
 fn find_with_django_finders(relative_path: &str) -> Option<PathBuf> {
     Python::attach(|py| {
-        // Import the find_static_file function from django_bolt.admin.static
-        let static_module = py.import("django_bolt.admin.static").ok()?;
+        // Import the find_static_file function from freeman.admin.static
+        let static_module = py.import("freeman.admin.static").ok()?;
         let find_fn = static_module.getattr("find_static_file").ok()?;
 
         // Call the Python function

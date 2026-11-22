@@ -8,12 +8,12 @@ from django.conf import settings
 from django.urls import reverse
 from msgspec import Meta
 
-from django_bolt import BoltAPI, Request
-from django_bolt.exceptions import HTTPException, NotFound
-from django_bolt.param_functions import Cookie, File, Form, Header, Query
-from django_bolt.responses import HTML, PlainText, Redirect
-from django_bolt.serializers import Serializer, field, field_validator
-from django_bolt.shortcuts import render
+from freeman import BoltAPI, Request
+from freeman.exceptions import HTTPException, NotFound
+from freeman.param_functions import Cookie, File, Form, Header, Query
+from freeman.responses import HTML, PlainText, Redirect
+from freeman.serializers import Serializer, field, field_validator
+from freeman.shortcuts import render
 from missions.models import Astronaut, Mission
 
 # The debug toolbar renders into the HTML that /dashboard returns.
@@ -143,7 +143,7 @@ async def reverse_demo():
 
     These routes live only in Rust's matchit router, yet ``django.urls.reverse``
     resolves them by name because ``testproject/urls.py`` includes
-    ``django_bolt.urls`` (a reverse-only urlconf built from the named routes).
+    ``freeman.urls`` (a reverse-only urlconf built from the named routes).
     Path params come straight from Django's converters -- nothing here knows
     about Bolt.
     """

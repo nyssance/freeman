@@ -26,7 +26,7 @@ For this tiny response, retaining Python ownership saves a 26-byte copy but adds
 The relevant code is:
 
 - [Response ownership](../../src/handler.rs#L1288): `PyBackedBytes` and `Bytes::from_owner`.
-- [Python dispatch](../django_bolt/api.py#L2824): metadata lookup and `request.get("auth")`.
+- [Python dispatch](../freeman/api.py#L2824): metadata lookup and `request.get("auth")`.
 - PyO3 reference release: `pyo3-0.29.2`, `src/instance.rs`, line 2284.
 - PyO3 queue and mutex: `pyo3-0.29.2`, `src/internal/state.rs`, line 191.
 

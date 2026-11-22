@@ -2,7 +2,7 @@
 
 Three guarantees:
 
-- Importing ``django_bolt._core`` must not re-enable the GIL on a free-threaded
+- Importing ``freeman._core`` must not re-enable the GIL on a free-threaded
   interpreter (the module attests thread safety with ``gil_used = false``).
 - Dispatch stays correct when many threads drive the Rust pipeline at once.
   Under the GIL this is a plain concurrency test; on a free-threaded build the
@@ -25,8 +25,8 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 import pytest
 
-from django_bolt.management.commands.runbolt import default_worker_threads
-from django_bolt.testing import TestClient
+from freeman.management.commands.runbolt import default_worker_threads
+from freeman.testing import TestClient
 
 from .apps import app_module
 from .apps import free_threading as free_threading_app
@@ -43,7 +43,7 @@ def test_extension_import_keeps_gil_disabled():
     # A fresh interpreter: the GIL state is decided when the extension is
     # imported. CPython warns (RuntimeWarning) when a module re-enables the
     # GIL; -W error turns that warning into a failed import.
-    code = "import sys, django_bolt._core; print(sys._is_gil_enabled())"
+    code = "import sys, freeman._core; print(sys._is_gil_enabled())"
     result = subprocess.run(
         [sys.executable, "-W", "error::RuntimeWarning", "-c", code],
         capture_output=True,

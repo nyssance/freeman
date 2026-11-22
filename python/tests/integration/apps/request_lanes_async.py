@@ -34,9 +34,9 @@ from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.signals import connection_created
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI
-from django_bolt.concurrency import sync_to_thread
-from django_bolt.middleware import DjangoMiddlewareStack
+from freeman import BoltAPI
+from freeman.concurrency import sync_to_thread
+from freeman.middleware import DjangoMiddlewareStack
 
 _health_checks = []
 

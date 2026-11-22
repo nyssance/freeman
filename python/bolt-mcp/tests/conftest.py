@@ -1,4 +1,4 @@
-"""Pytest config for bolt-mcp: configure Django before importing django_bolt."""
+"""Pytest config for bolt-mcp: configure Django before importing freeman."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ if not settings.configured:
             "django.contrib.contenttypes",
             "django.contrib.auth",
             "django.contrib.sessions",
-            "django_bolt",
+            "freeman",
             "bolt_mcp.oauth",
         ],
         DATABASES={

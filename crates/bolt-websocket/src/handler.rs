@@ -45,7 +45,7 @@ static DISCONNECT_CLASS: OnceCell<Py<PyAny>> = OnceCell::new();
 /// Get cached WebSocket class (imports once, reuses)
 fn get_ws_class(py: Python<'_>) -> PyResult<&Py<PyAny>> {
     WS_CLASS.get_or_try_init(|| {
-        let ws_module = py.import("django_bolt.websocket")?;
+        let ws_module = py.import("freeman.websocket")?;
         let ws_class = ws_module.getattr("WebSocket")?;
         Ok(ws_class.unbind())
     })
@@ -54,7 +54,7 @@ fn get_ws_class(py: Python<'_>) -> PyResult<&Py<PyAny>> {
 /// Get cached WebSocketDisconnect class (imports once, reuses)
 fn get_disconnect_class(py: Python<'_>) -> PyResult<&Py<PyAny>> {
     DISCONNECT_CLASS.get_or_try_init(|| {
-        let ws_module = py.import("django_bolt.websocket")?;
+        let ws_module = py.import("freeman.websocket")?;
         Ok(ws_module.getattr("WebSocketDisconnect")?.unbind())
     })
 }
@@ -73,7 +73,7 @@ fn is_client_gone(error: &PyErr) -> bool {
 /// It asks for no close.
 fn requested_close(error: &PyErr) -> Option<(u16, String)> {
     Python::attach(|py| {
-        let module = py.import("django_bolt.websocket").ok()?;
+        let module = py.import("freeman.websocket").ok()?;
         let exception = module.getattr("WebSocketException").ok()?;
         if !error.is_instance(py, &exception)
             || error.is_instance(py, get_disconnect_class(py).ok()?.bind(py))
@@ -101,7 +101,7 @@ fn client_gone() -> PyErr {
 /// Get cached build_websocket_request function (imports once, reuses)
 fn get_build_request_fn(py: Python<'_>) -> PyResult<&Py<PyAny>> {
     BUILD_REQUEST_FN.get_or_try_init(|| {
-        let handlers_module = py.import("django_bolt.websocket.handlers")?;
+        let handlers_module = py.import("freeman.websocket.handlers")?;
         let build_request = handlers_module.getattr("build_websocket_request")?;
         Ok(build_request.unbind())
     })

@@ -78,7 +78,7 @@ def test_session_lifecycle_on_a_shared_redis_store(make_server_project, redis_ca
 def test_session_lifecycle_on_the_database_store(make_server_project):
     project = make_server_project(
         api_module=app_module("jwt_auth_views"),
-        installed_apps=["django_bolt.auth.revocation_db"],
+        installed_apps=["freeman.auth.revocation_db"],
         settings_extra='REVOCATION_STORE = "database"\n',
     )
     project.manage("migrate")

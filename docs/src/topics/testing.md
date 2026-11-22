@@ -15,8 +15,8 @@ and it's built on `httpx`, which django-bolt already depends on, so there's
 nothing extra to install:
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 api = BoltAPI()
 
@@ -145,7 +145,7 @@ response. For example, a header parameter:
 
 ```python
 from typing import Annotated
-from django_bolt.param_functions import Header
+from freeman.param_functions import Header
 
 @api.get("/with-header")
 async def with_header(x_custom: Annotated[str, Header()]):
@@ -163,7 +163,7 @@ response, which is usually what you want — the stream has a beginning and an
 end, and you assert on the result:
 
 ```python
-from django_bolt.responses import EventSourceResponse
+from freeman.responses import EventSourceResponse
 
 @api.get("/sse", response_class=EventSourceResponse)
 async def sse():
@@ -216,7 +216,7 @@ you forgot to register fails a test instead of a deploy:
 ```python
 # tests/test_api.py
 import pytest
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 from myproject.api import api  # your actual API module
 
 @pytest.fixture
@@ -256,8 +256,8 @@ Mark the test with `@pytest.mark.django_db`, the same as any other Django test:
 
 ```python
 import pytest
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 from myapp.models import User
 
 @pytest.fixture
@@ -374,8 +374,8 @@ routes:
 
 ```python
 import pytest
-from django_bolt import BoltAPI, ViewSet
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, ViewSet
+from freeman.testing import TestClient
 from myapp.models import Article
 
 @pytest.fixture
@@ -451,7 +451,7 @@ database:
 
 ```python
 from django.test import TestCase
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 from .api import api
 from .models import Slide
@@ -483,9 +483,9 @@ claims; no database lookup runs per request.
 ```python
 import pytest
 from django.contrib.auth.models import User
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
+from freeman.testing import TestClient
 
 api = BoltAPI()
 
@@ -518,8 +518,8 @@ its own fresh instance, so state never leaks from one test to the next.
 
 ```python
 from contextlib import asynccontextmanager
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 @asynccontextmanager
 async def lifespan(app):
@@ -548,8 +548,8 @@ Same API, awaitable:
 
 ```python
 import pytest
-from django_bolt import BoltAPI
-from django_bolt.testing import AsyncTestClient
+from freeman import BoltAPI
+from freeman.testing import AsyncTestClient
 
 api = BoltAPI()
 

@@ -77,11 +77,11 @@ from django.db import connection, connections
 from django.db.backends.signals import connection_created
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.concurrency import run_in_orm_executor, run_orm_blocking
-from django_bolt.middleware import DjangoMiddlewareStack
-from django_bolt.responses import StreamingResponse
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.concurrency import run_in_orm_executor, run_orm_blocking
+from freeman.middleware import DjangoMiddlewareStack
+from freeman.responses import StreamingResponse
 
 SECRET = "dead-connection-recovery-secret-key-32-bytes"
 USERNAME = "recovered"

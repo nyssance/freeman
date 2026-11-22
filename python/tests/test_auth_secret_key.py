@@ -2,8 +2,8 @@
 Test that JWT authentication uses Django SECRET_KEY when not specified
 """
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication
 
 
 def test_jwt_auth_uses_django_secret_key():
@@ -58,7 +58,7 @@ def test_route_with_django_secret():
 
 def test_global_auth_with_django_secret(settings):
     """Test global auth configuration with Django SECRET_KEY"""
-    from django_bolt.auth import get_default_authentication_classes  # noqa: PLC0415
+    from freeman.auth import get_default_authentication_classes  # noqa: PLC0415
 
     settings.BOLT_AUTHENTICATION_CLASSES = [
         JWTAuthentication()  # No secret - should use Django's
@@ -75,8 +75,8 @@ def test_secret_key_is_read_lazily_not_at_construction():
     """
     from django.test import override_settings  # noqa: PLC0415
 
-    from django_bolt.auth import create_jwt_for_user  # noqa: PLC0415
-    from django_bolt.testing import TestClient  # noqa: PLC0415
+    from freeman.auth import create_jwt_for_user  # noqa: PLC0415
+    from freeman.testing import TestClient  # noqa: PLC0415
 
     auth = JWTAuthentication()  # Constructed while SECRET_KEY is still the placeholder
 

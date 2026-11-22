@@ -13,7 +13,7 @@ Django-Bolt provides a dependency injection system using the `Depends` marker. D
 A dependency is any callable (function or class) that returns a value:
 
 ```python
-from django_bolt import BoltAPI, Depends
+from freeman import BoltAPI, Depends
 
 api = BoltAPI()
 
@@ -59,7 +59,7 @@ Dependencies can accept the same parameters as handlers:
 
 ```python
 from typing import Annotated
-from django_bolt.param_functions import Header
+from freeman.param_functions import Header
 
 async def get_api_version(
     x_api_version: Annotated[str, Header()] = "v1"
@@ -77,7 +77,7 @@ async def get_data(version=Depends(get_api_version)):
 ### Authentication dependency
 
 ```python
-from django_bolt.auth import get_current_user
+from freeman.auth import get_current_user
 
 @api.get("/me")
 async def me(user=Depends(get_current_user)):
@@ -221,7 +221,7 @@ Dependencies can use the same parameter markers as handlers:
 
 ```python
 from typing import Annotated
-from django_bolt.param_functions import Header, Cookie
+from freeman.param_functions import Header, Cookie
 
 async def verify_token(
     authorization: Annotated[str, Header()],
@@ -283,7 +283,7 @@ async def list_items(pagination: Pagination = Depends(get_pagination)):
 ### Rate limit check
 
 ```python
-from django_bolt.exceptions import TooManyRequests
+from freeman.exceptions import TooManyRequests
 
 async def check_rate_limit(request):
     """Check if request is rate limited."""
@@ -324,7 +324,7 @@ async def delete_user(user_id: int, admin=Depends(require_admin)):
 Dependencies work with class-based views:
 
 ```python
-from django_bolt import ViewSet
+from freeman import ViewSet
 
 @api.viewset("/items")
 class ItemViewSet(ViewSet):
@@ -348,8 +348,8 @@ To control the value in a test, write the dependency so that it reads data that 
 from django.conf import settings
 from django.test import override_settings
 
-from django_bolt import BoltAPI, Depends
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Depends
+from freeman.testing import TestClient
 
 api = BoltAPI()
 

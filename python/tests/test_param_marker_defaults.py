@@ -17,12 +17,12 @@ from typing import Annotated
 import pytest
 from openapi_spec_validator import validate
 
-from django_bolt import BoltAPI, UploadFile, WebSocket, param_functions
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.param_functions import Cookie, File, Form, Header, Path, Query
-from django_bolt.params import Param
-from django_bolt.testing import TestClient, WebSocketTestClient
+from freeman import BoltAPI, UploadFile, WebSocket, param_functions
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.param_functions import Cookie, File, Form, Header, Path, Query
+from freeman.params import Param
+from freeman.testing import TestClient, WebSocketTestClient
 
 
 # Function scope: each test registers its routes, so a mutation tool sees

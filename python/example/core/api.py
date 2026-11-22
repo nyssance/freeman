@@ -3,8 +3,8 @@ from typing import Annotated
 import msgspec
 
 from core.models import Blog, Document
-from django_bolt import BoltAPI, FileSize, UploadFile
-from django_bolt.params import File, Form
+from freeman import BoltAPI, FileSize, UploadFile
+from freeman.params import File, Form
 
 api = BoltAPI(prefix="/blogs")
 

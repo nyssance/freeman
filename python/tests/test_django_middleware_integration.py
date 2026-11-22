@@ -36,22 +36,22 @@ from django.utils.deprecation import MiddlewareMixin
 from django.utils.functional import SimpleLazyObject
 from django.views.decorators.csrf import csrf_exempt
 
-from django_bolt import BoltAPI, Request, Router
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
-from django_bolt.concurrency import run_orm_blocking
-from django_bolt.exceptions import HTTPException
-from django_bolt.middleware import (
+from freeman import BoltAPI, Request, Router
+from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
+from freeman.concurrency import run_orm_blocking
+from freeman.exceptions import HTTPException
+from freeman.middleware import (
     DjangoMiddleware,
     DjangoMiddlewareStack,
     Middleware,
     TimingMiddleware,
     skip_middleware,
 )
-from django_bolt.middleware.django_adapter import _is_django_builtin_middleware, _route_sync_force
-from django_bolt.middleware_response import MiddlewareResponse
-from django_bolt.param_functions import Cookie, Header
-from django_bolt.responses import HTML, JSON, FileResponse, PlainText, Redirect, Response, StreamingResponse
-from django_bolt.testing import TestClient
+from freeman.middleware.django_adapter import _is_django_builtin_middleware, _route_sync_force
+from freeman.middleware_response import MiddlewareResponse
+from freeman.param_functions import Cookie, Header
+from freeman.responses import HTML, JSON, FileResponse, PlainText, Redirect, Response, StreamingResponse
+from freeman.testing import TestClient
 
 
 # Define at module level to avoid issues with `from __future__ import annotations`

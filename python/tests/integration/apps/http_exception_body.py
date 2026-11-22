@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import msgspec
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import HTTPException, NotFound
+from freeman import BoltAPI
+from freeman.exceptions import HTTPException, NotFound
 
 
 class PlanRead(msgspec.Struct):

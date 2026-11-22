@@ -24,10 +24,10 @@ from django.test import override_settings
 from hypothesis import example, given
 from hypothesis import strategies as st
 
-from django_bolt import BoltAPI
-from django_bolt.param_functions import Cookie, Form, Query
-from django_bolt.responses import JSON, FileResponse
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.param_functions import Cookie, Form, Query
+from freeman.responses import JSON, FileResponse
+from freeman.testing import TestClient
 
 api = BoltAPI()
 

@@ -17,10 +17,10 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import override_settings
 
-from django_bolt import BoltAPI, CurrentUser, Request
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.shortcuts import render
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, CurrentUser, Request
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.shortcuts import render
+from freeman.testing import TestClient
 
 from .debug_toolbar_urls import toolbar_urlpatterns
 

@@ -20,9 +20,9 @@ import msgspec
 import pytest
 from django.test import override_settings
 
-from django_bolt import BoltAPI, UploadFile
-from django_bolt.params import File, Form
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, UploadFile
+from freeman.params import File, Form
+from freeman.testing import TestClient
 
 # Small enough to cross easily, large enough that a tiny multipart body fits.
 MAX_PAYLOAD = 2000

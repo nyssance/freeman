@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 from typing import Annotated
 
-from django_bolt import BoltAPI, WebSocket
-from django_bolt.param_functions import Path, Query
+from freeman import BoltAPI, WebSocket
+from freeman.param_functions import Path, Query
 
 api = BoltAPI()
 

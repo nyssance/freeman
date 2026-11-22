@@ -8,7 +8,7 @@ The ``invalid`` routes try to raise one that makes an invalid close frame.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, WebSocket, WebSocketClose, WebSocketException
+from freeman import BoltAPI, WebSocket, WebSocketClose, WebSocketException
 
 api = BoltAPI()
 

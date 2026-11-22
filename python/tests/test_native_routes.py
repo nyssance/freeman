@@ -10,11 +10,11 @@ import pytest
 from bolt_mcp import MCP, mount_mcp
 from django.core.management.base import CommandError
 
-from django_bolt import BoltAPI, _core
-from django_bolt.management.commands.runbolt import Command
-from django_bolt.middleware import CompressionConfig, cors
-from django_bolt.responses import JSON
-from django_bolt.testing import AsyncTestClient, TestClient
+from freeman import BoltAPI, _core
+from freeman.management.commands.runbolt import Command
+from freeman.middleware import CompressionConfig, cors
+from freeman.responses import JSON
+from freeman.testing import AsyncTestClient, TestClient
 
 
 def native_api(**kwargs) -> BoltAPI:

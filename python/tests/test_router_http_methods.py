@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from django_bolt import BoltAPI, Router
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Router
+from freeman.testing import TestClient
 
 METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
 

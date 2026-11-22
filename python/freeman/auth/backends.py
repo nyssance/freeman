@@ -1,0 +1,656 @@
+"""
+Authentication system for Django-Bolt.
+
+Provides DRF-inspired authentication classes that are compiled to Rust types
+for zero-GIL performance in the hot path.
+
+The authentication flow:
+1. Python defines auth backends (JWT, API key, session)
+2. Backends compile to metadata dicts via to_metadata()
+3. Rust parses metadata at registration time
+4. Rust validates tokens/keys without GIL on each request
+5. AuthContext is populated and passed to Python handlers
+
+Performance: ~60k+ RPS with JWT validation happening entirely in Rust.
+"""
+
+from __future__ import annotations
+
+import inspect
+import json
+import logging
+import sys
+import threading
+from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable, Collection, Sequence
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import urlsplit
+
+import httpx
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
+from django.db import InterfaceError, OperationalError
+
+from ..concurrency import run_in_orm_executor
+from .pk_loader import load_user_by_pk_sync
+from .revocation import create_revocation_handler
+
+# Rust logs here too: a JWKS refresh that it cannot use.
+logger = logging.getLogger("freeman.auth")
+
+# (jti) -> True if the token is revoked, False otherwise.
+RevokedTokenHandler = Callable[[str], Awaitable[bool]] | Callable[[str, dict[str, Any]], Awaitable[bool]]
+
+_POSITIONAL = (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+
+
+def revocation_takes_claims(handler: RevokedTokenHandler) -> bool:
+    """Whether a ``revoked_token_handler`` takes the claims as its second argument.
+
+    Bolt reads this one time, at registration.
+    """
+    try:
+        parameters = inspect.signature(handler).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return sum(1 for parameter in parameters if parameter.kind in _POSITIONAL) >= 2
+
+
+@dataclass
+class AuthContext:
+    """
+    Authentication context returned by authentication backends.
+
+    This is populated in Rust and passed to Python handlers via request.context.
+    """
+
+    user_id: str | None = None
+    is_staff: bool = False
+    is_superuser: bool = False
+    backend: str = "none"
+    claims: dict[str, Any] | None = None
+    permissions: set[str] | None = None
+
+
+class BaseAuthentication(ABC):
+    """
+    Base class for authentication backends.
+
+    Authentication happens in Rust for performance. These classes compile
+    their configuration into metadata that Rust uses to validate tokens/keys.
+    """
+
+    @property
+    @abstractmethod
+    def scheme_name(self) -> str:
+        """Return the authentication scheme name (e.g., 'jwt', 'api_key')"""
+        pass
+
+    @abstractmethod
+    def to_metadata(self) -> dict[str, Any]:
+        """
+        Compile this authentication backend into metadata for Rust.
+
+        Returns a dict that will be parsed by Rust into typed enums.
+        """
+        pass
+
+    @property
+    def challenge_scheme(self) -> str:
+        """Return the auth scheme that a 401 names in ``WWW-Authenticate`` for this backend.
+
+        Bolt reads it one time, at registration. Override it in a subclass to
+        name another scheme. The value is one token (RFC 9110 section 11.1).
+        """
+        return "Bearer"
+
+    async def get_user(self, user_id: str | None, auth_context: dict[str, Any]) -> Any | None:
+        """
+        Resolve a User instance from the authentication context.
+
+        ``await request.auser()`` calls this method. Override it to provide custom
+        user resolution logic for your authentication backend. Sync access to
+        ``request.user`` cannot run an async method. Define ``get_user_sync`` too
+        when sync code reads ``request.user``.
+
+        Args:
+            user_id: The user identifier from the auth context
+            auth_context: The full authentication context dict containing:
+                - user_id: User identifier
+                - is_staff: Whether user is staff
+                - is_superuser: Whether user is a superuser
+                - auth_backend: Backend name (jwt, api_key, session)
+                - permissions: Set of permission strings
+                - auth_claims: JWT claims dict (if JWT backend)
+
+        Returns:
+            User instance or None if user not found or backend doesn't support user loading
+        """
+        # Default: no user resolution
+        return None
+
+
+class JWTAuthentication(BaseAuthentication):
+    """
+    JWT token authentication.
+
+    Validates JWT tokens using the configured secret and algorithms.
+    Tokens should be provided in the Authorization header as "Bearer <token>",
+    or in a cookie when `cookie` is set.
+
+    Args:
+        secret: HMAC secret for JWT validation. If None (and no public_key),
+            uses Django's SECRET_KEY.
+        algorithms: List of allowed JWT algorithms (default: ["HS256"]). The
+            token's ``alg`` header must name one of these; all must share one
+            key family.
+        header: Header name to extract token from (default: "authorization").
+            An empty string raises ``ImproperlyConfigured``.
+        cookie: Optional cookie name to extract the token from. When set, the
+            token is read from the named cookie only (the header is ignored).
+            The cookie value is the raw token (no "Bearer " prefix needed).
+        audience: Optional JWT audience claim to validate. Required with
+            ``jwks_url`` to prevent cross-application token substitution.
+        issuer: Optional JWT issuer claim to validate. For ``cookie``,
+            ``audience``, ``issuer`` and ``token_type``, None means "not
+            set". An empty string raises ``ImproperlyConfigured``.
+        revoked_token_handler: Async callable that returns True when a token is
+            revoked. Bolt calls it for each authenticated request, with the
+            ``jti`` of the token: ``handler(jti)``. A handler with two
+            parameters also gets the verified claims: ``handler(jti, claims)``.
+            Use the claims to reject a token whose session ended, for example
+            the ``sid`` of a django-allauth access token.
+        public_key: PEM-encoded public key for asymmetric algorithms
+            (RS*/PS*/ES*/EdDSA). Preferred over passing a PEM via ``secret``
+            (which also works, for compatibility). Mutually exclusive with
+            ``secret``.
+        leeway: Clock-skew tolerance in seconds applied to ``exp``/``nbf``
+            validation (default: 60). A ``revocation_store`` with a
+            ``leeway`` must have one that is not smaller, or the backend
+            raises ``ImproperlyConfigured``.
+        token_type: Expected ``typ`` claim. When set (e.g. ``"refresh"`` for
+            a token-rotation endpoint), tokens must carry exactly that
+            ``typ``, and no other type claim that disagrees. When left as
+            None (normal access routes), a token is rejected when its
+            ``typ``, ``token_type`` (djangorestframework-simplejwt) or
+            ``token_use`` (django-allauth, AWS Cognito) names a refresh or
+            ID token: ``refresh``, ``offline`` or ``id``, in any case
+            (Keycloak writes ``Refresh``, ``Offline`` and ``ID``). So such a
+            token never authenticates a regular endpoint. An OIDC ID token
+            with no type claim still passes: set ``audience`` to reject it.
+        csrf: When the token is read from a ``cookie``, enforce a cross-site
+            origin check on unsafe (state-changing) HTTP methods, since bolt
+            bypasses Django's ``CsrfViewMiddleware`` and cookies are attached
+            automatically by the browser. Default True. The check applies
+            only when that cookie backend supplies the accepted credential.
+            Requests credentialed via another backend on the same route are
+            exempt, even if a stale cookie is also attached. Ignored for
+            header-sourced tokens (not auto-attached). Note that non-browser clients that
+            send the cookie without any origin signal (``Sec-Fetch-Site``,
+            ``Origin``, ``Referer``) are rejected with 403; have them send
+            ``Sec-Fetch-Site: none``, use header tokens, or set False for
+            API-only cookie deployments that provide their own protection.
+        jwks_url: Absolute HTTPS URL of a JWKS endpoint (e.g. a provider's
+            ``/.well-known/jwks.json``). The key set is parsed into per-``kid``
+            decoding keys in Rust, refreshed periodically and immediately for
+            an unknown ``kid``. Use with an asymmetric ``algorithms`` list
+            (e.g. ``["RS256"]``), plus ``issuer`` and ``audience``.
+        jwks: A JWKS document (dict or JSON string) supplied directly instead
+            of fetching a ``jwks_url`` — useful for tests or air-gapped
+            deployments. Mutually exclusive with ``secret``/``public_key``.
+        oidc_issuer: HTTPS issuer URL used for OpenID Connect discovery. The
+            discovery document supplies ``issuer``, ``jwks_uri``, and the
+            signing algorithm allowlist. Requires ``audience``.
+        jwks_refresh_interval: Seconds between runtime refresh attempts for a
+            remote JWKS (default: 300). The refresh runs on a background
+            thread, and a request with a cached key uses it at once. An
+            unknown ``kid`` refreshes at once, and the request waits for the
+            new keys. Later unknown ``kid`` values refresh at most one time
+            in 30 seconds. While a fetch runs or during that cooldown, Bolt
+            rejects the token. Failed refreshes retain the last known-good
+            keys.
+    """
+
+    # Class-level cached User model - resolved once on first use
+    _user_model: type | None = None
+
+    @classmethod
+    def _get_user_model(cls) -> type:
+        """Get User model, caching at class level after first call."""
+        if cls._user_model is None:
+            cls._user_model = get_user_model()
+        return cls._user_model
+
+    def __init__(
+        self,
+        secret: str | None = None,
+        algorithms: list[str] | None = None,
+        header: str = "authorization",
+        cookie: str | None = None,
+        audience: str | None = None,
+        issuer: str | None = None,
+        revoked_token_handler: RevokedTokenHandler | None = None,
+        revocation_store: Any | None = None,
+        require_jti: bool = False,
+        public_key: str | None = None,
+        leeway: int = 60,
+        token_type: str | None = None,
+        csrf: bool = True,
+        jwks_url: str | None = None,
+        jwks: dict[str, Any] | str | None = None,
+        oidc_issuer: str | None = None,
+        jwks_refresh_interval: int = 300,
+    ):
+        provided_keys = [k for k in (secret, public_key) if k is not None]
+        if len(provided_keys) > 1:
+            raise ImproperlyConfigured(
+                "JWTAuthentication accepts either 'secret' (HMAC) or 'public_key' (asymmetric), not both."
+            )
+        if oidc_issuer is not None and (jwks_url is not None or jwks is not None or issuer is not None):
+            raise ImproperlyConfigured(
+                "JWTAuthentication oidc_issuer is mutually exclusive with 'issuer', 'jwks_url', and 'jwks'."
+            )
+        if jwks_url is not None and jwks is not None:
+            raise ImproperlyConfigured("JWTAuthentication accepts either 'jwks_url' or 'jwks', not both.")
+        if (jwks_url is not None or jwks is not None) and provided_keys:
+            raise ImproperlyConfigured(
+                "JWTAuthentication accepts JWKS (jwks_url/jwks) or a static key (secret/public_key), not both."
+            )
+        if jwks_refresh_interval <= 0:
+            raise ImproperlyConfigured("JWTAuthentication jwks_refresh_interval must be > 0 seconds.")
+        if oidc_issuer is not None:
+            parsed_oidc_issuer = urlsplit(oidc_issuer)
+            if parsed_oidc_issuer.scheme.lower() != "https" or not parsed_oidc_issuer.hostname:
+                raise ImproperlyConfigured("JWTAuthentication oidc_issuer must be an absolute HTTPS URL.")
+            if audience is None:
+                raise ImproperlyConfigured("JWTAuthentication with oidc_issuer requires 'audience'.")
+            discovery_url = f"{oidc_issuer.rstrip('/')}/.well-known/openid-configuration"
+            discovery_response = httpx.get(discovery_url, timeout=10.0)
+            discovery_response.raise_for_status()
+            discovery = discovery_response.json()
+            discovered_issuer = discovery.get("issuer")
+            discovered_jwks_url = discovery.get("jwks_uri")
+            discovered_algorithms = discovery.get("id_token_signing_alg_values_supported")
+            if not isinstance(discovered_issuer, str) or not isinstance(discovered_jwks_url, str):
+                raise ImproperlyConfigured("OIDC discovery document must contain string 'issuer' and 'jwks_uri'.")
+            if discovered_issuer.rstrip("/") != oidc_issuer.rstrip("/"):
+                raise ImproperlyConfigured("OIDC discovery issuer does not match oidc_issuer.")
+            issuer = discovered_issuer
+            jwks_url = discovered_jwks_url
+            if algorithms is None and isinstance(discovered_algorithms, list):
+                algorithms = [value for value in discovered_algorithms if isinstance(value, str) and value != "none"]
+        if jwks_url is not None:
+            parsed_jwks_url = urlsplit(jwks_url)
+            if parsed_jwks_url.scheme.lower() != "https" or not parsed_jwks_url.hostname:
+                raise ImproperlyConfigured("JWTAuthentication jwks_url must be an absolute HTTPS URL.")
+            if audience is None or issuer is None:
+                raise ImproperlyConfigured(
+                    "JWTAuthentication with jwks_url requires both 'issuer' and 'audience' "
+                    "to prevent cross-application token substitution."
+                )
+        if leeway < 0:
+            raise ImproperlyConfigured("JWTAuthentication leeway must be >= 0 seconds.")
+        # A store entry lives until ``exp`` plus the leeway of the store. A custom store can have no leeway.
+        store_leeway = getattr(revocation_store, "leeway", None)
+        if store_leeway is not None and store_leeway < leeway:
+            raise ImproperlyConfigured(
+                f"JWTAuthentication leeway is {leeway} seconds, but its revocation_store has a leeway of "
+                f"{store_leeway} seconds. A revoked token would be accepted again before it expires. "
+                f"Pass leeway={leeway} to the store."
+            )
+        if secret == "":
+            raise ImproperlyConfigured("JWTAuthentication secret must not be empty.")
+        # An empty string is not "not set". Rust would look for a header or a
+        # cookie with no name, or require a claim that is an empty string.
+        if header == "":
+            raise ImproperlyConfigured("JWTAuthentication header must not be empty.")
+        for option, value in (
+            ("cookie", cookie),
+            ("audience", audience),
+            ("issuer", issuer),
+            ("token_type", token_type),
+        ):
+            if value == "":
+                raise ImproperlyConfigured(f"JWTAuthentication {option} must not be empty. Use None for no value.")
+        self._secret = secret
+        self.public_key = public_key
+        self.algorithms = ["HS256"] if algorithms is None else algorithms
+        if not self.algorithms:
+            raise ImproperlyConfigured("JWTAuthentication algorithms must not be empty.")
+        self.header = header
+        self.cookie = cookie
+        self.audience = audience
+        self.issuer = issuer
+        self.leeway = leeway
+        self.token_type = token_type
+        self.csrf = csrf
+        self.jwks_url = jwks_url
+        self._jwks = jwks
+        self.oidc_issuer = oidc_issuer
+        self.jwks_refresh_interval = jwks_refresh_interval
+        self._jwks_refresh_lock = threading.Lock()
+
+        # Revocation support (OPTIONAL - only checked if provided)
+        self.revoked_token_handler = revoked_token_handler
+        self.revocation_store = revocation_store
+
+        # Auto-enable require_jti if revocation is configured
+        if (revoked_token_handler or revocation_store) and not require_jti:
+            require_jti = True
+        self.require_jti = require_jti
+
+        # If revocation_store provided, create handler from it
+        if revocation_store and not revoked_token_handler:
+            self.revoked_token_handler = create_revocation_handler(revocation_store)
+
+    @property
+    def secret(self) -> str | None:
+        """Return the HMAC secret, or Django's ``SECRET_KEY`` when none was given.
+
+        Read on access, not in ``__init__``: ``BOLT_AUTHENTICATION_CLASSES``
+        holds instances, so split settings files can set ``SECRET_KEY`` after
+        they build the backend. Django raises ``ImproperlyConfigured`` if
+        ``SECRET_KEY`` is empty.
+        """
+        return self._secret if self._secret is not None else settings.SECRET_KEY
+
+    @property
+    def scheme_name(self) -> str:
+        return "jwt"
+
+    @property
+    def challenge_scheme(self) -> str:
+        # RFC 6750 defines Bearer for the Authorization header only.
+        if self.cookie is None and self.header.lower() == "authorization":
+            return "Bearer"
+        return "ApiKey"
+
+    def _resolve_jwks(self) -> str | None:
+        """Return the JWKS document as a JSON string, or None.
+
+        A ``jwks`` dict/string is used verbatim; a ``jwks_url`` is fetched
+        here when ``to_metadata`` first runs and cached on the instance. The
+        resulting key set is parsed into per-``kid`` decoding keys in Rust;
+        remote sets are subsequently refreshed through ``_refresh_jwks``.
+        """
+        if self._jwks is not None:
+            return self._jwks if isinstance(self._jwks, str) else json.dumps(self._jwks)
+        if self.jwks_url is not None:
+            response = httpx.get(self.jwks_url, timeout=10.0)
+            response.raise_for_status()
+            self._jwks = response.text
+            return self._jwks
+        return None
+
+    def _refresh_jwks(self) -> str | None:
+        """Fetch and atomically replace remote JWKS, retaining stale keys on failure."""
+        if self.jwks_url is None:
+            return None
+        if not self._jwks_refresh_lock.acquire(blocking=False):
+            return None
+        try:
+            response = httpx.get(self.jwks_url, timeout=10.0)
+            response.raise_for_status()
+            # Validate the shape before replacing a known-good cached value.
+            document = response.json()
+            if not isinstance(document, dict) or not isinstance(document.get("keys"), list):
+                raise ValueError("JWKS response must contain a keys array")
+            self._jwks = response.text
+            return self._jwks
+        except (httpx.HTTPError, ValueError):
+            # Bolt keeps the last keys. A token from a new key gets a 401 until a refresh works.
+            logger.warning("JWKS refresh from %s failed. Bolt keeps the last keys.", self.jwks_url, exc_info=True)
+            return None
+        finally:
+            self._jwks_refresh_lock.release()
+
+    def to_metadata(self) -> dict[str, Any]:
+        metadata = {
+            "type": "jwt",
+            # Key material: the HMAC secret, or the PEM public key for
+            # asymmetric algorithms. Rust builds the decoding key from this
+            # once at registration, branching on the algorithm family.
+            "secret": self.public_key if self.public_key is not None else self.secret,
+            "algorithms": self.algorithms,
+            "header": self.header.lower(),
+            "cookie": self.cookie,
+            "audience": self.audience,
+            "issuer": self.issuer,
+            "leeway": self.leeway,
+            "token_type": self.token_type,
+            # CSRF is only meaningful for cookie-sourced tokens (header tokens
+            # are not auto-attached by the browser). Rust checks the flag only
+            # when `cookie` is set.
+            "cookie_csrf": self.csrf,
+            "require_jti": self.require_jti,
+        }
+
+        # JWKS (fetched from jwks_url or supplied directly) takes precedence
+        # over a static secret; Rust builds a kid -> key map from it.
+        jwks = self._resolve_jwks()
+        if jwks is not None:
+            metadata["jwks"] = jwks
+            if self.jwks_url is not None:
+                metadata["jwks_refresh"] = self._refresh_jwks
+                metadata["jwks_refresh_interval"] = self.jwks_refresh_interval
+
+        return metadata
+
+    async def get_user(self, user_id: str | None, auth_context: dict[str, Any]) -> Any | None:
+        """
+        Load user from database using the user_id from JWT token.
+
+        The user_id should be the primary key of the user in the database.
+
+        Runs the pre-compiled pk query on the ORM pool, as ``await
+        request.auser()`` does. The pool runs loads in parallel, and Bolt
+        drops a dead connection of a pool thread when the query raises.
+        ``User.objects.aget`` compiles the SQL again on each call.
+        """
+        if not user_id:
+            return None
+
+        return await run_in_orm_executor(self.get_user_sync, user_id)
+
+    def get_user_sync(self, user_id: str | None) -> Any | None:
+        """
+        Synchronously load user from database using the user_id from JWT token.
+
+        This method does the actual DB query — a pk SELECT compiled once per
+        (user model, database alias), not recompiled per request. The loaders
+        from user_loader.resolve_user_loader() choose the thread: the thread
+        that reads ``request.user``, or the ORM pool when that thread runs an
+        event loop.
+        """
+        if not user_id:
+            return None
+
+        User = self._get_user_model()
+
+        try:
+            return load_user_by_pk_sync(User, user_id)
+        except (OperationalError, InterfaceError):
+            raise
+        except Exception as e:
+            print(f"Error loading user {user_id} in JWTAuthentication: {type(e).__name__}: {e}", file=sys.stderr)
+            return None
+
+
+def _check_str_collection(value: Any, name: str, item_name: str) -> None:
+    """Raise ``ImproperlyConfigured`` unless ``value`` is a collection of str, and not a str or bytes."""
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Collection):
+        raise ImproperlyConfigured(
+            f"APIKeyAuthentication {name} must be a set, list or tuple of str, not {type(value).__name__}."
+        )
+    for item in value:
+        if not isinstance(item, str):
+            raise ImproperlyConfigured(
+                f"APIKeyAuthentication each {item_name} must be a str, not {type(item).__name__}."
+            )
+
+
+# The scheme words that Rust removes from the value of the API key header.
+_API_KEY_SCHEMES = ("Bearer ", "ApiKey ")
+
+
+class APIKeyAuthentication(BaseAuthentication):
+    """
+    API key authentication.
+
+    Validates API keys against a configured set of valid keys.
+    Keys should be provided in the configured header (default: X-API-Key).
+    The header value is the key, or ``Bearer <key>``, or ``ApiKey <key>``.
+
+    Args:
+        api_keys: Set, list or tuple of valid API keys. Each key is a
+            non-empty str that does not start with ``Bearer `` or ``ApiKey ``.
+        header: Header name to extract API key from (default: "x-api-key")
+        key_permissions: Optional mapping of API keys to permission sets.
+            Each key must be in ``api_keys``.
+
+    Raises:
+        ImproperlyConfigured: ``api_keys`` or ``key_permissions`` has a
+            value of the wrong type, an empty key, a key that starts with a
+            scheme, or a key that is not in ``api_keys``.
+    """
+
+    def __init__(
+        self,
+        api_keys: set[str] | None = None,
+        header: str = "x-api-key",
+        key_permissions: dict[str, set[str]] | None = None,
+    ):
+        # A str is a collection of its characters. Without this check, each
+        # character of a str is a valid key, and "" is a valid key too.
+        if api_keys is not None:
+            _check_str_collection(api_keys, "api_keys", "key in api_keys")
+            if "" in api_keys:
+                raise ImproperlyConfigured("APIKeyAuthentication api_keys must not contain an empty key.")
+            # Rust removes one scheme word from the header value. Thus a key that
+            # starts with a scheme cannot authenticate as sent, and its header
+            # value can name another valid key.
+            for key in api_keys:
+                for scheme in _API_KEY_SCHEMES:
+                    if key[: len(scheme)].lower() == scheme.lower():
+                        raise ImproperlyConfigured(
+                            f"APIKeyAuthentication api_keys has the key {key!r}, "
+                            f"which starts with the scheme {scheme!r}."
+                        )
+        if key_permissions is not None:
+            if not isinstance(key_permissions, dict):
+                raise ImproperlyConfigured(
+                    f"APIKeyAuthentication key_permissions must be a dict, not {type(key_permissions).__name__}."
+                )
+            for key, permissions in key_permissions.items():
+                name = f"key_permissions[{key!r}]"
+                _check_str_collection(permissions, name, f"permission in {name}")
+                if api_keys is None or key not in api_keys:
+                    raise ImproperlyConfigured(
+                        f"APIKeyAuthentication key_permissions has the key {key!r}, which is not in api_keys."
+                    )
+        self.api_keys = api_keys or set()
+        self.header = header
+        self.key_permissions = key_permissions or {}
+        # Rust would look for a header with no name, and reject each request.
+        if header == "":
+            raise ImproperlyConfigured("APIKeyAuthentication header must not be empty.")
+
+    @property
+    def scheme_name(self) -> str:
+        return "api_key"
+
+    @property
+    def challenge_scheme(self) -> str:
+        return "ApiKey"
+
+    def to_metadata(self) -> dict[str, Any]:
+        return {
+            "type": "api_key",
+            "api_keys": list(self.api_keys),
+            "header": self.header.lower(),
+            "key_permissions": {k: list(v) for k, v in self.key_permissions.items()},
+        }
+
+
+class SessionAuthentication(BaseAuthentication):
+    """
+    Django session authentication.
+
+    Django does the work. Bolt adds Django's ``SessionMiddleware`` and
+    ``AuthenticationMiddleware`` to each route that uses this backend, when
+    the API does not run them. Log in and log out with Django's ``alogin``
+    and ``alogout``.
+
+    Rust rejects a request with no session cookie, unless ``login_url`` is
+    set. For other requests, Django loads the user, and Bolt checks the guards of the route
+    against ``request.user``. A guard can read ``is_staff``,
+    ``is_superuser`` and ``permissions`` of the user. A ``Requires`` on
+    another claim rejects a session request.
+
+    A token backend on the same route comes first, because Rust can verify
+    a token.
+
+    Args:
+        login_url: Redirect a request with no logged-in user to this URL,
+            with Django's ``redirect_to_login``. Without it, the request
+            gets 401.
+        csrf: Reject a cross-site request with an unsafe method that sends
+            the session cookie. The check is the same as for a JWT cookie.
+    """
+
+    def __init__(self, *, login_url: str | None = None, csrf: bool = True):
+        self.login_url = login_url
+        self.csrf = csrf
+
+    @property
+    def scheme_name(self) -> str:
+        return "session"
+
+    @property
+    def challenge_scheme(self) -> str:
+        return "ApiKey"
+
+    def to_metadata(self) -> dict[str, Any]:
+        return {
+            "type": "session",
+            "cookie": settings.SESSION_COOKIE_NAME,
+            "csrf": self.csrf,
+            "login_redirect": self.login_url is not None,
+        }
+
+
+def www_authenticate_challenge(backends: Sequence[BaseAuthentication]) -> str | None:
+    """Return the ``WWW-Authenticate`` value of a 401 for these backends, or None for no backend.
+
+    The value has one challenge for each different scheme, in the order of the
+    backends (RFC 9110 section 11.6.1). Bolt builds it one time, at registration.
+    """
+    schemes = dict.fromkeys(backend.challenge_scheme for backend in backends)
+    return ", ".join(schemes) or None
+
+
+def get_default_authentication_classes(*, needs_user: bool = False) -> list[BaseAuthentication]:
+    """
+    Get the default authentication classes of a route with no ``auth``.
+
+    Returns ``BOLT_AUTHENTICATION_CLASSES`` when the setting is there, also
+    when it is an empty list. Without the setting, the result follows the
+    guards of the route. ``needs_user`` says that a guard of the route needs
+    an authenticated user. Such a route gets ``[JWTAuthentication()]``, which
+    verifies an HS256 token with ``SECRET_KEY``. Each other route gets an
+    empty list (no authentication).
+    """
+    try:
+        try:
+            if hasattr(settings, "BOLT_AUTHENTICATION_CLASSES"):
+                return settings.BOLT_AUTHENTICATION_CLASSES
+        except ImproperlyConfigured:
+            # Settings not configured, return empty list
+            pass
+    except (ImportError, AttributeError):
+        pass
+
+    # With no backend, the guard would reject each request with a 401.
+    return [JWTAuthentication()] if needs_user else []

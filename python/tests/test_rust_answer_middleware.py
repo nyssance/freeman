@@ -16,11 +16,11 @@ import pytest
 from django.middleware.csrf import CsrfViewMiddleware
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI, Request
-from django_bolt.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication, Requires
-from django_bolt.middleware import DjangoMiddleware, DjangoMiddlewareStack, Middleware, middleware, rate_limit
-from django_bolt.responses import JSON
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Request
+from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication, Requires
+from freeman.middleware import DjangoMiddleware, DjangoMiddlewareStack, Middleware, middleware, rate_limit
+from freeman.responses import JSON
+from freeman.testing import TestClient
 
 _SECRET = "rust-answer-secret"
 _hooks: list[tuple] = []

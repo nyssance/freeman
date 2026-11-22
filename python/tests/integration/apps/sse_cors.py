@@ -9,8 +9,8 @@ from __future__ import annotations
 import asyncio
 import time
 
-from django_bolt import BoltAPI, StreamingResponse
-from django_bolt.middleware import cors
+from freeman import BoltAPI, StreamingResponse
+from freeman.middleware import cors
 
 api = BoltAPI()
 

@@ -17,9 +17,9 @@ from __future__ import annotations
 from django.contrib.auth.models import User
 from django.db import connection
 
-from django_bolt import BoltAPI, CurrentUser, Request
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
-from django_bolt.concurrency import sync_to_thread
+from freeman import BoltAPI, CurrentUser, Request
+from freeman.auth import IsAuthenticated, JWTAuthentication
+from freeman.concurrency import sync_to_thread
 
 SECRET = "tenant-lanes-secret-key-longer-than-32-bytes"
 TENANTS = ("alpha", "beta")

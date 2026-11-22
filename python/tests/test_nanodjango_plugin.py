@@ -1,4 +1,4 @@
-"""Tests for django_bolt.nanodjango plugin (BoltAPI subclass and hooks)."""
+"""Tests for freeman.nanodjango plugin (BoltAPI subclass and hooks)."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ import pytest
 from django.conf import settings
 from django.test import override_settings
 
-from django_bolt import WebSocket
-from django_bolt.api import BoltAPI as RealBoltAPI
-from django_bolt.nanodjango import (
+from freeman import WebSocket
+from freeman.api import BoltAPI as RealBoltAPI
+from freeman.nanodjango import (
     BoltAPI,
     convert_build_app_api,
     convert_build_settings,
@@ -41,20 +41,20 @@ def _preserve_settings_mutations():
 
 
 class TestBoltAPIInit:
-    def test_adds_django_bolt_to_installed_apps(self):
-        # Remove django_bolt if already present so we can test it gets added
-        apps = [a for a in settings.INSTALLED_APPS if a != "django_bolt"]
+    def test_adds_freeman_to_installed_apps(self):
+        # Remove freeman if already present so we can test it gets added
+        apps = [a for a in settings.INSTALLED_APPS if a != "freeman"]
         settings.INSTALLED_APPS = apps
 
         BoltAPI()
-        assert "django_bolt" in settings.INSTALLED_APPS
+        assert "freeman" in settings.INSTALLED_APPS
 
     def test_no_duplicate_installed_apps(self):
         """Instantiating twice should not duplicate the entry."""
         settings.INSTALLED_APPS = list(settings.INSTALLED_APPS)
         BoltAPI()
         BoltAPI()
-        count = settings.INSTALLED_APPS.count("django_bolt")
+        count = settings.INSTALLED_APPS.count("freeman")
         assert count == 1
 
     def test_captures_calling_module_name(self):
@@ -78,15 +78,15 @@ class TestBoltAPIInit:
 
 @pytest.fixture
 def capture_nanodjango_warnings():
-    """Attach a capture handler directly to the ``django_bolt.nanodjango``
+    """Attach a capture handler directly to the ``freeman.nanodjango``
     logger.
 
-    Can't use pytest's ``caplog`` because the django_bolt logging
+    Can't use pytest's ``caplog`` because the freeman logging
     bootstrap (when triggered by full-suite test order) sets
-    ``logger.propagate = False`` on the ``django_bolt`` logger, so records
+    ``logger.propagate = False`` on the ``freeman`` logger, so records
     never reach caplog's root handler.
     """
-    logger = logging.getLogger("django_bolt.nanodjango")
+    logger = logging.getLogger("freeman.nanodjango")
     records: list[logging.LogRecord] = []
 
     class _ListHandler(logging.Handler):
@@ -237,40 +237,40 @@ class TestRouteDecoratorsHookConfigure:
 
 
 class TestDjangoPreSetup:
-    def test_adds_django_bolt_when_installed(self):
-        apps = [a for a in settings.INSTALLED_APPS if a != "django_bolt"]
+    def test_adds_freeman_when_installed(self):
+        apps = [a for a in settings.INSTALLED_APPS if a != "freeman"]
         settings.INSTALLED_APPS = apps
 
-        with patch("django_bolt.nanodjango.defer") as mock_defer:
+        with patch("freeman.nanodjango.defer") as mock_defer:
             mock_defer.is_installed.return_value = True
             django_pre_setup(app=MagicMock())
 
-        assert "django_bolt" in settings.INSTALLED_APPS
+        assert "freeman" in settings.INSTALLED_APPS
 
     def test_skips_when_not_installed(self):
-        apps = [a for a in settings.INSTALLED_APPS if a != "django_bolt"]
+        apps = [a for a in settings.INSTALLED_APPS if a != "freeman"]
         settings.INSTALLED_APPS = apps
 
-        with patch("django_bolt.nanodjango.defer") as mock_defer:
+        with patch("freeman.nanodjango.defer") as mock_defer:
             mock_defer.is_installed.return_value = False
             django_pre_setup(app=MagicMock())
 
-        assert "django_bolt" not in settings.INSTALLED_APPS
+        assert "freeman" not in settings.INSTALLED_APPS
 
     def test_no_duplicate_when_already_present(self):
-        if "django_bolt" not in settings.INSTALLED_APPS:
-            settings.INSTALLED_APPS = list(settings.INSTALLED_APPS) + ["django_bolt"]
+        if "freeman" not in settings.INSTALLED_APPS:
+            settings.INSTALLED_APPS = list(settings.INSTALLED_APPS) + ["freeman"]
 
-        with patch("django_bolt.nanodjango.defer") as mock_defer:
+        with patch("freeman.nanodjango.defer") as mock_defer:
             mock_defer.is_installed.return_value = True
             django_pre_setup(app=MagicMock())
 
-        count = list(settings.INSTALLED_APPS).count("django_bolt")
+        count = list(settings.INSTALLED_APPS).count("freeman")
         assert count == 1
 
 
 class TestConvertBuildSettings:
-    def test_appends_django_bolt_to_installed_apps(self):
+    def test_appends_freeman_to_installed_apps(self):
         source = "INSTALLED_APPS = ['django.contrib.contenttypes', 'django.contrib.auth']"
         settings_ast = ast.parse(source)
 
@@ -280,7 +280,7 @@ class TestConvertBuildSettings:
         assign = settings_ast.body[0]
         elts = assign.value.elts
         values = [e.value for e in elts]
-        assert "django_bolt" in values
+        assert "freeman" in values
 
     def test_skips_if_no_installed_apps_assignment(self):
         source = "DEBUG = True"
@@ -289,15 +289,15 @@ class TestConvertBuildSettings:
         # Should not raise
         convert_build_settings(MagicMock(), MagicMock(), settings_ast)
 
-    def test_does_not_duplicate_existing_django_bolt(self):
+    def test_does_not_duplicate_existing_freeman(self):
         """Django raises if INSTALLED_APPS contains the same app twice."""
-        source = "INSTALLED_APPS = ['django.contrib.auth', 'django_bolt']"
+        source = "INSTALLED_APPS = ['django.contrib.auth', 'freeman']"
         settings_ast = ast.parse(source)
 
         convert_build_settings(MagicMock(), MagicMock(), settings_ast)
 
         values = [e.value for e in settings_ast.body[0].value.elts]
-        assert values.count("django_bolt") == 1
+        assert values.count("freeman") == 1
 
 
 def _make_converter(source: str):
@@ -329,8 +329,8 @@ class TestConvertBuildAppApi:
         assert "BoltAPI" in result_src[0]
 
     def test_detects_attribute_boltapi(self):
-        """Detect bolt = django_bolt.nanodjango.BoltAPI()"""
-        source = "bolt = django_bolt.nanodjango.BoltAPI()"
+        """Detect bolt = freeman.nanodjango.BoltAPI()"""
+        source = "bolt = freeman.nanodjango.BoltAPI()"
         converter = _make_converter(source)
         resolver = _make_resolver()
         extra_src = []
@@ -590,11 +590,11 @@ class TestEntryPointWiring:
 
     def test_entry_point_is_registered(self):
         """The `django-bolt` entry point under group `nanodjango` must resolve to
-        `django_bolt.nanodjango`. This catches pyproject.toml misconfigurations."""
+        `freeman.nanodjango`. This catches pyproject.toml misconfigurations."""
         eps = entry_points(group="nanodjango")
         bolt_eps = [ep for ep in eps if ep.name == "django-bolt"]
         assert len(bolt_eps) >= 1, f"expected 'django-bolt' entry point, got: {list(eps)}"
-        assert bolt_eps[0].value == "django_bolt.nanodjango"
+        assert bolt_eps[0].value == "freeman.nanodjango"
 
     def test_plugin_exposes_all_three_hooks(self):
         """Loading the entry point must yield a module exposing the three

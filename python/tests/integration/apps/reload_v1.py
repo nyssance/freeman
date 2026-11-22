@@ -6,7 +6,7 @@ assert the running ``--dev`` server picks up the change.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 

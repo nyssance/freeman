@@ -20,14 +20,14 @@ mkdir -p "$out"
 # environment uses that file. Keep the current build and put it back at exit,
 # so that a later test run or benchmark does not use the instrumented build.
 saved="$(mktemp -d)"
-for built in python/django_bolt/_core*.so python/django_bolt/_core*.pyd; do
+for built in python/freeman/_core*.so python/freeman/_core*.pyd; do
     mv "$built" "$saved/"
 done
 # shellcheck disable=SC2329 # The EXIT trap below calls it.
 restore() {
-    rm -f python/django_bolt/_core*.so python/django_bolt/_core*.pyd
+    rm -f python/freeman/_core*.so python/freeman/_core*.pyd
     for built in "$saved"/*; do
-        mv "$built" python/django_bolt/
+        mv "$built" python/freeman/
     done
     rmdir "$saved"
 }

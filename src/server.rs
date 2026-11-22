@@ -215,7 +215,7 @@ impl ServerConfig {
         // Lanes and the Python thread pools start later. Check their variables
         // now, so an invalid value stops startup.
         bolt_core::lane::configure_idle_time(py)?;
-        py.import("django_bolt.concurrency")?
+        py.import("freeman.concurrency")?
             .call_method0("check_pool_environment")?;
 
         Ok(Self {
@@ -404,7 +404,7 @@ fn read_cors_and_file_scopes(
     // response. Same pattern as `BOLT_*_MAX_AGE` cache-control headers.
     // See: https://docs.djangoproject.com/en/6.0/ref/csp/
     let csp_policy: Option<String> = py
-        .import("django_bolt.middleware.compiler")?
+        .import("freeman.middleware.compiler")?
         .getattr("get_static_files_csp")?
         .call0()?
         .extract()?;

@@ -11,9 +11,9 @@ import re
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from django_bolt import BoltAPI, Router
-from django_bolt.middleware import cors, middleware
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Router
+from freeman.middleware import cors, middleware
+from freeman.testing import TestClient
 
 ALLOW_ORIGIN = "Access-Control-Allow-Origin"
 ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials"

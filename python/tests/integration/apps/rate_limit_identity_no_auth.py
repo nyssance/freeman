@@ -5,8 +5,8 @@ The module imports. The server must refuse to start.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.middleware import rate_limit
+from freeman import BoltAPI
+from freeman.middleware import rate_limit
 
 api = BoltAPI()
 

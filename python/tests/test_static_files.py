@@ -21,10 +21,10 @@ from django.contrib.staticfiles.finders import get_finder
 from django.core.exceptions import ImproperlyConfigured, SuspiciousFileOperation
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.admin.static import find_static_file
-from django_bolt.shortcuts import render
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.admin.static import find_static_file
+from freeman.shortcuts import render
+from freeman.testing import TestClient
 
 
 def assert_path_rejected(path: str) -> None:
@@ -47,7 +47,7 @@ def clear_staticfiles_finder_cache():
 
 
 # Create test static files directory
-TEST_STATIC_DIR = tempfile.mkdtemp(prefix="django_bolt_static_")
+TEST_STATIC_DIR = tempfile.mkdtemp(prefix="freeman_static_")
 
 # Create test CSS file
 CSS_DIR = os.path.join(TEST_STATIC_DIR, "css")

@@ -55,7 +55,7 @@ FastAPI and Litestar are standalone ASGI frameworks — you bring your own ORM, 
 
 ## Can I migrate from DRF or Django Ninja incrementally?
 
-**Yes.** Add `django_bolt` to `INSTALLED_APPS`, create an `api.py`, and move one endpoint at a time. Existing Django URLconf views (including DRF/Ninja routes) keep working through the ASGI mount while you migrate.
+**Yes.** Add `freeman` to `INSTALLED_APPS`, create an `api.py`, and move one endpoint at a time. Existing Django URLconf views (including DRF/Ninja routes) keep working through the ASGI mount while you migrate.
 
 ## Does Django-Bolt support WebSockets, SSE, and streaming?
 
@@ -164,7 +164,7 @@ This setting turns off GSSAPI encryption only. If the connection must be encrypt
    "name": "Can I migrate from DRF or Django Ninja incrementally?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "Yes. Add django_bolt to INSTALLED_APPS, create an api.py, and move one endpoint at a time. Existing Django URLconf views (including DRF/Ninja routes) keep working through the ASGI mount while you migrate."
+    "text": "Yes. Add freeman to INSTALLED_APPS, create an api.py, and move one endpoint at a time. Existing Django URLconf views (including DRF/Ninja routes) keep working through the ASGI mount while you migrate."
    }
   },
   {

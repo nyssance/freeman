@@ -5,12 +5,12 @@ The most specific layer wins. ``None`` means "inherit from the outer layer".
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.decorators import action
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.testing import TestClient
-from django_bolt.views import APIView, ViewSet
+from freeman import BoltAPI
+from freeman.decorators import action
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.testing import TestClient
+from freeman.views import APIView, ViewSet
 
 
 def _paths(api: BoltAPI) -> set[str]:

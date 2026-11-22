@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from django_bolt.serializers import (
+from freeman.serializers import (
     URL,
     Email,
     Meta,

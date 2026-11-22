@@ -13,23 +13,23 @@ import test_data
 from django.conf import settings
 from django.contrib.auth import aauthenticate, get_user_model
 
-from django_bolt import (
+from freeman import (
     BoltAPI,
     WebSocket,
 )
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user, get_current_user
-from django_bolt.exceptions import (
+from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user, get_current_user
+from freeman.exceptions import (
     HTTPException,
     NotFound,
     RequestValidationError,
     Unauthorized,
     UnprocessableEntity,
 )
-from django_bolt.health import add_health_check
-from django_bolt.middleware import no_compress
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.param_functions import Cookie, Depends, File, Form, Header
-from django_bolt.responses import (
+from freeman.health import add_health_check
+from freeman.middleware import no_compress
+from freeman.openapi import OpenAPIConfig
+from freeman.param_functions import Cookie, Depends, File, Form, Header
+from freeman.responses import (
     HTML,
     JSON,
     EventSourceResponse,
@@ -38,8 +38,8 @@ from django_bolt.responses import (
     Redirect,
     StreamingResponse,
 )
-from django_bolt.types import Request
-from django_bolt.views import APIView
+from freeman.types import Request
+from freeman.views import APIView
 
 from .middleware_demo import middleware_api
 

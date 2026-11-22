@@ -31,7 +31,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
 With Django-Bolt's `Serializer`, you define one class and create views dynamically:
 
 ```python
-from django_bolt.serializers import Serializer
+from freeman.serializers import Serializer
 
 class UserSerializer(Serializer):
     id: int
@@ -57,7 +57,7 @@ UserDetailSerializer = UserSerializer.fields("detail")
 ### Creating a serializer
 
 ```python
-from django_bolt.serializers import Serializer
+from freeman.serializers import Serializer
 
 class UserSerializer(Serializer):
     username: str
@@ -143,7 +143,7 @@ print(user.email)  # None
 `field(alias=...)` sets the name of a field in JSON. Python code uses the field name:
 
 ```python
-from django_bolt.serializers import Serializer, field
+from freeman.serializers import Serializer, field
 
 class AccountSerializer(Serializer):
     user_name: str = field(alias="userName")
@@ -166,7 +166,7 @@ The alias wins over the `rename` option of the class.
 Use `@field_validator` to validate and transform individual fields:
 
 ```python
-from django_bolt.serializers import Serializer, field_validator
+from freeman.serializers import Serializer, field_validator
 
 class UserSerializer(Serializer):
     email: str
@@ -355,7 +355,7 @@ For declarative validation, use `Annotated` with `msgspec.Meta`:
 ```python
 from typing import Annotated
 from msgspec import Meta
-from django_bolt.serializers import Serializer
+from freeman.serializers import Serializer
 
 class AuthorSerializer(Serializer):
     id: int
@@ -372,7 +372,7 @@ Meta constraints are enforced during deserialization via `msgspec.convert()`.
 Use `@model_validator` for cross-field validation after all fields are set:
 
 ```python
-from django_bolt.serializers import Serializer, model_validator
+from freeman.serializers import Serializer, model_validator
 
 class PasswordSerializer(Serializer):
     password: str
@@ -417,7 +417,7 @@ TestSerializer(value="test")
 | `@model_validator` | The built instance. | Nothing. |
 
 ```python
-from django_bolt.serializers import Serializer, field_validator, model_validator
+from freeman.serializers import Serializer, field_validator, model_validator
 
 class OrderSerializer(Serializer):
     order_id: int
@@ -467,7 +467,7 @@ Notes:
 Use `@computed_field` to add derived values to output:
 
 ```python
-from django_bolt.serializers import Serializer, computed_field
+from freeman.serializers import Serializer, computed_field
 
 class UserSerializer(Serializer):
     first_name: str
@@ -684,7 +684,7 @@ print(mini_user.dump())  # {'id': 1, 'name': 'John'}
 `field()` takes options that describe a field in the OpenAPI schema of the serializer. They do not change validation or `dump()`.
 
 ```python
-from django_bolt.serializers import Serializer, field
+from freeman.serializers import Serializer, field
 
 class ProductSerializer(Serializer):
     sku: str = field(description="Stock unit", title="SKU", examples=["AB-1"])
@@ -726,7 +726,7 @@ In the OpenAPI document, the response schema has no write-only field. The reques
 A read-only field holds a value that the server sets, such as `id` or `created_at`. Mark it with `field(read_only=True)` or with `Config.read_only`. Give it a default.
 
 ```python
-from django_bolt.serializers import Serializer, field
+from freeman.serializers import Serializer, field
 
 class UserSerializer(Serializer):
     id: int = field(read_only=True, default=0)
@@ -836,7 +836,7 @@ post = PostSerializer(id=1, title="Hello World", tags=tags)
 Nested fields are inferred directly from the type annotation:
 
 ```python
-from django_bolt.serializers import Serializer
+from freeman.serializers import Serializer
 
 class AuthorSerializer(Serializer):
     id: int
@@ -986,7 +986,7 @@ Bolt writes the primary key to `author_id`. A model instance in the field goes t
 `create_serializer()` makes a Serializer class from the fields of a model:
 
 ```python
-from django_bolt.serializers import create_serializer
+from freeman.serializers import create_serializer
 
 PostSerializer = create_serializer(BlogPost, fields=["id", "title", "author"])
 ```
@@ -1035,7 +1035,7 @@ admin = AdminSerializer(username="alice", email="alice@example.com", is_admin=Tr
 Django-Bolt provides pre-defined type aliases for common patterns:
 
 ```python
-from django_bolt.serializers import (
+from freeman.serializers import (
     # String lengths
     Char50, Char100, Char255,
 
@@ -1063,8 +1063,8 @@ class UserSerializer(Serializer):
 ## Using with API handlers
 
 ```python
-from django_bolt import BoltAPI
-from django_bolt.serializers import Serializer
+from freeman import BoltAPI
+from freeman.serializers import Serializer
 
 api = BoltAPI()
 
@@ -1115,8 +1115,8 @@ When using `model_validate()` or `model_validate_json()`, the Serializer collect
 ```python
 from typing import Annotated
 from msgspec import Meta
-from django_bolt.serializers import Serializer
-from django_bolt.exceptions import RequestValidationError
+from freeman.serializers import Serializer
+from freeman.exceptions import RequestValidationError
 
 class UserSerializer(Serializer):
     name: Annotated[str, Meta(min_length=2)]

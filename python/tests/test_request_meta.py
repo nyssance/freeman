@@ -8,8 +8,8 @@ import pytest
 from django.http import QueryDict
 from django.test import RequestFactory, override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 # Locations that Bolt joined to the host as text. Django parses and joins them.
 LOCATIONS = (

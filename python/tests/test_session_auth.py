@@ -18,9 +18,9 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI, Request
-from django_bolt.middleware import DjangoMiddleware
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Request
+from freeman.middleware import DjangoMiddleware
+from freeman.testing import TestClient
 
 
 def create_test_user():

@@ -43,7 +43,7 @@ Your models, Admin and middleware keep working.
 ## Your first endpoint
 
 ```python title="api.py"
-from django_bolt import BoltAPI
+from freeman import BoltAPI
 
 api = BoltAPI()
 
@@ -56,7 +56,7 @@ async def get_user(user_id: int):
 python manage.py runbolt --dev
 ```
 
-Add `django_bolt` to `INSTALLED_APPS`, run the command above, and open `http://localhost:8000/docs` for interactive API docs. Follow the [Quick Start](getting-started/quickstart.md) for the full walkthrough.
+Add `freeman` to `INSTALLED_APPS`, run the command above, and open `http://localhost:8000/docs` for interactive API docs. Follow the [Quick Start](getting-started/quickstart.md) for the full walkthrough.
 
 </div>
 
@@ -125,7 +125,7 @@ Server-Sent Events, WebSocket handlers, ASGI mounts and an MCP server for LLM cl
 === "Authentication"
 
     ```python
-    from django_bolt.auth import JWTAuthentication, IsAuthenticated
+    from freeman.auth import JWTAuthentication, IsAuthenticated
 
     @api.get("/profile", auth=[JWTAuthentication()], guards=[IsAuthenticated()])
     async def profile(request):

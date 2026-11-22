@@ -133,7 +133,7 @@ sudo supervisorctl start django-bolt
 Once the server is running, configure nginx to proxy requests to it:
 
 ```nginx
-upstream django_bolt {
+upstream freeman {
     server 127.0.0.1:8000;
 }
 
@@ -142,7 +142,7 @@ server {
     server_name api.example.com;
 
     location / {
-        proxy_pass http://django_bolt;
+        proxy_pass http://freeman;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -279,7 +279,7 @@ Enable compression for smaller response sizes:
 
 ```python
 # settings.py
-from django_bolt.middleware import CompressionConfig
+from freeman.middleware import CompressionConfig
 
 BOLT_COMPRESSION = CompressionConfig(
     backend="gzip",
@@ -309,7 +309,7 @@ The Rust parts (HTTP parsing and routing) usually take much less time than your 
 
 ## Free-threaded Python
 
-Django-Bolt supports the free-threaded build of CPython 3.14 (`python3.14t`, [PEP 703](https://peps.python.org/pep-0703/)). Wheels for `cp314t` are on PyPI. The Rust extension declares that it does not need the GIL, so the interpreter keeps the GIL disabled when it imports `django_bolt`.
+Django-Bolt supports the free-threaded build of CPython 3.14 (`python3.14t`, [PEP 703](https://peps.python.org/pep-0703/)). Wheels for `cp314t` are on PyPI. The Rust extension declares that it does not need the GIL, so the interpreter keeps the GIL disabled when it imports `freeman`.
 
 With the GIL disabled, `runbolt` defaults `--workers` to the CPU count. Each Actix worker thread runs Python handlers, so one process runs handlers in parallel:
 

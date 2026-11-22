@@ -10,7 +10,7 @@ just rebuild               # clean + build
 just test-py               # Python tests
 just test-rs               # Rust unit tests
 just test-example          # python/example: check, migrations, tests
-just docs-check            # Python blocks in docs/src and the readmes parse; their django_bolt/bolt_mcp imports exist
+just docs-check            # Python blocks in docs/src and the readmes parse; their freeman/bolt_mcp imports exist
 just clippy                # Rust lint, -D warnings (CI gate)
 just coverage              # Python + Rust coverage → coverage/ (needs cargo-llvm-cov)
 just fuzz query_string 60  # cargo-fuzz one parser target (fuzz/; needs nightly + cargo-fuzz)
@@ -37,7 +37,7 @@ Cargo workspace, layered bottom-up with no back-edges: {`bolt-native-abi`, `bolt
 - `crates/bolt-core` — router (matchit), `request_pipeline.rs`, `validation.rs`, `type_coercion.rs`, `middleware/` (auth, rate_limit), `permissions.rs`, `streaming.rs`, `response_meta.rs` / `response_builder.rs`, `form_parsing.rs`, `metadata.rs`, `error.rs`
 - `crates/bolt-asgi`, `crates/bolt-websocket`, `crates/bolt-mcp` — ASGI mounts, WebSocket, MCP transport (rmcp)
 - `crates/bolt-native-abi` — the C ABI of native route handlers in other extension modules (`native.rs` calls them). No dependencies; versioned with the ABI, not with Bolt
-- `python/django_bolt/` — `api.py` (BoltAPI, decorators, `_dispatch`/`_dispatch_sync`), `_kwargs/` (param extraction/injectors), `serialization.py` (ResponseWireV1, meta tags), `responses.py`, `params.py`, `dependencies.py`, `auth/`, `middleware/` (`compiler.py` → Rust metadata), `serializers/`, `openapi/`, `pagination.py`, `viewsets.py`, `concurrency.py`, `workers.py`, `management/commands/runbolt.py`, `testing/`
+- `python/freeman/` — `api.py` (BoltAPI, decorators, `_dispatch`/`_dispatch_sync`), `_kwargs/` (param extraction/injectors), `serialization.py` (ResponseWireV1, meta tags), `responses.py`, `params.py`, `dependencies.py`, `auth/`, `middleware/` (`compiler.py` → Rust metadata), `serializers/`, `openapi/`, `pagination.py`, `viewsets.py`, `concurrency.py`, `workers.py`, `management/commands/runbolt.py`, `testing/`
 
 ## Core design (keep these invariants)
 
@@ -62,7 +62,7 @@ Do it once at registration, reuse forever at runtime. In `_dispatch`, `_dispatch
 
 - Smallest surgical change for the requested scope; delete obsolete machinery rather than adding compatibility state.
 - Never silently ignore errors. Imports at module top. `from __future__ import annotations`.
-- Library code (`python/django_bolt/`) must pass ruff. Some S110 in test WebSocket handlers is acceptable.
+- Library code (`python/freeman/`) must pass ruff. Some S110 in test WebSocket handlers is acceptable.
 - Never add Co-Authored-By / AI trailers to commits or PRs.
 - **Writing style**: docs (`docs/`, README), code comments and docstrings, and `CHANGELOG.md` entries use ASD-STE100 Simplified Technical English: short sentences (max 20 words per instruction, 25 per description), one instruction per sentence, active voice, simple tenses, one meaning per word, no noun clusters over three nouns, start instructions with a verb. Code identifiers stay as they are.
 

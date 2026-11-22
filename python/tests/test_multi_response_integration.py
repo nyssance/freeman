@@ -7,10 +7,10 @@ verifying end-to-end behavior of dict-based response_model.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.responses import JSON
-from django_bolt.serializers import Serializer
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.responses import JSON
+from freeman.serializers import Serializer
+from freeman.testing import TestClient
 
 # ============================================================================
 # Test schemas

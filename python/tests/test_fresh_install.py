@@ -20,8 +20,8 @@ the static server integration tests.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.testing import TestClient
 
 # ---------------------------------------------------------------------------
 # Bug 2 – Minimal API: single route must actually work

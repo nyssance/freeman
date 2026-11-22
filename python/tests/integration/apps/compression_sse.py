@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import asyncio
 
-from django_bolt import BoltAPI
-from django_bolt.responses import EventSourceResponse
+from freeman import BoltAPI
+from freeman.responses import EventSourceResponse
 
 api = BoltAPI()
 

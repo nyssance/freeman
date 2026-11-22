@@ -7,10 +7,10 @@ import msgspec
 import pytest
 from msgspec import structs as msgspec_structs
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import SerializationError
-from django_bolt.serializers import Serializer, field
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.exceptions import SerializationError
+from freeman.serializers import Serializer, field
+from freeman.testing import TestClient
 from tests.test_models import Author, BlogPost, Comment, User, UserProfile
 
 

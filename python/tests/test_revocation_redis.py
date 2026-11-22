@@ -19,10 +19,10 @@ import pytest
 import redis
 from django.test import override_settings
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication, JWTAuthViews, create_token_pair
-from django_bolt.auth.revocation import DjangoCacheRevocation
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication, JWTAuthViews, create_token_pair
+from freeman.auth.revocation import DjangoCacheRevocation
+from freeman.testing import TestClient
 
 from .thread_pools import shutdown_closing_connections
 

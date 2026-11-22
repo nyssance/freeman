@@ -7,11 +7,11 @@ from django.contrib.auth import alogin, alogout
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 
-from django_bolt import BoltAPI, Request, Router
-from django_bolt.middleware import BaseMiddleware, Middleware, TimingMiddleware, middleware
-from django_bolt.params import Form
-from django_bolt.shortcuts import render
-from django_bolt.views import APIView
+from freeman import BoltAPI, Request, Router
+from freeman.middleware import BaseMiddleware, Middleware, TimingMiddleware, middleware
+from freeman.params import Form
+from freeman.shortcuts import render
+from freeman.views import APIView
 
 
 class RequestIdMiddleware:

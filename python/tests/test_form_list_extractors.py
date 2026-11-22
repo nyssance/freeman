@@ -13,12 +13,12 @@ import inspect
 
 import msgspec
 
-from django_bolt._kwargs.extractors import (
+from freeman._kwargs.extractors import (
     _collect_sequence_field_names,
     _create_param_struct_extractor,
     _is_sequence_field,
 )
-from django_bolt.datastructures import UploadFile
+from freeman.datastructures import UploadFile
 
 # ---------------------------------------------------------------------------
 # _is_sequence_field

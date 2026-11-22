@@ -11,7 +11,7 @@ Django-Bolt provides three pagination styles for handling large datasets efficie
 Classic page-based pagination:
 
 ```python
-from django_bolt import BoltAPI, PageNumberPagination, paginate
+from freeman import BoltAPI, PageNumberPagination, paginate
 
 api = BoltAPI()
 
@@ -52,7 +52,7 @@ A page number after the last page gives the last page. With no rows, each page n
 Flexible offset-based pagination:
 
 ```python
-from django_bolt import LimitOffsetPagination, paginate
+from freeman import LimitOffsetPagination, paginate
 
 @api.get("/articles", response_model=list[ArticleSerializer])
 @paginate(LimitOffsetPagination)
@@ -69,7 +69,7 @@ Response includes `items`, `total`, `has_next`, `has_previous`, `limit`, `offset
 Efficient pagination for large datasets and real-time feeds:
 
 ```python
-from django_bolt import CursorPagination, paginate
+from freeman import CursorPagination, paginate
 
 class ArticlePagination(CursorPagination):
     page_size = 20
@@ -124,7 +124,7 @@ A page of a `Serializer` type sends each item as the same route with no `@pagina
 ## ViewSet with Pagination
 
 ```python
-from django_bolt.views import ViewSet
+from freeman.views import ViewSet
 
 @api.viewset("/articles")
 class ArticleViewSet(ViewSet):
@@ -142,7 +142,7 @@ function-based views or when you want a method-specific override.
 ## ModelViewSet with Pagination
 
 ```python
-from django_bolt.views import ModelViewSet
+from freeman.views import ModelViewSet
 
 @api.viewset("/articles")
 class ArticleViewSet(ModelViewSet):

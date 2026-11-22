@@ -20,15 +20,15 @@ import pytest
 from django.contrib.auth.models import User
 from django.db import connection, connections
 
-from django_bolt import BoltAPI
-from django_bolt.analysis import (
+from freeman import BoltAPI
+from freeman.analysis import (
     DependencyNeeds,
     HandlerAnalysis,
     analyze_dependency_tree,
     analyze_handler,
     resolve_introspection_target,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 
 # Test handler functions for analysis

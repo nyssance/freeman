@@ -17,10 +17,10 @@ from typing import Annotated, Any
 
 import pytest
 
-from django_bolt import BoltAPI, Request, ViewSet, action
-from django_bolt.analysis import analyze_handler
-from django_bolt.params import Depends, Form
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, Request, ViewSet, action
+from freeman.analysis import analyze_handler
+from freeman.params import Depends, Form
+from freeman.testing import TestClient
 
 from .test_models import Article
 

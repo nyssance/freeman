@@ -13,10 +13,10 @@ import asyncio
 import msgspec
 import pytest
 
-from django_bolt import JSON, BoltAPI
-from django_bolt.middleware import Middleware
-from django_bolt.responses import HTML, File, FileResponse, PlainText, Redirect, Response
-from django_bolt.testing import TestClient
+from freeman import JSON, BoltAPI
+from freeman.middleware import Middleware
+from freeman.responses import HTML, File, FileResponse, PlainText, Redirect, Response
+from freeman.testing import TestClient
 
 # Media types that take the integer-tag path, and the header Rust must emit.
 STATIC_MEDIA_TYPES = [

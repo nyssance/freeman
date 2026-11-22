@@ -21,11 +21,11 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.db import connection
 from django.utils.deprecation import MiddlewareMixin
 
-from django_bolt import BoltAPI, CurrentUser, Depends, OptionalCurrentUser, Request, get_current_user
-from django_bolt.auth import APIKeyAuthentication, JWTAuthentication
-from django_bolt.concurrency import in_lane_mode
-from django_bolt.middleware import DjangoMiddleware, DjangoMiddlewareStack
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, CurrentUser, Depends, OptionalCurrentUser, Request, get_current_user
+from freeman.auth import APIKeyAuthentication, JWTAuthentication
+from freeman.concurrency import in_lane_mode
+from freeman.middleware import DjangoMiddleware, DjangoMiddlewareStack
+from freeman.testing import TestClient
 
 SECRET = "current-user-test-secret-longer-than-32-characters"
 

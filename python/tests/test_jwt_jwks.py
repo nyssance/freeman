@@ -19,10 +19,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from django.core.exceptions import ImproperlyConfigured
 from jwt.algorithms import RSAAlgorithm
 
-from django_bolt import BoltAPI
-from django_bolt.auth import InMemoryRevocation, IsAuthenticated, JWTAuthentication
-from django_bolt.auth import backends as auth_backends
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import InMemoryRevocation, IsAuthenticated, JWTAuthentication
+from freeman.auth import backends as auth_backends
+from freeman.testing import TestClient
 
 pytestmark = pytest.mark.django_db
 
@@ -652,7 +652,7 @@ def test_an_empty_string_option_is_a_configuration_error(option):
     assert str(raised.value) == f"JWTAuthentication {option} must not be empty.{hint}"
 
 
-AUTH_LOGGER = "django_bolt.auth"
+AUTH_LOGGER = "freeman.auth"
 
 
 def _rotating_api(auth: JWTAuthentication) -> BoltAPI:

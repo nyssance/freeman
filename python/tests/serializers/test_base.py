@@ -5,10 +5,10 @@ from __future__ import annotations
 import msgspec
 import pytest
 
-from django_bolt import BoltAPI
-from django_bolt.exceptions import RequestValidationError
-from django_bolt.serializers import Email, Serializer, field_validator, model_validator
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.exceptions import RequestValidationError
+from freeman.serializers import Email, Serializer, field_validator, model_validator
+from freeman.testing import TestClient
 
 
 class TestSerializerBasics:

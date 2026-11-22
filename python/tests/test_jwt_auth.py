@@ -18,8 +18,8 @@ from django.contrib.auth import get_user_model
 from django.db import InterfaceError, OperationalError
 from django.test import override_settings
 
-from django_bolt import APIView, BoltAPI, Router, ViewSet, WebSocket, action
-from django_bolt.auth import (
+from freeman import APIView, BoltAPI, Router, ViewSet, WebSocket, action
+from freeman.auth import (
     AllowAny,
     IsAuthenticated,
     JWTAuthentication,
@@ -28,11 +28,11 @@ from django_bolt.auth import (
     get_auth_context,
     get_current_user,
 )
-from django_bolt.auth.backends import revocation_takes_claims
-from django_bolt.openapi import OpenAPIConfig
-from django_bolt.openapi.schema_generator import SchemaGenerator
-from django_bolt.params import Depends
-from django_bolt.testing import TestClient, WebSocketTestClient
+from freeman.auth.backends import revocation_takes_claims
+from freeman.openapi import OpenAPIConfig
+from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.params import Depends
+from freeman.testing import TestClient, WebSocketTestClient
 
 # Mark all tests to use Django DB
 pytestmark = pytest.mark.django_db
@@ -490,7 +490,7 @@ async def test_get_user_reraises_operational_error():
 
     with (
         patch(
-            "django_bolt.auth.backends.load_user_by_pk_sync",
+            "freeman.auth.backends.load_user_by_pk_sync",
             side_effect=OperationalError("connection reset"),
         ),
         pytest.raises(OperationalError),
@@ -508,7 +508,7 @@ async def test_get_user_reraises_interface_error():
 
     with (
         patch(
-            "django_bolt.auth.backends.load_user_by_pk_sync",
+            "freeman.auth.backends.load_user_by_pk_sync",
             side_effect=InterfaceError("connection closed"),
         ),
         pytest.raises(InterfaceError),
@@ -525,7 +525,7 @@ def test_get_user_sync_reraises_operational_error():
 
     with (
         patch(
-            "django_bolt.auth.backends.load_user_by_pk_sync",
+            "freeman.auth.backends.load_user_by_pk_sync",
             side_effect=OperationalError("connection reset"),
         ),
         pytest.raises(OperationalError),
@@ -542,7 +542,7 @@ def test_get_user_sync_reraises_interface_error():
 
     with (
         patch(
-            "django_bolt.auth.backends.load_user_by_pk_sync",
+            "freeman.auth.backends.load_user_by_pk_sync",
             side_effect=InterfaceError("connection closed"),
         ),
         pytest.raises(InterfaceError),
@@ -554,7 +554,7 @@ def test_get_user_sync_reports_a_load_error_on_stderr_and_gives_no_user(capsys):
     """An error that is not a lost connection gives no user. The reason goes to stderr."""
     auth = JWTAuthentication(secret="test-secret")
 
-    with patch("django_bolt.auth.backends.load_user_by_pk_sync", side_effect=RuntimeError("boom")):
+    with patch("freeman.auth.backends.load_user_by_pk_sync", side_effect=RuntimeError("boom")):
         assert auth.get_user_sync("42") is None
 
     captured = capsys.readouterr()

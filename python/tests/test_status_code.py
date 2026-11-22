@@ -6,9 +6,9 @@ import asyncio
 
 import pytest
 
-from django_bolt import BoltAPI, status, status_codes
-from django_bolt.middleware import middleware
-from django_bolt.testing import TestClient
+from freeman import BoltAPI, status, status_codes
+from freeman.middleware import middleware
+from freeman.testing import TestClient
 
 
 def test_status_alias_import():

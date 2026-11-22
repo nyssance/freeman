@@ -8,7 +8,7 @@ from bolt_mcp import MCP, mount_mcp
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
-from django_bolt import (
+from freeman import (
     APIKeyAuthentication,
     BoltAPI,
     IsAuthenticated,
@@ -17,7 +17,7 @@ from django_bolt import (
     Requires,
     SessionAuthentication,
 )
-from django_bolt.testing import TestClient
+from freeman.testing import TestClient
 
 SECRET = "tier1-secret-key-0123456789-abcdefgh"
 

@@ -6,10 +6,10 @@ import time
 
 import jwt
 
-from django_bolt import BoltAPI
-from django_bolt.auth import JWTAuthentication  # noqa: PLC0415
-from django_bolt.auth.guards import IsAuthenticated  # noqa: PLC0415
-from django_bolt.testing import TestClient
+from freeman import BoltAPI
+from freeman.auth import JWTAuthentication  # noqa: PLC0415
+from freeman.auth.guards import IsAuthenticated  # noqa: PLC0415
+from freeman.testing import TestClient
 
 
 def test_request_get_default_behavior():

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from django_bolt import BoltAPI
-from django_bolt.params import Body
-from django_bolt.serializers import Serializer, field_validator
+from freeman import BoltAPI
+from freeman.params import Body
+from freeman.serializers import Serializer, field_validator
 
 api = BoltAPI()
 

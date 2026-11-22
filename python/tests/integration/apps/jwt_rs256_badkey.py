@@ -8,8 +8,8 @@ the subprocess failing to boot.
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI
-from django_bolt.auth import IsAuthenticated, JWTAuthentication
+from freeman import BoltAPI
+from freeman.auth import IsAuthenticated, JWTAuthentication
 
 api = BoltAPI()
 

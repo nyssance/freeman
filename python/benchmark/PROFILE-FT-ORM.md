@@ -38,7 +38,7 @@ The matrix supports these statements:
 ## Finding 1: one ORM thread serves the full FT process
 
 The example project uses SQLite.
-For SQLite, `_default_orm_workers()` in [concurrency.py](../django_bolt/concurrency.py) sets the ORM pool to one thread.
+For SQLite, `_default_orm_workers()` in [concurrency.py](../freeman/concurrency.py) sets the ORM pool to one thread.
 That default came from a GIL measurement: more SQLite connections in one GIL process decreased throughput.
 The GIL rows above reproduce that result (3,260 with 1 thread, 1,907 with 8 threads).
 On FT the result reverses (4,771 with 1 thread, 20,357 with 8 threads).
@@ -78,7 +78,7 @@ FT 8 × 1 reaches 31.9k against 39.1k for GIL 8 × 1. This part of the gap remai
 
 ## Finding 3: the middleware path creates one executor per request
 
-`_run_request_affine` in [django_adapter.py](../django_bolt/middleware/django_adapter.py) opens one asgiref `ThreadSensitiveContext` per request.
+`_run_request_affine` in [django_adapter.py](../freeman/middleware/django_adapter.py) opens one asgiref `ThreadSensitiveContext` per request.
 asgiref creates one `ThreadPoolExecutor` and one thread for that context.
 It shuts the executor down when the request ends.
 

@@ -1,0 +1,719 @@
+"""
+Type introspection and field definition system for parameter binding.
+
+Inspired by Litestar's architecture but built from scratch for Django-Bolt's
+msgspec-first, async-only design with focus on performance.
+"""
+
+from __future__ import annotations
+
+import inspect
+import types
+from collections.abc import Callable
+from dataclasses import dataclass, is_dataclass
+from enum import Enum
+from functools import reduce
+from operator import or_
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    NewType,
+    TypeAliasType,
+    TypedDict,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
+
+import msgspec
+
+# Import Param and Depends at top level for use in from_parameter method
+# These imports must be at module top to comply with PLC0415
+from .datastructures import UploadFile
+from .params import Depends as DependsMarker
+from .params import Param
+
+if TYPE_CHECKING:
+    pass
+
+__all__ = [
+    "FieldDefinition",
+    "HandlerMetadata",
+    "HandlerPattern",
+    "is_msgspec_struct",
+    "is_simple_type",
+    "is_sequence_type",
+    "is_optional",
+    "is_upload_file_type",
+    "unwrap_optional",
+    "resolve_type_alias",
+    "split_param_annotation",
+    "infer_param_source",
+    "reads_text_value",
+    "is_json_only_type",
+]
+
+
+class HandlerPattern(Enum):
+    """
+    Handler pattern classification for specialized injector selection.
+
+    Each pattern enables a specific fast path in the argument injector,
+    eliminating unnecessary checks and data access at request time.
+    """
+
+    REQUEST_ONLY = "request_only"  # Single request parameter
+    NO_PARAMS = "no_params"  # No parameters at all
+    PATH_ONLY = "path_only"  # Only path parameters
+    QUERY_ONLY = "query_only"  # Only query parameters
+    BODY_ONLY = "body_only"  # Single JSON body parameter
+    SIMPLE = "simple"  # Path + query combination
+    WITH_DEPS = "with_deps"  # Has dependency injection (async)
+    FULL = "full"  # Complex: headers, cookies, form, file, or mixed
+
+
+class HandlerMetadata(TypedDict, total=False):
+    """
+    Type-safe metadata dictionary for handler functions.
+
+    This structure is compiled once at route registration time and
+    contains all information needed for parameter binding, response
+    serialization, and OpenAPI documentation generation.
+    """
+
+    # Core function metadata
+    sig: inspect.Signature
+    """Function signature"""
+
+    fields: list[FieldDefinition]
+    """List of parameter field definitions"""
+
+    """Set of path parameter names extracted from route pattern"""
+
+    http_method: str
+    """HTTP method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS)"""
+
+    mode: str
+    """Handler mode: 'request_only' or 'mixed'"""
+
+    # Body parameter metadata (for fast path optimization)
+    body_struct_param: str
+    """Name of the single body struct parameter (if present)"""
+
+    body_struct_type: Any
+    """Type of the body struct parameter"""
+
+    # Response metadata
+    response_type: Any
+    """Return type annotation from function signature"""
+
+    default_status_code: int
+    """Default HTTP status code for successful responses"""
+
+    validate_response: bool
+    """Whether schema-driven response validation/coercion runs at runtime"""
+
+    # QuerySet serialization optimization (pre-computed at registration)
+    response_field_names: list[str]
+    """Pre-computed field names for QuerySet.values() call"""
+
+    # Multi-response (per-status-code) metadata
+    response_map: dict[int | type, Any]
+    """Status code → response type mapping (when response_model is a dict).
+    Keys are int status codes or ``...`` (Ellipsis) for catch-all."""
+
+    response_field_names_map: dict[int | types.EllipsisType, list[str]]
+    """Per-status-code QuerySet field names. The ``...`` key holds the fields of the catch-all type."""
+
+    is_multi_response: bool
+    """Whether this handler uses per-status-code response schemas"""
+
+    _resolved_metas: dict[int | type, dict]
+    """Pre-built per-status-code meta dicts for O(1) lookup at request time.
+    Keys mirror ``response_map`` (int codes + optional ``...``)."""
+
+    _stream_item_validator: Callable[[Any], Any] | None
+    """Compiled sync validator for typed stream items"""
+
+    _stream_item_validator_async: Callable[[Any], Any] | None
+    """Compiled async validator for typed stream items"""
+
+    _has_response_validation: bool
+    """Whether this route has a compiled response validator"""
+
+    _default_response_handler: Callable[..., Any]
+    """Compiled async data-response handler"""
+
+    _default_response_handler_sync: Callable[..., Any]
+    """Compiled sync data-response handler"""
+
+    _response_type_handler: Callable[..., Any]
+    """Compiled async explicit-response handler"""
+
+    _response_type_handler_sync: Callable[..., Any]
+    """Compiled sync explicit-response handler"""
+
+    # Performance optimizations
+    needs_form_parsing: bool
+    """Whether this handler needs form/multipart parsing (Form/File params)"""
+
+    # Sync/async handler metadata
+    is_async: bool
+    """Whether handler is async (coroutine function)"""
+
+    # URL reversing
+    name: str | None
+    """Route name for URL reversing (freeman.urls.reverse); see name_explicit"""
+
+    name_explicit: bool
+    """True if the user set the name directly; False if derived (fn name / viewset action)"""
+
+    namespace: str
+    """Opt-in reverse namespace from BoltAPI(namespace=...); "" when unset"""
+
+    # OpenAPI documentation metadata
+    openapi_tags: list[str]
+    """OpenAPI tags for grouping endpoints"""
+
+    openapi_summary: str
+    """Short summary for OpenAPI docs"""
+
+    openapi_description: str
+    """Detailed description for OpenAPI docs"""
+
+    # Performance optimization: pre-compiled argument injector
+    injector: Any
+    """Pre-compiled function that extracts handler arguments from request.
+
+    Returns (args, kwargs) tuple ready for handler invocation.
+    Compiled once at route registration time for maximum performance.
+    Can be sync (for most handlers) or async (only if using dependencies).
+
+    Example:
+        if meta["injector_is_async"]:
+            args, kwargs = await meta["injector"](request)
+        else:
+            args, kwargs = meta["injector"](request)
+        result = await handler(*args, **kwargs)
+    """
+
+    injector_is_async: bool
+    """Whether the injector function is async (True only if handler uses Depends)"""
+
+    # Static analysis flags (skip unused parsing)
+    # These are computed at route registration time by analyzing handler parameters
+    needs_body: bool
+    """Whether handler needs request body parsing (has body/form/file params)"""
+
+    needs_query: bool
+    """Whether handler needs query string parsing (has query params)"""
+
+    needs_headers: bool
+    """Whether handler needs header extraction (has header params)"""
+
+    needs_cookies: bool
+    """Whether handler needs cookie parsing (has cookie params)"""
+
+    needs_path_params: bool
+    """Whether handler needs path parameter extraction (has path params)"""
+
+    # Static route optimization
+    is_static_route: bool
+    """Whether route has no path parameters (can use O(1) lookup)"""
+
+    # ORM analysis (static analysis for blocking detection)
+    is_blocking: bool
+    """Whether handler is likely to block (ORM usage or blocking I/O) - runs in thread pool"""
+
+    # Handler pattern classification (for specialized fast paths)
+    handler_pattern: HandlerPattern
+    """Handler pattern for specialized injector selection at registration time."""
+
+    # Response class override (e.g., EventSourceResponse for SSE)
+    response_class: type | None
+    """Optional response class override for the route (e.g., EventSourceResponse)."""
+
+
+# Simple scalar types that map to query parameters
+SIMPLE_TYPES = (str, int, float, bool, bytes)
+
+
+def is_msgspec_struct(annotation: Any) -> bool:
+    """Check if type is a msgspec.Struct."""
+    try:
+        return isinstance(annotation, type) and issubclass(annotation, msgspec.Struct)
+    except (TypeError, AttributeError):
+        return False
+
+
+def is_simple_type(annotation: Any) -> bool:
+    """Check if annotation is a simple scalar type (str, int, float, bool, bytes)."""
+    origin = get_origin(annotation)
+    if origin is not None:
+        # Unwrap Optional, List, etc.
+        return False
+    return annotation in SIMPLE_TYPES or annotation is Any
+
+
+def is_sequence_type(annotation: Any) -> bool:
+    """Check if annotation is a sequence type like List[T]."""
+    origin = get_origin(annotation)
+    return origin in (list, tuple, set, frozenset)
+
+
+def is_optional(annotation: Any) -> bool:
+    """Check if annotation is Optional[T] or T | None."""
+    origin = get_origin(annotation)
+    # Handle both typing.Union (Optional[T]) and types.UnionType (T | None)
+    if origin is Union or origin is types.UnionType:
+        args = get_args(annotation)
+        return type(None) in args
+    return False
+
+
+def is_upload_file_type(annotation: Any) -> bool:
+    """Return True if annotation resolves to UploadFile or list[UploadFile].
+
+    Recurses through Annotated/Optional/list wrappers so struct field detection
+    works for annotations like ``Annotated[UploadFile, File(...)]``.
+    """
+    unwrapped = unwrap_optional(annotation)
+
+    if unwrapped is UploadFile:
+        return True
+
+    origin = get_origin(unwrapped)
+    if origin is list or origin is Annotated:
+        args = get_args(unwrapped)
+        if args:
+            return is_upload_file_type(args[0])
+
+    return False
+
+
+def unwrap_optional(annotation: Any) -> Any:
+    """Unwrap Optional[T] or T | None to get T."""
+    origin = get_origin(annotation)
+    # Handle both typing.Union (Optional[T]) and types.UnionType (T | None)
+    if origin is Union or origin is types.UnionType:
+        args = tuple(a for a in get_args(annotation) if a is not type(None))
+        return args[0] if len(args) == 1 else reduce(or_, args)  # type: ignore
+    return annotation
+
+
+def _substitute_alias_args(alias: TypeAliasType, args: tuple[Any, ...]) -> Any:
+    """Return the value of a generic ``type`` alias with ``args`` in place of its type parameters."""
+    value = alias.__value__
+    arg_by_param = dict(zip(alias.__type_params__, args, strict=True))
+    if isinstance(value, TypeVar):
+        return arg_by_param[value]
+    params = getattr(value, "__parameters__", ())
+    return value[tuple(arg_by_param[param] for param in params)] if params else value
+
+
+def resolve_type_alias(annotation: Any) -> Any:
+    """Return the type that a ``NewType`` or a ``type`` alias names, through each level.
+
+    msgspec converts and validates such a value as the type it names. Bolt
+    does the same, so Rust converts a ``NewType("UserId", int)`` value as an ``int``.
+    The arms of a union resolve too, so ``UserId | None`` gives ``int | None``.
+    A parameterized alias gets its arguments, so ``Pair[int]`` with
+    ``type Pair[T] = list[T]`` gives ``list[int]``.
+    """
+    while True:
+        if isinstance(annotation, TypeAliasType):
+            annotation = annotation.__value__
+        elif isinstance(alias := get_origin(annotation), TypeAliasType):
+            annotation = _substitute_alias_args(alias, get_args(annotation))
+        elif isinstance(annotation, NewType):
+            annotation = annotation.__supertype__
+        else:
+            break
+    origin = get_origin(annotation)
+    if origin is Union or origin is types.UnionType:
+        return reduce(or_, (resolve_type_alias(arg) for arg in get_args(annotation)))
+    return annotation
+
+
+# The constraint arguments of Query() and Path(), with the msgspec.Meta names.
+_MARKER_CONSTRAINTS = ("gt", "ge", "lt", "le", "multiple_of", "min_length", "max_length", "pattern")
+
+
+def split_param_annotation(annotation: Any, default: Any = None) -> tuple[Any, Any]:
+    """Split a parameter annotation into its value type and its ``Param`` or ``Depends`` marker.
+
+    ``Annotated[int, msgspec.Meta(ge=1), Query()]`` gives ``(Annotated[int, msgspec.Meta(ge=1)], Query())``.
+    The marker comes from ``Annotated``, or else from ``default``. It is None when there is none.
+    The constraint arguments of the marker (``Query(ge=1)``) become one more ``msgspec.Meta``.
+    The ``msgspec.Meta`` items stay on a scalar or a sequence type, so the value
+    is validated against them and the schema shows them. They go on the type
+    inside ``Optional``, because msgspec takes ``Annotated[int, Meta(ge=1)] | None``
+    and rejects ``Annotated[int | None, Meta(ge=1)]``. A struct, a dataclass, an
+    upload or a ``File()`` parameter keeps only its base type, as before. A
+    ``NewType`` or a ``type`` alias resolves to the type it names.
+
+    Raises:
+        TypeError: msgspec cannot apply a constraint to the type, for example ``ge`` to a ``Decimal``.
+    """
+    default_marker = default if isinstance(default, (Param, DependsMarker)) else None
+    annotation = resolve_type_alias(annotation)
+    if get_origin(annotation) is Annotated:
+        base, *extras = get_args(annotation)
+        base = resolve_type_alias(base)
+        marker = next((extra for extra in extras if isinstance(extra, (Param, DependsMarker))), default_marker)
+        constraints = [extra for extra in extras if isinstance(extra, msgspec.Meta)]
+    else:
+        base, marker, constraints = annotation, default_marker, []
+    if isinstance(marker, Param):
+        marker_constraints = {
+            name: value for name in _MARKER_CONSTRAINTS if (value := getattr(marker, name)) is not None
+        }
+        if marker_constraints:
+            constraints.append(msgspec.Meta(**marker_constraints))
+    inner = unwrap_optional(base)
+    if (
+        not constraints
+        or is_msgspec_struct(inner)
+        or is_dataclass_type(inner)
+        or is_upload_file_type(inner)
+        or (isinstance(marker, Param) and marker.source == "file")
+    ):
+        return base, marker
+    constrained = Annotated[(inner, *constraints)]
+    if is_optional(base):
+        constrained = constrained | None
+    # Check the constraints at registration. Else each request fails with a TypeError.
+    msgspec.inspect.type_info(constrained)
+    return constrained, marker
+
+
+def is_dataclass_type(annotation: Any) -> bool:
+    """Check if annotation is a dataclass."""
+    try:
+        return is_dataclass(annotation)
+    except (TypeError, AttributeError):
+        return False
+
+
+# The methods whose request has a body. See the method check in _kwargs/model.py.
+_BODY_METHODS = frozenset({"POST", "PUT", "PATCH"})
+
+# A parameter with one of these names gets the request, unless it is a path parameter or has a marker.
+REQUEST_PARAM_NAMES = frozenset({"request", "req"})
+
+_COLLECTION_NODES = (
+    msgspec.inspect.ListType,
+    msgspec.inspect.SetType,
+    msgspec.inspect.FrozenSetType,
+    msgspec.inspect.VarTupleType,
+)
+# msgspec builds these types from a JSON object or a JSON array, not from text.
+_JSON_ONLY_NODES = (
+    msgspec.inspect.DictType,
+    msgspec.inspect.StructType,
+    msgspec.inspect.DataclassType,
+    msgspec.inspect.TypedDictType,
+    msgspec.inspect.NamedTupleType,
+    msgspec.inspect.RawType,
+    msgspec.inspect.ExtType,
+)
+
+
+def _node_reads_text(node: Any, in_sequence: bool = False) -> bool:
+    if isinstance(node, msgspec.inspect.UnionType):
+        # None is the value of a missing parameter. It is not a type of the text.
+        arms = [arm for arm in node.types if not isinstance(arm, msgspec.inspect.NoneType)]
+        return any(_node_reads_text(arm, in_sequence) for arm in arms)
+    if isinstance(node, _COLLECTION_NODES):
+        # Each text value is one item. An item cannot be a sequence.
+        return not in_sequence and _node_reads_text(node.item_type, True)
+    if isinstance(node, msgspec.inspect.TupleType):
+        return not in_sequence and all(_node_reads_text(item, True) for item in node.item_types)
+    if isinstance(node, msgspec.inspect.CustomType):
+        # msgspec passes a value that is an instance of the class. A text value is a str.
+        return isinstance("", node.cls)
+    return not isinstance(node, _JSON_ONLY_NODES)
+
+
+def _has_custom_node(node: Any) -> bool:
+    if isinstance(node, msgspec.inspect.CustomType):
+        return True
+    items = getattr(node, "types", None) or getattr(node, "item_types", None)
+    if items is None:
+        items = tuple(
+            item
+            for item in (getattr(node, name, None) for name in ("item_type", "key_type", "value_type"))
+            if item is not None
+        )
+    return any(_has_custom_node(item) for item in items)
+
+
+def reads_text_value(annotation: Any) -> bool:
+    """Return True when Bolt can build ``annotation`` from the text of a request.
+
+    A path segment, a query key, a header, a cookie and a form field give text.
+    Text converts to a scalar type (``str``, ``int``, ``float``, ``bool``,
+    ``Decimal``, ``UUID``, a date or time type, an ``Enum``, a ``Literal``,
+    ``bytes``) and to one sequence of such types. A ``dict``, a dataclass, a
+    nested sequence and a class that msgspec does not know come only from JSON,
+    or from nothing. A parameter with no annotation takes each value.
+    """
+    if annotation is inspect.Parameter.empty:
+        return True
+    try:
+        node = msgspec.inspect.type_info(annotation)
+    except TypeError:
+        return False
+    return _node_reads_text(node)
+
+
+def is_json_only_type(annotation: Any) -> bool:
+    """Return True for a type that msgspec decodes from JSON and that text cannot give.
+
+    Examples are ``dict``, ``list[dict]``, ``list[list[int]]`` and a ``TypedDict``.
+    A class that msgspec does not know, such as ``complex``, gives False.
+    """
+    if annotation is inspect.Parameter.empty:
+        return False
+    try:
+        node = msgspec.inspect.type_info(annotation)
+    except TypeError:
+        return False
+    return not _node_reads_text(node) and not _has_custom_node(node)
+
+
+def infer_param_source(name: str, annotation: Any, path_params: set[str], http_method: str) -> str:
+    """
+    Infer parameter source based on type and context.
+
+    Inference rules (in priority order):
+    1. If name matches path parameter -> "path"
+    2. If special name (request, req) -> "request"
+    3. If simple type (str, int, float, bool) -> "query"
+    4. If msgspec.Struct or dataclass, or a sequence of them -> "body"
+       (method validation happens later)
+    5. Default -> "query"
+
+    A JSON-only type, such as ``dict``, ``dict[K, V]`` or ``list[dict]``, is
+    "body" on a POST, PUT or PATCH route. A query string cannot hold it. On
+    each other method it stays "query", and ``compile_binder`` refuses it.
+    ``Any`` stays "query", as in FastAPI.
+
+    Args:
+        name: Parameter name
+        annotation: Type annotation
+        path_params: Set of path parameter names from route pattern
+        http_method: HTTP method (GET, POST, etc.)
+
+    Returns:
+        Source string: "path", "query", "body", "request", etc.
+    """
+    # 1. Path parameters
+    if name in path_params:
+        return "path"
+
+    # 2. Special request parameter
+    if name in REQUEST_PARAM_NAMES:
+        return "request"
+
+    # Unwrap Optional and msgspec.Meta if present
+    unwrapped = unwrap_optional(annotation)
+    if get_origin(unwrapped) is Annotated:
+        unwrapped = unwrap_optional(get_args(unwrapped)[0])
+
+    # 3. Simple types -> query params
+    if is_simple_type(unwrapped):
+        return "query"
+
+    # A dict, a list of dicts and each other JSON-only type come only from a
+    # JSON body. On a method with no body the source stays "query", and the
+    # registration then stops with the error of a type that text cannot give.
+    if http_method in _BODY_METHODS and is_json_only_type(unwrapped):
+        return "body"
+
+    # 4. Sequence of simple types -> query (for list params)
+    if is_sequence_type(unwrapped):
+        args = get_args(unwrapped)
+        if args and is_simple_type(args[0]):
+            return "query"
+
+    # 5. Complex types (msgspec.Struct, dataclass) -> body
+    # Method-appropriateness (rejecting bodies on GET/DELETE/HEAD) is enforced
+    # later in the validation path, not here.
+    # A sequence of them is a JSON array. A query string cannot hold it.
+    item = get_args(unwrapped)[0] if is_sequence_type(unwrapped) and get_args(unwrapped) else unwrapped
+    if is_msgspec_struct(item) or is_dataclass_type(item):
+        return "body"
+
+    # 6. Default to query
+    return "query"
+
+
+@dataclass(frozen=True, slots=True)
+class FieldDefinition:
+    """
+    Represents a parsed function parameter with type metadata.
+
+    This is the core data structure for parameter binding, containing
+    all information needed to extract and validate a parameter value
+    from an HTTP request.
+    """
+
+    name: str
+    """Parameter name"""
+
+    annotation: Any
+    """Raw type annotation"""
+
+    default: Any
+    """Default value (inspect.Parameter.empty if required)"""
+
+    source: str
+    """Parameter source: 'path', 'query', 'body', 'header', 'cookie', 'form', 'file', 'request', 'dependency'"""
+
+    alias: str | None = None
+    """Alternative name for the parameter (e.g., 'user-id' for 'user_id')"""
+
+    embed: bool | None = None
+    """For body params: True reads the value from the key of the alias or the name in a JSON object"""
+
+    dependency: Any = None
+    """Depends marker for dependency injection"""
+
+    kind: inspect._ParameterKind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+    """Parameter kind (positional, keyword-only, etc.)"""
+
+    param: Any = None
+    """Original Param marker (for accessing file constraints, etc.)"""
+
+    # Pre-compiled extractor function (set at registration time)
+    extractor: Callable[..., Any] | None = None
+    """Pre-compiled extractor function for this parameter.
+
+    Created at route registration time by the appropriate factory
+    (create_path_extractor, create_query_extractor, etc.).
+    Eliminates per-request source type checking.
+    """
+
+    # Cached type properties for performance
+    _is_optional: bool | None = None
+    _is_simple: bool | None = None
+    _is_struct: bool | None = None
+    _unwrapped: Any | None = None
+    _origin: Any | None = None
+
+    @property
+    def is_optional(self) -> bool:
+        """Check if parameter is optional (has default or Optional type)."""
+        if self._is_optional is None:
+            object.__setattr__(
+                self, "_is_optional", self.default is not inspect.Parameter.empty or is_optional(self.annotation)
+            )
+        return self._is_optional  # type: ignore
+
+    @property
+    def is_required(self) -> bool:
+        """Check if parameter is required."""
+        return not self.is_optional
+
+    @property
+    def is_simple_type(self) -> bool:
+        """Check if parameter type is simple (str, int, etc.)."""
+        if self._is_simple is None:
+            unwrapped = self.unwrapped_annotation
+            object.__setattr__(self, "_is_simple", is_simple_type(unwrapped))
+        return self._is_simple  # type: ignore
+
+    @property
+    def is_msgspec_struct(self) -> bool:
+        """Check if parameter type is a msgspec.Struct."""
+        if self._is_struct is None:
+            unwrapped = self.unwrapped_annotation
+            object.__setattr__(self, "_is_struct", is_msgspec_struct(unwrapped))
+        return self._is_struct  # type: ignore
+
+    @property
+    def unwrapped_annotation(self) -> Any:
+        """Get annotation with Optional unwrapped."""
+        if self._unwrapped is None:
+            object.__setattr__(self, "_unwrapped", unwrap_optional(self.annotation))
+        return self._unwrapped
+
+    @property
+    def origin(self) -> Any:
+        """Get the origin type (list, dict, etc.) of the unwrapped annotation."""
+        if self._origin is None:
+            object.__setattr__(self, "_origin", get_origin(self.unwrapped_annotation))
+        return self._origin
+
+    @property
+    def field_alias(self) -> str:
+        """Get the alias or name."""
+        return self.alias or self.name
+
+    @classmethod
+    def from_parameter(
+        cls,
+        parameter: inspect.Parameter,
+        annotation: Any,
+        path_params: set[str],
+        http_method: str,
+        explicit_marker: Any = None,
+    ) -> FieldDefinition:
+        """
+        Create FieldDefinition from inspect.Parameter.
+
+        Args:
+            parameter: The inspect.Parameter object
+            annotation: Type annotation from type hints
+            path_params: Set of path parameter names
+            http_method: HTTP method for inference
+            explicit_marker: Explicit Param or Depends marker if present
+
+        Returns:
+            FieldDefinition instance
+        """
+        name = parameter.name
+        default = parameter.default
+        if isinstance(default, Param):
+            # A marker after "=" is not a value. Its own default is the default of the parameter.
+            default = inspect.Parameter.empty if default.default is ... else default.default
+        elif isinstance(explicit_marker, Param) and explicit_marker.default is not ...:
+            # As in FastAPI. Else Form("tag") in Annotated silently makes "tag" the default.
+            raise TypeError(
+                f"`{explicit_marker.source.capitalize()}` default value cannot be set in `Annotated` "
+                f"for '{name}'. Set the default value with `=` instead."
+            )
+
+        # Handle explicit markers
+        source: str
+        alias: str | None = None
+        embed: bool | None = None
+        dependency: Any = None
+        param: Any = None
+
+        if isinstance(explicit_marker, Param):
+            source = explicit_marker.source
+            alias = explicit_marker.alias
+            embed = explicit_marker.embed
+            param = explicit_marker  # Store for file constraints, etc.
+        elif isinstance(explicit_marker, DependsMarker):
+            source = "dependency"
+            dependency = explicit_marker
+        else:
+            # Infer source from type and context
+            source = infer_param_source(name, annotation, path_params, http_method)
+
+        return cls(
+            name=name,
+            annotation=annotation,
+            default=default,
+            source=source,
+            alias=alias,
+            embed=embed,
+            dependency=dependency,
+            kind=parameter.kind,
+            param=param,
+        )

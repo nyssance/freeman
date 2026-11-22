@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django_bolt import BoltAPI, _core
+from freeman import BoltAPI, _core
 
 api = BoltAPI()
 
