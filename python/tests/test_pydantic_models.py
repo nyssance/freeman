@@ -250,3 +250,26 @@ def test_the_openapi_document_holds_the_schemas_of_the_models(api):
 
     update = document["paths"]["/posts/{post_id}"]["put"]
     assert [(p["name"], p["in"]) for p in update["parameters"]] == [("post_id", "path"), ("notify", "query")]
+
+
+def test_an_optional_plain_field_is_a_type_list_and_an_optional_model_keeps_its_union(api):
+    """Some client generators read ``"type": [T, "null"]`` only, and leave an ``anyOf`` with null out."""
+    components = SchemaGenerator(api, api._openapi_config).generate().to_schema()["components"]["schemas"]
+    signature = components["Author"]["properties"]["signature"]
+    assert signature["type"] == ["string", "null"]
+    assert "anyOf" not in signature
+
+    optional = SchemaGenerator(api, api._openapi_config).generate().to_schema()["paths"]["/optional"]["get"]
+    schema = optional["responses"]["200"]["content"]["application/json"]["schema"]
+    assert schema == {"anyOf": [{"$ref": "#/components/schemas/Post"}, {"type": "null"}]}
+
+
+def test_plain_nullable_leaves_other_unions_alone():
+    from freeman.openapi.schema_generator import _plain_nullable  # noqa: PLC0415
+
+    three = {"anyOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]}
+    assert _plain_nullable(dict(three)) == three
+    constrained = {"anyOf": [{"type": "string", "maxLength": 5}, {"type": "null"}], "title": "Name"}
+    assert _plain_nullable(constrained) == {"type": ["string", "null"], "maxLength": 5, "title": "Name"}
+    nested = {"properties": {"tags": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}}}
+    assert _plain_nullable(nested)["properties"]["tags"] == {"type": ["array", "null"], "items": {"type": "string"}}

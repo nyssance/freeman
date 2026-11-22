@@ -39,6 +39,8 @@ def api():
             raise HTTPException(status_code=409, detail="Conflict with the current state.")
         if data.sku == "extra":
             raise HTTPException(status_code=409, detail="Try later.", extra={"retry_after": 5, "code": "ignored"})
+        if data.sku == "structured":
+            raise HTTPException(status_code=400, detail={"score": [{"message": "Enter a number."}]})
         if data.sku == "crash":
             raise RuntimeError("the database password is hunter2")
         return {"sku": data.sku}
@@ -104,6 +106,23 @@ def test_extra_adds_members_and_does_not_replace_the_code(client):
     assert data["code"] != "ignored"
 
 
+def test_each_part_of_loc_is_a_string(api):
+    document = SchemaGenerator(api, api._openapi_config).generate().to_schema()
+    assert document["components"]["schemas"]["FieldError"]["properties"]["loc"] == {
+        "type": "array",
+        "items": {"type": "string"},
+    }
+
+
+def test_detail_is_always_a_string_and_a_structured_detail_goes_to_data(client):
+    response = client.post("/orders", json={"sku": "structured", "quantity": 1})
+    assert response.status_code == 400
+    data = response.json()
+    assert data["detail"] == "Bad Request"
+    assert data["data"] == {"score": [{"message": "Enter a number."}]}
+    assert isinstance(data["code"], str)
+
+
 def test_an_unhandled_error_does_not_leak_its_message(client):
     response = client.post("/orders", json={"sku": "crash", "quantity": 1})
     assert response.status_code == 500
@@ -115,4 +134,6 @@ def test_the_openapi_document_describes_the_error_body(api):
     document = SchemaGenerator(api, api._openapi_config).generate().to_schema()
     schema = document["components"]["schemas"]["CodeDetail"]
     assert set(schema["properties"]) == {"code", "detail", "fields"}
+    # One type for each property: a client generator needs no union for it.
+    assert schema["properties"]["detail"] == {"type": "string"}
     assert schema["required"] == ["code", "detail"]

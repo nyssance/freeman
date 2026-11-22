@@ -525,12 +525,24 @@ def problem_details(error: BoltError, request: Any) -> Response:
     return Response(body, status_code=error.status, media_type="application/problem+json")
 
 
+class FieldError(msgspec.Struct, kw_only=True):
+    """A field error: the path to the value, a message and the error type.
+
+    Each part of ``loc`` is a string, also the index of a list item, so a
+    client has one type for it.
+    """
+
+    loc: list[str]
+    msg: str
+    type: str
+
+
 class CodeDetail(msgspec.Struct, kw_only=True):
     """An error body with a stable code, a message, and the field errors when the error has them."""
 
     code: str
-    detail: str | dict[str, Any] | list[Any]
-    fields: list[ProblemFieldError] = []
+    detail: str
+    fields: list[FieldError] = []
 
 
 @error_schema(CodeDetail)
@@ -546,15 +558,31 @@ def code_detail(error: BoltError, request: Any) -> Response:  # noqa: ARG001
     has a "code" gives the code, and its "detail" gives the detail, so a
     handler can name its own codes:
     ``raise HTTPException(409, detail={"code": "out_of_stock", "detail": "..."})``.
-    "fields" is present only when the error has field errors. The keys of
-    ``error.extra`` are more members of the body. They do not replace these three.
+
+    "detail" is always a string, so each client has one type for it. Each
+    other dict or list detail goes to "data", and "detail" is then the name
+    of the status. "fields" is present only when the error has field errors.
+    The keys of ``error.extra`` are more members of the body. They do not
+    replace these.
     """
-    code, detail = error.kind, error.detail
+    title = _STATUS_TITLES.get(error.status, "Error")
+    code, detail, data = error.kind, error.detail, None
     if isinstance(detail, dict) and isinstance(detail.get("code"), str):
-        code, detail = detail["code"], detail.get("detail", _STATUS_TITLES.get(error.status, "Error"))
+        code, detail = detail["code"], detail.get("detail", title)
+    if not isinstance(detail, str):
+        detail, data = title, detail
     body: dict[str, Any] = {"code": code, "detail": detail}
     if error.errors:
-        body["fields"] = error.errors
+        body["fields"] = [
+            {
+                "loc": [str(part) for part in item.get("loc", ())],
+                "msg": item.get("msg", ""),
+                "type": item.get("type", ""),
+            }
+            for item in error.errors
+        ]
+    if data is not None:
+        body["data"] = data
     if isinstance(error.extra, dict):
         for key, value in error.extra.items():
             body.setdefault(key, value)

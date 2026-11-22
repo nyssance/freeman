@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "freeman"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Rust HTTP engine for Python APIs: routing, auth and limits in Rust, business code in Python. The Rust core started from django-bolt."
 readme = "README.md"
 requires-python = ">=3.15"
@@ -46,14 +46,10 @@ dependencies = [
 [project.optional-dependencies]
 yaml = ["pyyaml>=6.0"]
 nanodjango = ["nanodjango>=0.16"]
-# MCP add-on: a separately-published, version-coupled package. `mcp` is the
-# canonical extra; `bolt-mcp` is an alias so `pip install django-bolt[bolt-mcp]`
-# also works. tool.uv.sources keeps local dev on the workspace copy.
-mcp = ["bolt-mcp>=0.1.0"]
-bolt-mcp = ["bolt-mcp>=0.1.0"]
 # Django's connection pool (OPTIONS["pool"]). Bolt drains the pool of a dead
 # connection, and drain() is in psycopg_pool 3.3 and later.
-pool = ["psycopg[pool]>=3.3", "psycopg-pool>=3.3"]
+# binary: the C implementation of psycopg. The pure Python one is several times slower.
+pool = ["psycopg[binary,pool]>=3.3", "psycopg-pool>=3.3"]
 
 [project.urls]
 Homepage = "https://github.com/nyssance/freeman"

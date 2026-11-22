@@ -458,7 +458,7 @@ dependencies = [
 
 [[package]]
 name = "bolt-asgi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix-web",
  "bolt-core",
@@ -474,7 +474,7 @@ dependencies = [
 
 [[package]]
 name = "bolt-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix-files",
  "actix-http",
@@ -516,7 +516,7 @@ dependencies = [
 
 [[package]]
 name = "bolt-loop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "libc",
  "once_cell",
@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "bolt-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix-web",
  "ahash",
@@ -555,7 +555,7 @@ version = "0.1.0"
 
 [[package]]
 name = "bolt-websocket"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix",
  "actix-web",
@@ -1009,7 +1009,7 @@ dependencies = [
 
 [[package]]
 name = "freeman"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix",
  "actix-http",

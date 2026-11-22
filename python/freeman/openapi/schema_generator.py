@@ -151,6 +151,33 @@ class _PydanticSchema(Schema):
         return self.resolved
 
 
+def _plain_nullable(node: Any) -> Any:
+    """Write ``T | None`` of a plain type as ``"type": [T, "null"]``, in place.
+
+    Pydantic writes it as ``anyOf`` with a ``{"type": "null"}`` arm. Both are
+    valid, but some client generators read only the type list: Apple's Swift
+    generator leaves a field with the ``anyOf`` form out of the struct. A
+    union with a ``$ref`` or with more than one other arm has no such form,
+    so it keeps its ``anyOf``.
+    """
+    if isinstance(node, list):
+        for item in node:
+            _plain_nullable(item)
+        return node
+    if not isinstance(node, dict):
+        return node
+    for value in node.values():
+        _plain_nullable(value)
+    arms = node.get("anyOf")
+    if isinstance(arms, list) and len(arms) == 2 and {"type": "null"} in arms:
+        other = arms[0] if arms[1] == {"type": "null"} else arms[1]
+        if isinstance(other, dict) and isinstance(other.get("type"), str) and not other.keys() & node.keys():
+            del node["anyOf"]
+            node.update(other)
+            node["type"] = [other["type"], "null"]
+    return node
+
+
 class ComponentNameCollisionError(ValueError):
     """Two distinct types claim the same OpenAPI component name.
 
@@ -1962,6 +1989,7 @@ class SchemaGenerator:
             list(inputs.values()), ref_template="#/components/schemas/{model}"
         )
         for name, schema in definitions.get("$defs", {}).items():
+            _plain_nullable(schema)
             if name in self.schemas:
                 raise ValueError(
                     f"The OpenAPI component name {name!r} is the name of a Pydantic model and of another type. "
@@ -1969,7 +1997,7 @@ class SchemaGenerator:
                 )
             self.schemas[name] = schema
         for placeholder, model, mode in self._pydantic_uses:
-            placeholder.resolved = schemas[model, mode]
+            placeholder.resolved = _plain_nullable(schemas[model, mode])
 
     def _register_component(self, cls: type, build_schema: Callable[[], Schema]) -> Reference:
         """Register ``cls`` as a component (by type identity) and return its shared Reference.
