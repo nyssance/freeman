@@ -31,7 +31,7 @@ def native(postgres_database, monkeypatch):
         "PASSWORD": postgres_database.get("password", ""),
         "HOST": postgres_database.get("host", ""),
         "PORT": postgres_database.get("port", ""),
-        "OPTIONS": {"async_pool": {"min_size": QUERIES, "max_size": QUERIES}},
+        "ASYNC_POOL": {"min_size": QUERIES, "max_size": QUERIES},
     }
     # Django reads every database of the settings, so this one gets the defaults of each key.
     configured = connections.configure_settings({"default": connections.settings["default"], ALIAS: database})
@@ -81,6 +81,11 @@ def client(native):
         closed = first.closed
         await postgres.close_pools()
         return {"first_closed": closed, "new_pool": second is not first}
+
+    @api.get("/size")
+    async def size():
+        found = await postgres.pool(ALIAS)
+        return {"min_size": found.min_size, "max_size": found.max_size}
 
     @api.get("/shutdown")
     async def shutdown():
@@ -136,3 +141,16 @@ def test_close_all_pools_closes_a_pool_from_outside_its_event_loop(client):
     assert not postgres._pools
     # The next request opens a new pool.
     assert client.get("/one?value=2").json() == {"value": 3}
+
+
+def test_async_pool_sets_the_size_and_the_orm_still_connects(client, django_db_blocker):
+    """``ASYNC_POOL`` is a key of the database, not of ``OPTIONS``: Django gives each
+    key of ``OPTIONS`` to ``psycopg.connect``, which refuses one that it does not know."""
+    assert client.get("/size").json() == {"min_size": QUERIES, "max_size": QUERIES}
+    with django_db_blocker.unblock():
+        try:
+            with connections[ALIAS].cursor() as cursor:
+                cursor.execute("SELECT %s::int + 1", [1])
+                assert cursor.fetchone() == (2,)
+        finally:
+            connections[ALIAS].close()

@@ -3,8 +3,8 @@ use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::{HttpRequest, HttpResponse, http::StatusCode, web};
 use ahash::AHashMap;
 use bytes::Bytes;
-use futures_util::StreamExt;
 use futures_util::stream;
+use futures_util::{FutureExt, StreamExt};
 use pyo3::prelude::*;
 use pyo3::pybacked::{PyBackedBytes, PyBackedStr};
 use pyo3::sync::PyOnceLock;
@@ -705,10 +705,66 @@ impl Seen {
     }
 }
 
+/// The largest unread request body that Bolt reads and drops after the
+/// response, to keep the connection open. A larger body closes it.
+const DISCARD_BODY_LIMIT: usize = 64 * 1024;
+
+/// The longest time that Bolt waits for an unread request body to arrive.
+const DISCARD_BODY_TIME: std::time::Duration = std::time::Duration::from_secs(1);
+
 /// Handle one request. `OBSERVED` is true when the access log, the metrics or
 /// the tracing is on. With all three off, the compiler removes their code.
 pub async fn handle_request<const OBSERVED: bool>(
     req: HttpRequest, payload: web::Payload, state: web::Data<Arc<AppState>>,
+) -> HttpResponse {
+    // A path that reads the body itself takes the payload. One that is
+    // left, such as after a 401 or a 429, is discarded here.
+    let mut payload = Some(payload);
+    let response = respond::<OBSERVED>(&req, &mut payload, state).await;
+    if let Some(payload) = payload {
+        discard_unread_body(&req, payload).await;
+    }
+    response
+}
+
+/// Read and drop the rest of a request body that no path read, as nginx
+/// does, so that Actix keeps the connection open. Actix closes it when the
+/// body of a response is sent before the request body ends.
+///
+/// Only a `Content-Length` body of at most `DISCARD_BODY_LIMIT` bytes is read,
+/// for at most `DISCARD_BODY_TIME`. A larger body is not read, and the
+/// connection closes. A chunked body is left to Actix, which reads and drops
+/// a chunked body that nothing reads. A request with no body or a body that
+/// was read costs one header lookup and one poll, with no timer.
+///
+/// For `Expect: 100-continue`, Actix sends `100 Continue` before the handler
+/// runs, so the client sends the body whatever the response is.
+#[inline]
+async fn discard_unread_body(req: &HttpRequest, mut payload: web::Payload) {
+    let Some(length) = parse_content_length(req) else {
+        return;
+    };
+    if length == 0 || length > DISCARD_BODY_LIMIT {
+        return;
+    }
+    // A body that was read ends at the first poll.
+    if let Some(None) = payload.next().now_or_never() {
+        return;
+    }
+    // Actix stops the body at `Content-Length`, so this reads at most `length` bytes.
+    // At the time limit the payload drops, and Actix closes the connection.
+    let _ = tokio::time::timeout(DISCARD_BODY_TIME, async { while let Some(Ok(_)) = payload.next().await {} }).await;
+}
+
+/// Take the payload for a path that reads the body itself.
+#[inline]
+fn take_payload(payload: &mut Option<web::Payload>) -> web::Payload {
+    payload.take().expect("each path of a request takes the payload at most once")
+}
+
+/// Route one request and write its access-log line, metrics and span.
+async fn respond<const OBSERVED: bool>(
+    req: &HttpRequest, payload: &mut Option<web::Payload>, state: web::Data<Arc<AppState>>,
 ) -> HttpResponse {
     // With all three off and no error formatter, this is the whole cost: one Option check.
     if !OBSERVED && state.error_renderer.is_none() {
@@ -725,26 +781,25 @@ pub async fn handle_request<const OBSERVED: bool>(
         return metrics.answer(req.headers(), req.peer_addr().map(|address| address.ip()));
     }
     let _in_flight = metrics.map(bolt_core::metrics::Metrics::start);
-    let span = if OBSERVED { bolt_core::trace::get().map(|tracing| tracing.start(&req)) } else { None };
-    let kept_req = req.clone();
+    let span = if OBSERVED { bolt_core::trace::get().map(|tracing| tracing.start(req)) } else { None };
     let kept_state = state.clone();
     let mut seen = Seen { trace: span.as_ref().map(bolt_core::trace::ServerSpan::ids), ..Seen::default() };
     let mut response = route_request(req, payload, state, &mut seen).await;
     if kept_state.error_renderer.is_some() && response.status().as_u16() >= 400 {
-        response = crate::error_formatter::format_error_response(response, &kept_req, &kept_state);
+        response = crate::error_formatter::format_error_response(response, req, &kept_state);
     }
     if let Some(start) = start {
         let status = response.status().as_u16();
         if let Some(metrics) = metrics {
             let route = seen.route.unwrap_or(UNMATCHED_ROUTE);
-            metrics.record(route, kept_req.method().as_str(), status, start.elapsed().as_secs_f64());
+            metrics.record(route, req.method().as_str(), status, start.elapsed().as_secs_f64());
         }
         if let Some(handler_id) = seen.handler_id {
             let trace_id = span.as_ref().map(|span| span.context().trace_id());
-            write_access_log(&kept_state, &kept_req, status, start, handler_id, trace_id);
+            write_access_log(&kept_state, req, status, start, handler_id, trace_id);
         }
         if let Some(span) = span {
-            span.finish(&kept_req, seen.route, status);
+            span.finish(req, seen.route, status);
         }
     }
     response
@@ -902,7 +957,7 @@ impl RustAnswer {
 /// the filter of that route keeps it. A native route, a mount and the
 /// preflight answer of global CORS leave it `None`.
 async fn route_request(
-    req: HttpRequest, mut payload: web::Payload, state: web::Data<Arc<AppState>>, seen: &mut Seen,
+    req: &HttpRequest, payload: &mut Option<web::Payload>, state: web::Data<Arc<AppState>>, seen: &mut Seen,
 ) -> HttpResponse {
     // Keep as &str - no allocation, only clone on error paths
     let method = req.method().as_str();
@@ -978,7 +1033,13 @@ async fn route_request(
             #[cfg(feature = "mcp")]
             if let Some(mcp_mount) = bolt_mcp::find_mcp_mount(state.get_ref(), path) {
                 seen.mount(&mcp_mount.path);
-                let response = bolt_mcp::bridge::handle_mcp_request(req, payload, mcp_mount, state.get_ref()).await;
+                let response = bolt_mcp::bridge::handle_mcp_request(
+                    req.clone(),
+                    take_payload(payload),
+                    mcp_mount,
+                    state.get_ref(),
+                )
+                .await;
                 return without_error_info(response, &state);
             }
 
@@ -1014,8 +1075,8 @@ async fn route_request(
                 if let Some(asgi_mount) = find_asgi_mount(state.get_ref(), path) {
                     seen.mount(&asgi_mount.prefix);
                     let response = asgi_http::handle_asgi_mount_request(
-                        req,
-                        payload,
+                        req.clone(),
+                        take_payload(payload),
                         asgi_mount,
                         state.debug,
                         state.max_payload_size,
@@ -1068,7 +1129,7 @@ async fn route_request(
     if let Some(native) = route.native {
         // A native route has a route label, but no access-log filter.
         seen.route = Some(route.template);
-        return Box::pin(crate::native::dispatch(&req, payload, native, path_params, &state)).await;
+        return Box::pin(crate::native::dispatch(req, take_payload(payload), native, path_params, &state)).await;
     }
 
     // Method maps to a static str (known fixed set — no per-request alloc);
@@ -1145,7 +1206,7 @@ async fn route_request(
 
     // Extract and validate headers
     let mut headers = if must_extract_headers {
-        match extract_headers(&req, state.max_header_size) {
+        match extract_headers(req, state.max_header_size) {
             Ok(h) => Some(h),
             Err(response) => return response,
         }
@@ -1252,7 +1313,7 @@ async fn route_request(
         let cookie_header = if let Some(headers) = &headers {
             headers.get("cookie").map(|value| Cow::Borrowed(value.as_str()))
         } else {
-            match extract_cookie_header(&req, state.max_header_size) {
+            match extract_cookie_header(req, state.max_header_size) {
                 Ok(value) => value,
                 Err(response) => return response,
             }
@@ -1335,7 +1396,7 @@ async fn route_request(
     // Bolt does not read the body of a request that Rust answers: a flood of
     // rejected requests reads no body, and a 413 cannot replace the answer.
     let reads_body = (needs_body || needs_form_parsing) && !answered;
-    let content_length = if reads_body { parse_content_length(&req) } else { None };
+    let content_length = if reads_body { parse_content_length(req) } else { None };
     if content_length_exceeds_limit(content_length, state.max_payload_size) {
         return responses::error_413();
     }
@@ -1355,7 +1416,7 @@ async fn route_request(
 
         // Create Multipart from the payload. The limit covers each byte of the body,
         // as the parser buffers a part header with no limit of its own.
-        let (limited, exceeded) = LimitedPayload::new(payload, state.max_payload_size);
+        let (limited, exceeded) = LimitedPayload::new(take_payload(payload), state.max_payload_size);
         let multipart = Multipart::new(req.headers(), limited);
 
         match parse_multipart(
@@ -1381,10 +1442,11 @@ async fn route_request(
             }
         }
     } else {
-        let body_vec = match read_body(&mut payload, state.max_payload_size).await {
-            Ok(body) => body,
-            Err(response) => return response,
-        };
+        let body_vec =
+            match read_body(payload.as_mut().expect("the body path has the payload"), state.max_payload_size).await {
+                Ok(body) => body,
+                Err(response) => return response,
+            };
 
         // URL-encoded form parsing
         if needs_form_parsing && is_urlencoded {
@@ -1410,7 +1472,7 @@ async fn route_request(
 
     // The middleware gets the answer in the form that the client would get.
     let rust_answer = match rust_answer {
-        Some(answer) => match RustAnswer::read(answer, &req, &state) {
+        Some(answer) => match RustAnswer::read(answer, req, &state) {
             Ok(answer) => Some(answer),
             Err(response) => return response,
         },
@@ -1587,7 +1649,7 @@ async fn route_request(
                 return Ok(DispatchOutcome::Pending(Box::pin(fut)));
             }
 
-            let parsed = parse_response_wire(py, &result_obj).inspect_err(|err| log_invalid_response(&req, err))?;
+            let parsed = parse_response_wire(py, &result_obj).inspect_err(|err| log_invalid_response(req, err))?;
             let meta_ref = parsed.meta.as_ref();
             let response = match parsed.body {
                 ResponseWireBody::ZeroCopyBytes(backed) => {
@@ -1635,7 +1697,7 @@ async fn route_request(
         // Sync dispatch completed but body needs async post-processing (stream/file).
         // Already parsed — no duplicate GIL acquire or wire re-parse.
         Ok(DispatchOutcome::SyncResult(parsed)) => {
-            build_response_from_parsed(parsed, skip_compression, skip_cors, is_head_request, &req, state.stream_config)
+            build_response_from_parsed(parsed, skip_compression, skip_cors, is_head_request, req, state.stream_config)
                 .await
         }
         Ok(DispatchOutcome::Pending(fut)) => match fut.await {
@@ -1645,14 +1707,14 @@ async fn route_request(
                     skip_compression,
                     skip_cors,
                     is_head_request,
-                    &req,
+                    req,
                     state.stream_config,
                 )
                 .await
                 {
                     Ok(response) => response,
                     Err(e) => {
-                        log_invalid_response(&req, &e);
+                        log_invalid_response(req, &e);
                         Python::attach(|py| handle_python_error(py, e, req.path(), req.method().as_str(), state.debug))
                     }
                 }

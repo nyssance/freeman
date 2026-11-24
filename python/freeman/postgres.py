@@ -20,9 +20,11 @@ A connection is in autocommit mode: each statement is its own transaction.
 Use ``async with conn.transaction():`` for statements that belong together.
 
 The pool holds 16 connections and opens them all at the start. Change the
-size in ``OPTIONS["async_pool"]`` of the database, for example
-``{"min_size": 32, "max_size": 32}``. Count these connections with the others:
-the database serves ``processes * workers * max_size`` of them at most.
+size in the ``ASYNC_POOL`` key of the database, next to ``NAME``, for example
+``"ASYNC_POOL": {"min_size": 32, "max_size": 32}``. It is not in ``OPTIONS``:
+Django gives each key of ``OPTIONS`` to ``psycopg.connect``, which refuses one
+that it does not know. Count these connections with the others: the database
+serves ``processes * workers * max_size`` of them at most.
 
 Call ``close_pools()`` on shutdown, from the ``lifespan`` of the API. A test run calls
 ``close_all_pools()`` before it drops the test database.
@@ -75,7 +77,7 @@ async def pool(alias: str = "default") -> AsyncConnectionPool:
     found = _pools.get(key)
     if found is not None:
         return found
-    size: dict[str, Any] = _DEFAULT_SIZE | settings.DATABASES.get(alias, {}).get("OPTIONS", {}).get("async_pool", {})
+    size: dict[str, Any] = _DEFAULT_SIZE | settings.DATABASES.get(alias, {}).get("ASYNC_POOL", {})
     # autocommit: a statement is its own transaction, so a read costs one round
     # trip and not three. A block that needs more uses ``conn.transaction()``.
     created = AsyncConnectionPool(_conninfo(alias), open=False, kwargs={"autocommit": True}, **size)
