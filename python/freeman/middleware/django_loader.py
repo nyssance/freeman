@@ -1,5 +1,5 @@
 """
-Django middleware loader for Django-Bolt.
+Django middleware loader for Freeman.
 
 Automatically loads middleware from Django's settings.MIDDLEWARE configuration,
 providing seamless integration with existing Django projects.

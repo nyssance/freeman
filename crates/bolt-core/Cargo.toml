@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
-description = "Shared HTTP core for django-bolt: request/response types, routing, auth, guards, middleware, streaming"
+description = "Shared HTTP core for freeman: request/response types, routing, auth, guards, middleware, streaming"
 
 [dependencies]
 bolt-native-abi = { workspace = true }

@@ -84,7 +84,7 @@ def test_runbolt_prints_system_checks_and_migration_warning(make_server_project)
     assert "Run 'python manage.py migrate' to apply them." in stdout, stdout
     # The checks run once, before the Bolt banner.
     assert stdout.count("unapplied migration") == 1, stdout
-    assert stdout.index("unapplied migration") < stdout.index("Django Bolt"), stdout
+    assert stdout.index("unapplied migration") < stdout.index("Freeman"), stdout
 
 
 def test_runbolt_skip_checks_suppresses_system_checks(make_server_project):

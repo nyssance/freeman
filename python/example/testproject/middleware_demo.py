@@ -168,7 +168,7 @@ async def docs_class_global_middleware_example(request: Request):
 @middleware_api.get("/demo")
 async def middleware_demo(request: Request):
     """
-    Demonstrates Django middleware + messages framework with Django-Bolt.
+    Demonstrates Django middleware + messages framework with Freeman.
 
     This endpoint shows:
     1. Django middleware (SessionMiddleware, AuthenticationMiddleware, MessageMiddleware)
@@ -202,7 +202,7 @@ async def middleware_demo(request: Request):
 # @csrf_exempt
 async def middleware_demo_post(request: Request, test: Annotated[str, Form()]):
     """
-    Demonstrates Django middleware + messages framework with Django-Bolt.
+    Demonstrates Django middleware + messages framework with Freeman.
 
     This endpoint shows:
     1. Django middleware (SessionMiddleware, AuthenticationMiddleware, MessageMiddleware)

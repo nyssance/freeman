@@ -1,5 +1,5 @@
 """
-Tests for Django middleware integration with Django-Bolt.
+Tests for Django middleware integration with Freeman.
 
 Tests use TestClient for full HTTP cycle testing, verifying that middleware
 actually runs and modifies requests/responses through the complete pipeline.
@@ -681,7 +681,7 @@ class TestMixedMiddlewareHTTPCycle:
 
 @pytest.mark.django_db
 class TestMessagesFramework:
-    """Test Django messages framework works with Django-Bolt middleware."""
+    """Test Django messages framework works with Freeman middleware."""
 
     def test_messages_framework_accessible_via_request(self):
         """

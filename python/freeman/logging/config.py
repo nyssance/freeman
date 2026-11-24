@@ -1,4 +1,4 @@
-"""Logging configuration for Django-Bolt.
+"""Logging configuration for Freeman.
 
 Integrates with Django's logging configuration and provides structured logging
 for HTTP requests, responses, and exceptions.
@@ -228,7 +228,7 @@ class _DropOnFullQueueHandler(QueueHandler):
         except Full:
             self.dropped_count += 1
             if self.dropped_count % self._DROP_WARN_INTERVAL == 1:
-                sys.stderr.write(f"django-bolt: log queue saturated, dropped {self.dropped_count} record(s)\n")
+                sys.stderr.write(f"freeman: log queue saturated, dropped {self.dropped_count} record(s)\n")
 
 
 class _BoundedQueueListener(QueueListener):
@@ -265,13 +265,13 @@ def _ensure_queue_logging(base_level: str) -> QueueHandler:
             try:
                 max_queue_size = int(getattr(settings, "BOLT_LOG_QUEUE_SIZE", _DEFAULT_LOG_QUEUE_SIZE))
             except Exception as exc:  # noqa: BLE001 - unconfigured settings or a bad value
-                sys.stderr.write(f"django-bolt: invalid BOLT_LOG_QUEUE_SIZE ({exc}); using {_DEFAULT_LOG_QUEUE_SIZE}\n")
+                sys.stderr.write(f"freeman: invalid BOLT_LOG_QUEUE_SIZE ({exc}); using {_DEFAULT_LOG_QUEUE_SIZE}\n")
                 max_queue_size = _DEFAULT_LOG_QUEUE_SIZE
             if max_queue_size <= 0:
                 # Queue(maxsize<=0) is UNBOUNDED — exactly the OOM risk the bound
                 # exists to prevent. Refuse it loudly and fall back to the default.
                 sys.stderr.write(
-                    f"django-bolt: BOLT_LOG_QUEUE_SIZE must be > 0 (got {max_queue_size}); "
+                    f"freeman: BOLT_LOG_QUEUE_SIZE must be > 0 (got {max_queue_size}); "
                     f"using {_DEFAULT_LOG_QUEUE_SIZE}\n"
                 )
                 max_queue_size = _DEFAULT_LOG_QUEUE_SIZE

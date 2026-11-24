@@ -2,7 +2,7 @@
 
 Pure registry — decorators collect tools/resources/prompts and pre-compute
 their schemas. The protocol itself (JSON-RPC dispatch, sessions, catalog
-serving, guard evaluation) lives in django-bolt's Rust core (rmcp): at mount
+serving, guard evaluation) lives in Freeman's Rust core (rmcp): at mount
 time the registry is compiled into a catalog + dispatch surface (see
 ``_catalog.py`` / ``_dispatch.py``) and handed to Rust.
 """
@@ -93,7 +93,7 @@ def _find_context_param(fn: Callable) -> str | None:
 class MCP:
     def __init__(
         self,
-        name: str = "django-bolt",
+        name: str = "freeman",
         version: str = "0.1.0",
         *,
         title: str | None = None,

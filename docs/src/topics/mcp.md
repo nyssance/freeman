@@ -1,24 +1,21 @@
 # MCP Server (bolt-mcp)
 
-[Model Context Protocol (MCP)](https://modelcontextprotocol.io) is the open standard for exposing tools, data, and prompts to LLM clients (Claude Desktop, Claude Code, MCP Inspector, …). **bolt-mcp** lets you build an MCP server on top of Django-Bolt, served over the MCP **Streamable HTTP** transport by the official MCP Rust SDK ([rmcp](https://github.com/modelcontextprotocol/rust-sdk)) embedded in Django-Bolt's Rust core — no Starlette or Python-SDK stack in the request path.
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io) is the open standard for exposing tools, data, and prompts to LLM clients (Claude Desktop, Claude Code, MCP Inspector, …). **bolt-mcp** lets you build an MCP server on top of Freeman, served over the MCP **Streamable HTTP** transport by the official MCP Rust SDK ([rmcp](https://github.com/modelcontextprotocol/rust-sdk)) embedded in Freeman's Rust core — no Starlette or Python-SDK stack in the request path.
 
 The server is **dual-era**: it speaks the current **2026-07-28** revision (stateless, per-request metadata, MRTR elicitation, `server/discover`, required routing headers) *and* the earlier session-based revisions (`initialize` handshake, `Mcp-Session-Id`) on the same endpoint. 2026-07-28 requests are always served statelessly, so they are multi-worker safe.
 
-`bolt-mcp` is a **separate, pure-Python package** (it depends on `django-bolt`), released on its own cadence. Install it only when you need MCP.
+`bolt-mcp` is a separate, pure-Python package in `python/bolt-mcp` of the Freeman repository. The `bolt-mcp` on PyPI is the upstream package, and it depends on `django-bolt`. Do not install it.
 
 ## Installation
 
-```bash
-pip install bolt-mcp
-```
-
-Or with uv:
+The MCP transport is behind the `mcp` Cargo feature, and the feature is off by default. The wheels on PyPI do not have it. Without it, `mount_mcp()` raises `ImportError` with the build command. Build the extension from a checkout of the repository:
 
 ```bash
-uv add bolt-mcp
+uv sync
+uv run maturin develop --release --features mcp
 ```
 
-Requires `django-bolt` and Python 3.12+. The MCP endpoint is mounted on an ordinary `BoltAPI`, so everything you already use — async ORM, auth, guards, dependencies — works inside tools.
+`uv sync` installs `bolt-mcp` from the workspace. To build a wheel with MCP, use `maturin build --release --features mcp`. The MCP endpoint is mounted on an ordinary `BoltAPI`, so everything you already use — async ORM, auth, guards, dependencies — works inside tools.
 
 ## Quick start
 

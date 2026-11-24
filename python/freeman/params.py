@@ -1,5 +1,5 @@
 """
-Parameter markers and validation constraints for Django-Bolt.
+Parameter markers and validation constraints for Freeman.
 
 Provides explicit parameter source annotations and validation metadata.
 """

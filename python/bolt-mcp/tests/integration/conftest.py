@@ -1,4 +1,4 @@
-"""Integration-test config: reuse django-bolt's subprocess server harness.
+"""Integration-test config: reuse Freeman's subprocess server harness.
 
 The harness (`create_server_project` + `RunningServer`) lives in the main repo's
 `python/tests/integration/helpers.py`. We put the main repo's `python/`

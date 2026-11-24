@@ -299,10 +299,11 @@ async def _asgi_app(scope, receive, send):
 @pytest.mark.parametrize(
     "mount",
     [
-        lambda api: api.mount_asgi("/hook", _asgi_app),
-        lambda api: mount_mcp(api, MCP("native-test", "1.0"), path="/hook"),
+        pytest.param(lambda api: api.mount_asgi("/hook", _asgi_app), id="asgi"),
+        pytest.param(
+            lambda api: mount_mcp(api, MCP("native-test", "1.0"), path="/hook"), id="mcp", marks=pytest.mark.mcp
+        ),
     ],
-    ids=["asgi", "mcp"],
 )
 def test_native_route_at_a_mount_path_stops_startup(mount):
     api = BoltAPI()

@@ -1,4 +1,4 @@
-"""Error handlers for Django-Bolt.
+"""Error handlers for Freeman.
 
 Provides default exception handlers that convert Python exceptions into
 structured HTTP error responses.

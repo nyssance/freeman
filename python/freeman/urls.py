@@ -1,4 +1,4 @@
-"""Reverse-only URLconf for Django-Bolt routes.
+"""Reverse-only URLconf for Freeman routes.
 
 Bolt routes live in the Rust matchit router, not in Django's URLconf, so
 Django's ``reverse()`` can't see them. Include this module in your project's

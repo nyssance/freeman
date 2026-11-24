@@ -5,7 +5,7 @@ Enables the standard MCP OAuth handshake (Claude.ai / ChatGPT custom connectors)
 Metadata → Dynamic Client Registration → Authorization Code + PKCE → access + refresh
 tokens (silent refresh). State is persisted in Django ORM models, the human is
 authenticated via Django sessions, and access tokens are ``SECRET_KEY``-signed JWTs
-whose claims match what django-bolt's ``JWTAuthentication``/guards already read.
+whose claims match what Freeman's ``JWTAuthentication``/guards already read.
 
 Enable it by adding ``"bolt_mcp.oauth"`` to ``INSTALLED_APPS``, running
 ``manage.py migrate``, and mounting with the built-in AS::

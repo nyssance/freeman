@@ -10,9 +10,9 @@ import pytest
 from .apps import app_module
 
 # A line of the Rust log backend, at any level.
-RUST_RECORD = re.compile(r"^\[django-bolt\] (TRACE|DEBUG|INFO|WARNING|ERROR) \S+: ")
+RUST_RECORD = re.compile(r"^\[freeman\] (TRACE|DEBUG|INFO|WARNING|ERROR) \S+: ")
 RUST_ERROR = (
-    "[django-bolt] ERROR bolt_asgi::asgi_http: "
+    "[freeman] ERROR bolt_asgi::asgi_http: "
     "ASGI mount: coroutine raised an exception: RuntimeError: boom from the mounted app"
 )
 

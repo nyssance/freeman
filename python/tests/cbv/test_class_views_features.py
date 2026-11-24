@@ -1,7 +1,7 @@
 """
 Comprehensive feature tests for class-based views.
 
-This test suite verifies that ALL Django-Bolt features work correctly with
+This test suite verifies that ALL Freeman features work correctly with
 class-based views (APIView, ViewSet, ModelViewSet):
 
 - Request validation (Body, Query, Path, Header, Cookie, Form, File)
@@ -108,7 +108,7 @@ def test_query_parameter_validation(api):
     """Test query parameter validation with constraints.
 
     NOTE: Query parameter constraint validation (ge, le, etc.) is not currently
-    enforced by Django-Bolt. This test just verifies basic query param extraction.
+    enforced by Freeman. This test just verifies basic query param extraction.
     """
 
     @api.view("/search", methods=["GET"])

@@ -1,5 +1,5 @@
 """
-Test guards and authentication system for Django-Bolt.
+Test guards and authentication system for Freeman.
 
 Tests the new DRF-inspired guards and authentication classes.
 """

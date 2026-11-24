@@ -1,5 +1,5 @@
 """
-Decorators for Django-Bolt.
+Decorators for Freeman.
 
 Provides decorators for ViewSet custom actions similar to Django REST Framework's @action decorator.
 """

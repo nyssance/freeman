@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
-description = "ASGI sub-application mounting for django-bolt"
+description = "ASGI sub-application mounting for freeman"
 
 [dependencies]
 actix-web = { workspace = true }

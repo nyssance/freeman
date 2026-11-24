@@ -1,4 +1,4 @@
-"""Access + refresh token lifecycle for Django-Bolt.
+"""Access + refresh token lifecycle for Freeman.
 
 Completes the JWT story described in issue #239: short-lived access tokens
 (validated entirely in Rust on the hot path) paired with long-lived refresh
@@ -367,7 +367,7 @@ def set_token_cookies(
     short-lived access token rides along on every call. Cookie ``max_age`` is
     derived from each token's own ``exp`` claim.
 
-    Requires a response object exposing ``set_cookie`` (django-bolt's
+    Requires a response object exposing ``set_cookie`` (Freeman's
     ``Response``/``PlainText``/``JSON`` responses, or Django's
     ``HttpResponse``). Returns the response for chaining.
     """

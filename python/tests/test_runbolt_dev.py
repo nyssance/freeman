@@ -11,7 +11,7 @@ from bolt_mcp import MCP, mount_mcp
 from django.core.management import call_command, execute_from_command_line
 from django.core.management.base import CommandError
 
-from freeman import BoltAPI, WebSocket
+from freeman import BoltAPI, WebSocket, _core
 from freeman.auth import APIKeyAuthentication, IsAuthenticated
 from freeman.management.commands import runbolt as runbolt_module
 from freeman.middleware import Middleware
@@ -645,6 +645,18 @@ def _api_with_mcp(server_name: str, path: str) -> BoltAPI:
     return api
 
 
+@pytest.mark.skipif(hasattr(_core, "register_mcp_mounts"), reason="The extension is built with the mcp feature.")
+def test_mount_mcp_without_the_mcp_feature_names_the_build_flag():
+    """The default wheel has no MCP transport. The error tells how to build one that has it."""
+    api = BoltAPI()
+    with pytest.raises(ImportError, match=r"--features mcp"):
+        api.mount_mcp(MCP("server", "1.0"))
+    with pytest.raises(ImportError, match=r"--features mcp"):
+        mount_mcp(api, MCP("server", "1.0"))
+    assert api._mcp_mounts == []
+
+
+@pytest.mark.mcp
 def test_merge_apis_serves_the_mcp_mount_of_each_api():
     merged = runbolt_module.Command().merge_apis([
         ("first.api", _api_with_mcp("first-server", "/mcp")),
@@ -695,30 +707,40 @@ def _conflict_mcp_route(api: BoltAPI) -> None:
 @pytest.mark.parametrize(
     ("add_first", "add_second", "message"),
     [
-        (_conflict_route, _conflict_route, "Route conflict: GET /same defined in both first.api and second.api"),
-        (
+        pytest.param(
+            _conflict_route,
+            _conflict_route,
+            "Route conflict: GET /same defined in both first.api and second.api",
+            id="route",
+        ),
+        pytest.param(
             _conflict_websocket,
             _conflict_websocket,
             "WebSocket route conflict: WS /ws/same defined in both first.api and second.api",
+            id="websocket",
         ),
-        (
+        pytest.param(
             lambda api: api.mount_asgi("/legacy", _asgi_app),
             lambda api: api.mount_asgi("/legacy", _asgi_app),
             "ASGI mount conflict: /legacy defined in both first.api and second.api",
+            id="asgi-mount",
         ),
-        (
+        pytest.param(
             _conflict_mcp_mounts,
             lambda api: mount_mcp(api, MCP("two", "1.0")),
             "MCP mount conflict: /mcp defined in both first.api and second.api",
+            id="mcp-mount",
+            marks=pytest.mark.mcp,
         ),
         # An MCP mount of one API on the path of a route of another API.
-        (
+        pytest.param(
             _conflict_mcp_route,
             lambda api: mount_mcp(api, MCP("two", "1.0")),
             "MCP mount path '/mcp' conflicts with an existing HTTP route",
+            id="mcp-mount-on-a-route",
+            marks=pytest.mark.mcp,
         ),
     ],
-    ids=["route", "websocket", "asgi-mount", "mcp-mount", "mcp-mount-on-a-route"],
 )
 def test_merge_apis_stops_for_one_path_in_two_apis(add_first, add_second, message):
     first = BoltAPI()

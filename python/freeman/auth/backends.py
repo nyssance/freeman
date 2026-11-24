@@ -1,5 +1,5 @@
 """
-Authentication system for Django-Bolt.
+Authentication system for Freeman.
 
 Provides DRF-inspired authentication classes that are compiled to Rust types
 for zero-GIL performance in the hot path.

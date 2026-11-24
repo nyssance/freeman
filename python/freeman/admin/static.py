@@ -1,5 +1,5 @@
 """
-Static file lookup for Django-Bolt.
+Static file lookup for Freeman.
 
 `find_static_file` resolves a relative static path via Django's staticfiles
 finders. It is the DEBUG-only fallback used by the native Rust static handler

@@ -1,5 +1,5 @@
 """
-Test JWT Token class for Django-Bolt.
+Test JWT Token class for Freeman.
 
 Tests the Token dataclass for encoding/decoding JWTs with performance focus.
 """

@@ -61,7 +61,7 @@ JS_DIR = os.path.join(TEST_STATIC_DIR, "js")
 os.makedirs(JS_DIR, exist_ok=True)
 JS_FILE = os.path.join(JS_DIR, "app.js")
 with open(JS_FILE, "w") as f:
-    f.write("console.log('Django-Bolt static files working!');")
+    f.write("console.log('Freeman static files working!');")
 
 # Create test image file (small PNG)
 IMG_DIR = os.path.join(TEST_STATIC_DIR, "img")

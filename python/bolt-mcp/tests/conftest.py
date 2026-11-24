@@ -68,7 +68,7 @@ def _allow_db_access(request):
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items):
-    """Reject the ``django_db`` marker in this suite.
+    """Reject the ``django_db`` marker in this suite, and skip it without the mcp feature.
 
     The tests use the migrated file database above. A ``django_db`` test makes
     pytest-django create a test database and move the connections to it for the
@@ -84,6 +84,16 @@ def pytest_collection_modifyitems(items):
             "bolt-mcp tests use the file database of conftest.py; remove @pytest.mark.django_db from: "
             + ", ".join(marked)
         )
+    # The default wheel has no MCP transport. Each test here needs it.
+    from freeman import _core  # noqa: PLC0415 — Django is configured above, before freeman loads
+
+    if not hasattr(_core, "register_mcp_mounts"):
+        skip = pytest.mark.skip(
+            reason="The extension is built without the mcp feature: `maturin develop --features mcp`."
+        )
+        for item in items:
+            if _TESTS_DIR in item.path.parents:
+                item.add_marker(skip)
 
 
 @pytest.fixture(scope="session", autouse=True)

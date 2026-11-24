@@ -1,5 +1,5 @@
 """
-Django-Bolt Authentication and Authorization System.
+Freeman Authentication and Authorization System.
 
 High-performance auth system where validation happens in Rust without the GIL.
 Python classes define configuration that gets compiled to Rust types.

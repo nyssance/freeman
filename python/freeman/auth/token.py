@@ -1,5 +1,5 @@
 """
-JWT Token handling for Django-Bolt.
+JWT Token handling for Freeman.
 
 Provides a Token dataclass for encoding/decoding JWTs. The actual validation
 happens in Rust for performance, but this provides Python-side utilities for
@@ -61,7 +61,7 @@ class Token:
         aud: Audience - intended recipient(s)
         jti: JWT ID - unique identifier for this token
 
-    Django-Bolt Custom Claims:
+    Freeman Custom Claims:
         is_staff: Whether user is staff
         is_superuser: Whether user is a superuser/admin
         permissions: List of permission strings
@@ -97,7 +97,7 @@ class Token:
     nbf: datetime | None = None
     """Not before - token is not valid before this time"""
 
-    # Django-Bolt specific claims
+    # Freeman specific claims
     is_staff: bool | None = None
     """Whether the user is staff"""
 
@@ -178,7 +178,7 @@ class Token:
         if self.nbf is not None:
             result["nbf"] = int(self.nbf.timestamp())
 
-        # Django-Bolt custom claims
+        # Freeman custom claims
         if self.is_staff is not None:
             result["is_staff"] = self.is_staff
         if self.is_superuser is not None:

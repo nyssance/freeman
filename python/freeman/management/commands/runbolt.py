@@ -643,7 +643,7 @@ def _merge_handler(merged, api, old_handler_id: int, new_handler_id: int, handle
 
 
 class Command(BaseCommand):
-    help = "Run Django-Bolt server with autodiscovered APIs"
+    help = "Run the Freeman server with autodiscovered APIs"
 
     # Like runserver: handle() runs the checks itself, at the right point.
     # The dev supervisor skips them; each spawned dev worker runs them.
@@ -1189,7 +1189,7 @@ class Command(BaseCommand):
 
     @staticmethod
     def _get_version() -> str:
-        """Return the installed django-bolt version."""
+        """Return the installed freeman version."""
         try:
             return importlib.metadata.version("freeman")
         except importlib.metadata.PackageNotFoundError:
@@ -1276,7 +1276,7 @@ class Command(BaseCommand):
 
         meta_rows = [("Mode", mode), ("Routes", sep.join(route_bits)), ("Workers", sep.join(worker_bits)), *meta_rows]
 
-        header = f"  {g['bolt']}{c.bold}{c.cyan}Django Bolt{c.reset} {c.cyan}v{version}{c.reset}"
+        header = f"  {g['bolt']}{c.bold}{c.cyan}Freeman{c.reset} {c.cyan}v{version}{c.reset}"
         elapsed = self._startup_elapsed_ms()
         if elapsed is not None:
             header += f"  {c.dim}ready in{c.reset} {c.bold}{_format_elapsed(elapsed)}{c.reset}"

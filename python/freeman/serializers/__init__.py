@@ -1,4 +1,4 @@
-"""Enhanced Serializer system for django-bolt with validation and Django model integration."""
+"""Enhanced Serializer system for Freeman with validation and Django model integration."""
 
 from __future__ import annotations
 

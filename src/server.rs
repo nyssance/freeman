@@ -63,14 +63,11 @@ fn canonicalize_serve_dirs(dirs: &[String], url_prefix: &str, label: &str) -> Ve
         .filter_map(|dir| match Path::new(dir).canonicalize() {
             Ok(canonical) if canonical.is_dir() => Some(canonical),
             Ok(_) => {
-                eprintln!("[django-bolt] Warning: {}: not a directory for {}: {}", label, url_prefix, dir);
+                eprintln!("[freeman] Warning: {}: not a directory for {}: {}", label, url_prefix, dir);
                 None
             }
             Err(e) => {
-                eprintln!(
-                    "[django-bolt] Warning: {}: cannot resolve directory for {}: {} ({})",
-                    label, url_prefix, dir, e
-                );
+                eprintln!("[freeman] Warning: {}: cannot resolve directory for {}: {} ({})", label, url_prefix, dir, e);
                 None
             }
         })
@@ -131,7 +128,7 @@ pub(crate) fn static_scope_prefix(static_url: &str) -> Option<String> {
     }
     if !is_literal_prefix(url_prefix) {
         eprintln!(
-            "[django-bolt] Warning: STATIC_URL contains scope-param chars \
+            "[freeman] Warning: STATIC_URL contains scope-param chars \
              (got {:?}); refusing to mount. Use a literal prefix like \"/static/\".",
             static_url
         );
@@ -314,7 +311,7 @@ fn read_cors_and_file_scopes(settings: &DjangoSettings<'_>, debug: bool) -> PyRe
         // full URLs and missing leading slash produce malformed scope prefixes.
         if !media_url.starts_with('/') {
             eprintln!(
-                "[django-bolt] Warning: MEDIA_URL must start with '/' for in-process serving (got {:?}); ignoring.",
+                "[freeman] Warning: MEDIA_URL must start with '/' for in-process serving (got {:?}); ignoring.",
                 media_url
             );
             return Ok(None);
@@ -325,7 +322,7 @@ fn read_cors_and_file_scopes(settings: &DjangoSettings<'_>, debug: bool) -> PyRe
         }
         if !is_literal_prefix(&url_prefix) {
             eprintln!(
-                "[django-bolt] Warning: MEDIA_URL contains scope-param chars \
+                "[freeman] Warning: MEDIA_URL contains scope-param chars \
                      (got {:?}); refusing to mount. Use a literal prefix like \"/media/\".",
                 media_url
             );
@@ -349,7 +346,7 @@ fn read_cors_and_file_scopes(settings: &DjangoSettings<'_>, debug: bool) -> PyRe
         // Path('') which str()s to ".") would canonicalize to the server's
         // CWD on every request — exposing source files at /media/*.
         if !Path::new(&root_str).is_absolute() {
-            eprintln!("[django-bolt] Warning: MEDIA_ROOT must be an absolute path (got {:?}); ignoring.", root_str);
+            eprintln!("[freeman] Warning: MEDIA_ROOT must be an absolute path (got {:?}); ignoring.", root_str);
             return Ok(None);
         }
 
@@ -390,9 +387,9 @@ fn read_cors_and_file_scopes(settings: &DjangoSettings<'_>, debug: bool) -> PyRe
 
     // Validate CORS configuration: wildcard + credentials is invalid per spec
     if allow_all && credentials {
-        eprintln!("[django-bolt] Warning: CORS_ALLOW_ALL_ORIGINS=True with CORS_ALLOW_CREDENTIALS=True is invalid.");
-        eprintln!("[django-bolt] Per CORS spec, wildcard origin (*) cannot be used with credentials.");
-        eprintln!("[django-bolt] CORS will reflect the request origin instead of using wildcard.");
+        eprintln!("[freeman] Warning: CORS_ALLOW_ALL_ORIGINS=True with CORS_ALLOW_CREDENTIALS=True is invalid.");
+        eprintln!("[freeman] Per CORS spec, wildcard origin (*) cannot be used with credentials.");
+        eprintln!("[freeman] CORS will reflect the request origin instead of using wildcard.");
     }
 
     // Build global CORS config if any CORS settings are configured
@@ -436,7 +433,7 @@ fn read_cors_and_file_scopes(settings: &DjangoSettings<'_>, debug: bool) -> PyRe
         // only 404 — run collectstatic to populate STATIC_ROOT.
         if valid_dirs.is_empty() && !debug {
             eprintln!(
-                "[django-bolt] Warning: Static files: No valid directories found for {} \
+                "[freeman] Warning: Static files: No valid directories found for {} \
                  and DEBUG=False — not serving /static. Run collectstatic to populate STATIC_ROOT.",
                 url_prefix
             );
@@ -750,6 +747,7 @@ pub fn start_server(
         extensions: {
             let mut extensions = http::Extensions::new();
             extensions.insert(config.ws_config);
+            #[cfg(feature = "mcp")]
             if let Some(mounts) = bolt_mcp::GLOBAL_MCP_MOUNTS.get() {
                 extensions.insert(Arc::clone(mounts));
             }
@@ -837,7 +835,7 @@ pub fn start_server(
                         if let Some(stream) = conn.downcast_ref::<actix_web::rt::net::TcpStream>()
                             && let Err(err) = stream.set_nodelay(true) {
                                 eprintln!(
-                                    "[django-bolt] Failed to set TCP_NODELAY on connection: {err}"
+                                    "[freeman] Failed to set TCP_NODELAY on connection: {err}"
                                 );
                             }
                     })
@@ -898,7 +896,7 @@ pub fn start_server(
                     let busy = bolt_core::lane::shutdown();
                     if busy > 0 {
                         eprintln!(
-                            "[django-bolt] {busy} request lane(s) did not stop in time; they do not close their database connections"
+                            "[freeman] {busy} request lane(s) did not stop in time; they do not close their database connections"
                         );
                     }
                     served
@@ -947,7 +945,7 @@ async fn wait_for_shutdown_signal() -> bool {
             }
             Err(e) => {
                 eprintln!(
-                    "[django-bolt] Failed to install {} handler: {}; graceful shutdown for this signal is disabled",
+                    "[freeman] Failed to install {} handler: {}; graceful shutdown for this signal is disabled",
                     name, e
                 );
                 std::future::pending::<()>().await;
@@ -965,7 +963,7 @@ async fn wait_for_shutdown_signal() -> bool {
 #[cfg(not(unix))]
 async fn wait_for_shutdown_signal() -> bool {
     if let Err(e) = tokio::signal::ctrl_c().await {
-        eprintln!("[django-bolt] Failed to install Ctrl-C handler: {}; graceful shutdown is disabled", e);
+        eprintln!("[freeman] Failed to install Ctrl-C handler: {}; graceful shutdown is disabled", e);
         std::future::pending::<()>().await;
     }
     false

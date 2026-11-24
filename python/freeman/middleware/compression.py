@@ -1,5 +1,5 @@
 """
-Compression configuration for Django-Bolt.
+Compression configuration for Freeman.
 
 Provides configuration options for response compression (gzip, brotli, zstd).
 Compression levels are handled automatically by Actix Web with optimized defaults.

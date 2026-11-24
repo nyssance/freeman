@@ -1,5 +1,5 @@
 """
-django-bolt plugin for nanodjango single-file apps.
+Freeman plugin for nanodjango single-file apps.
 
 Provides a BoltAPI subclass that auto-configures Django settings so you can
 write a production-ready single-file app without manual settings wrangling:
@@ -73,7 +73,7 @@ class BoltAPI(_RealBoltAPI):
     - ``settings.BOLT_API`` set to ``["<module>:<varname>"]`` on first route
 
     This subclass passes ``isinstance(bolt, freeman.api.BoltAPI)`` so
-    django-bolt's ``runbolt`` autodiscovery finds it correctly.
+    Freeman's ``runbolt`` autodiscovery finds it correctly.
     """
 
     def __init__(self, *, module: str | None = None, **kwargs: Any) -> None:

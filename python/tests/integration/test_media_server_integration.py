@@ -540,7 +540,7 @@ def test_media_dotfile_paths_return_404(make_server_project, dotfile_path):
 
     Even though MEDIA_ROOT is meant for user uploads, stray secrets do end up
     there (`.env`, leftover `.git/`, editor backups). nginx and Apache deny
-    dotfiles by default for this reason — django-bolt should too.
+    dotfiles by default for this reason — Freeman should too.
     """
     project = _media_project(make_server_project, extra_files={f"mediafiles/{dotfile_path}": "SECRET=do-not-leak\n"})
 

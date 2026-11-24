@@ -1,5 +1,5 @@
 """
-Test middleware functionality in Django-Bolt
+Test middleware functionality in Freeman
 
 Note: CORS and rate limiting are handled in Rust for performance.
 The @cors() and @rate_limit() decorators attach metadata that Rust parses.

@@ -1,7 +1,7 @@
 """
 Type introspection and field definition system for parameter binding.
 
-Inspired by Litestar's architecture but built from scratch for Django-Bolt's
+Inspired by Litestar's architecture but built from scratch for django-bolt's
 msgspec-first, async-only design with focus on performance.
 """
 

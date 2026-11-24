@@ -1,4 +1,4 @@
-"""Tests for django-bolt testing utilities.
+"""Tests for Freeman testing utilities.
 
 This file tests the TestClient (V2) that routes through Rust with per-instance state.
 """

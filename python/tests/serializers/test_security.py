@@ -1,5 +1,5 @@
 """
-Security tests for Django-Bolt serializers.
+Security tests for Freeman serializers.
 
 Tests cover:
 - Circular reference detection in from_model()

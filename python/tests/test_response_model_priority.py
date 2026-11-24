@@ -5,7 +5,7 @@ This test suite verifies that:
 1. response_model parameter takes precedence over return annotations
 2. Return annotations work as fallback when response_model not provided
 3. Both syntaxes produce identical metadata
-4. Works with Serializer subclasses (django-bolt's enhanced msgspec.Struct)
+4. Works with Serializer subclasses (Freeman's enhanced msgspec.Struct)
 5. Works with both sync and async handlers
 """
 

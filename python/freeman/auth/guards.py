@@ -1,5 +1,5 @@
 """
-Permission/guard system for Django-Bolt.
+Permission/guard system for Freeman.
 
 There are exactly three guards:
 

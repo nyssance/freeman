@@ -1,5 +1,5 @@
 """
-Class-based views for Django-Bolt.
+Class-based views for Freeman.
 
 Provides Django-style class-based views that integrate seamlessly with
 Bolt's routing, dependency injection, guards, and authentication.
@@ -150,7 +150,7 @@ def _column_values(model: type[Model], values: Iterable[tuple[str, Any]], skip: 
 
 class APIView:
     """
-    Base class for class-based views in Django-Bolt.
+    Base class for class-based views in Freeman.
 
     Attributes:
         http_method_names: Tuple of supported HTTP methods (lowercase)
@@ -870,7 +870,7 @@ class ModelViewSet(ListMixin, RetrieveMixin, CreateMixin, UpdateMixin, PartialUp
     """
     A viewset base class that provides helpers for full CRUD operations.
 
-    Similar to Django REST Framework's ModelViewSet, but adapted for Django-Bolt's
+    Similar to Django REST Framework's ModelViewSet, but adapted for Freeman's
     type-based parameter binding. You set `queryset` and `serializer_class`, then
     implement DRF-style action methods (list, retrieve, create, update, etc.).
 
@@ -899,7 +899,7 @@ class ModelViewSet(ListMixin, RetrieveMixin, CreateMixin, UpdateMixin, PartialUp
             pagination_class = PageNumberPagination
 
     This provides full CRUD operations with Django ORM integration, just like DRF.
-    The difference is that Django-Bolt requires explicit type annotations for
+    The difference is that Freeman requires explicit type annotations for
     parameter binding and validation. Routes are automatically generated based on
     implemented action methods.
     """

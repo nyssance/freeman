@@ -712,7 +712,7 @@ def test_a_bool_is_not_the_status_of_a_tuple(prefix, flag, capfd):
     assert response.status_code == 500
     # The Rust core writes its log records to stderr.
     assert (
-        f"[django-bolt] ERROR freeman::handler: The response status must be an int from 200 to 599, got {flag}."
+        f"[freeman] ERROR freeman::handler: The response status must be an int from 200 to 599, got {flag}."
         " Bolt sends a 500."
     ) in capfd.readouterr().err.splitlines()
 

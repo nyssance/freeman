@@ -1,5 +1,5 @@
 """
-Pytest configuration for Django-Bolt tests.
+Pytest configuration for Freeman tests.
 
 Configures Django once for the test process. Each test process gets a new
 SQLite database in a temporary directory, removed at the end of each session,
@@ -74,6 +74,18 @@ def _gil_stays_disabled():
             "An imported C extension enabled the GIL. A RuntimeWarning names the module. "
             "Find it in stderr at startup, or in the error of the test that imported it."
         )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip the ``mcp`` tests when the extension is built without the mcp feature."""
+    from freeman import _core  # noqa: PLC0415
+
+    if hasattr(_core, "register_mcp_mounts"):
+        return
+    skip = pytest.mark.skip(reason="The extension is built without the mcp feature: `maturin develop --features mcp`.")
+    for item in items:
+        if "mcp" in item.keywords:
+            item.add_marker(skip)
 
 
 def pytest_configure(config):

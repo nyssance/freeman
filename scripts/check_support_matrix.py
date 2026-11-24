@@ -2,7 +2,7 @@
 """Check the declared support matrix against upstream release schedules.
 
 ``pyproject.toml``'s classifiers are the single source of truth for which Python
-and Django versions django-bolt supports: the CI test matrix is derived from
+and Django versions Freeman supports: the CI test matrix is derived from
 them (see the ``python-versions`` job in ``.github/workflows/CI.yml``). This
 script keeps that source of truth honest by comparing it against
 `endoflife.date <https://endoflife.date>`_, which tracks both upstreams'

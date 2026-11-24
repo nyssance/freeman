@@ -75,6 +75,7 @@ fn _core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(crate::native::check_native_capsule, m)?)?;
     m.add_function(wrap_pyfunction!(register_websocket_routes, m)?)?;
     m.add_function(wrap_pyfunction!(register_asgi_mounts, m)?)?;
+    #[cfg(feature = "mcp")]
     m.add_function(wrap_pyfunction!(bolt_mcp::register_mcp_mounts, m)?)?;
     m.add_function(wrap_pyfunction!(register_middleware_metadata, m)?)?;
     m.add_function(wrap_pyfunction!(start_server, m)?)?;
@@ -90,6 +91,7 @@ fn _core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(register_test_routes, m)?)?;
     m.add_function(wrap_pyfunction!(register_test_websocket_routes, m)?)?;
     m.add_function(wrap_pyfunction!(register_test_asgi_mounts, m)?)?;
+    #[cfg(feature = "mcp")]
     m.add_function(wrap_pyfunction!(crate::testing::register_test_mcp_mounts, m)?)?;
     m.add_function(wrap_pyfunction!(crate::testing::native_test_capsule, m)?)?;
     m.add_function(wrap_pyfunction!(register_test_middleware_metadata, m)?)?;

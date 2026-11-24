@@ -94,7 +94,7 @@ fn default_exception_response(py: Python, exc: &Bound<PyAny>, path: &str, method
     let debug = match DjangoSettings::load(py).and_then(|settings| settings.truth_flag("DEBUG", debug)) {
         Ok(debug) => debug,
         Err(err) => {
-            eprintln!("[django-bolt] Warning: {err} Using DEBUG={debug} from startup.");
+            eprintln!("[freeman] Warning: {err} Using DEBUG={debug} from startup.");
             debug
         }
     };

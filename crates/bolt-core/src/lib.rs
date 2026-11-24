@@ -1,4 +1,4 @@
-//! Shared HTTP core for django-bolt.
+//! Shared HTTP core for freeman.
 //!
 //! Everything below the dispatch layer lives here: the `PyRequest` type,
 //! shared server state, routing, parameter coercion, auth/guards, the

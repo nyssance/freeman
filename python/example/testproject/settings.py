@@ -125,7 +125,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # Source assets served directly by the Rust static handler (e.g. /static/bench/asset_1k.css).
-# Django-Bolt serves STATIC_ROOT first, then STATICFILES_DIRS.
+# Freeman serves STATIC_ROOT first, then STATICFILES_DIRS.
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Media files (User uploads)
@@ -143,7 +143,7 @@ BOLT_MEDIA_MAX_AGE = 3600  # 1 hour
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Django-Bolt CORS Configuration (django-cors-headers compatible)
+# Freeman CORS Configuration (django-cors-headers compatible)
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
 
 # CORS_ALLOWED_ORIGIN_REGEXES = [

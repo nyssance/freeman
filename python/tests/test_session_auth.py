@@ -1,7 +1,7 @@
 """
 Tests for session-based authentication and session data operations.
 
-Tests Django session integration with Django-Bolt, including:
+Tests Django session integration with Freeman, including:
 - Login/logout with Django's alogin/alogout
 - Async session methods (aget, aset, apop, etc.)
 - Session persistence across requests

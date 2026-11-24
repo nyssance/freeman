@@ -560,7 +560,7 @@ pub async fn handle_asgi_mount_request(
         }
     }
 
-    // SSE: add anti-buffering headers (mirrors the native django-bolt SSE path).
+    // SSE: add anti-buffering headers (mirrors the native SSE path).
     // Content-Encoding: identity tells our CompressionMiddleware to skip
     // compression (it strips the header before sending). Without this, the
     // compressor buffers chunks and the browser receives nothing until flush.

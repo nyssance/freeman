@@ -1,4 +1,4 @@
-"""WebSocket testing utilities for django-bolt.
+"""WebSocket testing utilities for Freeman.
 
 Provides test client for WebSocket endpoints without subprocess/network overhead.
 Routes through Rust for path matching, authentication, and guard evaluation,
@@ -63,7 +63,7 @@ HANDSHAKE_HEADERS = frozenset({
 
 
 class WebSocketTestClient:
-    """Async WebSocket test client for django-bolt.
+    """Async WebSocket test client for Freeman.
 
     This client routes through Rust for path matching, authentication, and
     guard evaluation (same as production), then uses mock ASGI receive/send

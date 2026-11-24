@@ -1,4 +1,4 @@
-"""Health check endpoints for Django-Bolt.
+"""Health check endpoints for Freeman.
 
 Provides standard health check endpoints for monitoring and load balancers.
 """

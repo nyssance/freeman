@@ -1,4 +1,4 @@
-"""Tests for Django-Bolt health check system."""
+"""Tests for Freeman health check system."""
 
 import asyncio
 import concurrent.futures

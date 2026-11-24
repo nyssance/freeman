@@ -1,4 +1,4 @@
-"""Logging utilities for Django-Bolt."""
+"""Logging utilities for Freeman."""
 
 from .config import LoggingConfig
 from .middleware import LoggingMiddleware, create_logging_middleware

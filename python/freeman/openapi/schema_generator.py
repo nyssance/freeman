@@ -200,6 +200,18 @@ class ComponentNameCollisionError(ValueError):
         )
 
 
+def _guards_need_user(middleware_meta: dict[str, Any]) -> bool:
+    """Whether the compiled guards of a route reject a request with no user.
+
+    Rust runs the guards in order and stops at ``AllowAny``. ``IsAuthenticated``
+    and ``Requires`` reject a request with no user, so the first guard decides.
+    No guard lets each request through.
+    """
+    for guard in middleware_meta.get("guards", ()):
+        return guard["type"] != "allow_any"
+    return False
+
+
 def _backend_security_scheme(backend: Any) -> tuple[str, SecurityScheme] | None:
     """The OpenAPI security scheme of an auth backend, with its name in the document.
 
@@ -1561,23 +1573,21 @@ class SchemaGenerator:
         return candidate
 
     def _extract_security(self, handler_id: int) -> list[dict[str, list[str]]] | None:
-        """Extract security requirements from handler middleware.
+        """The security requirements of a route, from its auth backends and its guards.
 
         The list has one entry for each backend of the route. A request needs
-        only one of them. The call also records the scheme of each backend
-        for ``_register_security_schemes``.
-
-        Args:
-            handler_id: Handler ID.
-
-        Returns:
-            List of SecurityRequirement objects or None.
+        only one of them. When the guards of the route let a request with no
+        user through, the list starts with ``{}``: the credential is optional.
+        A route with no backend has no requirement. When the document has a
+        top-level ``security``, such a route gets ``[]`` so that it does not
+        inherit it. The call also records the scheme of each backend for
+        ``_register_security_schemes``.
         """
         middleware_meta = self.api._handler_middleware.get(handler_id, {})
         auth_config = middleware_meta.get("_auth_backend_instances")
 
         if not auth_config:
-            return None
+            return [] if self.config.security else None
 
         security: list[dict[str, list[str]]] = []
         for backend in auth_config:
@@ -1588,7 +1598,11 @@ class SchemaGenerator:
             if requirement not in security:
                 security.append(requirement)
 
-        return security or None
+        if not security:
+            return [] if self.config.security else None
+        if not _guards_need_user(middleware_meta):
+            security.insert(0, {})
+        return security
 
     def _add_auth_error_responses(self, responses: dict[str, OpenAPIResponse], handler_id: int) -> None:
         """Add the 401 and the 403 that the auth backends and the guards of a route can send.
@@ -1604,14 +1618,13 @@ class SchemaGenerator:
         if not backends:
             return
 
-        needs_user = can_deny = False
+        if not _guards_need_user(middleware_meta):
+            return
+        can_deny = False
         for guard in middleware_meta.get("guards", ()):
             if guard["type"] == "allow_any":
                 break
-            needs_user = True
             can_deny = can_deny or guard["type"] == "requires"
-        if not needs_user:
-            return
 
         # Rust takes the first session backend of the route.
         session = next((backend for backend in backends if backend.scheme_name == "session"), None)

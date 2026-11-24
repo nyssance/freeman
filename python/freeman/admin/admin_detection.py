@@ -183,7 +183,7 @@ def get_admin_route_patterns() -> list[tuple[str, list[str]]]:
     admin_pattern = f"/{admin_prefix}/{{path:path}}"
 
     # Admin needs to handle common HTTP methods
-    # Only use methods supported by django-bolt's router (GET, POST, PUT, PATCH, DELETE)
+    # Only use methods supported by Freeman's router (GET, POST, PUT, PATCH, DELETE)
     methods = ["GET", "POST", "PUT", "DELETE", "PATCH"]
 
     # Also add exact /admin route (without trailing slash)
@@ -238,8 +238,7 @@ def should_enable_admin() -> bool:
         for app in required_apps:
             if app not in settings.INSTALLED_APPS:
                 print(
-                    f"[django-bolt] Warning: Django admin is installed but {app} is missing. "
-                    f"Admin integration disabled.",
+                    f"[freeman] Warning: Django admin is installed but {app} is missing. Admin integration disabled.",
                     file=sys.stderr,
                 )
                 return False
@@ -248,7 +247,7 @@ def should_enable_admin() -> bool:
         # state. Mirrors Django's own admin.E410 system check.
         if not _has_session_middleware():
             print(
-                "[django-bolt] Warning: Django admin is installed but no SessionMiddleware "
+                "[freeman] Warning: Django admin is installed but no SessionMiddleware "
                 "(django.contrib.sessions.middleware.SessionMiddleware or a subclass, e.g. "
                 "qsessions.middleware.SessionMiddleware) was found in settings.MIDDLEWARE. "
                 "Admin integration disabled.",
@@ -259,7 +258,7 @@ def should_enable_admin() -> bool:
         return True
 
     except Exception as e:
-        print(f"[django-bolt] Warning: Could not check admin dependencies: {e}", file=sys.stderr)
+        print(f"[freeman] Warning: Could not check admin dependencies: {e}", file=sys.stderr)
         return False
 
 

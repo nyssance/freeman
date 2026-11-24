@@ -242,7 +242,7 @@ def mint_jwt(
     extra: dict | None = None,
     exp_in: int = 3600,
 ) -> str:
-    """Mint an HS256 JWT with the claims django-bolt's Rust auth reads."""
+    """Mint an HS256 JWT with the claims Freeman's Rust auth reads."""
     claims: dict[str, Any] = {"sub": sub, "exp": int(time.time()) + exp_in}
     if permissions is not None:
         claims["permissions"] = permissions

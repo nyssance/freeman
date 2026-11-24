@@ -91,7 +91,7 @@ pub fn format_error_response(mut response: HttpResponse, req: &HttpRequest, stat
         Err(err) => {
             // The Python renderer catches the errors of the formatter, so this
             // is a wrong result. Report it, and send the default response.
-            eprintln!("[django-bolt] Warning: error_formatter result is not valid: {err}");
+            eprintln!("[freeman] Warning: error_formatter result is not valid: {err}");
             response
         }
     }

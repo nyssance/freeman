@@ -1,7 +1,7 @@
 """
-Type definitions for Django-Bolt.
+Type definitions for Freeman.
 
-This module provides type hints and protocols for Django-Bolt objects,
+This module provides type hints and protocols for Freeman objects,
 enabling full IDE autocomplete and static type checking.
 
 Includes:
@@ -155,7 +155,7 @@ class AuthContext(Protocol):
 
 class Request(Protocol):
     """
-    Django-Bolt request object (Rust-backed PyRequest).
+    Freeman request object (Rust-backed PyRequest).
 
     Provides dict-like access to HTTP request data with full type safety.
     This is a Protocol that matches the Rust PyRequest implementation,

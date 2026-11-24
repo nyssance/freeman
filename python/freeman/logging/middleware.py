@@ -1,4 +1,4 @@
-"""Logging middleware for Django-Bolt.
+"""Logging middleware for Freeman.
 
 Bolt calls ``log_exception()`` for a server error. The Rust server writes the
 access log.

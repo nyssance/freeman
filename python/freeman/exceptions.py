@@ -5,7 +5,7 @@ from typing import Any
 
 
 class BoltException(Exception):
-    """Base exception class for all Django-Bolt exceptions."""
+    """Base exception class for all Freeman exceptions."""
 
     detail: str
 

@@ -1,4 +1,4 @@
-"""Cookie handling utilities for django-bolt responses."""
+"""Cookie handling utilities for Freeman responses."""
 
 from __future__ import annotations
 

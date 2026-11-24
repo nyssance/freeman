@@ -1,5 +1,5 @@
 """
-Pagination utilities for Django-Bolt.
+Pagination utilities for Freeman.
 
 Provides Django Paginator-based pagination that works with both functional
 and class-based views, leveraging Django's built-in pagination while integrating

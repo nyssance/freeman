@@ -1,4 +1,4 @@
-"""Tier 1 auth: django-bolt JWT/guards enforced in Rust + per-tool guards."""
+"""Tier 1 auth: Freeman JWT/guards enforced in Rust + per-tool guards."""
 
 from __future__ import annotations
 

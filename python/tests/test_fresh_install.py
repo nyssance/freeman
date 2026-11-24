@@ -1,8 +1,8 @@
 """
 Tests for first-install experience.
 
-These tests validate that a minimal django-bolt project (like one created by
-``django-bolt init``) works correctly out of the box.  They specifically target
+These tests validate that a minimal Freeman project (like one created by
+``django-admin startproject``) works correctly out of the box.  They specifically target
 bugs that existing tests did not catch because the example projects were more
 complex than the simplest possible setup.
 

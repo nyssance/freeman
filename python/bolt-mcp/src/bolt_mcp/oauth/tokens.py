@@ -1,6 +1,6 @@
 """Token minting + verification.
 
-Access tokens are short-lived ``SECRET_KEY``-signed JWTs (reusing django-bolt's
+Access tokens are short-lived ``SECRET_KEY``-signed JWTs (reusing Freeman's
 ``create_jwt_for_user``) so the existing Rust ``JWTAuthentication`` and per-tool guards
 validate them with no extra code. Refresh tokens and authorization codes are opaque
 high-entropy strings stored only as SHA-256 hashes (see ``store``/``models``).

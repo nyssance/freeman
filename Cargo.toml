@@ -105,6 +105,10 @@ default = ["mimalloc"]
 # Use mimalloc for short-lived objects (often faster)
 jemalloc = ["dep:tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]
+# The MCP transport (crates/bolt-mcp and rmcp). Off by default, so the default
+# wheel does not compile or link it. bolt_mcp.mount_mcp() needs it. Build with
+# `maturin develop --release --features mcp`.
+mcp = ["dep:bolt-mcp"]
 
 [dependencies]
 actix = { workspace = true }
@@ -135,7 +139,7 @@ bolt-loop = { workspace = true }
 bolt-core = { workspace = true }
 bolt-asgi = { workspace = true }
 bolt-websocket = { workspace = true }
-bolt-mcp = { workspace = true }
+bolt-mcp = { workspace = true, optional = true }
 bolt-native-abi = { workspace = true }
 # Memory allocators (optional features)
 mimalloc = { workspace = true, optional = true }

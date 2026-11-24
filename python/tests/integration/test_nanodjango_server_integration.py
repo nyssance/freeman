@@ -1,4 +1,4 @@
-"""End-to-end test: a single-file nanodjango app with the django-bolt plugin.
+"""End-to-end test: a single-file nanodjango app with the Freeman plugin.
 
 This catches integration regressions that unit tests can't: the plugin module
 is loaded by nanodjango's pluggy plugin manager during ``Django()``

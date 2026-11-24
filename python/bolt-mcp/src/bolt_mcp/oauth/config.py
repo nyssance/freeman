@@ -36,7 +36,7 @@ DEFAULT_DEV_ISSUER = "http://localhost:8000"
 class AuthorizationServer:
     """Built-in, Django-backed OAuth 2.1 Authorization Server for an MCP mount.
 
-    Issues ``SECRET_KEY``-signed JWT access tokens (claims compatible with django-bolt's
+    Issues ``SECRET_KEY``-signed JWT access tokens (claims compatible with Freeman's
     auth) + rotating refresh tokens, and serves the discovery / DCR / authorize / token
     endpoints Claude/ChatGPT need to link a connector once and refresh silently.
 

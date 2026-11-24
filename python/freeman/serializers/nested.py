@@ -19,7 +19,7 @@ class ResolvedNestedConfig:
 
 
 def _is_serializer_type(field_type: Any) -> bool:
-    """Return True if the type is a django-bolt Serializer subclass."""
+    """Return True if the type is a Freeman Serializer subclass."""
     # Import locally to avoid a circular import with base.py
     # ruff: noqa: PLC0415
     from .base import Serializer as BaseSerializer

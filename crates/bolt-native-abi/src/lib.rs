@@ -1,4 +1,4 @@
-//! C ABI between django-bolt and a native route handler in a separately
+//! C ABI between freeman and a native route handler in a separately
 //! compiled extension module.
 //!
 //! Only `#[repr(C)]` data and `extern "C"` function pointers cross the

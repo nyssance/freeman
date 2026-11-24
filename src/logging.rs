@@ -86,7 +86,7 @@ fn format_record(level: Level, target: &str, args: &std::fmt::Arguments<'_>) -> 
     if message.contains(is_line_break) {
         message = escape_line_breaks(&message);
     }
-    format!("[django-bolt] {} {}: {}\n", level_name(level), target, message)
+    format!("[freeman] {} {}: {}\n", level_name(level), target, message)
 }
 
 /// The Rust level filter for an effective level of a Python logger.
@@ -176,7 +176,7 @@ mod tests {
     fn a_record_is_one_line_with_the_python_level_name_and_the_target() {
         assert_eq!(
             format_record(Level::Warn, "bolt_core::lane", &format_args!("lane {} failed", 3)),
-            "[django-bolt] WARNING bolt_core::lane: lane 3 failed\n"
+            "[freeman] WARNING bolt_core::lane: lane 3 failed\n"
         );
     }
 
@@ -186,9 +186,9 @@ mod tests {
             format_record(
                 Level::Error,
                 "bolt_asgi::asgi_http",
-                &format_args!("boom\r\n[django-bolt] ERROR fake: injected")
+                &format_args!("boom\r\n[freeman] ERROR fake: injected")
             ),
-            "[django-bolt] ERROR bolt_asgi::asgi_http: boom\\r\\n[django-bolt] ERROR fake: injected\n"
+            "[freeman] ERROR bolt_asgi::asgi_http: boom\\r\\n[freeman] ERROR fake: injected\n"
         );
     }
 
@@ -199,7 +199,7 @@ mod tests {
         let line = format_record(Level::Error, "bolt_asgi", &format_args!("{message}"));
         assert_eq!(
             line,
-            "[django-bolt] ERROR bolt_asgi: a\\u000bb\\u000cc\\u001cd\\u001de\\u001ef\\u0085g\\u2028h\\u2029i\n"
+            "[freeman] ERROR bolt_asgi: a\\u000bb\\u000cc\\u001cd\\u001de\\u001ef\\u0085g\\u2028h\\u2029i\n"
         );
     }
 }

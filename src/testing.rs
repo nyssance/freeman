@@ -219,6 +219,7 @@ pub struct TestAppState {
     pub router: Arc<Router>,
     pub websocket_router: Arc<WebSocketRouter>,
     pub asgi_mounts: Arc<Vec<AsgiMount>>,
+    #[cfg(feature = "mcp")]
     pub mcp_mounts: Arc<Vec<bolt_mcp::McpMount>>,
     pub route_metadata: Arc<RouteMetadataStore>,
     pub dispatch: Py<PyAny>,
@@ -324,6 +325,7 @@ pub fn create_test_app(
         router: Arc::new(Router::new()),
         websocket_router: Arc::new(WebSocketRouter::new()),
         asgi_mounts: Arc::new(Vec::new()),
+        #[cfg(feature = "mcp")]
         mcp_mounts: Arc::new(Vec::new()),
         route_metadata: Arc::new(RouteMetadataStore::default()),
         dispatch: dispatch.clone_ref(py),
@@ -437,6 +439,7 @@ pub fn register_test_asgi_mounts(py: Python<'_>, app_id: u64, mounts: Vec<(Strin
 
 /// Register MCP mounts for a test app. Same mount-definition dicts as the
 /// production `register_mcp_mounts`.
+#[cfg(feature = "mcp")]
 #[pyfunction]
 pub fn register_test_mcp_mounts(py: Python<'_>, app_id: u64, mounts: Vec<Py<PyAny>>) -> PyResult<()> {
     let mut parsed = Vec::with_capacity(mounts.len());
@@ -527,7 +530,6 @@ pub fn test_request(
                         router,
                         route_metadata,
                         asgi_mounts,
-                        mcp_mounts,
                         dispatch,
                         config,
                         compression,
@@ -542,7 +544,6 @@ pub fn test_request(
                             state.router.clone(),
                             state.route_metadata.clone(),
                             state.asgi_mounts.clone(),
-                            state.mcp_mounts.clone(),
                             dispatch,
                             state.config.clone(),
                             state.global_compression_config.clone(),
@@ -550,6 +551,8 @@ pub fn test_request(
                             error_renderer,
                         )
                     };
+                    #[cfg(feature = "mcp")]
+                    let mcp_mounts = app_state.read().mcp_mounts.clone();
                     let max_payload_size = config.max_payload_size;
 
                     // Build AppState matching production
@@ -573,7 +576,8 @@ pub fn test_request(
                         extensions: {
                             let mut ext = http::Extensions::new();
                             ext.insert(config.ws_config);
-                            ext.insert(mcp_mounts.clone());
+                            #[cfg(feature = "mcp")]
+                            ext.insert(mcp_mounts);
                             ext
                         },
                         static_files_config: config.static_files_config,
@@ -922,6 +926,7 @@ mod tests {
             router: Arc::new(Router::new()),
             websocket_router: Arc::new(WebSocketRouter::new()),
             asgi_mounts: Arc::new(Vec::new()),
+            #[cfg(feature = "mcp")]
             mcp_mounts: Arc::new(Vec::new()),
             route_metadata: Arc::new(RouteMetadataStore::default()),
             dispatch: py.None(),

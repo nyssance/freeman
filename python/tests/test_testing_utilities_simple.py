@@ -1,4 +1,4 @@
-"""Simple test for django-bolt testing utilities.
+"""Simple test for Freeman testing utilities.
 
 Tests the new TestClient in a single comprehensive test to avoid
 router re-initialization issues (the Rust global router can only be set once).

@@ -1,4 +1,4 @@
-"""Tests for Django-Bolt error handling system."""
+"""Tests for Freeman error handling system."""
 
 import json
 import logging
@@ -109,7 +109,7 @@ class TestExceptions:
         assert response.headers["x-b"] == "kept"
         # The Rust core writes its log records to stderr.
         assert (
-            "[django-bolt] WARNING bolt_core::response_builder: "
+            "[freeman] WARNING bolt_core::response_builder: "
             "The response header 'X-A' is not valid in an HTTP response. Bolt does not send it."
         ) in capfd.readouterr().err.splitlines()
 
@@ -1030,7 +1030,7 @@ def test_a_status_that_is_not_a_final_http_status_is_a_500(route, code, capfd):
     assert response.json() == {"detail": "Internal Server Error"}
     # The Rust core writes its log records to stderr.
     assert (
-        f"[django-bolt] ERROR freeman::handler: The response status must be an int from 200 to 599, got {code}."
+        f"[freeman] ERROR freeman::handler: The response status must be an int from 200 to 599, got {code}."
         " Bolt sends a 500."
     ) in capfd.readouterr().err.splitlines()
 

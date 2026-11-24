@@ -1,5 +1,5 @@
 """
-Middleware system for Django-Bolt.
+Middleware system for Freeman.
 
 Provides both decorator-based and class-based middleware approaches.
 Middleware can be applied globally to all routes or selectively to specific routes.
@@ -260,7 +260,7 @@ def normalize_middleware_specs(
 @runtime_checkable
 class MiddlewareProtocol(Protocol):
     """
-    Protocol for Django-Bolt middleware (Django-style pattern).
+    Protocol for Freeman middleware (Django-style pattern).
 
     Uses the same pattern as Django middleware:
     - __init__(get_response): Receives the next middleware/handler in chain
@@ -303,7 +303,7 @@ class MiddlewareProtocol(Protocol):
 
 class BaseMiddleware(ABC):
     """
-    Base class for Django-Bolt middleware (Django-style pattern).
+    Base class for Freeman middleware (Django-style pattern).
 
     Uses the same pattern as Django middleware:
     - __init__(get_response): Receives the next middleware/handler in chain

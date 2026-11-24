@@ -1,5 +1,5 @@
 """
-Token revocation support for Django-Bolt.
+Token revocation support for Freeman.
 
 Provides flexible revocation strategies that users can choose based on their needs.
 Revocation is OPTIONAL - only checked if user provides a handler.

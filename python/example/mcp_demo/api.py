@@ -1,4 +1,4 @@
-"""MCP server example for django-bolt, served over Streamable HTTP at ``/mcp`` via bolt-mcp.
+"""MCP server example for Freeman, served over Streamable HTTP at ``/mcp`` via bolt-mcp.
 
 Autodiscovered by ``runbolt`` (top-level ``api = BoltAPI()``):
 
@@ -30,7 +30,7 @@ from freeman import BoltAPI, IsAuthenticated, Request, Requires
 
 api = BoltAPI()
 # Stateful (the default): required by the sample/elicit tools below. Run --processes 1.
-mcp = MCP("django-bolt-example", "1.0.0")
+mcp = MCP("freeman-example", "1.0.0")
 
 
 @mcp.tool
@@ -65,7 +65,7 @@ async def crunch(steps: int, ctx: Context) -> dict:
 @mcp.resource("config://example", name="example-config", mime_type="application/json")
 async def example_config() -> str:
     """Static example configuration, exposed as an MCP resource."""
-    return msgspec.json.encode({"app": "django-bolt-example", "env": "dev"}).decode()
+    return msgspec.json.encode({"app": "freeman-example", "env": "dev"}).decode()
 
 
 # Resource TEMPLATE: a *parameterized* URI (note the ``{user_id}`` placeholder). Reading
@@ -88,7 +88,7 @@ async def summarize(topic: str) -> str:
     return f"Please write a concise summary of: {topic}"
 
 
-# Expose an existing django-bolt REST endpoint as an MCP tool (no rewrite needed).
+# Expose an existing Freeman REST endpoint as an MCP tool (no rewrite needed).
 # The tool name comes from the function name ("echo") and the description from the
 # docstring. Use @expose_as_tool(name=...) only to override those.
 @api.get("/mcp-demo/echo/{message}", tags=["mcp"])

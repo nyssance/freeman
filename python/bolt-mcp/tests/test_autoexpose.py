@@ -1,4 +1,4 @@
-"""Auto-expose existing django-bolt endpoints as MCP tools."""
+"""Auto-expose existing Freeman endpoints as MCP tools."""
 
 from __future__ import annotations
 

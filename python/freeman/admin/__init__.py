@@ -1,8 +1,8 @@
 """
-Django admin integration for django-bolt.
+Django admin integration for Freeman.
 
 This module provides Django admin detection utilities for integration with
-django-bolt's ASGI mount system.
+Freeman's ASGI mount system.
 """
 
 from .admin_detection import (

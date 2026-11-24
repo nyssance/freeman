@@ -1,5 +1,5 @@
 """
-Tests for compression middleware in Django-Bolt.
+Tests for compression middleware in Freeman.
 
 Tests both global compression configuration and per-route skip functionality.
 """

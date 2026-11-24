@@ -197,7 +197,7 @@ def test_admin_behind_a_path_parameter_is_served_with_no_user_action(settings, c
     api._register_admin_routes("127.0.0.1", 8000)
 
     err = capsys.readouterr().err
-    assert err.count("[django-bolt] Warning") == 1
+    assert err.count("[freeman] Warning") == 1
     assert "path parameter" in err
     assert "Django answers each path that has no Bolt route" in err
     with TestClient(api, use_http_layer=True) as client:
@@ -260,7 +260,7 @@ def test_admin_behind_a_path_parameter_keeps_the_root_mount_of_the_user(settings
 
     api._register_admin_routes("127.0.0.1", 8000)
 
-    assert "[django-bolt] Warning" not in capsys.readouterr().err
+    assert "[freeman] Warning" not in capsys.readouterr().err
     with TestClient(api, use_http_layer=True) as client:
         response = client.get("/acme/admin/login/")
 

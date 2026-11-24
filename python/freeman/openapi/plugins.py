@@ -26,7 +26,7 @@ __all__ = (
     "StoplightRenderPlugin",
 )
 
-_favicon_url = "https://cdn.jsdelivr.net/gh/FarhanAliRaza/django-bolt@master/docs/favicon.png"
+_favicon_url = "https://cdn.jsdelivr.net/gh/nyssance/freeman@main/docs/favicon.png"
 _default_favicon = f"<link rel='icon' type='image/png' href='{_favicon_url}'>"
 _default_style = "<style>body { margin: 0; padding: 0 }</style>"
 
@@ -127,7 +127,7 @@ class JsonRenderPlugin(OpenAPIRenderPlugin):
     def render(self, openapi_schema: dict[str, Any], schema_url: str) -> dict[str, Any]:
         """Render OpenAPI schema as dict.
 
-        Returns the schema dict directly so django-bolt's serialization
+        Returns the schema dict directly so Freeman's serialization
         layer can handle it with proper JSON encoding.
         """
         return openapi_schema

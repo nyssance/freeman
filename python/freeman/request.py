@@ -1,5 +1,5 @@
 """
-Request Protocol for Django-Bolt.
+Request Protocol for Freeman.
 
 Defines the interface for request objects. At runtime, handlers receive
 PyRequest from Rust (src/request.rs). This Protocol provides type hints

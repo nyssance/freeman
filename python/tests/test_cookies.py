@@ -1,4 +1,4 @@
-"""Tests for cookie functionality in django-bolt responses."""
+"""Tests for cookie functionality in Freeman responses."""
 
 from __future__ import annotations
 
@@ -709,7 +709,7 @@ class TestCookieSecurityValidation:
 
         Note: Rust logs a warning to stderr for invalid cookies, but we can't
         capture Rust's eprintln! from Python tests. Check server logs manually
-        for: [django-bolt] WARNING: Invalid cookie name 'bad; injection'
+        for: [freeman] WARNING: Invalid cookie name 'bad; injection'
         """
         api = BoltAPI()
 

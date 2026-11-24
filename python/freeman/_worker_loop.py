@@ -41,7 +41,7 @@ class _NoSelector(selectors.BaseSelector):
         raise NotImplementedError("WorkerLoop watches descriptors natively")
 
     def select(self, timeout=None):
-        raise NotImplementedError("WorkerLoop is driven by django-bolt")
+        raise NotImplementedError("WorkerLoop is driven by Freeman")
 
     def get_map(self):
         return {}
@@ -93,7 +93,7 @@ class WorkerLoop(asyncio.SelectorEventLoop):
         raise RuntimeError("WorkerLoop is process-managed and cannot be closed")
 
     def run_forever(self):
-        raise RuntimeError("WorkerLoop is already driven by django-bolt")
+        raise RuntimeError("WorkerLoop is already driven by Freeman")
 
     def run_until_complete(self, future):
         raise RuntimeError("WorkerLoop is already running; await the future instead")

@@ -146,8 +146,9 @@ def mount_mcp(
 
     if not hasattr(_core, "register_mcp_mounts"):
         raise ImportError(
-            "bolt-mcp >= 0.2 requires django-bolt >= 0.10 (its Rust extension embeds the "
-            "MCP protocol core). Upgrade django-bolt, or pin bolt-mcp < 0.2."
+            "MCP is not in this build of freeman. The default wheel leaves out the MCP "
+            "transport. Build the extension with the mcp feature: "
+            "`maturin develop --release --features mcp`, or `maturin build --release --features mcp`."
         )
     if expose is True:
         raise TypeError(

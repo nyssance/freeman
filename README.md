@@ -1,348 +1,233 @@
-> **Freeman** is an independent project. Its Rust core started from [django-bolt](https://github.com/dj-bolt/django-bolt) (MIT) at commit `23c1990`, and the Python layer is being rewritten. It does not track upstream.
-> The distribution and the import name are both `freeman`: `from freeman import BoltAPI`, and `"freeman"` in `INSTALLED_APPS`.
-> Class names, the `runbolt` command, the `BOLT_*` settings and the `DJANGO_BOLT_*` environment variables still have their original names.
-> Everything below is the django-bolt README with the import name replaced. It has not been rewritten yet.
+# Freeman
 
-<div align="center">
-  <img src="docs/logo.png" alt="Django-Bolt" width="400"/>
+Freeman is an HTTP engine for Python APIs on Django. Rust receives the request,
+routes it, checks the parameters, the credential, the guards and the rate limit,
+and then calls your handler. The handler is plain Python. It can take and return
+Pydantic models.
 
-  <h3>The fastest Python web framework — built on Django</h3>
+Freeman is not a full framework. It has no opinion about the layout of a
+project, about models or about views. For that layer, use
+[railguns](https://github.com/nyssance/railguns). Most projects should start
+there.
 
-  <p>
-    Rust-powered HTTP, msgspec serialization, full type validation —<br/>
-    with the Django ORM, Django Admin, and every Django package you already use.
-  </p>
+Freeman is not an ASGI or WSGI application. It does not run behind uvicorn or
+gunicorn. `python manage.py runbolt` is the server.
 
-  <p>
-    <a href="https://pypi.org/project/django-bolt/"><img src="https://img.shields.io/pypi/v/django-bolt.svg?color=blue" alt="PyPI"/></a>
-    <a href="https://pypi.org/project/django-bolt/"><img src="https://img.shields.io/pypi/pyversions/django-bolt.svg" alt="Python versions"/></a>
-    <a href="https://pypi.org/project/django-bolt/"><img src="https://img.shields.io/badge/Django-5.2%20%7C%206.0%20%7C%206.1-0C4B33?logo=django&logoColor=white" alt="Django versions"/></a>
-    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"/></a>
-    <br/>
-    <a href="https://pepy.tech/projects/django-bolt"><img src="https://static.pepy.tech/personalized-badge/django-bolt?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads" alt="Downloads"/></a>
-    <a href="https://discord.gg/4xErptXK82"><img src="https://img.shields.io/discord/1513537500000292894?logo=discord&logoColor=white&label=Discord&color=5865F2" alt="Discord"/></a>
-    <a href="https://opencollective.com/django-bolt"><img src="https://img.shields.io/badge/Sponsor-Django%20Bolt-ff69b4?logo=opencollective&logoColor=white" alt="Sponsor"/></a>
-  </p>
+## Design
 
-  <p>
-    <a href="https://bolt.farhana.li/"><b>Documentation</b></a> ·
-    <a href="#-quick-start"><b>Quick Start</b></a> ·
-    <a href="#-features"><b>Features</b></a> ·
-    <a href="https://bolt.farhana.li/benchmarks/"><b>Benchmarks</b></a> ·
-    <a href="https://www.youtube.com/watch?v=Pukr-fT4MFY"><b>Video Tutorial</b></a> ·
-    <a href="https://discord.gg/4xErptXK82"><b>Discord</b></a>
-  </p>
-</div>
+Rust ([Actix Web](https://actix.rs/), [Tokio](https://tokio.rs/) and
+[PyO3](https://pyo3.rs/)) does the routing, the path and query parameters,
+authentication (JWT, API key, session), guards, CORS, rate limits,
+compression, the access log, metrics and tracing. Python runs the handler, the
+body model and the result. Rust refuses a request with a bad parameter, a
+failed guard or too many requests before the handler runs.
 
----
+There is no ASGI layer. With ASGI, each request enters Python first, and the
+routing and the checks run there. Freeman keeps them in Rust, without the GIL.
+The Django ORM, admin, auth and middleware still work. A route with Django
+middleware runs it on a thread of its own.
 
-**Django-Bolt** is the fastest Python web framework: **300k+ requests/second** on a single 12-core desktop (8 processes, C=100, loopback), ahead of FastAPI and Robyn, and even of Bun-based JavaScript frameworks (Elysia, Hono) on JSON payloads. It is a fully typed API framework for Django. It serves your endpoints from a Rust HTTP server ([Actix Web](https://actix.rs/) + [Tokio](https://tokio.rs/)), bridges to your Python handlers with [PyO3](https://pyo3.rs/), and serializes with [msgspec](https://jcristharif.com/msgspec/) — while everything you love about Django (ORM, Admin, auth, middleware, signals, third-party apps) keeps working out of the box.
+## Install
 
-Think Django REST Framework or Django Ninja, with a Rust engine underneath and **no gunicorn or uvicorn required**.
+```bash
+pip install freeman
+```
+
+Freeman needs Python 3.15 and Django 6.1. It supports no older versions.
+The wheels are for Linux x86_64, Linux arm64 and macOS arm64.
+
+## Example
+
+Add `"freeman"` to `INSTALLED_APPS`, and put an `api.py` next to `settings.py`:
 
 ```python
-from freeman import BoltAPI
+# mysite/api.py
+from pydantic import BaseModel, Field
 
-api = BoltAPI()
+from freeman import BoltAPI
+from freeman.error_handlers import code_detail
+from freeman.exceptions import NotFound
+
+api = BoltAPI(error_formatter=code_detail)
+
+
+class ItemIn(BaseModel):
+    name: str = Field(min_length=1)
+    price: float = Field(ge=0)
+
+
+class Item(BaseModel):
+    id: int
+    name: str
+    price: float
+
+
+ITEMS: dict[int, Item] = {}
+
 
 @api.get("/hello/{name}")
-async def hello(name: str):
+async def hello(name: str) -> dict:
     return {"message": f"Hello, {name}!"}
+
+
+@api.post("/items", status_code=201)
+async def create_item(item: ItemIn) -> Item:
+    created = Item(id=len(ITEMS) + 1, **item.model_dump())
+    ITEMS[created.id] = created
+    return created
+
+
+@api.get("/items/{item_id}")
+async def get_item(item_id: int) -> Item:
+    if item_id not in ITEMS:
+        raise NotFound(f"Item {item_id} does not exist.")
+    return ITEMS[item_id]
 ```
+
+Start the server. `runbolt` finds `api.py` by itself:
 
 ```bash
 python manage.py runbolt --dev
 ```
 
-## ✨ Why Django-Bolt?
-
-| | |
-| --- | --- |
-| ⚡ **Rust speed, Python ergonomics** | HTTP parsing, routing, auth, guards, CORS, rate limiting, and compression run in Rust without touching the GIL. Your handlers stay plain Python. |
-| 🐍 **100% Django** | Use your existing models, `settings.py`, `INSTALLED_APPS`, Django Admin, middleware, and signals. Migrate one endpoint at a time from DRF. |
-| 🧷 **Fully typed** | Type hints drive path/query/header/cookie/form/body extraction and validation. `msgspec.Struct` and Bolt `Serializer` return types are validated on the way out. |
-| 🚀 **Deploy directly** | `runbolt` *is* the production server: multi-process with `SO_REUSEPORT`, worker recycling, graceful shutdown, static & media serving. |
-| 📚 **Batteries included** | OpenAPI docs (Swagger, ReDoc, Scalar, RapiDoc, Stoplight), JWT/API-key auth, guards, pagination, ViewSets, WebSockets, SSE, streaming, testing client, MCP servers. |
-
-## 🚀 Quick Start
-
-### 1. Install
-
-```bash
-pip install django-bolt      # or: uv add django-bolt
+```console
+$ curl localhost:8000/hello/world
+{"message":"Hello, world!"}
+$ curl -X POST localhost:8000/items -d '{"name": "Pen", "price": 1.5}'
+{"id":1,"name":"Pen","price":1.5}
+$ curl localhost:8000/items/7
+{"code":"not_found","detail":"Item 7 does not exist."}
+$ curl -X POST localhost:8000/items -d '{"name": "Pen", "price": -1}'
+{"code":"validation","detail":"Request validation failed","fields":[{"loc":["body","price"],"msg":"Input should be greater than or equal to 0","type":"greater_than_equal"}]}
 ```
 
-### 2. Add to `INSTALLED_APPS`
+The OpenAPI document is at `/docs/openapi.json`, and Swagger UI is at `/docs`.
+
+## Pydantic bodies and results
+
+A parameter whose type is a Pydantic model is the request body. Pydantic
+validates it from the raw bytes with `validate_json`. A body that does not
+validate gets a 422 with every error of the body, with the same `loc`, `msg`
+and `type` keys as the other 422 responses.
+
+A return type that is a Pydantic model is the response. Pydantic writes it with
+`dump_json`. A handler can also return a dict, an object with attributes or a
+QuerySet. The value goes through the model first, so only the fields of the
+model reach the client. In the OpenAPI document, a request body has the
+validation schema of the model, and a response has its serialization schema.
+
+msgspec structs and the `Serializer` class still work.
+
+## Errors
+
+The errors of Rust, of the body validation, of `HTTPException` and of an
+unhandled exception all go through one `error_formatter`. With `code_detail`,
+each error has the same shape: `{"code", "detail", "fields"}`.
+
+- `code` is a stable name, such as `not_authenticated`, `not_found` or `validation`.
+- `detail` is always a string.
+- `fields` is present only when the error has field errors. Each part of `loc` is a string.
+
+A handler can name its own code:
 
 ```python
-# myproject/settings.py
-INSTALLED_APPS = [
-    ...,
-    "freeman",
-]
+from freeman.exceptions import HTTPException
+
+
+def reserve(stock: int) -> None:
+    if stock == 0:
+        raise HTTPException(409, detail={"code": "out_of_stock", "detail": "No stock left."})
 ```
 
-### 3. Write your first endpoint
+## Access log, metrics and tracing
 
-Create an `api.py` next to your `settings.py` (or inside any Django app — Bolt autodiscovers them all):
+Freeman does not go through ASGI or the request handler of Django. Thus the
+Django and ASGI integrations of Prometheus, OpenTelemetry and Sentry do not see
+the requests. Rust writes the access log, the metrics and the server spans
+itself. Each part is off by default. An environment variable turns it on:
+
+| Variable | Gives |
+|---|---|
+| `DJANGO_BOLT_ACCESS_LOG=stdout` | One JSON line for each request on stdout, with no Python logger |
+| `DJANGO_BOLT_METRICS=/metrics` | Prometheus metrics by method, route template and status |
+| `DJANGO_BOLT_TRACING=1` | W3C trace context, and server spans over OTLP/HTTP |
+
+With all three off, the request path does not change. Measured on one process,
+one worker thread, an empty route and 100 connections:
+
+| Setting | Requests per second | Part of "all off" |
+|---|---:|---:|
+| All off | 125,327 | 100% |
+| Access log (`stdout`) | 121,598 | 97% |
+| Metrics | 123,944 | 99% |
+| Tracing, sampler at 0 | 120,822 | 96% |
+| Tracing, each request sampled | 110,597 | 88% |
+| All three, sampler at 0 | 115,781 | 92% |
+| All three, each request sampled | 107,437 | 86% |
+
+For comparison, an access log through a Python logger at `INFO` gave 35,000
+requests per second. See [Metrics and Tracing](docs/src/topics/observability.md)
+for the method and the details.
+
+## Native PostgreSQL connections
+
+The async API of the Django ORM runs each query on a thread. For a route that
+only reads and that many clients call at once, `freeman.postgres` gives psycopg
+async connections from a pool. It reads `DATABASES`, so it uses the database of
+the models. Install it with `pip install "freeman[pool]"`.
 
 ```python
-# myproject/api.py
-import msgspec
-from django.contrib.auth import get_user_model
 from freeman import BoltAPI
+from freeman.postgres import connection
 
-User = get_user_model()
 api = BoltAPI()
 
 
-class UserSchema(msgspec.Struct):
-    id: int
-    username: str
-
-
-@api.get("/users/{user_id}")
-async def get_user(user_id: int) -> UserSchema:   # response is type-validated
-    user = await User.objects.aget(id=user_id)    # Django ORM, no extra setup
-    return {"id": user.id, "username": user.username}
+@api.get("/feed")
+async def feed(limit: int = 20) -> list:
+    async with connection() as conn:
+        cursor = await conn.execute("SELECT id, title FROM post ORDER BY id DESC LIMIT %s", [limit])
+        return await cursor.fetchall()
 ```
 
-### 4. Run
+Measured on one process with a trivial query: 13,200 requests per second
+through `freeman.postgres`, and 6,500 through the async ORM.
+
+## MCP
+
+The MCP server support (`python/bolt-mcp`) is behind the `mcp` Cargo feature,
+which is off by default. The wheels on PyPI do not have it. See
+[MCP Server](docs/src/topics/mcp.md) to build with it.
+
+## Names
+
+The distribution and the import package are `freeman`. Some names are older
+than the project, and they are part of its API: `BoltAPI` and the other class
+names, the `runbolt` command, the `BOLT_*` settings and the `DJANGO_BOLT_*`
+environment variables. They keep these names.
+
+## Relation to django-bolt and railguns
+
+Freeman began as a fork of [django-bolt](https://github.com/dj-bolt/django-bolt)
+by Farhan Ali Raza and its contributors (MIT), at commit `23c1990`. The Rust
+core is their work. Freeman is now an independent project. It does not track
+upstream. A project that needs an older Python or Django should use
+django-bolt.
+
+[railguns](https://github.com/nyssance/railguns) is built on Freeman and is its
+main user. It is the opinionated layer above the engine.
+
+## Development
 
 ```bash
-python manage.py runbolt --dev              # auto-reload for development
-python manage.py runbolt --processes 4      # production: multi-process, no gunicorn/uvicorn
+git clone https://github.com/nyssance/freeman.git && cd freeman
+uv sync
+uv run maturin develop --release
+uv run pytest python/tests -n auto
 ```
 
-Your API is live at `http://localhost:8000/users/1` and interactive docs at `http://localhost:8000/docs`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
 
-📖 **Next:** the [Quick Start guide](https://bolt.farhana.li/getting-started/quickstart/) → [Deployment](https://bolt.farhana.li/getting-started/deployment/) → [Topic guides](https://bolt.farhana.li/topics/routing/).
+## License
 
-## 🧭 A tour of the API
-
-<details open>
-<summary><b>Request validation with type hints</b></summary>
-
-```python
-import msgspec
-from typing import Annotated
-from freeman import BoltAPI
-from freeman.param_functions import Header
-
-api = BoltAPI()
-
-class CreateUser(msgspec.Struct):
-    username: str
-    email: str
-
-@api.post("/users", status_code=201)
-async def create_user(
-    user: CreateUser,                                     # JSON body → validated struct
-    api_key: Annotated[str, Header("x-api-key")],         # header
-    page: int = 1,                                        # query param with default
-):
-    return {"username": user.username, "page": page}
-```
-
-</details>
-
-<details>
-<summary><b>Authentication & guards (evaluated in Rust)</b></summary>
-
-```python
-from freeman.auth import JWTAuthentication, IsAuthenticated, Requires
-
-IsStaff = Requires("is_staff", True)
-
-@api.get("/admin/stats", auth=[JWTAuthentication()], guards=[IsAuthenticated(), IsStaff])
-async def admin_stats(request):
-    return {"user_id": request.user.id}
-```
-
-JWT signature checks, expiry, API-key lookup, and guard evaluation all happen before the GIL is ever taken.
-
-</details>
-
-<details>
-<summary><b>Serializers & ModelViewSet</b></summary>
-
-```python
-from freeman import ModelViewSet, PageNumberPagination
-from freeman.serializers import Serializer
-from myapp.models import Article
-
-class ArticleSchema(Serializer):
-    id: int
-    title: str
-    content: str
-
-    class Config:
-        field_sets = {"list": ["id", "title"]}
-
-@api.viewset("/articles")
-class ArticleViewSet(ModelViewSet):
-    queryset = Article.objects.all()
-    serializer_class = ArticleSchema
-    pagination_class = PageNumberPagination
-```
-
-One `Serializer` class, many projections — no more `UserListSerializer` / `UserDetailSerializer` / `UserAdminSerializer` sprawl.
-
-</details>
-
-<details>
-<summary><b>WebSockets & Server-Sent Events</b></summary>
-
-```python
-from freeman import WebSocket, StreamingResponse
-
-@api.websocket("/ws/echo")
-async def echo(websocket: WebSocket):
-    await websocket.accept()
-    async for message in websocket.iter_text():
-        await websocket.send_text(f"Echo: {message}")
-
-@api.get("/events")
-async def events():
-    async def stream():
-        for i in range(10):
-            yield f"data: tick {i}\n\n"
-    return StreamingResponse(stream(), media_type="text/event-stream")
-```
-
-</details>
-
-<details>
-<summary><b>MCP servers for LLM clients</b></summary>
-
-```python
-from bolt_mcp import MCP          # pip install "django-bolt[mcp]"
-
-mcp = MCP("my-server")
-
-@mcp.tool
-async def add(a: int, b: int) -> dict:
-    return {"sum": a + b}
-
-api.mount_mcp(mcp)
-```
-
-Expose tools, resources, and prompts over MCP Streamable HTTP, backed by the official Rust SDK.
-
-</details>
-
-<details>
-<summary><b>Middleware: CORS, rate limiting, compression</b></summary>
-
-```python
-from freeman.middleware import cors, rate_limit
-
-@api.get("/public")
-@cors(origins=["https://example.com"])
-@rate_limit(rps=100, burst=200)
-async def public():
-    return {"ok": True}
-```
-
-Django middleware (sessions, messages, CSRF, your own) is supported too.
-
-</details>
-
-## 📦 Features
-
-| Feature | Description |
-| --- | --- |
-| ⚡ [High Performance](https://bolt.farhana.li/) | Actix Web + Tokio + PyO3, zero-copy routing, sync-dispatch bypass for simple handlers |
-| 🔐 [Authentication](https://bolt.farhana.li/topics/authentication/) | JWT, API key, and Django session auth — validated in Rust |
-| 🛡️ [Permissions & Guards](https://bolt.farhana.li/topics/permissions/) | `IsAuthenticated`, `AllowAny`, and claim-based `Requires(...)` guards |
-| 🎛️ [Middleware](https://bolt.farhana.li/topics/middleware/) | CORS, rate limiting, [compression](https://bolt.farhana.li/topics/compression/), Django middleware integration |
-| 📦 [Serializers](https://bolt.farhana.li/topics/serializers/) | msgspec-based validation with field sets, computed fields, and model integration |
-| 🗄️ [Async ORM](https://bolt.farhana.li/topics/async-orm/) | Return QuerySets from async handlers; bounded, vendor-aware ORM executor |
-| 📡 [Responses](https://bolt.farhana.li/topics/responses/) | JSON, HTML, redirects, files, streaming, [SSE](https://bolt.farhana.li/topics/sse/) |
-| 🔌 [WebSockets](https://bolt.farhana.li/topics/websocket/) | FastAPI-style WebSocket handlers on Rust infrastructure |
-| 📚 [OpenAPI](https://bolt.farhana.li/topics/openapi/) | Auto-generated schema with Swagger, ReDoc, Scalar, RapiDoc, and Stoplight UIs |
-| 🧱 [Class-Based Views](https://bolt.farhana.li/topics/class-based-views/) | `APIView`, `ViewSet`, `ModelViewSet`, `@action` |
-| 📄 [Pagination](https://bolt.farhana.li/topics/pagination/) | PageNumber, LimitOffset, and Cursor pagination |
-| 💉 [Dependency Injection](https://bolt.farhana.li/topics/dependencies/) | `Depends(...)` with registration-time graph resolution |
-| 🤖 [MCP Servers](https://bolt.farhana.li/topics/mcp/) | Tools, resources, prompts, and streaming over MCP Streamable HTTP |
-| 🗂️ [Static & Media Files](https://bolt.farhana.li/topics/static-files/) | Native Rust static/media serving — no WhiteNoise needed |
-| 🔗 [ASGI Mounts](https://bolt.farhana.li/topics/asgi-mounts/) | Mount existing ASGI apps under a prefix |
-| 🩺 [Health, Logging, Lifespan](https://bolt.farhana.li/topics/health-checks/) | Health endpoints, [structured logging](https://bolt.farhana.li/topics/logging/), [lifespan hooks](https://bolt.farhana.li/topics/lifespan/), [signals](https://bolt.farhana.li/topics/signals/) |
-| 🧪 [Testing](https://bolt.farhana.li/topics/testing/) | In-process `TestClient` that runs the full Rust pipeline |
-| 🧬 [Nanodjango](https://bolt.farhana.li/topics/nanodjango/) | Single-file Django apps |
-
-All runtime settings and environment variables are listed in the [Settings reference](https://bolt.farhana.li/ref/settings/).
-
-Measured performance, conditions, and reproduction steps are on the [Benchmarks](https://bolt.farhana.li/benchmarks/) page.
-
-## 🏗️ How it works
-
-```
-HTTP request
-   │
-   ▼
-Actix Web (Rust) ── routing (matchit) ── CORS · rate limit · compression
-   │
-   ▼
-Auth & guards (Rust, no GIL) ── JWT / API key / session · IsAuthenticated · Requires(...)
-   │
-   ▼
-Dispatch ── sync fast path (single GIL block)  or  async path (persistent worker loop)
-   │
-   ▼
-Your handler ── typed params · Depends(...) · Django ORM
-   │
-   ▼
-msgspec serialization ── zero-copy body ── HTTP response
-```
-
-## 🚢 Deployment
-
-```bash
-python manage.py runbolt --host 0.0.0.0 --port 8000 --processes 4
-python manage.py runbolt --processes 4 --max-rss 512   # recycle workers above 512 MB
-```
-
-Multi-process scaling uses `SO_REUSEPORT` for kernel-level load balancing. Worker recycling, crash respawn, graceful shutdown, and WebSocket drain are built in. See the [Deployment guide](https://bolt.farhana.li/getting-started/deployment/) for systemd, supervisor, and reverse-proxy setups.
-
-## 🤝 Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup (Rust toolchain, `uv`, `just`), the test workflow, and pull request guidelines.
-
-```bash
-git clone https://github.com/dj-bolt/django-bolt.git && cd django-bolt
-uv sync && just build && just test-py
-```
-
-## 💬 Community
-
-- 📖 [Documentation](https://bolt.farhana.li/)
-- 💬 [Discord](https://discord.gg/4xErptXK82)
-- 🐛 [Issues](https://github.com/dj-bolt/django-bolt/issues)
-- 🎥 [Video walkthrough by BugBytes](https://www.youtube.com/watch?v=Pukr-fT4MFY)
-- 🤖 [Ask DeepWiki](https://deepwiki.com/FarhanAliRaza/django-bolt) · for AI assistants: [llms.txt](https://bolt.farhana.li/llms.txt)
-- ❓ [FAQ](https://bolt.farhana.li/faq/) · [Comparison vs Ninja / DRF / FastAPI / Litestar](https://bolt.farhana.li/comparison/) · [How it works](https://bolt.farhana.li/architecture/)
-
-## 💖 Sponsors
-
-Support Django-Bolt's development by [becoming a sponsor](https://opencollective.com/django-bolt). Your logo will appear here with a link to your website.
-
-<a href="https://opencollective.com/django-bolt/tiers/sponsor/0/website" target="_blank"><img src="https://opencollective.com/django-bolt/tiers/sponsor/0/avatar.svg" /></a>
-
-### Backers
-
-<a href="https://opencollective.com/django-bolt#backers" target="_blank"><img src="https://opencollective.com/django-bolt/backers.svg?width=890" /></a>
-
-## 🙏 Acknowledgments
-
-Django-Bolt stands on the shoulders of giants:
-
-- **[Django REST Framework](https://github.com/encode/django-rest-framework)** — ViewSet patterns, permission system, and overall API philosophy
-- **[FastAPI](https://github.com/fastapi/fastapi)** — dependency injection, parameter extraction, and type-hint-driven design
-- **[Litestar](https://github.com/litestar-org/litestar)** — OpenAPI plugin architecture, middleware and guard design
-- **[Robyn](https://github.com/sparckles/Robyn)** — proved the potential of Rust-powered Python web frameworks with PyO3
-- **[Actix Web](https://github.com/actix/actix-web)**, **[PyO3](https://github.com/PyO3/pyo3)**, **[msgspec](https://github.com/jcrist/msgspec)**, **[matchit](https://github.com/ibraheemdev/matchit)** — the foundations that make the speed possible
-
-## 📄 License
-
-Django-Bolt is released under the [MIT License](https://opensource.org/licenses/MIT).
+MIT. See [LICENSE](LICENSE).

@@ -1,5 +1,5 @@
 """
-Security tests for type coercion in Django-Bolt.
+Security tests for type coercion in Freeman.
 
 Tests cover:
 - DoS prevention via parameter length limits (default 8KB max for ALL params)

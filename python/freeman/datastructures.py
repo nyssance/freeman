@@ -1,4 +1,4 @@
-"""Data structures for request handling in Django-Bolt."""
+"""Data structures for request handling in Freeman."""
 
 from __future__ import annotations
 

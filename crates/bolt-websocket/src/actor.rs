@@ -79,7 +79,7 @@ impl WebSocketActor {
 
     /// Close connection with error code when Python channel fails
     fn close_on_channel_error(&mut self, ctx: &mut ws::WebsocketContext<Self>, error: &str) {
-        eprintln!("[django-bolt] {}", error);
+        eprintln!("[freeman] {}", error);
         self.close_code = Some(1011); // Internal error
         ctx.close(Some(ws::CloseReason {
             code: ws::CloseCode::Error,
@@ -142,7 +142,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 // Validate message size
                 if text.len() > self.max_message_size {
                     eprintln!(
-                        "[django-bolt] WebSocket message too large: {} bytes (max {})",
+                        "[freeman] WebSocket message too large: {} bytes (max {})",
                         text.len(),
                         self.max_message_size
                     );
@@ -164,7 +164,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 // Validate message size
                 if bin.len() > self.max_message_size {
                     eprintln!(
-                        "[django-bolt] WebSocket binary message too large: {} bytes (max {})",
+                        "[freeman] WebSocket binary message too large: {} bytes (max {})",
                         bin.len(),
                         self.max_message_size
                     );
@@ -207,7 +207,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 ctx.stop();
             }
             Err(e) => {
-                eprintln!("[django-bolt] WebSocket protocol error: {}", e);
+                eprintln!("[freeman] WebSocket protocol error: {}", e);
                 self.close_code = Some(1002); // Protocol error
                 let _ = self.to_python_tx.try_send(WsMessage::Disconnect { code: 1002 });
                 ctx.stop();

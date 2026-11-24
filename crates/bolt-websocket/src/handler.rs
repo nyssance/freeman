@@ -647,10 +647,7 @@ pub async fn handle_websocket_upgrade(
     // Check connection limit FIRST (before any processing)
     let current_connections = ACTIVE_WS_CONNECTIONS.load(Ordering::Relaxed);
     if current_connections >= config.max_connections {
-        eprintln!(
-            "[django-bolt] WebSocket: Connection limit reached ({}/{})",
-            current_connections, config.max_connections
-        );
+        eprintln!("[freeman] WebSocket: Connection limit reached ({}/{})", current_connections, config.max_connections);
         return Ok(HttpResponse::ServiceUnavailable()
             .content_type("application/json")
             .body(r#"{"detail":"Too many WebSocket connections"}"#));
@@ -728,7 +725,7 @@ pub async fn handle_websocket_upgrade(
                             return Ok(bolt_core::responses::error_401_challenge(route_meta.www_authenticate.as_ref()));
                         }
                         Err(e) => {
-                            eprintln!("[django-bolt] WebSocket revocation check error: {}", e);
+                            eprintln!("[freeman] WebSocket revocation check error: {}", e);
                             return Ok(HttpResponse::InternalServerError()
                                 .content_type("application/json")
                                 .body(r#"{"detail":"Revocation check failed"}"#));
@@ -919,7 +916,7 @@ fn spawn_handler(ws_state: Arc<WsConnectionState>, scope: Py<PyAny>, target: WsT
                     }
                     // A client that left is not an error of the handler.
                     if !is_client_gone(&e) {
-                        eprintln!("[django-bolt] WebSocket handler error: {}", e);
+                        eprintln!("[freeman] WebSocket handler error: {}", e);
                     }
                     ws_state.refuse(StatusCode::INTERNAL_SERVER_ERROR);
                     close_accepted(&ws_state, 1011, "Internal error").await;
@@ -930,7 +927,7 @@ fn spawn_handler(ws_state: Arc<WsConnectionState>, scope: Py<PyAny>, target: WsT
         .await;
 
         if result.is_err() {
-            eprintln!("[django-bolt] WebSocket handler task panicked - closing connection");
+            eprintln!("[freeman] WebSocket handler task panicked - closing connection");
             ws_state.refuse(StatusCode::INTERNAL_SERVER_ERROR);
             close_accepted(&ws_state, 1011, "Internal server error").await;
         }

@@ -1,8 +1,8 @@
 """
-Django middleware adapter for Django-Bolt.
+Django middleware adapter for Freeman.
 
 Provides the DjangoMiddleware class that wraps Django middleware classes
-to work with Django-Bolt's async middleware chain.
+to work with Freeman's async middleware chain.
 
 Performance considerations:
 - Middleware instance is created ONCE at registration time (not per-request)
@@ -203,7 +203,7 @@ async def _run_request_affine(call: Callable, request: Request) -> Response:
 
 class DjangoMiddleware:
     """
-    Wraps a Django middleware class to work with Django-Bolt.
+    Wraps a Django middleware class to work with Freeman.
 
     Follows Django's middleware pattern:
     - __init__(get_response): Called ONCE when middleware chain is built

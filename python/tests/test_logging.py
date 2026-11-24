@@ -1,4 +1,4 @@
-"""Comprehensive tests for Django-Bolt logging system.
+"""Comprehensive tests for Freeman logging system.
 
 These tests validate the behavior documented in docs/LOGGING.md:
 - Queue-based non-blocking logging

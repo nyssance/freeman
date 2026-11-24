@@ -4239,18 +4239,21 @@ class BoltAPI:
             mcp = MCP("my-server")
             api.mount_mcp(mcp, expose=[get_item])
 
-        Requires the optional ``bolt-mcp`` package. ``auth``/``guards`` enforce
-        django-bolt auth in Rust before the handler; ``oauth`` enables the OAuth 2.1
+        Requires the ``bolt-mcp`` package (``python/bolt-mcp`` in this repository)
+        and an extension built with the ``mcp`` Cargo feature. The default wheel
+        has no MCP. ``auth``/``guards`` enforce Freeman auth in Rust before the handler; ``oauth`` enables the OAuth 2.1
         Resource Server flow; ``expose`` is an explicit allowlist of existing route
         handlers to surface as tools. See :func:`bolt_mcp.mount_mcp` for details.
         """
-        # Lazy import keeps bolt-mcp an optional dependency: django-bolt core never
+        # Lazy import keeps bolt-mcp an optional dependency: Freeman never
         # imports it at module load, only when mount_mcp is actually called.
         try:
             from bolt_mcp import mount_mcp  # noqa: PLC0415
         except ImportError as exc:
             raise ImportError(
-                "api.mount_mcp(...) requires the optional 'bolt-mcp' package. Install it with `pip install 'freeman[mcp]'`."
+                "api.mount_mcp(...) needs the bolt-mcp package. The bolt-mcp on PyPI is for django-bolt. "
+                "Install the one in python/bolt-mcp of the Freeman repository, and build the extension "
+                "with the mcp feature."
             ) from exc
         mount_mcp(
             self,

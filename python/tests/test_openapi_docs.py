@@ -39,6 +39,7 @@ from freeman.openapi import (
     StoplightRenderPlugin,
     SwaggerRenderPlugin,
 )
+from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.openapi.spec import Components, Contact, ExternalDocumentation, License, SecurityScheme, Server, Tag
 from freeman.params import File, Form
 from freeman.serializers import Serializer, field
@@ -1104,6 +1105,84 @@ def test_openapi_401_header_agrees_with_the_challenge_of_each_backend(backends, 
     assert "Bearer" not in documented["description"]
     assert rejected.status_code == 401
     assert rejected.headers["www-authenticate"] == challenge
+
+
+@pytest.mark.parametrize(
+    ("guards", "security", "status"),
+    [
+        ([IsAuthenticated()], [{"BearerAuth": []}], 401),
+        ([Requires("is_staff", True)], [{"BearerAuth": []}], 401),
+        ([IsAuthenticated(), AllowAny()], [{"BearerAuth": []}], 401),
+        ([AllowAny()], [{}, {"BearerAuth": []}], 200),
+        ([AllowAny(), IsAuthenticated()], [{}, {"BearerAuth": []}], 200),
+        ([], [{}, {"BearerAuth": []}], 200),
+    ],
+)
+def test_openapi_security_is_optional_when_the_guards_let_an_anonymous_request_through(guards, security, status):
+    """The first guard decides, as in Rust. The 401 is in the document only when a request with no user gets it."""
+    api = BoltAPI(openapi_config=OpenAPIConfig(title="Auth Test API", version="1.0.0"))
+
+    @api.get("/item", auth=[JWTAuthentication(secret="test-secret")], guards=guards)
+    async def item() -> dict:
+        return {}
+
+    api._register_openapi_routes()
+    with TestClient(api) as client:
+        operation = _document(client)["paths"]["/item"]["get"]
+        anonymous = client.get("/item")
+
+    assert operation["security"] == security
+    assert anonymous.status_code == status
+    assert ("401" in operation["responses"]) is (status == 401)
+
+
+def test_openapi_security_follows_the_default_permission_classes():
+    """A route with no guards argument gets BOLT_DEFAULT_PERMISSION_CLASSES, in the document as in Rust."""
+    with override_settings(BOLT_DEFAULT_PERMISSION_CLASSES=[IsAuthenticated()]):
+        api = BoltAPI(openapi_config=OpenAPIConfig(title="Auth Test API", version="1.0.0"))
+
+        @api.get("/default", auth=[JWTAuthentication(secret="test-secret")])
+        async def default() -> dict:
+            return {}
+
+        @api.get("/public", auth=[JWTAuthentication(secret="test-secret")], guards=[AllowAny()])
+        async def public() -> dict:
+            return {}
+
+        # The docs routes get the default guards too, so read the document without them.
+        document = SchemaGenerator(api, OpenAPIConfig(title="Auth Test API", version="1.0.0")).generate().to_schema()
+        validate(document)
+        paths = document["paths"]
+        with TestClient(api) as client:
+            assert client.get("/default").status_code == 401
+            assert client.get("/public").status_code == 200
+
+    assert paths["/default"]["get"]["security"] == [{"BearerAuth": []}]
+    assert paths["/public"]["get"]["security"] == [{}, {"BearerAuth": []}]
+    assert "401" not in paths["/public"]["get"]["responses"]
+
+
+def test_openapi_route_with_no_backend_does_not_inherit_the_security_of_the_document():
+    """A route with no auth backend has no ``security``, or ``[]`` when the document has a top-level one."""
+    for document_security, expected in ((None, None), ([{"BearerAuth": []}], [])):
+        api = BoltAPI(
+            openapi_config=OpenAPIConfig(
+                title="Auth Test API",
+                version="1.0.0",
+                security=document_security,
+                components=Components(security_schemes={"BearerAuth": SecurityScheme(type="http", scheme="bearer")}),
+            )
+        )
+
+        @api.get("/open", auth=[], guards=[AllowAny()])
+        async def open_route() -> dict:
+            return {}
+
+        api._register_openapi_routes()
+        with TestClient(api) as client:
+            operation = _document(client)["paths"]["/open"]["get"]
+
+        assert operation.get("security") == expected, document_security
 
 
 def test_openapi_auth_errors_show_the_body_of_the_error_formatter():

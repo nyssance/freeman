@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clean benchmark runner for Django-Bolt
+# Clean benchmark runner for Freeman
 
 P=${P:-2}
 WORKERS=${WORKERS:-2}
@@ -122,7 +122,7 @@ start_server() {
   wait_for_server
 }
 
-echo "# Django-Bolt Benchmark"
+echo "# Freeman Benchmark"
 echo "Generated: $(date)"
 echo "Config: $P processes × $WORKERS workers | C=$C N=$N"
 echo ""

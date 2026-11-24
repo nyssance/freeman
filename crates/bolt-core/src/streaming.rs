@@ -77,7 +77,7 @@ fn log_stream_error(py: Python<'_>, err: &PyErr) {
         Ok(())
     })();
     if let Err(log_err) = logged {
-        eprintln!("[django-bolt] {STREAM_ERROR_MESSAGE} {err}. Logging failed: {log_err}");
+        eprintln!("[freeman] {STREAM_ERROR_MESSAGE} {err}. Logging failed: {log_err}");
     }
 }
 

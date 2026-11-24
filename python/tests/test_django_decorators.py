@@ -1,5 +1,5 @@
 """
-Test Django decorator compatibility with Django-Bolt.
+Test Django decorator compatibility with Freeman.
 
 Tests that Django decorators like @login_required return Django HttpResponse types
 that are properly handled by the serialization layer.

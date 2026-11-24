@@ -1,5 +1,5 @@
 """
-Router for Django-Bolt API.
+Router for Freeman API.
 
 Provides hierarchical routing with middleware inheritance.
 Routes defined on a router inherit the router's middleware, auth, and guards.

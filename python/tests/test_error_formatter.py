@@ -1048,7 +1048,13 @@ def _mount_guarded_mcp(api: BoltAPI) -> tuple[str, str]:
     return "POST", "/mcp"
 
 
-@pytest.mark.parametrize("mount", [_mount_raising_asgi_app, _mount_guarded_mcp], ids=["asgi-raises", "mcp-guard"])
+@pytest.mark.parametrize(
+    "mount",
+    [
+        pytest.param(_mount_raising_asgi_app, id="asgi-raises"),
+        pytest.param(_mount_guarded_mcp, id="mcp-guard", marks=pytest.mark.mcp),
+    ],
+)
 def test_formatter_does_not_change_the_errors_of_a_mount(mount):
     """An ASGI or an MCP mount keeps its own error responses."""
     responses = []

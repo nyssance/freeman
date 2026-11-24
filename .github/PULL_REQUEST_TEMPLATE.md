@@ -13,4 +13,4 @@ Fixes #
 
 ## Performance consideration
 
-<!-- Django-Bolt is a performance-critical framework. Explain why this change does not regress the hot path, or show benchmark numbers if it touches dispatch/serialization/routing. -->
+<!-- Freeman is a performance-critical framework. Explain why this change does not regress the hot path, or show benchmark numbers if it touches dispatch/serialization/routing. -->

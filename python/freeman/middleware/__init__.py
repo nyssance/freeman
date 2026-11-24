@@ -1,5 +1,5 @@
 """
-Django-Bolt Middleware System.
+Freeman Middleware System.
 
 Uses Django's middleware pattern for unified syntax:
 - __init__(get_response): Receives the next middleware/handler in chain

@@ -1,5 +1,5 @@
 """
-Django-Bolt: High-performance API framework for Django.
+Freeman: High-performance API framework for Django.
 
 Provides Rust-powered API endpoints with 60k+ RPS performance, integrating
 with existing Django projects via Actix Web, PyO3, and msgspec.

@@ -1,9 +1,9 @@
 # bolt-mcp
 
 Build [MCP (Model Context Protocol)](https://modelcontextprotocol.io) servers on top of
-[django-bolt](https://github.com/FarhanAliRaza/django-bolt), served over the MCP
+[Freeman](https://github.com/nyssance/freeman), served over the MCP
 **Streamable HTTP** transport by the official MCP Rust SDK
-([rmcp](https://github.com/modelcontextprotocol/rust-sdk)) embedded in django-bolt's Rust
+([rmcp](https://github.com/modelcontextprotocol/rust-sdk)) embedded in Freeman's Rust
 core — no Starlette or Python-SDK stack in the request path. Dual-era: speaks the
 **2026-07-28** revision (stateless, MRTR elicitation, `server/discover`) and the earlier
 session-based revisions on the same endpoint.
@@ -115,7 +115,7 @@ explicitly before mounting.
 
 ## Authentication
 
-**Tier 1 — reuse django-bolt auth** (validated in Rust before the handler):
+**Tier 1 — reuse Freeman auth** (validated in Rust before the handler):
 
 ```python
 from freeman import JWTAuthentication, IsAuthenticated
@@ -141,16 +141,19 @@ api.mount_mcp(mcp, oauth=ProtectedResource(
 
 ## Development
 
-This package is a uv-workspace member of the django-bolt repo.
+This package is a uv-workspace member of the Freeman repo. The MCP transport
+is behind the `mcp` Cargo feature, which is off by default. Without it, each
+test here skips.
 
 ```bash
 uv sync                                                  # install workspace (editable)
+uv run maturin develop --release --features mcp          # build the extension with MCP
 uv run pytest python/bolt-mcp/tests -s -vv        # full suite (incl. subprocess integration)
 ```
 
 ## Status / scope (0.2)
 
-The protocol core is the official MCP Rust SDK (rmcp), embedded in django-bolt >= 0.10 —
+The protocol core is the official MCP Rust SDK (rmcp), embedded in Freeman with the `mcp` feature —
 protocol revisions `2024-11-05` through `2026-07-28` are served dual-era. Implemented on
 top of it: tools/resources/prompts with msgspec schemas, MRTR elicitation with replay and
 signed `requestState`, per-request log gating, SEP-2549 `ttlMs`/`cacheScope` hints,

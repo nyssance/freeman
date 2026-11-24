@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
-description = "WebSocket routing and actor handling for django-bolt"
+description = "WebSocket routing and actor handling for freeman"
 
 [dependencies]
 actix = { workspace = true }

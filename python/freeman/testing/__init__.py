@@ -1,4 +1,4 @@
-"""Testing utilities for django-bolt.
+"""Testing utilities for Freeman.
 
 Provides test clients for in-memory testing without subprocess/network overhead,
 including streaming response support for SSE and similar endpoints.

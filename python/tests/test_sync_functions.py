@@ -1,5 +1,5 @@
 """
-Test sync function support in django-bolt.
+Test sync function support in Freeman.
 Tests that sync and async handlers work correctly with parameters, dependencies, middleware, and auth.
 """
 

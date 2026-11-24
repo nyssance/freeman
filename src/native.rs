@@ -112,7 +112,7 @@ unsafe extern "C" fn complete(token: *mut c_void, resp: *const abi::Response) {
         // A broken handler. Dropping the sender sends 500. The token does not
         // name the handler, so this line gives only the cause.
         eprintln!(
-            "[django-bolt] ERROR: a native handler sent a Response smaller than v1 ({size} < {} bytes); set its size field",
+            "[freeman] ERROR: a native handler sent a Response smaller than v1 ({size} < {} bytes); set its size field",
             std::mem::size_of::<abi::Response>()
         );
         return;
@@ -134,7 +134,7 @@ unsafe extern "C" fn complete(token: *mut c_void, resp: *const abi::Response) {
 /// time, and is not in the body. The `ErrorInfo` has no reason, so the error
 /// formatter does not log it again.
 fn internal_error(reason: String) -> HttpResponse {
-    eprintln!("[django-bolt] ERROR: {reason}");
+    eprintln!("[freeman] ERROR: {reason}");
     let response = HttpResponse::InternalServerError()
         .content_type("application/json")
         .body(r#"{"detail":"Internal Server Error"}"#);
@@ -233,7 +233,7 @@ pub async fn dispatch(
         }
         Err(_) => {
             eprintln!(
-                "[django-bolt] WARNING: native handler '{}' did not complete within {:.3} seconds",
+                "[freeman] WARNING: native handler '{}' did not complete within {:.3} seconds",
                 handler_name(native),
                 state.native_route_timeout.as_secs_f64()
             );
@@ -262,7 +262,7 @@ pub async fn dispatch(
                 response.append_header((name, value));
             }
             _ => eprintln!(
-                "[django-bolt] WARNING: native handler '{}' sent an invalid header {:?}; dropped",
+                "[freeman] WARNING: native handler '{}' sent an invalid header {:?}; dropped",
                 handler_name(native),
                 String::from_utf8_lossy(name)
             ),

@@ -44,7 +44,7 @@ def struct_from_signature(fn: Callable, *, exclude: frozenset[str] = INJECTED_PA
 
 
 def struct_from_fields(name: str, fields: list[Any]) -> type[msgspec.Struct]:
-    """Build a msgspec.Struct from django-bolt FieldDefinitions (auto-expose path).
+    """Build a msgspec.Struct from Freeman FieldDefinitions (auto-expose path).
 
     Keeps path/query/body/header/cookie params; required fields first (defstruct
     requires non-default fields to precede defaulted ones).

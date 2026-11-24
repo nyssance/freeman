@@ -3,7 +3,7 @@
 Long-running Python servers accumulate resident memory (leaky C extensions,
 allocator fragmentation, unbounded caches). Traditional servers work around
 this with ``max_requests``-style restarts; request count is only a proxy for
-memory, so — like Granian — django-bolt recycles workers on the actual
+memory, so — like Granian — Freeman recycles workers on the actual
 symptoms instead:
 
 - ``max_rss_bytes``: recycle a worker once its resident set size exceeds a

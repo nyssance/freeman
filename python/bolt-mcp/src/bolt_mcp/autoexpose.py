@@ -1,4 +1,4 @@
-"""Expose existing django-bolt endpoints as MCP tools.
+"""Expose existing Freeman endpoints as MCP tools.
 
 ``expose_as_tool`` marks a handler; ``expose_routes`` walks a BoltAPI, reads each
 marked route's pre-computed ``FieldDefinition`` metadata, and registers an MCP tool

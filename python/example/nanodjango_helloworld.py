@@ -4,7 +4,7 @@
 # ]
 # ///
 """
-Minimal django-bolt + nanodjango single-file example.
+Minimal Freeman + nanodjango single-file example.
 
 Run via nanodjango's CLI:
     nanodjango manage python/example/nanodjango_helloworld.py runbolt --port 8000
@@ -42,8 +42,8 @@ def home(request):
         source = Path(sys.argv[0]).read_text()
     except OSError:
         source = "(source unavailable)"
-    return f"""<title>helloworld: django-bolt+nanodjango</title>
-    <h1>Hello, single file apps with Django-Bolt and nanodjango</h1>
+    return f"""<title>helloworld: Freeman+nanodjango</title>
+    <h1>Hello, single file apps with Freeman and nanodjango</h1>
     This page is a django view, served by the bolt/Actix server. The links below introduce bolt's API calls which return json responses.<br/>
 <nav aria-label="Api Navigation">
   <ul>
@@ -97,7 +97,7 @@ async def greet(name: str):
 
 class Greeting(msgspec.Struct):
     """Typed response schema. The ``-> Greeting`` annotation below tells
-    django-bolt to serialize via msgspec (much faster than json.dumps)
+    Freeman to serialize via msgspec (much faster than json.dumps)
     and to publish the schema in the auto-generated OpenAPI docs."""
 
     name: str

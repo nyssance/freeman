@@ -16,7 +16,7 @@ pub fn validate_origin(origin: Option<&HeaderValue>, cors_config: Option<&CorsCo
         Some(v) => match v.to_str() {
             Ok(s) => s,
             Err(_) => {
-                eprintln!("[django-bolt] WebSocket: Invalid Origin header encoding");
+                eprintln!("[freeman] WebSocket: Invalid Origin header encoding");
                 return false;
             }
         },
@@ -30,7 +30,7 @@ pub fn validate_origin(origin: Option<&HeaderValue>, cors_config: Option<&CorsCo
     // SECURITY: No CORS configured = deny all cross-origin requests
     // This is a fail-secure default (unlike the old allow-all default)
     eprintln!(
-        "[django-bolt] WebSocket: Rejecting cross-origin request from '{}' - no CORS configured. \
+        "[freeman] WebSocket: Rejecting cross-origin request from '{}' - no CORS configured. \
         Set CORS_ALLOWED_ORIGINS in Django settings to allow WebSocket connections.",
         origin
     );

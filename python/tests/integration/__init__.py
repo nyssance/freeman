@@ -1,1 +1,1 @@
-"""Integration tests for django-bolt features that require a real runbolt subprocess."""
+"""Integration tests for Freeman features that require a real runbolt subprocess."""

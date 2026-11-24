@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Django-Bolt Release Script
+# Freeman release script
 # Automates version bumping, committing, and tag pushing
 
 # Colors for output

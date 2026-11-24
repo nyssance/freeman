@@ -268,7 +268,7 @@ pub fn check_rate_limit(
             // Log the first rejection of each second for this bucket.
             if let Some(unlogged) = rejection.log {
                 eprintln!(
-                    "[django-bolt] Rate limit exceeded: {} {} | key: {} | limit: {} rps (burst: {}) | retry after: {}s | suppressed: {}",
+                    "[freeman] Rate limit exceeded: {} {} | key: {} | limit: {} rps (burst: {}) | retry after: {}s | suppressed: {}",
                     method, path, source, rps, burst, retry_after, unlogged
                 );
             }

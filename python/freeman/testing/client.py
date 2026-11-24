@@ -1,4 +1,4 @@
-"""Test clients for django-bolt using per-instance test state.
+"""Test clients for Freeman using per-instance test state.
 
 This version uses async-native Rust testing infrastructure which provides:
 - Per-instance routers (no global state conflicts)
@@ -109,7 +109,7 @@ def _warn_if_inside_atomic_block() -> None:
 
 
 class BoltTestTransport(httpx.BaseTransport):
-    """HTTP transport that routes requests through django-bolt's test handler.
+    """HTTP transport that routes requests through Freeman's test handler.
 
     Each request runs on a test worker thread, through the request pipeline
     of runbolt. The calling thread waits for the response.
@@ -175,7 +175,7 @@ class BoltTestTransport(httpx.BaseTransport):
 
 
 class AsyncBoltTestTransport(httpx.AsyncBaseTransport):
-    """Async HTTP transport that routes requests through django-bolt's test handler.
+    """Async HTTP transport that routes requests through Freeman's test handler.
 
     The Rust function waits for the response of a test worker thread. Thus
     it runs in a thread executor, so it does not block the event loop.
@@ -258,7 +258,7 @@ def _close_server_connections() -> None:
 
 
 class TestClient(httpx.Client):
-    """Synchronous test client for django-bolt using async-native Rust testing.
+    """Synchronous test client for Freeman using async-native Rust testing.
 
     This client:
     - Creates an isolated test app instance (no global state conflicts)
@@ -623,7 +623,7 @@ class TestClient(httpx.Client):
 
 
 class AsyncTestClient(httpx.AsyncClient):
-    """Async test client for django-bolt using async-native Rust testing.
+    """Async test client for Freeman using async-native Rust testing.
 
     This client:
     - Creates an isolated test app instance (no global state conflicts)

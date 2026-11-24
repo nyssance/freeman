@@ -362,7 +362,7 @@ fn log_jwks_refresh_failure(py: Python<'_>, reason: &str) {
         .and_then(|logging| logging.call_method1(intern!(py, "getLogger"), ("freeman.auth",)))
         .and_then(|logger| logger.call_method1(intern!(py, "warning"), (message.as_str(),)));
     if let Err(err) = logged {
-        eprintln!("[django-bolt] {message} Logging failed: {err}");
+        eprintln!("[freeman] {message} Logging failed: {err}");
     }
 }
 

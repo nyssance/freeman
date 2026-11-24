@@ -975,6 +975,7 @@ async fn route_request(
             // MCP mount check: only on router miss, so the non-MCP hot path
             // pays nothing. Before the ASGI fallback so an overlapping prefix
             // cannot shadow an MCP endpoint.
+            #[cfg(feature = "mcp")]
             if let Some(mcp_mount) = bolt_mcp::find_mcp_mount(state.get_ref(), path) {
                 seen.mount(&mcp_mount.path);
                 let response = bolt_mcp::bridge::handle_mcp_request(req, payload, mcp_mount, state.get_ref()).await;

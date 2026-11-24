@@ -42,7 +42,7 @@ class AdminRouteRegistrar:
                 else "the admin site is at the root path"
             )
             print(
-                f"[django-bolt] Warning: {where}, so Bolt mounts Django at the root path. "
+                f"[freeman] Warning: {where}, so Bolt mounts Django at the root path. "
                 "Django answers each path that has no Bolt route.",
                 file=sys.stderr,
             )

@@ -1,5 +1,5 @@
 """
-Django-Bolt WebSocket support with FastAPI-like syntax.
+Freeman WebSocket support with FastAPI-like syntax.
 
 Example:
     from freeman import BoltAPI

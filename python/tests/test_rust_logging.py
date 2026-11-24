@@ -15,8 +15,8 @@ from freeman import BoltAPI
 from freeman.auth import IsAuthenticated, JWTAuthentication
 from freeman.testing import TestClient
 
-ASGI_ERROR = "[django-bolt] ERROR bolt_asgi::asgi_http: ASGI mount: coroutine raised an exception: RuntimeError: boom"
-JWT_DEBUG = "[django-bolt] DEBUG bolt_core::middleware::auth: JWT rejected: invalid signature"
+ASGI_ERROR = "[freeman] ERROR bolt_asgi::asgi_http: ASGI mount: coroutine raised an exception: RuntimeError: boom"
+JWT_DEBUG = "[freeman] DEBUG bolt_core::middleware::auth: JWT rejected: invalid signature"
 
 
 def _failing_mount_api() -> BoltAPI:

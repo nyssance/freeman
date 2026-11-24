@@ -27,16 +27,13 @@ pub fn format_cookie(c: &CookieData) -> Option<String> {
     // Validate cookie name - reject if it contains invalid characters
     // RFC 6265: cookie-name = token (no CTLs, separators, or whitespace)
     if !is_valid_cookie_name(&c.name) {
-        eprintln!("[django-bolt] WARNING: Invalid cookie name '{}' - contains invalid characters", c.name);
+        eprintln!("[freeman] WARNING: Invalid cookie name '{}' - contains invalid characters", c.name);
         return None;
     }
 
     // Reject control characters, as Python `http.cookies` does for Django.
     if contains_control_chars(&c.value) {
-        eprintln!(
-            "[django-bolt] WARNING: Cookie '{}' value contains control characters - rejected for security",
-            c.name
-        );
+        eprintln!("[freeman] WARNING: Cookie '{}' value contains control characters - rejected for security", c.name);
         return None;
     }
 
@@ -44,7 +41,7 @@ pub fn format_cookie(c: &CookieData) -> Option<String> {
     // a header as Latin-1. A browser that sends it back makes the `Cookie` header
     // unreadable, so the request gets no cookies.
     if c.value.chars().any(|ch| ch > '\u{ff}') {
-        eprintln!("[django-bolt] WARNING: Cookie '{}' value contains a character above U+00FF - rejected", c.name);
+        eprintln!("[freeman] WARNING: Cookie '{}' value contains a character above U+00FF - rejected", c.name);
         return None;
     }
 
@@ -54,7 +51,7 @@ pub fn format_cookie(c: &CookieData) -> Option<String> {
     // Max-Age (validate non-negative)
     if let Some(max_age) = c.max_age {
         if max_age < 0 {
-            eprintln!("[django-bolt] WARNING: Cookie '{}' has negative max_age ({}) - using 0", c.name, max_age);
+            eprintln!("[freeman] WARNING: Cookie '{}' has negative max_age ({}) - using 0", c.name, max_age);
             cookie = cookie.max_age(time::Duration::ZERO);
         } else {
             cookie = cookie.max_age(time::Duration::seconds(max_age));

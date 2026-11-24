@@ -1,4 +1,4 @@
-# Django-Bolt Development Commands
+# Freeman development commands
 
 # Default values for parameters
 host := "127.0.0.1"
@@ -24,6 +24,13 @@ build:
 # Build Rust extension in release mode
 build-release:
     uv run maturin develop --release
+
+# Build with the MCP transport (the mcp Cargo feature, off by default), then
+# run the tests that need it
+test-mcp:
+    uv run maturin develop --release --features mcp
+    uv run pytest python/tests -m mcp -q
+    uv run pytest python/bolt-mcp/tests -q
 
 # Free-threaded CPython (python3.14t, no GIL) lives in its own environment so
 # the default .venv stays untouched. `uv sync` installs the interpreter and

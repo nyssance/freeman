@@ -1,4 +1,4 @@
-//! WebSocket support for Django-Bolt
+//! WebSocket support for freeman
 //!
 //! This module provides WebSocket support with proper Python handler integration.
 //! Uses tokio channels to bridge Actix's actor-based WebSocket with Python's

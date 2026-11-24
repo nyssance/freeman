@@ -7,10 +7,10 @@ import click
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def main():
-    """Django-Bolt command line interface."""
+    """Freeman command line interface."""
 
 
 @main.command()
 def version():
-    """Show Django-Bolt version."""
-    click.echo(f"Django-Bolt version: {importlib.metadata.version('freeman')}")
+    """Show the Freeman version."""
+    click.echo(f"Freeman version: {importlib.metadata.version('freeman')}")

@@ -114,7 +114,7 @@ def test_installed_artifact_prints_its_version(installed_artifact_python: Path):
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout == f"Django-Bolt version: {installed_version}\n"
+    assert result.stdout == f"Freeman version: {installed_version}\n"
 
 
 def test_the_pool_extra_installs_a_pool_that_runbolt_accepts(make_server_project, pool_extra_python: Path):

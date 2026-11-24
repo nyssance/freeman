@@ -1,6 +1,6 @@
 name: Install a built wheel
 description: >-
-  Install a django-bolt wheel of a wheel job into the uv environment. The tests
+  Install a freeman wheel of a wheel job into the uv environment. The tests
   then run the release binary, and the job does not build Rust.
 inputs:
   artifacts:

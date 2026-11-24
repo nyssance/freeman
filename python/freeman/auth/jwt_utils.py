@@ -1,5 +1,5 @@
 """
-JWT utility functions for Django-Bolt.
+JWT utility functions for Freeman.
 
 Provides helper functions to create JWT tokens for Django users and
 extract user information from request context.
