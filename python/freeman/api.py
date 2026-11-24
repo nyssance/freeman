@@ -94,7 +94,7 @@ from .openapi import (
     SwaggerRenderPlugin,
 )
 from .openapi.routes import OpenAPIRouteRegistrar
-from .pagination import extract_pagination_item_type, paginate
+from .pagination import envelope_type, extract_pagination_item_type, paginate
 from .responses import JSON as _JSONResponse
 from .router import Router, _leading_slash
 from .serialization import (
@@ -2183,7 +2183,7 @@ class BoltAPI:
                         original.__serializer_class__ = item_type
                     # The wire shape is the pagination envelope, not the item
                     # list: validate and document ``response_class[item]``.
-                    meta["response_type"] = fn.__pagination_class__.response_class[item_type]
+                    meta["response_type"] = envelope_type(fn.__pagination_class__, item_type)
 
             # Guarantee all keys exist at registration time for direct access
             if meta["is_multi_response"]:

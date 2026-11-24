@@ -117,6 +117,7 @@ from .openapi import (
 from .pagination import (
     CursorPagination,
     LimitOffsetPagination,
+    Page,
     PageNumberPagination,
     PaginatedResponse,
     PaginationBase,
@@ -195,6 +196,7 @@ __all__ = [
     "LimitOffsetPagination",
     "CursorPagination",
     "PaginatedResponse",
+    "Page",
     "paginate",
     # Decorators
     "action",

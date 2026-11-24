@@ -15,7 +15,7 @@ from typing import Annotated, Any, Literal, get_args, get_origin
 
 import msgspec
 from django.db.models import QuerySet
-from pydantic import ValidationError
+from pydantic import Field, ValidationError, create_model
 
 from .._field_marker import _FieldMarker
 from .._pydantic import adapter_for, is_pydantic_model, names_pydantic_model, param_fields
@@ -1274,7 +1274,7 @@ def _build_embedded_body_extractor(annotation: Any, key: str, default: Any) -> C
     if default is inspect.Parameter.empty and is_optional(annotation):
         default = None
     if names_pydantic_model(annotation):
-        raise TypeError("Body(embed=True) does not take a Pydantic model. Declare a model with that key as its field.")
+        return _build_pydantic_embedded_body_extractor(annotation, key, default)
     has_default = default is not inspect.Parameter.empty
     # The key is a field name on the wire only. It need not be a Python identifier.
     wire_field = msgspec.field(name=key, default_factory=lambda: default) if has_default else msgspec.field(name=key)
@@ -1292,6 +1292,30 @@ def _build_embedded_body_extractor(annotation: Any, key: str, default: Any) -> C
         except msgspec.DecodeError as e:
             error_detail = parse_msgspec_decode_error(e, body_bytes)
             raise RequestValidationError(errors=[error_detail], body=body_bytes) from e
+
+    return extract
+
+
+def _build_pydantic_embedded_body_extractor(annotation: Any, key: str, default: Any) -> Callable:
+    """Build the extractor of a ``Body(embed=True)`` parameter whose type names a Pydantic model.
+
+    A model with one field at the alias ``key`` reads the object in one
+    ``validate_json``. Thus each error has the ``loc`` ``["body", key, ...]``,
+    and the 422 holds every error. The other keys of the object are not read,
+    so several embedded parameters share one object.
+    """
+    has_default = default is not inspect.Parameter.empty
+    field = Field(default, alias=key) if has_default else Field(alias=key)
+    wrapper = create_model("EmbeddedBody", value=(annotation, field))
+    validate_json = wrapper.model_validate_json
+
+    def extract(body_bytes: bytes) -> Any:
+        if has_default and not body_bytes:
+            return default
+        try:
+            return validate_json(body_bytes).value
+        except ValidationError as e:
+            raise RequestValidationError(errors=pydantic_errors(e, "body"), body=body_bytes) from e
 
     return extract
 

@@ -36,6 +36,7 @@ __all__ = (
     "names_pydantic_model",
     "param_fields",
     "request_errors",
+    "response_failure",
     "ParamField",
 )
 
@@ -140,6 +141,17 @@ def build_body_extractor(annotation: Any) -> Callable[[bytes], Any]:
             raise RequestValidationError(errors=request_errors(e, "body"), body=body_bytes) from e
 
     return extract
+
+
+def response_failure(exc: ValidationError) -> TypeError:
+    """The error of a result that does not fit its model: the field and the reason, not the value.
+
+    The message goes to the log. The response handler makes a 500 of it.
+    """
+    problems = "; ".join(
+        f"{'.'.join(map(str, error['loc'])) or 'value'}: {error['msg']}" for error in request_errors(exc, "")
+    )
+    return TypeError(f"Response validation failed: {problems}")
 
 
 def encode_model(value: BaseModel) -> msgspec.Raw:
@@ -281,11 +293,7 @@ def compile_response_coercer(annotation: Any) -> tuple[Callable[[Any], Any], Cal
         try:
             return msgspec.Raw(dump(validate(value, from_attributes=True)))
         except ValidationError as e:
-            # The field and the reason, not the value: the message goes to the log.
-            problems = "; ".join(
-                f"{'.'.join(map(str, error['loc'])) or 'value'}: {error['msg']}" for error in request_errors(e, "")
-            )
-            raise TypeError(f"Response validation failed: {problems}") from e
+            raise response_failure(e) from e
 
     def coerce(value: Any) -> msgspec.Raw:
         if isinstance(value, QuerySet):

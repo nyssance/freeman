@@ -1341,7 +1341,12 @@ class SchemaGenerator:
         """The request body of a ``Body(embed=True)`` parameter: a JSON object with the value at one key."""
         marker = field.param
         key = field.alias or field.name
-        schema = self._type_to_schema(field.annotation, register_component=True)
+        # The value is input: a Pydantic model gets its validation schema.
+        self._input_schema = True
+        try:
+            schema = self._type_to_schema(field.annotation, register_component=True)
+        finally:
+            self._input_schema = False
         has_default = field.default is not inspect.Parameter.empty
         if has_default and field.default is not None:
             schema = self._with_default(schema, field.default)

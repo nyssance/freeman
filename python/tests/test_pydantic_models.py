@@ -22,6 +22,7 @@ from freeman._pydantic import compile_queryset_reader
 from freeman.exceptions import ResponseValidationError
 from freeman.openapi import OpenAPIConfig
 from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.params import Body
 from freeman.testing import TestClient
 
 
@@ -533,3 +534,68 @@ def test_only_a_list_of_a_model_gets_a_reader():
     assert compile_queryset_reader(typing.List) is None  # noqa: UP006
     assert compile_queryset_reader(list[Item] | None) is None
     assert compile_queryset_reader(list[Item]) is not None
+
+
+# --- Body(embed=True) ------------------------------------------------------------------
+
+
+class Owner(BaseModel):
+    id: int
+
+
+@pytest.fixture(scope="module")
+def embedded_api():
+    api = BoltAPI()
+
+    @api.post("/embedded")
+    async def embedded(post: Annotated[CreatePost, Body(embed=True)], owner: Annotated[Owner, Body(embed=True)]):
+        return {"title": post.title, "owner": owner.id}
+
+    @api.post("/embedded/optional")
+    def embedded_optional(owner: Annotated[Owner | None, Body(embed=True, alias="user")] = None):
+        return {"owner": None if owner is None else owner.id}
+
+    return api
+
+
+def test_an_embedded_model_is_at_the_key_of_its_parameter(embedded_api):
+    with TestClient(embedded_api) as client:
+        response = client.post(
+            "/embedded", json={"post": {"title": "t", "author_id": 1, "price": "1"}, "owner": {"id": 4}, "x": 1}
+        )
+        assert response.status_code == 200, response.text
+        assert response.json() == {"title": "t", "owner": 4}
+        assert client.post("/embedded/optional", json={"user": {"id": 2}}).json() == {"owner": 2}
+        assert client.post("/embedded/optional").json() == {"owner": None}
+        assert client.post("/embedded/optional", json={}).json() == {"owner": None}
+
+
+def test_every_error_of_an_embedded_model_is_in_one_422_under_its_key(embedded_api):
+    with TestClient(embedded_api) as client:
+        response = client.post("/embedded", json={"post": {"title": "", "price": "-1"}, "owner": {"id": 1}})
+        missing = client.post("/embedded", json={"owner": {"id": 1}})
+        not_json = client.post("/embedded", content=b"{bad", headers={"content-type": "application/json"})
+
+    assert response.status_code == 422
+    assert [error["loc"] for error in response.json()["detail"]] == [
+        ["body", "post", "title"],
+        ["body", "post", "author_id"],
+        ["body", "post", "price"],
+    ]
+    assert missing.json()["detail"] == [{"loc": ["body", "post"], "msg": "Field required", "type": "missing"}]
+    assert not_json.status_code == 422
+    assert not_json.json()["detail"][0]["type"] == "json_invalid"
+
+
+def test_the_openapi_body_of_an_embedded_model_is_an_object_with_its_key(embedded_api):
+    document = SchemaGenerator(embedded_api, OpenAPIConfig(title="Embedded", version="1")).generate().to_schema()
+    validate(document)
+    body = document["paths"]["/embedded"]["post"]["requestBody"]
+    assert body["content"]["application/json"]["schema"] == {
+        "type": "object",
+        "properties": {"post": {"$ref": "#/components/schemas/CreatePost"}},
+        "required": ["post"],
+    }
+    optional = document["paths"]["/embedded/optional"]["post"]["requestBody"]
+    assert optional["required"] is False
+    assert "user" in optional["content"]["application/json"]["schema"]["properties"]

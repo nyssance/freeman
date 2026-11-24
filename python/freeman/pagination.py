@@ -34,8 +34,12 @@ from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.db import connections
 from django.db.models import CompositePrimaryKey, F, Field, IntegerField
 from django.db.models.fields.tuple_lookups import Tuple, TupleGreaterThan, TupleLessThan
+from pydantic import BaseModel
+from pydantic import Field as PydanticField
+from pydantic import ValidationError as PydanticValidationError
 
 from . import _json
+from ._pydantic import adapter_for, compile_queryset_reader, is_pydantic_model, response_failure
 from .concurrency import run_in_orm_executor
 from .exceptions import ResponseValidationError, UnloadedRelationError
 from .middleware.middleware import note_config_decorator
@@ -47,6 +51,7 @@ __all__ = [
     "LimitOffsetPagination",
     "CursorPagination",
     "PaginatedResponse",
+    "Page",
     "paginate",
     "extract_pagination_item_type",
 ]
@@ -149,6 +154,49 @@ class PaginatedResponse(msgspec.Struct, Generic[T], omit_defaults=True):  # noqa
     previous_cursor: str | None = None
 
 
+def _unset(value: Any) -> bool:
+    return value is None
+
+
+# An optional field of the envelope is not in the JSON when it is None.
+_Optional = PydanticField(None, exclude_if=_unset)
+
+
+class Page(BaseModel, Generic[T]):  # noqa: UP046 — PEP 695 params are unresolvable under PEP 563
+    """The pagination envelope of a Pydantic item type: ``Page[Item]``.
+
+    It has the fields of ``PaginatedResponse`` and the same wire shape: an
+    optional field that is None is not in the JSON. ``@paginate`` uses it for
+    a Pydantic item type when the paginator keeps the default ``response_class``.
+    """
+
+    items: list[T]
+    total: int
+    has_next: bool
+    has_previous: bool
+    page: int | None = _Optional
+    page_size: int | None = _Optional
+    total_pages: int | None = _Optional
+    next_page: int | None = _Optional
+    previous_page: int | None = _Optional
+    limit: int | None = _Optional
+    offset: int | None = _Optional
+    next_cursor: str | None = _Optional
+    previous_cursor: str | None = _Optional
+
+
+def envelope_type(pagination_class: type[PaginationBase], item_type: Any) -> Any:
+    """The envelope of one page of ``item_type``: ``response_class[item_type]``.
+
+    A Pydantic item type gets ``Page[item_type]`` when the paginator has the
+    default ``PaginatedResponse``, so Pydantic validates and encodes the page.
+    """
+    response_class = pagination_class.response_class
+    if response_class is PaginatedResponse and is_pydantic_model(item_type):
+        return Page[item_type]
+    return response_class[item_type]
+
+
 def extract_pagination_item_type(response_type: Any) -> type | None:
     """
     Extract item type from list[T] or PaginatedResponse[T] for pagination.
@@ -163,6 +211,8 @@ def extract_pagination_item_type(response_type: Any) -> type | None:
     Returns:
         The item type (e.g., UserSerializer), or None if not extractable
     """
+    if (item_type := _pydantic_item_type(response_type)) is not None:
+        return item_type
     origin = get_origin(response_type)
     args = get_args(response_type)
 
@@ -177,6 +227,14 @@ def extract_pagination_item_type(response_type: Any) -> type | None:
     if origin is PaginatedResponse:
         return args[0]
 
+    return None
+
+
+def _pydantic_item_type(response_type: Any) -> type | None:
+    """The item type of ``Page[T]``, else None. A Pydantic generic has no ``get_origin()``."""
+    metadata = getattr(response_type, "__pydantic_generic_metadata__", None)
+    if metadata and metadata["origin"] is Page and metadata["args"]:
+        return metadata["args"][0]
     return None
 
 
@@ -307,7 +365,7 @@ class PaginationBase(ABC):
             # Backwards compatibility: use _model_to_dict fallback
             return [self._model_to_dict(item) for item in items]
 
-        convert_page = _struct_page_converter(self.serializer_class)
+        convert_page = _struct_page_converter(self.serializer_class) or _pydantic_page_converter(self.serializer_class)
         if convert_page is not None:
             return convert_page(items)
 
@@ -317,7 +375,7 @@ class PaginationBase(ABC):
         # Fallback for unknown serializer types
         return [self._model_to_dict(item) for item in items]
 
-    async def _evaluate_queryset_slice(self, queryset: Any) -> list[Any]:
+    async def _evaluate_queryset_slice(self, queryset: Any, project: bool = True) -> list[Any]:
         """
         Evaluate a queryset slice to a list of raw items.
 
@@ -329,6 +387,9 @@ class PaginationBase(ABC):
 
         Returns:
             List of raw items (Django models or dicts from values())
+
+        A Pydantic item type reads the slice with ``values()`` when its fields
+        are columns (``compile_queryset_reader``), unless ``project`` is False.
         """
         items = []
 
@@ -342,6 +403,8 @@ class PaginationBase(ABC):
                 # Pre-load what the item serializer reads (select_related /
                 # prefetch_related / annotate) so a page never costs N+1.
                 queryset = serializer_class._prepare_queryset(queryset)
+            elif project and (readers := _pydantic_queryset_reader(serializer_class)) is not None:
+                return await readers[1](queryset)
             return await run_in_orm_executor(list, queryset)
         # Non-QuerySet async iterables (has __aiter__)
         if hasattr(queryset, "__aiter__"):
@@ -767,7 +830,9 @@ class CursorPagination(PaginationBase):
                 ordered_qs = ordered_qs.filter(**{f"{ordering_field}__{lookup}": cursor_value})
 
         # Fetch page_size + 1 items to determine if there's a next page
-        raw_items = await self._evaluate_queryset_slice(ordered_qs[: page_size + 1])
+        # The next cursor reads the ordering value and the primary key of the
+        # last row, so the rows stay instances (or the dicts of the values() of the handler).
+        raw_items = await self._evaluate_queryset_slice(ordered_qs[: page_size + 1], project=False)
 
         # Check if there are more items
         has_next = len(raw_items) > page_size
@@ -889,6 +954,38 @@ def _struct_page_converter(item_type: type) -> Callable[[list[Any]], list[Any]] 
     return convert_page
 
 
+@cache
+def _pydantic_page_converter(item_type: Any) -> Callable[[list[Any]], list[Any]] | None:
+    """The validation of one page for a Pydantic item type, else None. Built one time per type.
+
+    It is that of a ``list[Model]`` response type with no ``@paginate``: the
+    model reads a dict by key and each other object by attribute, and an item
+    that does not fit gives the same response validation error.
+    """
+    if not is_pydantic_model(item_type):
+        return None
+    validate = adapter_for(list[item_type]).validate_python
+
+    def convert_page(items: list[Any]) -> list[Any]:
+        try:
+            return validate(items, from_attributes=True)
+        except PydanticValidationError as exc:
+            failure = response_failure(exc)
+            raise ResponseValidationError([
+                {"loc": ["response"], "msg": str(failure), "type": "validation_error"}
+            ]) from exc
+
+    return convert_page
+
+
+@cache
+def _pydantic_queryset_reader(item_type: Any) -> tuple[Callable, Callable] | None:
+    """The QuerySet readers of a Pydantic item type, else None. See ``compile_queryset_reader``."""
+    if not is_pydantic_model(item_type):
+        return None
+    return compile_queryset_reader(list[item_type])
+
+
 def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
     """
     Decorator to apply pagination to a route handler.
@@ -944,7 +1041,11 @@ def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
 
             if cached_paginator is None:
                 cached_paginator = pagination_class()
-                cached_paginator.serializer_class = getattr(wrapper, "__serializer_class__", None)
+                item_type = getattr(wrapper, "__serializer_class__", None)
+                cached_paginator.serializer_class = item_type
+                if pagination_class.response_class is PaginatedResponse and is_pydantic_model(item_type):
+                    # The Pydantic envelope, as the route documents it.
+                    cached_paginator.response_class = envelope_type(pagination_class, item_type)
 
             request = request_getter(args, kwargs)
             if added_request_index is not None:
