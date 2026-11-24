@@ -88,6 +88,8 @@ def field_has_upload_file(field: FieldDefinition) -> bool:
 
     # Check if annotation is a struct with UploadFile fields
     annotation = unwrap_optional(field.annotation)
+    if is_pydantic_model(annotation):
+        return any(is_upload_file_type(model_field.annotation) for model_field in param_fields(annotation))
     if is_msgspec_struct(annotation):
         for struct_field in msgspec.structs.fields(annotation):
             if is_upload_file_type(struct_field.type):
@@ -209,8 +211,7 @@ def _check_field_type(fn: Callable, field: FieldDefinition) -> None:
     if field.source in _TEXT_SOURCES:
         if is_msgspec_struct(inner) or reads_text_value(annotation):
             return
-        # A Pydantic model reads a query, a header or a cookie map. A form is not one of them yet.
-        if is_pydantic_model(inner) and field.source != "form":
+        if is_pydantic_model(inner):
             return
         hint = (
             "Bolt converts text to str, int, float, bool, Decimal, UUID, date, datetime, time, timedelta, "

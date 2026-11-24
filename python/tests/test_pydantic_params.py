@@ -16,7 +16,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from freeman import BoltAPI
 from freeman.openapi import OpenAPIConfig
 from freeman.openapi.schema_generator import SchemaGenerator
-from freeman.params import Cookie, Form, Header, Query
+from freeman.params import Cookie, Header, Query
 from freeman.testing import TestClient
 
 
@@ -496,19 +496,6 @@ def test_a_model_key_and_a_typed_parameter_of_that_key_fail_at_registration():
 
     with pytest.raises(TypeError, match="read the same query key 'page' with different types"):
         api.get("/paging")(handler)
-
-
-def test_a_form_model_is_refused():
-    api = BoltAPI()
-
-    class Login(BaseModel):
-        name: str
-
-    async def handler(data: Annotated[Login, Form()]):
-        return {}
-
-    with pytest.raises(TypeError):
-        api.post("/login")(handler)
 
 
 # --- OpenAPI ---------------------------------------------------------------------------

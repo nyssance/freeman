@@ -320,19 +320,25 @@ def _add_file_constraints(param: Param, part_name: str, target: dict[str, dict[s
 def _collect_struct_file_constraints(field: Any, target: dict[str, dict[str, Any]]) -> None:
     """Record the File() constraints of the upload fields of a form struct.
 
-    The part name of a struct field is its msgspec encoded name. The File()
-    marker is in the Annotated type of the field, also behind Optional.
+    The part name of a struct field is its msgspec encoded name, and of a
+    Pydantic field its key. The File() marker is in the Annotated type of the
+    field, also behind Optional.
     """
     unwrapped = unwrap_optional(field.annotation)
-    if not is_msgspec_struct(unwrapped):
+    if is_pydantic_model(unwrapped):
+        # The part name is the key of the field. Pydantic keeps File() in the metadata of the field.
+        parts = [(model_field.key, model_field.annotation) for model_field in param_fields(unwrapped)]
+    elif is_msgspec_struct(unwrapped):
+        parts = [(struct_field.encode_name, struct_field.type) for struct_field in msgspec.structs.fields(unwrapped)]
+    else:
         return
-    for struct_field in msgspec.structs.fields(unwrapped):
-        annotation = unwrap_optional(struct_field.type)
+    for part_name, part_type in parts:
+        annotation = unwrap_optional(part_type)
         if get_origin(annotation) is not Annotated:
             continue
         for extra in get_args(annotation)[1:]:
             if isinstance(extra, Param) and extra.source == "file":
-                _add_file_constraints(extra, struct_field.encode_name, target)
+                _add_file_constraints(extra, part_name, target)
 
 
 def _compile_rust_arg_bindings(handler_meta: dict[str, Any]) -> list[dict[str, Any]] | None:
@@ -527,7 +533,9 @@ def add_optimization_flags_to_metadata(metadata: dict[str, Any] | None, handler_
     request_fields = (*handler_meta["fields"], *handler_meta["dependency_fields"])
     file_max_sizes = [field.param.max_size for field in request_fields if field.source == "file"]
     has_form_struct = any(
-        field.source == "form" and is_msgspec_struct(unwrap_optional(field.annotation)) for field in request_fields
+        field.source == "form"
+        and (is_msgspec_struct(model := unwrap_optional(field.annotation)) or is_pydantic_model(model))
+        for field in request_fields
     )
     if file_max_sizes and None not in file_max_sizes and not has_form_struct:
         metadata["max_upload_size"] = max(file_max_sizes)

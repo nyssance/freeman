@@ -486,6 +486,8 @@ def create_form_extractor(
     """
     # Check if annotation is a Struct/Serializer type
     unwrapped = unwrap_optional(annotation)
+    if is_pydantic_model(unwrapped):
+        return _create_pydantic_form_extractor(unwrapped, default, other_keys)
     if is_msgspec_struct(unwrapped):
         return _create_param_struct_extractor(unwrapped, default, "form field", other_keys)
 
@@ -983,6 +985,67 @@ def _create_pydantic_param_extractor(model: type, default: Any, source: str, oth
 
     extract.needs_files_map = False  # type: ignore[attr-defined]
     return _or_struct_default(extract, default, keys, needs_files=False)
+
+
+def _create_pydantic_form_extractor(model: type, default: Any, other_keys: frozenset[str]) -> Callable:
+    """Create an extractor that validates a Pydantic model from the form fields and the file parts.
+
+    The ``loc`` of an error starts with ``body``, as for a form struct. A text
+    field that the form repeats keeps its last value, and a sequence field
+    gets each value. An ``UploadFile`` field gets the first file of its part,
+    a ``list[UploadFile]`` field each file. The extractor builds the
+    UploadFiles before the model validates, and the request closes them after
+    the handler. Rust checks the ``File()`` constraints of each part.
+    """
+    fields = param_fields(model)
+    keys = tuple(field.key for field in fields)
+    sequence_keys = frozenset(field.key for field in fields if _is_sequence_field(field.annotation))
+    upload_keys = tuple(
+        (field.key, field.key in sequence_keys) for field in fields if is_upload_file_type(field.annotation)
+    )
+    takes_extra = model.model_config.get("extra") in ("forbid", "allow")
+    dropped = other_keys - set(keys) if takes_extra else frozenset()
+    run = _pydantic_validator(model, "body")
+
+    def collect(form_map: dict[str, Any]) -> dict[str, Any]:
+        values = {}
+        for key, value in form_map.items():
+            if key in dropped:
+                continue
+            if key in sequence_keys:
+                values[key] = value if isinstance(value, list) or value is None else [value]
+            else:
+                values[key] = value[-1] if type(value) is list and value else value
+        return values
+
+    if not upload_keys:
+
+        def extract(form_map: dict[str, Any]) -> Any:
+            return run(collect(form_map))
+
+        extract.needs_files_map = False  # type: ignore[attr-defined]
+        return _or_struct_default(extract, default, keys, needs_files=False)
+
+    def extract_with_files(form_map: dict[str, Any], files_map: dict[str, Any] | None = None) -> Any:
+        values = collect(form_map)
+        if files_map:
+            for key, value in files_map.items():
+                if key != "_upload_files" and key not in dropped:
+                    values[key] = value
+            uploads = files_map.setdefault("_upload_files", [])
+            for key, many in upload_keys:
+                infos = files_map.get(key)
+                if infos is None:
+                    continue
+                if not isinstance(infos, list):
+                    infos = [infos]
+                files = [UploadFile.from_file_info(info) for info in (infos if many else infos[:1])]
+                uploads.extend(files)
+                values[key] = files if many else files[0]
+        return run(values)
+
+    extract_with_files.needs_files_map = True  # type: ignore[attr-defined]
+    return _or_struct_default(extract_with_files, default, keys, needs_files=True)
 
 
 def _create_pydantic_header_extractor(model: type, default: Any) -> Callable:

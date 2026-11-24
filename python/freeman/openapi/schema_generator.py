@@ -1279,6 +1279,14 @@ class SchemaGenerator:
                     # msgspec.inspect.type_info (CustomType-wrapped) so the
                     # UploadFile branch in _type_to_schema fires for file fields.
                     unwrapped = unwrap_optional(annotation)
+                    if is_pydantic_model(unwrapped):
+                        for model_field in param_fields(unwrapped):
+                            properties[model_field.key] = self._pydantic_param_schema(
+                                unwrapped, model_field, single_value=False, describe=True
+                            )
+                            if model_field.required:
+                                required.append(model_field.key)
+                        continue
                     if is_msgspec_struct(unwrapped):
                         field_configs = self._field_configs(unwrapped)
                         for struct_field in msgspec.structs.fields(unwrapped):
@@ -2012,11 +2020,14 @@ class SchemaGenerator:
         self._pydantic_uses.append((placeholder, model, mode, adapter_for(model), None))
         return placeholder
 
-    def _pydantic_param_schema(self, model: type, field: ParamField, single_value: bool) -> _PydanticSchema:
+    def _pydantic_param_schema(
+        self, model: type, field: ParamField, single_value: bool, describe: bool = False
+    ) -> _PydanticSchema:
         """Note the schema of one field of a Pydantic query, header or cookie model.
 
         The schema is the one of the field type, with its constraints and its
-        default. The parameter holds the description. A header or a cookie gives one value, so
+        default. A parameter holds the description itself, and a form property
+        (``describe``) has it in its schema. A header or a cookie gives one value, so
         its array holds exactly one item, as for a struct field.
         """
         placeholder = _PydanticSchema()
@@ -2028,6 +2039,8 @@ class SchemaGenerator:
             schema = dict(schema)
             if has_default:
                 schema["default"] = adapter.dump_python(default, mode="json")
+            if describe and field.description:
+                schema["description"] = field.description
             if single_value and schema.get("type") == "array":
                 schema["maxItems"] = 1
                 if not (has_default and _is_empty_sequence(default)):

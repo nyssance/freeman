@@ -8,6 +8,7 @@ from tempfile import SpooledTemporaryFile
 from typing import Any, BinaryIO
 
 from django.core.files.base import File
+from pydantic_core import PydanticCustomError, core_schema
 
 __all__ = ["UploadFile"]
 
@@ -80,6 +81,26 @@ class UploadFile:
         if file_data:
             self._file.write(file_data)
             self._file.seek(0)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source: Any, handler: Any) -> core_schema.CoreSchema:
+        """Let a Pydantic form model hold an UploadFile field, with no ``arbitrary_types_allowed``.
+
+        The form extractor builds the UploadFile from the part before the model
+        validates. Any other value, such as the text of a form field, is an error.
+        """
+
+        def validate(value: Any) -> UploadFile:
+            if isinstance(value, cls):
+                return value
+            raise PydanticCustomError("file_type", "Expected uploaded file, got {kind}", {"kind": type(value).__name__})
+
+        return core_schema.no_info_plain_validator_function(validate)
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, schema: Any, handler: Any) -> dict[str, Any]:
+        """A file part, as the schema of a form struct shows it."""
+        return {"type": "string", "format": "binary"}
 
     @classmethod
     def from_file_info(cls, file_info: dict[str, Any]) -> UploadFile:
