@@ -10,7 +10,6 @@ from decimal import Decimal
 from enum import Enum
 from typing import Annotated, Literal
 
-import msgspec
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import File as DjangoFile
@@ -76,10 +75,8 @@ class Shade(Enum):
     RED = "red"
 
 
-# Stays on a Struct: a Pydantic form model does not convert the text "2" to
-# Literal[1, 2]. test_pydantic_forms.py covers the other field types.
-class TypedFileForm(msgspec.Struct):
-    """Struct with a file and a field of each type that a form text value becomes."""
+class TypedFileForm(BaseModel):
+    """Model with a file and a field of each type that a form text value becomes."""
 
     doc: UploadFile
     count: int
@@ -1244,7 +1241,7 @@ class TestFormStructWithUploadFile:
                     data.level,
                     data.ids,
                 ],
-                "types": [type(getattr(data, name)).__name__ for name in TypedFileForm.__struct_fields__],
+                "types": [type(getattr(data, name)).__name__ for name in TypedFileForm.model_fields],
             }
 
         token = uuid.uuid4()

@@ -8,9 +8,11 @@ Tests for OpenAPI schema accuracy improvements:
 
 import dataclasses
 import datetime
+import decimal
 import enum
 import sys
 import types
+import uuid
 from typing import Annotated, Any, Literal, NamedTuple, TypedDict
 
 import msgspec
@@ -383,19 +385,16 @@ class Shelf(BaseModel):
     position: Position
 
 
-# msgspec.Struct: the engine writes the examples of each variant of a struct union only.
-class StructWidget(msgspec.Struct):
-    name: str
-
-
-class Circle(msgspec.Struct, tag="circle"):
-    center: StructWidget
+class Circle(BaseModel):
+    type: Literal["circle"] = "circle"
+    center: Widget
     labels: dict[str, str]
     note: str | None
     radius: float = 1.0
 
 
-class Square(msgspec.Struct, tag="square"):
+class Square(BaseModel):
+    type: Literal["square"] = "square"
     side: float
 
 
@@ -432,7 +431,10 @@ def test_response_model_dict_documents_each_status_and_the_default_response():
 
 
 def test_tagged_union_examples_show_nested_values_for_each_response():
-    """An example holds a value for a nested struct, a dict and an optional field. The ``...`` entry has examples."""
+    """An example holds a value for a nested model, a dict, an optional field and a default.
+
+    The ``...`` entry has examples too. The tag field keys each example.
+    """
     api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
 
     @api.get("/shape", response_model={200: Circle | Square, ...: Circle | Square})
@@ -443,13 +445,50 @@ def test_tagged_union_examples_show_nested_values_for_each_response():
     examples = {
         "circle": {
             "summary": "Circle variant",
-            "value": {"type": "circle", "center": {"name": "string"}, "labels": {}, "note": "string", "radius": 0.0},
+            "value": {"type": "circle", "center": {"name": "string"}, "labels": {}, "note": "string", "radius": 1.0},
         },
         "square": {"summary": "Square variant", "value": {"type": "square", "side": 0.0}},
     }
 
     assert responses["200"]["content"]["application/json"]["examples"] == examples
     assert responses["default"]["content"]["application/json"]["examples"] == examples
+
+
+class Pet(BaseModel):
+    id: uuid.UUID
+    born: datetime.datetime
+    tags: list[int]
+    priority: DjangoPriority
+
+
+class Robot(BaseModel):
+    serial: Literal["r1", "r2"]
+    price: decimal.Decimal
+    pair: tuple[int, str]
+
+
+def test_union_examples_without_a_tag_are_keyed_by_the_model_name():
+    """A union of models with no tag field keys each example by its model. Each format gets its placeholder."""
+    api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
+
+    @api.get("/thing", response_model={200: Pet | Robot})
+    async def thing():
+        pass
+
+    content = _get_schema(api)["paths"]["/thing"]["get"]["responses"]["200"]["content"]["application/json"]
+
+    assert content["examples"] == {
+        "Pet": {
+            "summary": "Pet variant",
+            "value": {
+                "id": "00000000-0000-0000-0000-000000000000",
+                "born": "2024-01-01T00:00:00Z",
+                "tags": [0],
+                "priority": DjangoPriority.LOW.value,
+            },
+        },
+        "Robot": {"summary": "Robot variant", "value": {"serial": "r1", "price": "0", "pair": [0, "string"]}},
+    }
 
 
 def test_request_body_is_required_when_the_route_needs_a_value():
@@ -1763,8 +1802,7 @@ def test_genuinely_indistinguishable_types_raise():
 
     StatusEnum = Status
 
-    # msgspec.Struct: Pydantic names two such models `<qualname>__1` and `<qualname>__2` and does not raise.
-    class Status(msgspec.Struct):  # noqa: F811 - intentional clash with the enum above
+    class Status(BaseModel):  # noqa: F811 - intentional clash with the enum above
         code: int
 
     StatusStruct = Status
@@ -1772,7 +1810,7 @@ def test_genuinely_indistinguishable_types_raise():
     assert StatusEnum.__qualname__ == StatusStruct.__qualname__
     assert StatusEnum.__module__ == StatusStruct.__module__
 
-    class Wrapper(msgspec.Struct):
+    class Wrapper(BaseModel):
         state: StatusEnum
         detail: StatusStruct
 

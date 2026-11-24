@@ -32,6 +32,7 @@ __all__ = (
     "build_body_extractor",
     "compile_queryset_reader",
     "compile_response_coercer",
+    "compile_response_encoder",
     "encode_model",
     "is_pydantic_model",
     "names_pydantic_model",
@@ -311,6 +312,46 @@ def compile_queryset_reader(annotation: Any) -> tuple[Callable[[Any], Any], Call
     return read, read_async
 
 
+def compile_response_encoder(annotation: Any) -> Callable[[Any], bytes]:
+    """The JSON bytes of a result for a return type that names a Pydantic model.
+
+    A value that already is the model is dumped as it is. Each other value
+    (a dict, an object, a list of them) goes through the model first, which
+    reads an object by attribute. A value that does not fit raises a
+    ``ResponseFailure``. A QuerySet is not read here.
+    """
+    adapter = adapter_for(annotation)
+    validate = adapter.validate_python
+    dump = adapter.dump_json
+    model = annotation if is_pydantic_model(annotation) else None
+    list_hint = _list_hint(annotation)
+
+    def encode(value: Any) -> bytes:
+        if model is not None and type(value) is model:
+            return model.__pydantic_serializer__.to_json(value)
+        try:
+            return dump(validate(value, from_attributes=True))
+        except ValidationError as e:
+            if list_hint is not None and isinstance(value, (list, tuple)):
+                raise ResponseFailure(
+                    list_hint, [{"loc": ["response"], "msg": list_hint, "type": "validation_error"}]
+                ) from e
+            raise response_failure(e) from e
+
+    return encode
+
+
+def _list_hint(annotation: Any) -> str | None:
+    """The error of a list for a single model, which names the list type, or None for another type."""
+    if not is_pydantic_model(annotation):
+        return None
+    name = annotation.__name__
+    return (
+        f"Response type mismatch: expected a single {name}, "
+        f"but handler returned a list. Did you mean to annotate with list[{name}]?"
+    )
+
+
 def compile_response_coercer(annotation: Any) -> tuple[Callable[[Any], Any], Callable[[Any], Any]]:
     """Build the response step of a return type that names a Pydantic model, once per route.
 
@@ -323,20 +364,12 @@ def compile_response_coercer(annotation: Any) -> tuple[Callable[[Any], Any], Cal
     QuerySet: the async form loads it on the ORM executor. A ``list[Model]``
     loads the QuerySet with ``values()`` when it can (``compile_queryset_reader``).
     """
-    adapter = adapter_for(annotation)
-    validate = adapter.validate_python
-    dump = adapter.dump_json
-    model = annotation if is_pydantic_model(annotation) else None
+    to_json = compile_response_encoder(annotation)
     readers = compile_queryset_reader(annotation)
     read = list if readers is None else readers[0]
 
     def encode(value: Any) -> msgspec.Raw:
-        if model is not None and type(value) is model:
-            return msgspec.Raw(model.__pydantic_serializer__.to_json(value))
-        try:
-            return msgspec.Raw(dump(validate(value, from_attributes=True)))
-        except ValidationError as e:
-            raise response_failure(e) from e
+        return msgspec.Raw(to_json(value))
 
     def coerce(value: Any) -> msgspec.Raw:
         if isinstance(value, QuerySet):

@@ -7,7 +7,7 @@ field and reports every error of the model in one 422.
 
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 import pytest
 from openapi_spec_validator import validate
@@ -306,6 +306,66 @@ def test_a_renamed_sequence_field_leaves_its_python_name_as_one_value():
 
     assert response.status_code == 200, response.text
     assert response.json() == {"filters": ["a", "b"], "tags": "solo"}
+
+
+class _LiteralQuery(BaseModel):
+    level: Literal[1, 2] = 1
+    mode: Literal["auto", 0, 1.5, True] = "auto"
+    same: Literal[1, "1"] | None = None
+    levels: list[Literal[1, 2]] = []
+
+
+class _LiteralHeaders(BaseModel):
+    x_level: Literal[1, 2] = 1
+
+
+class _LiteralCookies(BaseModel):
+    level: Literal[1, 2] = 1
+
+
+def _show_literals(model: BaseModel) -> dict:
+    return {name: [value, type(value).__name__] for name, value in model.model_dump().items()}
+
+
+def test_a_literal_field_of_a_parameter_model_converts_the_text_to_its_member():
+    """A parameter value is text. A Literal member that is not a str still matches the text that names it."""
+    api = BoltAPI()
+
+    @api.get("/query")
+    async def query(params: Annotated[_LiteralQuery, Query()]):
+        return _show_literals(params)
+
+    @api.get("/header")
+    async def header(params: Annotated[_LiteralHeaders, Header()]):
+        return _show_literals(params)
+
+    @api.get("/cookie")
+    async def cookie(params: Annotated[_LiteralCookies, Cookie()]):
+        return _show_literals(params)
+
+    with TestClient(api) as client:
+        response = client.get("/query?level=2&mode=1.5&same=1&levels=2&levels=1")
+        assert response.status_code == 200, response.text
+        # The str member of an ambiguous literal matches first.
+        assert response.json() == {
+            "level": [2, "int"],
+            "mode": [1.5, "float"],
+            "same": ["1", "str"],
+            "levels": [[2, 1], "list"],
+        }
+        assert client.get("/query?mode=0").json()["mode"] == [0, "int"]
+        assert client.get("/query?mode=true").json()["mode"] == [True, "bool"]
+        assert client.get("/query?mode=auto").json()["mode"] == ["auto", "str"]
+        assert client.get("/header", headers={"X-Level": "2"}).json() == {"x_level": [2, "int"]}
+        client.cookies.set("level", "2")
+        assert client.get("/cookie").json() == {"level": [2, "int"]}
+
+        bad = client.get("/query?level=3&levels=1&levels=x")
+        assert bad.status_code == 422
+        assert [(error["loc"], error["type"]) for error in bad.json()["detail"]] == [
+            (["query", "level"], "literal_error"),
+            (["query", "levels", 1], "literal_error"),
+        ]
 
 
 class _TagHeaders(BaseModel):

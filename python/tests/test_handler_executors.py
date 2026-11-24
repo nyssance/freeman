@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-import msgspec
 import pytest
 from django.test import override_settings
 from pydantic import BaseModel
@@ -31,15 +30,7 @@ def in_task() -> bool:
         return False
 
 
-# The executor matrix stays on a Struct: a Pydantic response type takes no sync
-# executor yet, and a Pydantic model returned with no declared type is a 500.
-class Item(msgspec.Struct):
-    id: int
-    q: str
-    in_task: bool
-
-
-class ItemModel(BaseModel):
+class Item(BaseModel):
     id: int
     q: str
     in_task: bool
@@ -76,6 +67,20 @@ def register_routes(api: BoltAPI) -> None:
     async def trivial_object_list(item_id: int, *, q: str) -> list[Item]:
         # An object converts by attribute, on the slow path.
         return [SimpleNamespace(id=item_id, q=q, in_task=in_task())]
+
+    @api.get("/trivial/untyped-struct/{item_id}")
+    async def trivial_untyped_struct(item_id: int, *, q: str):
+        return Item(id=item_id, q=q, in_task=in_task())
+
+    @api.get("/awaits/untyped-struct/{item_id}")
+    async def awaits_untyped_struct(item_id: int, *, q: str):
+        await asyncio.sleep(0)
+        return Item(id=item_id, q=q, in_task=in_task())
+
+    @api.get("/awaits/untyped-struct-in-dict/{item_id}")
+    async def awaits_untyped_struct_in_dict(item_id: int, *, q: str):
+        await asyncio.sleep(0)
+        return {"item": [Item(id=item_id, q=q, in_task=in_task())]}
 
     @api.get("/awaits/untyped/{item_id}")
     async def awaits_untyped(item_id: int, *, q: str):
@@ -145,6 +150,14 @@ def register_routes(api: BoltAPI) -> None:
         # Not a dict or a list, so the general serializer encodes it.
         return Item(id=item_id, q=q, in_task=in_task())
 
+    @api.get("/sync/untyped-struct-list/{item_id}")
+    def sync_untyped_struct_list(item_id: int, *, q: str):
+        return [Item(id=item_id, q=q, in_task=in_task())]
+
+    @api.get("/sync/untyped-struct-in-dict/{item_id}")
+    def sync_untyped_struct_in_dict(item_id: int, *, q: str):
+        return {"item": Item(id=item_id, q=q, in_task=in_task())}
+
     @api.get("/sync/object-list/{item_id}")
     def sync_object_list(item_id: int, *, q: str) -> list[Item]:
         return [SimpleNamespace(id=item_id, q=q, in_task=in_task())]
@@ -173,6 +186,9 @@ TASK = {**ITEM, "in_task": True}
         ("/trivial/struct/7", NO_TASK),
         ("/trivial/struct-list/7", [NO_TASK]),
         ("/trivial/object-list/7", [NO_TASK]),
+        ("/trivial/untyped-struct/7", NO_TASK),
+        ("/awaits/untyped-struct/7", TASK),
+        ("/awaits/untyped-struct-in-dict/7", {"item": [TASK]}),
         ("/awaits/untyped/7", TASK),
         ("/awaits/dict/7", TASK),
         ("/awaits/struct/7", TASK),
@@ -187,6 +203,8 @@ TASK = {**ITEM, "in_task": True}
         ("/sync/struct-list/7", [NO_TASK]),
         ("/sync/untyped-list/7", [NO_TASK]),
         ("/sync/untyped-struct/7", NO_TASK),
+        ("/sync/untyped-struct-list/7", [NO_TASK]),
+        ("/sync/untyped-struct-in-dict/7", {"item": NO_TASK}),
         ("/sync/object-list/7", [NO_TASK]),
         ("/sync/struct-from-dict/7", NO_TASK),
         ("/sync/struct-list-from-tuple/7", [NO_TASK]),
@@ -319,6 +337,7 @@ SYNC_CASES = [
     ("/sync/struct-list/7", [NO_TASK]),
     ("/sync/untyped-list/7", [NO_TASK]),
     ("/sync/untyped-struct/7", NO_TASK),
+    ("/sync/untyped-struct-list/7", [NO_TASK]),
     ("/sync/object-list/7", [NO_TASK]),
     ("/sync/struct-from-dict/7", NO_TASK),
     ("/sync/struct-list-from-tuple/7", [NO_TASK]),
@@ -345,6 +364,39 @@ def test_the_async_executor_of_a_sync_handler_keeps_the_response(path, expected)
 
     assert response.status_code == 200, response.text
     assert response.json() == in_a_task(expected)
+
+
+class Other(BaseModel):
+    name: str
+    in_task: bool
+
+
+class SubItem(Item):
+    secret: str = "hidden"
+
+
+@pytest.mark.parametrize("middleware", [[], [PassThrough]], ids=["sync-dispatch", "async-executor"])
+def test_a_union_or_a_subclass_of_a_model_takes_the_inline_path(middleware):
+    """A union of models encodes the instance of its arm. A subclass instance gives the fields of the declared model."""
+    api = BoltAPI(middleware=middleware)
+
+    @api.get("/union")
+    def union() -> Item | Other:
+        return Other(name="bo", in_task=in_task())
+
+    @api.get("/subclass")
+    async def subclass() -> Item:
+        return SubItem(id=1, q="none", in_task=in_task())
+
+    @api.get("/subclass-list")
+    def subclass_list() -> list[Item]:
+        return [SubItem(id=1, q="none", in_task=in_task())]
+
+    task = bool(middleware)
+    with TestClient(api) as client:
+        assert client.get("/union").json() == {"name": "bo", "in_task": task}
+        assert client.get("/subclass").json() == {"id": 1, "q": "none", "in_task": task}
+        assert client.get("/subclass-list").json() == [{"id": 1, "q": "none", "in_task": task}]
 
 
 def test_an_async_handler_with_no_await_has_a_running_loop():
@@ -375,7 +427,7 @@ def test_an_async_handler_with_no_await_has_a_running_loop():
 @pytest.mark.parametrize("middleware", [[], [PassThrough]], ids=["sync-dispatch", "async-executor"])
 @pytest.mark.parametrize(
     ("declared", "options"),
-    [(dict, {}), (list[ItemModel], {"validate_response": False})],
+    [(dict, {}), (list[Item], {"validate_response": False})],
     ids=["dict", "list-no-validation"],
 )
 def test_a_route_with_a_json_type_can_return_a_response_object(middleware, declared, options):
@@ -436,16 +488,14 @@ def test_a_queryset_from_a_sync_handler_loads(middleware):
     assert (filtered.status_code, filtered.json()) == (200, [{"title": "One"}]), filtered.text
 
 
-# Stays on a Struct: for a Pydantic type, the error of a QuerySet for a single
-# model does not name the fix (list[TitleRow]).
-class TitleRow(msgspec.Struct):
+class TitleRow(BaseModel):
     title: str
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("middleware", [[], [PassThrough]], ids=["sync-dispatch", "async-executor"])
 def test_a_queryset_from_a_sync_handler_with_a_response_type(middleware):
-    """A list type loads the rows. A single Struct type gets the error that names the fix."""
+    """A list type loads the rows. A single model type gets the error that names the fix."""
     api = BoltAPI(middleware=middleware)
 
     @api.get("/rows")

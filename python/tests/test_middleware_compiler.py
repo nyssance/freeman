@@ -104,7 +104,7 @@ def test_rust_converts_a_constrained_int():
     assert response.json() == {"detail": RUST_INT_ERROR.format(key="n")}
 
 
-def test_rust_converts_an_int_field_of_a_query_struct():
+def test_pydantic_validates_an_int_field_of_a_query_model():
     api = BoltAPI()
 
     @api.get("/items")

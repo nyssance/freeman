@@ -474,6 +474,8 @@ def _build_union_examples(response_type: Any) -> dict[str, Example] | None:
     if origin not in (Union, UnionType):
         return None
     arms = [a for a in get_args(response_type) if a is not type(None)]
+    if arms and all(is_pydantic_model(arm) for arm in arms):
+        return _build_model_union_examples(arms)
     if not _is_tagged_struct_union(arms):
         return None
     examples: dict[str, Example] = {}
@@ -484,6 +486,117 @@ def _build_union_examples(response_type: Any) -> dict[str, Example] | None:
             continue
         examples[str(tag)] = Example(summary=f"{arm.__name__} variant", value=_synthesize_struct_example(arm))
     return examples or None
+
+
+# The placeholder of a JSON schema string with each format, as for a struct field.
+_PLACEHOLDER_BY_FORMAT: dict[str, Any] = {
+    "date-time": _PLACEHOLDER_BY_MSGSPEC_TYPE["DateTimeType"],
+    "date": _PLACEHOLDER_BY_MSGSPEC_TYPE["DateType"],
+    "time": _PLACEHOLDER_BY_MSGSPEC_TYPE["TimeType"],
+    "uuid": _PLACEHOLDER_BY_MSGSPEC_TYPE["UUIDType"],
+    "decimal": _PLACEHOLDER_BY_MSGSPEC_TYPE["DecimalType"],
+    "binary": _PLACEHOLDER_BY_MSGSPEC_TYPE["BytesType"],
+    "base64url": _PLACEHOLDER_BY_MSGSPEC_TYPE["BytesType"],
+}
+_PLACEHOLDER_BY_JSON_TYPE: dict[str, Any] = {
+    "integer": _PLACEHOLDER_BY_MSGSPEC_TYPE["IntType"],
+    "number": _PLACEHOLDER_BY_MSGSPEC_TYPE["FloatType"],
+    "string": _PLACEHOLDER_BY_MSGSPEC_TYPE["StrType"],
+    "boolean": _PLACEHOLDER_BY_MSGSPEC_TYPE["BoolType"],
+    "null": None,
+}
+
+
+def _example_from_json_schema(schema: dict[str, Any], defs: dict[str, Any], depth: int = 0) -> Any:
+    """Build a placeholder value from a Pydantic JSON schema, for OpenAPI ``examples``.
+
+    A default, a const and the first enum value come first. Each other value
+    gets the placeholder of its type, as a struct field does.
+    """
+    if depth > 5:
+        return None
+    ref = schema.get("$ref")
+    if ref is not None:
+        return _example_from_json_schema(defs.get(ref.rsplit("/", 1)[-1], {}), defs, depth + 1)
+    for key in ("default", "const"):
+        if key in schema:
+            return schema[key]
+    if schema.get("enum"):
+        return schema["enum"][0]
+    for key in ("anyOf", "oneOf", "allOf"):
+        arms = [arm for arm in schema.get(key, ()) if arm.get("type") != "null"]
+        if arms:
+            return _example_from_json_schema(arms[0], defs, depth + 1)
+        if key in schema:
+            return None
+    kind = schema.get("type")
+    if isinstance(kind, list):
+        kind = next((k for k in kind if k != "null"), "null")
+    if kind == "object":
+        properties = schema.get("properties", {})
+        return {name: _example_from_json_schema(prop, defs, depth + 1) for name, prop in properties.items()}
+    if kind == "array":
+        if "prefixItems" in schema:
+            return [_example_from_json_schema(item, defs, depth + 1) for item in schema["prefixItems"]]
+        items = schema.get("items")
+        return [_example_from_json_schema(items, defs, depth + 1)] if isinstance(items, dict) else []
+    if kind == "string" and schema.get("format") in _PLACEHOLDER_BY_FORMAT:
+        return _PLACEHOLDER_BY_FORMAT[schema["format"]]
+    return _PLACEHOLDER_BY_JSON_TYPE.get(kind)
+
+
+def _build_model_union_examples(arms: list[type]) -> dict[str, Example] | None:
+    """Emit one example for each model of a union, as for a tagged struct union.
+
+    The key is the value of the tag: a field that holds one constant in each
+    model, such as ``type: Literal["circle"]``. A union with no such field
+    keys each example by the name of its model.
+    """
+    schemas = [TypeAdapter(arm).json_schema(mode="serialization", schema_generator=_BoltJsonSchema) for arm in arms]
+    tag = next(
+        (
+            name
+            for name in schemas[0].get("properties", {})
+            if all("const" in schema.get("properties", {}).get(name, {}) for schema in schemas)
+        ),
+        None,
+    )
+    examples: dict[str, Example] = {}
+    for arm, schema in zip(arms, schemas, strict=True):
+        key = str(schema["properties"][tag]["const"]) if tag is not None else arm.__name__
+        value = _example_from_json_schema(schema, schema.get("$defs", {}))
+        examples[key] = Example(summary=f"{arm.__name__} variant", value=value)
+    return examples or None
+
+
+# Pydantic numbers the definitions of two types with the same module and qualname: ``<key>__1``, ``<key>__2``.
+_NUMBERED_DEF = re.compile(r"__\d+$")
+
+
+def _raise_on_same_qualname(adapters: list[TypeAdapter]) -> None:
+    """Raise ``ComponentNameCollisionError`` for two types with the same module and qualname.
+
+    No name tells such types apart, as on the struct path. The classes come
+    from the core schemas of the adapters.
+    """
+    seen: dict[tuple[str, str], type] = {}
+    visited: set[int] = set()
+    stack: list[Any] = [adapter.core_schema for adapter in adapters]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            if id(node) in visited:
+                continue
+            visited.add(id(node))
+            cls = node.get("cls")
+            if isinstance(cls, type):
+                key = (cls.__module__, cls.__qualname__)
+                existing = seen.setdefault(key, cls)
+                if existing is not cls:
+                    raise ComponentNameCollisionError(cls.__qualname__, cls, existing)
+            stack.extend(node.values())
+        elif isinstance(node, (list, tuple)):
+            stack.extend(node)
 
 
 class SchemaGenerator:
@@ -2190,6 +2303,8 @@ class SchemaGenerator:
             list(inputs.values()), ref_template="#/components/schemas/{model}", schema_generator=_BoltJsonSchema
         )
         components = definitions.get("$defs", {})
+        if any(_NUMBERED_DEF.search(name) for name in components):
+            _raise_on_same_qualname([adapter for *_, adapter, _ in self._pydantic_uses])
         for placeholder, key, mode, _, adjust in self._pydantic_uses:
             schema = schemas[key, mode]
             if adjust is not None:

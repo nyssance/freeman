@@ -941,8 +941,13 @@ def _pydantic_validator(model: type, source: str, locs: dict[str, str] | None = 
     key of the model to the name in the ``loc`` of its error, when they differ.
     """
     validate = adapter_for(model).validate_python
+    literal_plan = tuple(
+        (field.key, convert) for field in param_fields(model) if (convert := _literal_text_converter(field.annotation))
+    )
 
     def run(values: dict[str, Any]) -> Any:
+        if literal_plan:
+            values = _convert_literal_texts(values, literal_plan)
         try:
             return validate(values, strict=False)
         except ValidationError as e:
@@ -955,6 +960,75 @@ def _pydantic_validator(model: type, source: str, locs: dict[str, str] | None = 
             raise RequestValidationError(errors=errors) from e
 
     return run
+
+
+_LITERAL_TEXT_TYPES = (bool, int, float)
+
+
+def _literal_text_converter(annotation: Any) -> Callable[[Any], Any] | None:
+    """The converter of the text of a ``Literal`` field with an int, float or bool member, or None.
+
+    Lax Pydantic does not convert the text "2" to the member 2 of a
+    ``Literal``, and a parameter value is always text. The converter gives
+    the member that the text names: a str member first, then the first other
+    member that the text converts to. A text that names no member stays as
+    it is, and Pydantic reports it. A sequence field converts each item.
+    """
+    inner = unwrap_optional(annotation)
+    if get_origin(inner) is Annotated:
+        inner = unwrap_optional(get_args(inner)[0])
+    if _is_sequence_field(inner):
+        args = get_args(inner)
+        convert_item = _literal_text_converter(args[0]) if len(args) == 1 else None
+        if convert_item is None:
+            return None
+
+        def convert_items(value: Any) -> Any:
+            if isinstance(value, list):
+                return [convert_item(item) for item in value]
+            return value
+
+        return convert_items
+    if get_origin(inner) is not Literal:
+        return None
+    members = get_args(inner)
+    texts = frozenset(member for member in members if isinstance(member, str))
+    others = tuple(
+        (member, adapter_for(type(member)).validate_python) for member in members if type(member) in _LITERAL_TEXT_TYPES
+    )
+    if not others:
+        return None
+
+    def convert(value: Any) -> Any:
+        if not isinstance(value, str) or value in texts:
+            return value
+        for member, validate in others:
+            try:
+                converted = validate(value, strict=False)
+            except ValidationError:
+                continue
+            if type(converted) is type(member) and converted == member:
+                return member
+        return value
+
+    return convert
+
+
+def _convert_literal_texts(
+    values: dict[str, Any], plan: tuple[tuple[str, Callable[[Any], Any]], ...]
+) -> dict[str, Any]:
+    """A copy of ``values`` with the text of each ``Literal`` field converted, or ``values`` when none is there."""
+    converted = values
+    for key, convert in plan:
+        value = values.get(key)
+        if value is None:
+            continue
+        new = convert(value)
+        if new is not value:
+            if converted is values:
+                converted = dict(values)
+            converted[key] = new
+    return converted
 
 
 def _create_pydantic_param_extractor(model: type, default: Any, source: str, other_keys: frozenset[str]) -> Callable:

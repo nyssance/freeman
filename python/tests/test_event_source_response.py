@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterable
+from collections.abc import AsyncIterable, Iterable
 
-import msgspec
 import pytest
 from pydantic import BaseModel
 
@@ -117,13 +116,6 @@ class Item(BaseModel):
     price: float
 
 
-# Stays on msgspec: the route compiler cannot build a Pydantic adapter for
-# AsyncIterable[BaseModel] yet (PydanticSchemaGenerationError at registration).
-class StructItem(msgspec.Struct):
-    name: str
-    price: float
-
-
 @pytest.fixture(scope="module")
 def api():
     api = BoltAPI()
@@ -177,9 +169,9 @@ def api():
         yield {"message": "implicit-world"}
 
     @api.get("/sse-implicit-struct", response_class=EventSourceResponse)
-    async def sse_implicit_struct() -> AsyncIterable[StructItem]:
-        yield StructItem(name="Gadget", price=19.99)
-        yield StructItem(name="Doohickey", price=4.50)
+    async def sse_implicit_struct() -> AsyncIterable[Item]:
+        yield Item(name="Gadget", price=19.99)
+        yield Item(name="Doohickey", price=4.50)
 
     @api.get("/sse-implicit-sse-event", response_class=EventSourceResponse)
     async def sse_implicit_sse_event() -> AsyncIterable[ServerSentEvent]:
@@ -306,6 +298,31 @@ class TestSyncEventSourceResponse:
         assert "text/event-stream" in response.headers["content-type"]
         body = response.content.decode()
         assert 'data: {"sync":"implicit"}' in body
+
+
+def test_a_stream_of_models_registers_frames_each_item_and_documents_the_stream():
+    """The stream type has no adapter. Each item goes through its model, and the schema is an event stream."""
+    api = BoltAPI()
+
+    @api.get("/sync", response_class=EventSourceResponse)
+    def sync_items() -> Iterable[Item]:
+        yield Item(name="Gadget", price=19.99)
+
+    @api.get("/async", response_class=EventSourceResponse)
+    async def async_items() -> AsyncIterable[Item]:
+        yield Item(name="Doohickey", price=4.5)
+
+    api._register_openapi_routes()
+    with TestClient(api) as client:
+        sync_body = client.get("/sync").content
+        async_body = client.get("/async").content
+        document = client.get("/docs/openapi.json").json()
+
+    assert sync_body == b'data: {"name":"Gadget","price":19.99}\n\n'
+    assert async_body == b'data: {"name":"Doohickey","price":4.5}\n\n'
+    for path in ("/sync", "/async"):
+        content = document["paths"][path]["get"]["responses"]["200"]["content"]
+        assert content == {"text/event-stream": {"schema": {"type": "object"}}}
 
 
 # ── Route status and event fields ──
