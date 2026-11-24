@@ -6,6 +6,9 @@ from importlib import import_module
 
 from django.urls import include, path
 
+# Lazy: debug_toolbar loads only after a test adds it to INSTALLED_APPS.
+lazy from debug_toolbar.toolbar import DebugToolbar
+
 
 def toolbar_urlpatterns() -> list:
     """Return ``__debug__/`` URL patterns for the panels in the settings now.
@@ -18,8 +21,6 @@ def toolbar_urlpatterns() -> list:
     """
     # The package attribute ``debug_toolbar.urls`` is a tuple, not the module.
     urls_module = import_module("debug_toolbar.urls")  # needs debug_toolbar in INSTALLED_APPS
-    from debug_toolbar.toolbar import DebugToolbar  # noqa: PLC0415
-
     DebugToolbar._urlpatterns = None
     urls_module.urlpatterns = DebugToolbar.get_urls()
     return [path("__debug__/", include("debug_toolbar.urls"))]

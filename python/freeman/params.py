@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 __all__ = ["Param", "Query", "Path", "Body", "Header", "Cookie", "Form", "File", "Depends"]
 
@@ -387,3 +387,8 @@ class Depends:
 
     use_cache: bool = True
     """Whether to cache the dependency result per request"""
+
+    if TYPE_CHECKING:
+        # Type checkers only: ``x: int = Depends(fn)`` must type-check for any annotation.
+        # At run time the dataclass builds a plain ``Depends`` instance, so ``isinstance`` still works.
+        def __new__(cls, dependency: Callable[..., Any] | None = None, use_cache: bool = True) -> Any: ...

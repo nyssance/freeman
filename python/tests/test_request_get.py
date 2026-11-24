@@ -7,8 +7,8 @@ import time
 import jwt
 
 from freeman import BoltAPI
-from freeman.auth import JWTAuthentication  # noqa: PLC0415
-from freeman.auth.guards import IsAuthenticated  # noqa: PLC0415
+from freeman.auth import JWTAuthentication
+from freeman.auth.guards import IsAuthenticated
 from freeman.testing import TestClient
 
 

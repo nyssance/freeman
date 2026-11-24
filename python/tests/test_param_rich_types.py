@@ -82,7 +82,7 @@ def query_client():
         return _show(tag)
 
     @api.get("/default")
-    def as_default(tag: Annotated[list[int], Query()] = [7]):  # noqa: B006 - the default is only read
+    def as_default(tag: Annotated[list[int], Query()] = [7]):
         return _show(tag)
 
     @api.get("/alias")

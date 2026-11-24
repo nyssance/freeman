@@ -106,6 +106,17 @@ from .websocket import mark_websocket_handler
 
 logger = logging.getLogger(__name__)
 
+# bolt-mcp is optional. Bind the lazy name only when it is installed: a bound
+# lazy import of a missing module raises on any attribute walk of this module.
+_BOLT_MCP_INSTALLED = importlib.util.find_spec("bolt_mcp") is not None
+if _BOLT_MCP_INSTALLED:
+    lazy import bolt_mcp
+_BOLT_MCP_MISSING = (
+    "api.mount_mcp(...) needs the bolt-mcp package. The bolt-mcp on PyPI is for django-bolt. "
+    "Install the one in python/bolt-mcp of the Freeman repository, and build the extension "
+    "with the mcp feature."
+)
+
 if TYPE_CHECKING:
     from types import EllipsisType
 
@@ -3386,17 +3397,13 @@ class BoltAPI:
         Resource Server flow; ``expose`` is an explicit allowlist of existing route
         handlers to surface as tools. See :func:`bolt_mcp.mount_mcp` for details.
         """
-        # Lazy import keeps bolt-mcp an optional dependency: Freeman never
-        # imports it at module load, only when mount_mcp is actually called.
+        if not _BOLT_MCP_INSTALLED:
+            raise ImportError(_BOLT_MCP_MISSING)
         try:
-            from bolt_mcp import mount_mcp  # noqa: PLC0415
+            bolt_mount_mcp = bolt_mcp.mount_mcp
         except ImportError as exc:
-            raise ImportError(
-                "api.mount_mcp(...) needs the bolt-mcp package. The bolt-mcp on PyPI is for django-bolt. "
-                "Install the one in python/bolt-mcp of the Freeman repository, and build the extension "
-                "with the mcp feature."
-            ) from exc
-        mount_mcp(
+            raise ImportError(_BOLT_MCP_MISSING) from exc
+        bolt_mount_mcp(
             self,
             mcp,
             path,

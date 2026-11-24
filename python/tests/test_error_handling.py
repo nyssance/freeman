@@ -7,7 +7,7 @@ from unittest.mock import patch
 import django
 import msgspec
 import pytest
-from django.conf import settings  # noqa: PLC0415
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from pydantic import BaseModel
 

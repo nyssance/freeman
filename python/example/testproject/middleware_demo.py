@@ -1,7 +1,8 @@
+import uuid
 from typing import Annotated
 
 from django.conf import settings
-from django.contrib import messages  # noqa: PLC0415
+from django.contrib import messages
 from django.contrib.auth import alogin, alogout
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
@@ -31,8 +32,6 @@ class RequestIdMiddleware:
 
     async def __call__(self, request):
         """Called for each request."""
-        import uuid  # noqa: PLC0415
-
         # Generate request ID and add to request state
         request_id = str(uuid.uuid4())[:8]
         self.request_count += 1

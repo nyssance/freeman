@@ -30,6 +30,10 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db import connections
 from django.db.backends.signals import connection_created
 
+# The `pool` extra installs psycopg_pool. Only a pooled PostgreSQL database needs it,
+# so the import resolves at first use.
+lazy from psycopg_pool import ConnectionPool
+
 logger = logging.getLogger(__name__)
 
 __all__ = ("LaneAffinityError", "in_orm_executor_thread", "run_in_orm_executor", "run_orm_blocking", "sync_to_thread")
@@ -57,7 +61,6 @@ _pooled_aliases: frozenset[str] = frozenset()
 def configure_connection_checks() -> None:
     """Read the database settings: the pooled aliases, and whether the pre-call check runs."""
     global _check_before_call, _pooled_aliases
-    from django.conf import settings  # noqa: PLC0415 — needs configured settings, resolved lazily
 
     if not settings.configured:
         return
@@ -664,9 +667,6 @@ def _check_connection_pools() -> None:
         # The vendor covers backends on top of PostgreSQL, such as PostGIS.
         if not pool_options or connections[alias].vendor != "postgresql":
             continue
-        # The `pool` extra installs psycopg_pool. Only a pooled PostgreSQL database needs it.
-        from psycopg_pool import ConnectionPool  # noqa: PLC0415
-
         if not hasattr(ConnectionPool, "drain"):
             logger.warning(
                 "DATABASES[%r] uses Django's connection pool with a psycopg_pool before 3.3. "

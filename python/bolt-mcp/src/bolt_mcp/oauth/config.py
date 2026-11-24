@@ -27,6 +27,10 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
+lazy from freeman.responses import HTML, Redirect
+
+lazy from . import consent, sessions
+
 # Used only when ``issuer`` is left unset — the common local-dev case. Anything real MUST
 # set ``issuer``: it is the stable identity clients compare byte-for-byte and the audience/
 # issuer baked into every token. A wrong base breaks discovery and token validation.
@@ -122,31 +126,25 @@ class AuthorizationServer:
         Default: Django's ``authenticate()`` + a new session. Override to use a different
         credential source or MFA.
         """
-        from . import sessions  # noqa: PLC0415 — keep Django imports lazy / OAuth optional
-
         return await sessions.login(username, password)
 
     async def resolve_user(self, request: Any) -> dict | None:
         """Resolve the already-signed-in user from the request's session cookie."""
-        from . import sessions  # noqa: PLC0415
 
         return await sessions.user_from_session(request.cookies.get(sessions.session_cookie_name()))
 
     async def load_user(self, user_id: str) -> Any | None:
         """Load the Django user the access token is minted for (at the token endpoint)."""
-        from . import sessions  # noqa: PLC0415
 
         return await sessions.load_user(user_id)
 
     def render_login(self, params: dict, *, error: str | None = None) -> str:
         """HTML for the sign-in page. Override to restyle or use your own template."""
-        from . import consent  # noqa: PLC0415
 
         return consent.login_page(self, params, error=error)
 
     def render_consent(self, params: dict, *, client_name: str, username: str) -> str:
         """HTML for the consent page. Override to restyle or use your own template."""
-        from . import consent  # noqa: PLC0415
 
         return consent.consent_page(self, params, client_name=client_name, username=username)
 
@@ -165,10 +163,6 @@ class AuthorizationServer:
         a ``https → http://localhost`` 302 (Firefox HTTPS-Only mode). Override to
         customize how the code reaches the client.
         """
-        from freeman.responses import HTML, Redirect  # noqa: PLC0415
-
-        from . import consent  # noqa: PLC0415
-
         if consent.is_loopback_uri(redirect_url):
             # The page carries a live code: never cache it, never leak a referrer.
             headers = {"Cache-Control": "no-store", "Pragma": "no-cache", "Referrer-Policy": "no-referrer"}

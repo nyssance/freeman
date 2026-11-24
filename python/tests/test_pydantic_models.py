@@ -21,7 +21,7 @@ from freeman import BoltAPI
 from freeman._pydantic import compile_queryset_reader
 from freeman.exceptions import ResponseValidationError
 from freeman.openapi import OpenAPIConfig
-from freeman.openapi.schema_generator import SchemaGenerator
+from freeman.openapi.schema_generator import SchemaGenerator, _plain_nullable
 from freeman.params import Body
 from freeman.testing import TestClient
 
@@ -284,8 +284,6 @@ def test_an_optional_plain_field_is_a_type_list_and_an_optional_model_keeps_its_
 
 
 def test_plain_nullable_leaves_other_unions_alone():
-    from freeman.openapi.schema_generator import _plain_nullable  # noqa: PLC0415
-
     three = {"anyOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]}
     assert _plain_nullable(dict(three)) == three
     constrained = {"anyOf": [{"type": "string", "maxLength": 5}, {"type": "null"}], "title": "Name"}
@@ -541,7 +539,7 @@ def test_an_evaluated_queryset_is_not_loaded_again(listings):
 def test_only_a_list_of_a_model_gets_a_reader():
     assert compile_queryset_reader(Item) is None
     assert compile_queryset_reader(list[int]) is None
-    assert compile_queryset_reader(typing.List) is None  # noqa: UP006
+    assert compile_queryset_reader(typing.List) is None
     assert compile_queryset_reader(list[Item] | None) is None
     assert compile_queryset_reader(list[Item]) is not None
 

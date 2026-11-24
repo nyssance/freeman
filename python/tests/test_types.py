@@ -7,6 +7,7 @@ import time
 import jwt
 from pydantic import BaseModel
 
+import freeman.request
 from freeman import BoltAPI, Request
 from freeman.auth import IsAuthenticated, JWTAuthentication
 from freeman.testing import TestClient
@@ -206,12 +207,6 @@ def test_request_property_access():
 
 
 def test_request_import_from_main_module():
-    """Test that Request can be imported from freeman.
-
-    This test intentionally uses a local import to verify the import mechanism works.
-    """
-    from freeman import Request as ImportedRequest  # noqa: PLC0415 - testing import mechanism
-
-    # Should be the same class (ImportedRequest is the same as the module-level Request)
-    # This test verifies the import works, even though we compare with module-level Request
-    assert ImportedRequest is Request
+    """freeman exports the Request of freeman.request."""
+    assert "Request" in freeman.__all__
+    assert Request is freeman.request.Request

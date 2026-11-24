@@ -5,7 +5,7 @@ Tests that sync and async handlers work correctly with parameters, dependencies,
 
 from __future__ import annotations
 
-import inspect  # noqa: PLC0415
+import inspect
 import time
 from typing import Annotated
 

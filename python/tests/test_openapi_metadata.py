@@ -14,6 +14,7 @@ from freeman.responses import Redirect
 from freeman.testing import TestClient
 from freeman.views import APIView
 from freeman.websocket import WebSocket
+from tests import openapi_lookup as oas
 
 
 def test_route_decorator_with_tags():
@@ -101,7 +102,7 @@ def test_schema_generation_with_custom_tags():
     schema = generator.generate()
 
     # Check that operation has custom tags
-    operation = schema.paths["/items"].get
+    operation = oas.operation(schema, "/items", "get")
     assert operation.tags == ["Custom", "Tags"]
 
 
@@ -122,7 +123,7 @@ def test_schema_generation_with_custom_summary():
     schema = generator.generate()
 
     # Custom summary should override docstring
-    operation = schema.paths["/items"].get
+    operation = oas.operation(schema, "/items", "get")
     assert operation.summary == "Custom summary"
 
 
@@ -143,7 +144,7 @@ def test_schema_generation_with_custom_description():
     schema = generator.generate()
 
     # Custom description should override docstring
-    operation = schema.paths["/items"].get
+    operation = oas.operation(schema, "/items", "get")
     assert operation.description == "Custom description"
 
 
@@ -164,7 +165,7 @@ def test_schema_generation_fallback_to_docstring():
     schema = generator.generate()
 
     # Should use docstring
-    operation = schema.paths["/items"].get
+    operation = oas.operation(schema, "/items", "get")
     assert operation.summary == "Get all items."
     assert operation.description == "This endpoint returns all items from the database."
 
@@ -271,11 +272,11 @@ def test_operation_ids_are_unique_when_function_names_repeat():
         return {}
 
     @second.get("/items")
-    async def list_items() -> dict:  # noqa: F811
+    async def list_items() -> dict:
         return {}
 
     @api.get("/third")
-    async def list_items() -> dict:  # noqa: F811
+    async def list_items() -> dict:
         return {}
 
     api.include_router(first)
@@ -308,7 +309,7 @@ def test_partial_metadata_override():
     generator = SchemaGenerator(api, config)
     schema = generator.generate()
 
-    operation = schema.paths["/items"].get
+    operation = oas.operation(schema, "/items", "get")
     # Summary should be custom
     assert operation.summary == "Custom summary only"
     # Description should fall back to docstring
@@ -390,7 +391,7 @@ def test_websocket_operation_has_no_deprecated_key():
 
 def _websocket_operation_tags(api: BoltAPI, path: str) -> list[str] | None:
     schema = SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate()
-    return schema.paths[path].get.tags
+    return oas.operation(schema, path, "get").tags
 
 
 def test_websocket_default_tags_only_websocket():
@@ -442,7 +443,7 @@ def test_websocket_empty_tags_match_http():
         return []
 
     schema = SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate()
-    assert schema.paths["/ws/stream"].get.tags == schema.paths["/items"].get.tags == []
+    assert oas.operation(schema, "/ws/stream", "get").tags == oas.operation(schema, "/items", "get").tags == []
 
 
 def test_websocket_security_with_default_authentication_classes(settings):
@@ -459,8 +460,8 @@ def test_websocket_security_with_default_authentication_classes(settings):
         return []
 
     schema = SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate()
-    assert schema.paths["/items"].get.security == [{"BearerAuth": []}]
-    assert schema.paths["/ws/stream"].get.security == [{"BearerAuth": []}]
+    assert oas.operation(schema, "/items", "get").security == [{"BearerAuth": []}]
+    assert oas.operation(schema, "/ws/stream", "get").security == [{"BearerAuth": []}]
 
 
 def test_websocket_security_of_a_guarded_route_with_no_auth_backend():
@@ -480,10 +481,10 @@ def test_websocket_security_of_a_guarded_route_with_no_auth_backend():
         return []
 
     schema = SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate()
-    assert schema.paths["/items"].get.security == [{"BearerAuth": []}]
-    assert schema.paths["/ws/stream"].get.security == [{"BearerAuth": []}]
+    assert oas.operation(schema, "/items", "get").security == [{"BearerAuth": []}]
+    assert oas.operation(schema, "/ws/stream", "get").security == [{"BearerAuth": []}]
     # A route with no guard gets no default backend.
-    assert schema.paths["/ws/open"].get.security is None
+    assert oas.operation(schema, "/ws/open", "get").security is None
 
 
 def test_websocket_summary_and_description():
@@ -496,8 +497,9 @@ def test_websocket_summary_and_description():
         await websocket.accept()
 
     schema = SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate()
-    operation = schema.paths["/ws/stream"].get
+    operation = oas.operation(schema, "/ws/stream", "get")
     assert operation.summary == "WebSocket: Stream prices"
+    assert operation.description is not None
     assert "Sends each price change." in operation.description
     assert "Docstring summary." not in operation.description
 
@@ -557,6 +559,7 @@ def test_websocket_include_in_schema_false():
         await websocket.accept()
 
     schema = SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate()
+    assert schema.paths is not None
     assert "/ws/hidden" not in schema.paths
     assert "/ws/shown" in schema.paths
 
@@ -577,7 +580,9 @@ def test_websocket_include_in_schema_api_default_and_mount():
     api.mount("/v1", child)
 
     schema = SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate()
+    assert schema.paths is not None
     assert "/v1/ws/hidden" not in schema.paths
     assert "/v1/ws/shown" in schema.paths
     child_schema = SchemaGenerator(child, OpenAPIConfig(title="Test API", version="1.0.0")).generate()
+    assert child_schema.paths is not None
     assert "/ws/hidden" not in child_schema.paths

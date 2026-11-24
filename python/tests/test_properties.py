@@ -43,12 +43,12 @@ async def query_map(request):
 
 
 @api.get("/sequence")
-async def sequence(k: Annotated[list[str], Query()] = []):  # noqa: B006
+async def sequence(k: Annotated[list[str], Query()] = []):
     return k
 
 
 @api.post("/form")
-async def form(k: Annotated[list[str], Form()] = []):  # noqa: B006
+async def form(k: Annotated[list[str], Form()] = []):
     return k
 
 

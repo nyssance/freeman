@@ -365,4 +365,3 @@ repo = "fontawesome/brands/github"
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
 link = "https://github.com/nyssance/freeman"
-

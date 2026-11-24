@@ -320,7 +320,7 @@ def test_optional_and_required_parameters():
         category: str,  # Required (no default)
         min_price: float = 0,  # Optional (has default)
         max_price: float | None = None,  # Optional (nullable)
-        tags: list[str] = None,  # Optional (default empty list)
+        tags: list[str] | None = None,  # Optional (default empty list)
     ):
         if tags is None:
             tags = []

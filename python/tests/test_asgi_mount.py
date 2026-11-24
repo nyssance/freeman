@@ -669,7 +669,7 @@ def test_mount_asgi_send_after_timeout_is_a_noop(settings):
             await send({"type": "http.response.start", "status": 200, "headers": []})
             await send({"type": "http.response.body", "body": b"late", "more_body": False})
             outcome["ok"] = True
-        except BaseException as exc:  # noqa: BLE001 - record what the orphan saw
+        except BaseException as exc:
             outcome["error"] = repr(exc)
         finally:
             done.set()

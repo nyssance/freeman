@@ -180,7 +180,7 @@ def test_list_parameter_with_an_empty_default_validates(marker, param_in, empty)
     async def tagged(tags=empty):
         pass
 
-    async def named(names=["a"]):  # noqa: B006
+    async def named(names=["a"]):
         pass
 
     # The module has postponed annotations, so the test sets the evaluated types.
@@ -243,7 +243,7 @@ def test_header_or_cookie_list_gets_one_item_as_its_schema_says(marker, headers,
     """Bolt keeps the last value of a repeated name and does not split a comma list, so ``maxItems: 1`` is true (#871)."""
     api = BoltAPI(openapi_config=OpenAPIConfig(title="List API", version="1.0.0"))
 
-    async def tagged(tags=["default"]):  # noqa: B006
+    async def tagged(tags=["default"]):
         return tags
 
     tagged.__annotations__ = {"tags": Annotated[list[str], marker()]}
@@ -306,7 +306,7 @@ def test_constrained_one_value_list_refuses_a_default_of_two_items(marker, annot
     """A msgspec.Meta constraint keeps Annotated on the type. The check still finds the list."""
     api = BoltAPI()
 
-    async def tagged(tags=["a", "b"]):  # noqa: B006
+    async def tagged(tags=["a", "b"]):
         return tags
 
     tagged.__annotations__ = {"tags": Annotated[annotation, marker()]}
@@ -328,7 +328,7 @@ def test_one_value_list_parameter_accepts_a_default_of_one_item(marker, annotati
     """A default of one item is valid for ``maxItems: 1``."""
     api = BoltAPI()
 
-    async def tagged(tags=["a"]):  # noqa: B006
+    async def tagged(tags=["a"]):
         return tags
 
     tagged.__annotations__ = {"tags": Annotated[annotation, marker()]}

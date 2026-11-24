@@ -166,7 +166,7 @@ def test_a_sync_read_in_a_loop_callback_runs():
         def callback() -> None:
             try:
                 done.set_result(run_orm_blocking(lambda: 1))
-            except BaseException as error:  # noqa: BLE001 - await done raises the error of the read
+            except BaseException as error:
                 done.set_exception(error)
 
         loop.call_soon(callback)

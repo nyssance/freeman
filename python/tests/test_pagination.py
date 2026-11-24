@@ -9,7 +9,6 @@ import base64
 from collections import UserList
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Generic, TypeVar
 from urllib.parse import quote
 
 import pytest
@@ -40,10 +39,7 @@ class ArticleListSchema(BaseModel):
     author: str
 
 
-T = TypeVar("T")
-
-
-class PathPage(BaseModel, Generic[T]):  # noqa: UP046 — PEP 695 params are unresolvable under PEP 563
+class PathPage[T](BaseModel):
     """Envelope that shows the request path. Only build_response() can fill it."""
 
     path: str
@@ -276,7 +272,7 @@ def test_page_number_pagination_with_filtering(sample_articles):
 
     @api.get("/articles")
     @paginate(SmallPagePagination)
-    async def list_articles(request, is_published: bool = None):
+    async def list_articles(request, is_published: bool | None = None):
         qs = Article.objects.all()
         if is_published is not None:
             qs = qs.filter(is_published=is_published)
@@ -499,7 +495,7 @@ def test_limit_offset_pagination_with_filtering(sample_articles):
 
     @api.get("/articles")
     @paginate(LimitOffsetPagination)
-    async def list_articles(request, author: str = None):
+    async def list_articles(request, author: str | None = None):
         qs = Article.objects.all()
         if author:
             qs = qs.filter(author=author)
@@ -721,7 +717,7 @@ def test_cursor_pagination_with_filtering(sample_articles):
 
     @api.get("/articles")
     @paginate(SmallCursorPagination)
-    async def list_articles(request, is_published: bool = None):
+    async def list_articles(request, is_published: bool | None = None):
         qs = Article.objects.all()
         if is_published is not None:
             qs = qs.filter(is_published=is_published)

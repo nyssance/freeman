@@ -18,11 +18,18 @@ from django.conf import settings
 
 from freeman import JSON, BoltAPI, Request
 from freeman.auth.guards import guards_need_user
+lazy from freeman import _core
+lazy from freeman.auth import get_default_authentication_classes
+lazy from freeman.auth.backends import www_authenticate_challenge
+lazy from freeman.auth.session import auth_without_session
 
 from ._catalog import build_mount_definition
 from ._dispatch import make_verify_token
 from .autoexpose import expose_routes
 from .server import MCP
+lazy from .oauth.config import AuthorizationServer
+lazy from .oauth.endpoints import register_oauth_endpoints
+lazy from .oauth.tokens import make_token_verifier
 
 WELL_KNOWN_PROTECTED_RESOURCE = "/.well-known/oauth-protected-resource"
 
@@ -56,12 +63,8 @@ def _resolve_oauth(api: BoltAPI, oauth: Any, mount_path: str) -> ProtectedResour
     """
     if oauth is None:
         return None
-    from .oauth.config import AuthorizationServer  # noqa: PLC0415 — keep OAuth deps optional/lazy
 
     if isinstance(oauth, AuthorizationServer):
-        from .oauth.endpoints import register_oauth_endpoints  # noqa: PLC0415
-        from .oauth.tokens import make_token_verifier  # noqa: PLC0415
-
         bound_path = getattr(oauth, "_mcp_mount_path", None)
         if bound_path is not None and bound_path != mount_path:
             raise ValueError(
@@ -142,8 +145,6 @@ def mount_mcp(
     if any(existing["path"] == path for existing in api._mcp_mounts):
         raise ValueError(f"An MCP server is already mounted at {path!r} on this API")
 
-    from freeman import _core  # noqa: PLC0415 — verify the Rust core at mount time
-
     if not hasattr(_core, "register_mcp_mounts"):
         raise ImportError(
             "MCP is not in this build of freeman. The default wheel leaves out the MCP "
@@ -165,9 +166,6 @@ def mount_mcp(
     # Tier-1 backends follow the same default resolution as routes: an
     # explicit list wins, otherwise the API-wide default authentication
     # classes apply (harmless context enrichment when no guards are set).
-    from freeman.auth import get_default_authentication_classes  # noqa: PLC0415 — Django must be configured first
-    from freeman.auth.backends import www_authenticate_challenge  # noqa: PLC0415 — Django must be configured first
-    from freeman.auth.session import auth_without_session  # noqa: PLC0415 — Django must be configured first
 
     # Django middleware does not run on a mount, so a session backend cannot work there.
     backends = auth_without_session(auth, f"MCP mount {path}")

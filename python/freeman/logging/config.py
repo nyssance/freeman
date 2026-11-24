@@ -253,7 +253,7 @@ def _ensure_queue_logging(base_level: str) -> QueueHandler:
     Litestar's standard logging implementation.
     """
 
-    global _QUEUE_LISTENER, _QUEUE  # noqa: PLW0603
+    global _QUEUE_LISTENER, _QUEUE
 
     if _QUEUE is None:
         # Bounded queue prevents unbounded backlog → OOM under load spikes.
@@ -264,7 +264,7 @@ def _ensure_queue_logging(base_level: str) -> QueueHandler:
         if settings is not None:
             try:
                 max_queue_size = int(getattr(settings, "BOLT_LOG_QUEUE_SIZE", _DEFAULT_LOG_QUEUE_SIZE))
-            except Exception as exc:  # noqa: BLE001 - unconfigured settings or a bad value
+            except Exception as exc:
                 sys.stderr.write(f"freeman: invalid BOLT_LOG_QUEUE_SIZE ({exc}); using {_DEFAULT_LOG_QUEUE_SIZE}\n")
                 max_queue_size = _DEFAULT_LOG_QUEUE_SIZE
             if max_queue_size <= 0:
@@ -352,7 +352,7 @@ def restart_queue_listener_after_fork() -> None:
     them. Call this function in the child, immediately after the fork.
     The function does nothing when no listener runs.
     """
-    global _QUEUE_LISTENER  # noqa: PLW0603
+    global _QUEUE_LISTENER
 
     if _QUEUE_LISTENER is None or _QUEUE is None:
         return
@@ -374,7 +374,7 @@ def stop_queue_listener() -> None:
     before ``os._exit()``, or the records in the queue are lost.
     The function does nothing when no listener runs.
     """
-    global _QUEUE_LISTENER  # noqa: PLW0603
+    global _QUEUE_LISTENER
 
     if _QUEUE_LISTENER is None:
         return

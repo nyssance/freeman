@@ -449,7 +449,7 @@ class TestUploadFileFileHandling:
         expected = "UploadFile(filename='spooled.bin', content_type='application/x-test', size=11, disk-spooled"
         assert repr(disk_upload) == expected + ")"
 
-        disk_upload.raw_file  # noqa: B018 - the access opens the file
+        _ = disk_upload.raw_file
         assert repr(disk_upload) == expected + ", opened)"
 
 
@@ -777,8 +777,8 @@ class TestUploadFileValidation:
         api = BoltAPI()
 
         @api.post("/upload")
-        async def upload(files: Annotated[list[dict], File()] = None):
-            return {"names": [f["filename"] for f in files]}
+        async def upload(files: Annotated[list[dict] | None, File()] = None):
+            return {"names": [f["filename"] for f in files or []]}
 
         client = TestClient(api)
         one = client.post("/upload", files={"files": ("a.txt", b"a", "text/plain")})
@@ -1581,7 +1581,7 @@ class TestAutoCleanup:
             # Track the file to check its state after handler completes
             tracked_files.append(avatar)
             # Verify file is open during handler
-            assert not avatar._file.closed, "File should be open during handler"
+            assert not avatar.raw_file.closed, "File should be open during handler"
             return {"filename": avatar.filename}
 
         client = TestClient(api)
@@ -1590,7 +1590,7 @@ class TestAutoCleanup:
         assert response.status_code == 200
         assert len(tracked_files) == 1
         # File should be closed after handler completes
-        assert tracked_files[0]._file.closed, "File should be closed after handler"
+        assert tracked_files[0].raw_file.closed, "File should be closed after handler"
 
     def test_files_closed_after_handler_exception(self):
         """Verify files are closed even when handler raises an exception."""
@@ -1600,7 +1600,7 @@ class TestAutoCleanup:
         @api.post("/upload")
         async def upload(avatar: Annotated[UploadFile, File()]):
             tracked_files.append(avatar)
-            assert not avatar._file.closed, "File should be open during handler"
+            assert not avatar.raw_file.closed, "File should be open during handler"
             raise ValueError("Intentional error in handler")
 
         client = TestClient(api, raise_server_exceptions=False)
@@ -1610,7 +1610,7 @@ class TestAutoCleanup:
         assert response.status_code == 500
         assert len(tracked_files) == 1
         # File should still be closed despite exception
-        assert tracked_files[0]._file.closed, "File should be closed even after exception"
+        assert tracked_files[0].raw_file.closed, "File should be closed even after exception"
 
     def test_multiple_files_all_closed(self):
         """Verify all files are closed when multiple files are uploaded."""
@@ -1621,7 +1621,7 @@ class TestAutoCleanup:
         async def upload(docs: Annotated[list[UploadFile], File()]):
             tracked_files.extend(docs)
             for doc in docs:
-                assert not doc._file.closed, "Files should be open during handler"
+                assert not doc.raw_file.closed, "Files should be open during handler"
             return {"count": len(docs)}
 
         client = TestClient(api)
@@ -1638,7 +1638,7 @@ class TestAutoCleanup:
         assert len(tracked_files) == 3
         # All files should be closed
         for i, upload in enumerate(tracked_files):
-            assert upload._file.closed, f"File {i} should be closed"
+            assert upload.raw_file.closed, f"File {i} should be closed"
 
     def test_files_of_every_parameter_are_closed(self):
         """A later file parameter must not drop the files of an earlier one from the cleanup."""
@@ -1683,7 +1683,7 @@ class TestAutoCleanup:
             "more": 2,
         }
         for name, files in tracked.items():
-            assert all(upload._file.closed for upload in files), f"{name} should be closed"
+            assert all(upload.raw_file.closed for upload in files), f"{name} should be closed"
 
     def test_struct_files_closed_after_handler(self):
         """Verify files in Form struct are closed after handler."""
@@ -1693,7 +1693,7 @@ class TestAutoCleanup:
         @api.post("/profile")
         async def update_profile(data: Annotated[ProfileForm, Form()]):
             tracked_files.append(data.avatar)
-            assert not data.avatar._file.closed, "File should be open during handler"
+            assert not data.avatar.raw_file.closed, "File should be open during handler"
             return {"name": data.name}
 
         client = TestClient(api)
@@ -1703,7 +1703,7 @@ class TestAutoCleanup:
 
         assert response.status_code == 200
         assert len(tracked_files) == 1
-        assert tracked_files[0]._file.closed, "Struct file should be closed after handler"
+        assert tracked_files[0].raw_file.closed, "Struct file should be closed after handler"
 
     def test_sync_handler_files_closed(self):
         """Verify files are closed after sync handler execution."""
@@ -1713,7 +1713,7 @@ class TestAutoCleanup:
         @api.post("/upload")
         def upload(avatar: Annotated[UploadFile, File()]):
             tracked_files.append(avatar)
-            assert not avatar._file.closed, "File should be open during handler"
+            assert not avatar.raw_file.closed, "File should be open during handler"
             content = avatar.file.read()
             return {"size": len(content)}
 
@@ -1722,4 +1722,4 @@ class TestAutoCleanup:
 
         assert response.status_code == 200
         assert len(tracked_files) == 1
-        assert tracked_files[0]._file.closed, "File should be closed after sync handler"
+        assert tracked_files[0].raw_file.closed, "File should be closed after sync handler"

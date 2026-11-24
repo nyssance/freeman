@@ -29,4 +29,8 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           cache: false
+      # ruff runs locally, not here. Its findings are reported, not suppressed,
+      # so the tree has some on purpose (tests of mutable defaults, of typing.List).
       - uses: j178/prek-action@1382ad72dea72f9d53832f2bcb65b3e87a947204 # v3.0.1
+        env:
+          SKIP: ruff-check,ruff-format

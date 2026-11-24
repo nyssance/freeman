@@ -100,7 +100,7 @@ def test_concurrent_database_work_is_serialized_not_corrupted():
         while not stop.is_set():
             try:
                 User.objects.count()
-            except Exception as exc:  # noqa: BLE001 - any failure is the finding
+            except Exception as exc:
                 errors.append(repr(exc))
 
     with TestClient(_make_api()) as client:
@@ -327,7 +327,7 @@ def test_a_second_thread_cannot_enter_its_own_client():
         try:
             with TestClient(_make_api()):
                 outcome.append("entered")
-        except BaseException as exc:  # noqa: BLE001 - the outcome is the finding
+        except BaseException as exc:
             outcome.append(exc)
 
     with TestClient(_make_api()) as client:

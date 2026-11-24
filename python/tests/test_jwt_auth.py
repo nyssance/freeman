@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import jwt
 import pytest
-from django.conf import settings  # noqa: PLC0415
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import InterfaceError, OperationalError
 from django.test import override_settings

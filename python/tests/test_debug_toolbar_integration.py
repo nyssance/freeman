@@ -106,7 +106,7 @@ def test_the_user_loads_behind_the_toolbar(toolbar_settings, route):
 
 
 def test_the_sql_panel_records_the_user_query(toolbar_settings):
-    from debug_toolbar.store import get_store  # noqa: PLC0415 - needs debug_toolbar in INSTALLED_APPS
+    from debug_toolbar.store import get_store
 
     user = User.objects.create(username="sql_panel_user")
 

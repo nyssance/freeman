@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from testproject.settings import *  # noqa: F403
+from testproject.settings import *
 
 _BENCH_DIR = Path(os.environ["BOLT_BENCH_DIR"])
 

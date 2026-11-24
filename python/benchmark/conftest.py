@@ -21,7 +21,12 @@ import time
 from collections.abc import Iterator
 from pathlib import Path
 
+import django
 import pytest
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
+
+from freeman.auth import create_jwt_for_user
 
 EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "example"
 STARTUP_TIMEOUT = 300  # seconds; startup under valgrind is slow
@@ -105,8 +110,6 @@ def _free_port() -> int:
 
 
 def _run_server(port: int, errors: list[BaseException]) -> None:
-    from django.core.management import call_command  # noqa: PLC0415
-
     try:
         call_command("runbolt", "--host", "127.0.0.1", "--port", str(port), "--processes", "1", "--workers", "1")
     except BaseException as exc:
@@ -154,9 +157,6 @@ def bench_server() -> Iterator[Connection]:
         os.environ["BOLT_BENCH_DIR"] = bench_dir
         os.environ["DJANGO_SETTINGS_MODULE"] = "bench_settings"
 
-        import django  # noqa: PLC0415
-        from django.core.management import call_command  # noqa: PLC0415
-
         django.setup()
         call_command("migrate", "--noinput", verbosity=0)
         call_command("collectstatic", "--noinput", verbosity=0)
@@ -181,9 +181,5 @@ def bench_server() -> Iterator[Connection]:
 @pytest.fixture(scope="session")
 def auth_token(bench_server: Connection) -> str:
     """Make a JWT for the benchmark user with the shipped helper."""
-    from django.contrib.auth.models import User  # noqa: PLC0415
-
-    from freeman.auth import create_jwt_for_user  # noqa: PLC0415
-
-    user, _ = User.objects.get_or_create(username="benchuser", defaults={"email": "bench@example.com"})
+    user, _ = get_user_model().objects.get_or_create(username="benchuser", defaults={"email": "bench@example.com"})
     return create_jwt_for_user(user)

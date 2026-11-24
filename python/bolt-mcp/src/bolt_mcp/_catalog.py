@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 
 from freeman._json import encode as json_encode
 
+lazy from ._dispatch import prompt_dispatch, resource_dispatch, tool_entry
+
 if TYPE_CHECKING:
     from .server import MCP
 
@@ -104,8 +106,6 @@ def build_mount_definition(
     Every key the Rust parser reads is always present (registration-time
     guarantee rule) — Rust uses direct access, never defaults.
     """
-    from ._dispatch import prompt_dispatch, resource_dispatch, tool_entry  # noqa: PLC0415 — avoid import cycle
-
     return {
         "path": path,
         "catalog_json": compile_catalog(mcp),

@@ -213,9 +213,7 @@ def response_validation_error_handler(
 
 
 def generic_exception_handler(
-    exc: Exception,
-    debug: bool = False,
-    request: Any | None = None,  # noqa: ARG001 - kept for API compatibility
+    exc: Exception, debug: bool = False, request: Any | None = None
 ) -> tuple[int, list[tuple[str, str]], bytes]:
     """Handle generic exceptions and convert to 500 response.
 
@@ -545,7 +543,7 @@ class CodeDetail(BaseModel):
 
 
 @error_schema(CodeDetail)
-def code_detail(error: BoltError, request: Any) -> Response:  # noqa: ARG001
+def code_detail(error: BoltError, request: Any) -> Response:
     """Format an error as ``{"code", "detail", "fields"}``.
 
     Use it as ``BoltAPI(error_formatter=code_detail)``. One shape then covers

@@ -21,6 +21,7 @@ from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.responses import HTML, JSON, PlainText
 from freeman.serialization import serialize_response, serialize_response_sync
 from freeman.testing import TestClient
+from tests import openapi_lookup as oas
 from tests.test_models import Article
 
 # ============================================================================
@@ -205,8 +206,7 @@ def test_openapi_per_status_code_entries():
     generator = SchemaGenerator(api, config)
     openapi = generator.generate()
 
-    path_item = openapi.paths["/items"]
-    responses = path_item.post.responses
+    responses = oas.responses(oas.operation(openapi, "/items", "post"))
 
     assert "201" in responses
     assert "400" in responses
@@ -231,8 +231,7 @@ def test_openapi_204_no_content():
     generator = SchemaGenerator(api, config)
     openapi = generator.generate()
 
-    path_item = openapi.paths["/items/{item_id}"]
-    responses = path_item.delete.responses
+    responses = oas.responses(oas.operation(openapi, "/items/{item_id}", "delete"))
 
     assert "204" in responses
     assert responses["204"].content is None
@@ -511,8 +510,7 @@ def test_openapi_ellipsis_default_response():
     generator = SchemaGenerator(api, config)
     openapi = generator.generate()
 
-    path_item = openapi.paths["/items/{item_id}"]
-    responses = path_item.get.responses
+    responses = oas.responses(oas.operation(openapi, "/items/{item_id}", "get"))
 
     assert "200" in responses
     assert "default" in responses

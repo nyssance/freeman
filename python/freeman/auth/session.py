@@ -15,6 +15,7 @@ from asgiref.sync import sync_to_async
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
+lazy from django.contrib.auth.views import redirect_to_login
 
 from .. import _json
 from .._core import GuardCheck
@@ -139,8 +140,6 @@ def build_session_guard_check(
                 f"A guard on {route} reads {attribute.removeprefix('get_all_')} of the session user, "
                 f"but the user model {user_model.__name__} has no {attribute}."
             )
-
-    from django.contrib.auth.views import redirect_to_login  # noqa: PLC0415 - imports the auth models
 
     guard_check = GuardCheck(guards_metadata)
     # By the position that Rust reports as auth_backend_index.

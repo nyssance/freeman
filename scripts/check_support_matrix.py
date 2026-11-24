@@ -131,7 +131,7 @@ def _backoff_delay(attempt: int, retry_after: str | None) -> float:
         return min(supplied, BACKOFF_CAP)
     ceiling = min(BACKOFF_BASE * 2 ** (attempt - 1), BACKOFF_CAP)
     # Full jitter: spreads retries if several jobs hit the API at once.
-    return ceiling * (0.5 + random.random() / 2)  # noqa: S311 - jitter, not crypto
+    return ceiling * (0.5 + random.random() / 2)
 
 
 def _validate_releases(url: str, payload: Any) -> list[dict[str, Any]]:
@@ -189,7 +189,7 @@ def fetch_releases(product: str, max_attempts: int = MAX_ATTEMPTS) -> list[dict[
     for attempt in range(1, max_attempts + 1):
         retry_after = None
         try:
-            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:  # noqa: S310 - fixed https URL
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
                 payload = json.load(response)
         except urllib.error.HTTPError as exc:
             last_error = f"HTTP {exc.code} {exc.reason}"

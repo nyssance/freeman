@@ -1433,13 +1433,13 @@ def test_same_named_types_from_different_modules_coexist():
     `title` stays the short class name.
     """
 
-    class Status(enum.StrEnum):  # noqa: F811 - intentional short-name clash with the struct below
+    class Status(enum.StrEnum):
         ok = "ok"
 
     Status.__module__ = "app_a.api"
     StatusEnum = Status
 
-    class Status(BaseModel):  # noqa: F811 - intentional short-name clash with the enum above
+    class Status(BaseModel):
         code: int
 
     Status.__module__ = "app_b.api"
@@ -1479,12 +1479,12 @@ def test_genuinely_indistinguishable_types_raise():
     fails (KeyError) on this case; we fail with a clear, typed error.
     """
 
-    class Status(enum.StrEnum):  # noqa: F811 - intentional clash with the struct below
+    class Status(enum.StrEnum):
         ok = "ok"
 
     StatusEnum = Status
 
-    class Status(BaseModel):  # noqa: F811 - intentional clash with the enum above
+    class Status(BaseModel):
         code: int
 
     StatusStruct = Status

@@ -423,8 +423,6 @@ def test_is_admin_guard_with_class_view(api):
 @pytest.mark.django_db
 def test_has_permission_guard_with_class_view(api):
     """Test a permissions Requires guard with class-based views."""
-    from freeman.auth.jwt_utils import create_jwt_for_user  # noqa: PLC0415
-
     # Create permission
     content_type = ContentType.objects.get_for_model(User)
     permission = Permission.objects.create(

@@ -37,7 +37,7 @@ def test_websocket_route_connects_with_and_without_a_trailing_slash(make_server_
             try:
                 with SimpleWebSocketClient(server.host, server.port, path) as websocket:
                     answers[path] = websocket.receive_text()
-            except Exception as exc:  # noqa: BLE001 - the test reports each refused path
+            except Exception as exc:
                 answers[path] = f"refused: {exc!r}"
 
     assert answers == dict(PATHS)

@@ -43,7 +43,7 @@ def native(postgres_database, monkeypatch):
 @pytest.fixture
 def client(native):
     # Imported here: the module needs psycopg, and with it libpq.
-    from freeman import postgres  # noqa: PLC0415
+    from freeman import postgres
 
     api = BoltAPI()
 
@@ -122,7 +122,7 @@ def test_close_pools_closes_the_pool_and_the_next_call_opens_a_new_one(client):
 
 
 def test_a_database_that_is_not_postgresql_is_refused(native):
-    from freeman import postgres  # noqa: PLC0415
+    from freeman import postgres
 
     with pytest.raises(ImproperlyConfigured, match="needs a PostgreSQL database"):
         postgres._conninfo("default")
@@ -131,7 +131,7 @@ def test_a_database_that_is_not_postgresql_is_refused(native):
 
 
 def test_close_all_pools_closes_a_pool_from_outside_its_event_loop(client):
-    from freeman import postgres  # noqa: PLC0415
+    from freeman import postgres
 
     assert client.get("/one?value=1").json() == {"value": 2}
     opened = [found for (_, alias), found in postgres._pools.items() if alias == ALIAS]

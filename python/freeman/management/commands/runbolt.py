@@ -367,7 +367,7 @@ def _prime_dev_watch_imports() -> None:
     for module_name in _autodiscovery_import_module_names():
         try:
             importlib.import_module(module_name)
-        except Exception as exc:  # noqa: BLE001 - user code can raise anything at import
+        except Exception as exc:
             print(
                 f"[bolt] Warning: failed to import {module_name!r} while building the "
                 f"dev watch list ({exc}); files it imports won't trigger auto-reload",
@@ -550,7 +550,7 @@ def find_bolt_api_names(module_name: str) -> list[str]:
         return names
     try:
         module = importlib.import_module(module_name)
-    except Exception:  # noqa: BLE001 - a module that does not import holds no API to find here
+    except Exception:
         return []
     return [name for name in called if isinstance(getattr(module, name, None), BoltAPI)]
 

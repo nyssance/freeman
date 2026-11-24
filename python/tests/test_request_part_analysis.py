@@ -25,8 +25,8 @@ from freeman.testing import TestClient
 from .test_models import Article
 
 # The source of a lambda is its line, so these must be at module level.
-lambda_handler = lambda request: {"query": dict(request.query)}  # noqa: E731
-lambda_dependency = lambda request: dict(request.query)  # noqa: E731
+lambda_handler = lambda request: {"query": dict(request.query)}
+lambda_dependency = lambda request: dict(request.query)
 two_lambdas_on_a_line = [lambda request: dict(request.query), lambda request: dict(request.headers)]
 
 

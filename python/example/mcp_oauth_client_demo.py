@@ -45,7 +45,7 @@ REDIRECT_URI = "http://127.0.0.1:8765/callback"  # never served; we read the cod
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ARG002
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None  # surface 3xx responses instead of following them
 
 

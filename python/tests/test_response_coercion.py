@@ -11,7 +11,7 @@ import datetime
 import decimal
 import enum
 import uuid
-from typing import Annotated, Any, List  # noqa: UP035 - the test needs the bare typing.List
+from typing import Annotated, Any, List
 
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
@@ -193,11 +193,11 @@ def client(settings):
         return {"a": 1}
 
     @api.get("/list-bare/ok")
-    async def list_bare_ok() -> List:  # noqa: UP006
+    async def list_bare_ok() -> List:
         return [1, "a"]
 
     @api.get("/list-bare/dict")
-    async def list_bare_dict() -> List:  # noqa: UP006
+    async def list_bare_dict() -> List:
         return {"a": 1}
 
     @api.get("/generic/dict")

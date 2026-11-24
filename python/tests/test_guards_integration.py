@@ -9,8 +9,8 @@ import time
 import django
 import jwt
 import pytest
-from django.conf import settings  # noqa: PLC0415
-from django.core.management import call_command  # noqa: PLC0415
+from django.conf import settings
+from django.core.management import call_command
 
 from freeman import BoltAPI, Router
 from freeman.auth import AllowAny, APIKeyAuthentication, IsAuthenticated, JWTAuthentication, Requires

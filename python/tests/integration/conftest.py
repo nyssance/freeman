@@ -47,9 +47,9 @@ def postgres_database() -> Any:
     if not dsn:
         pytest.skip(f"Set {POSTGRES_DSN_VARIABLE} to run the PostgreSQL tests.")
     # psycopg needs libpq when it is imported. Only PostgreSQL tests load it.
-    import psycopg  # noqa: PLC0415
-    from psycopg import sql  # noqa: PLC0415
-    from psycopg.conninfo import conninfo_to_dict  # noqa: PLC0415
+    import psycopg
+    from psycopg import sql
+    from psycopg.conninfo import conninfo_to_dict
 
     name = f"bolt_test_{secrets.token_hex(6)}"
     with psycopg.connect(dsn, autocommit=True) as admin:

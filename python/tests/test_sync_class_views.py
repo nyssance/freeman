@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.auth.backends import JWTAuthentication
-from freeman.auth.guards import IsAuthenticated  # noqa: PLC0415
+from freeman.auth.guards import IsAuthenticated
 from freeman.exceptions import HTTPException
 from freeman.params import Depends
 from freeman.testing import TestClient

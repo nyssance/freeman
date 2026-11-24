@@ -23,6 +23,7 @@ from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.param_functions import Body, Cookie, File, Form, Header, Path, Query
 from freeman.params import Param
 from freeman.testing import TestClient
+from tests import openapi_lookup as oas
 
 
 def _values(
@@ -261,7 +262,7 @@ def test_a_dependency_gets_an_upload_within_its_constraints(body_client, mode):
     assert response.status_code == 200, response.text
     assert response.json() == {"filename": "a.txt", "size": 5}
     # Bolt closes the upload after the response, as for an upload of a handler.
-    assert UPLOADS and UPLOADS[0]._file.closed is True
+    assert UPLOADS and UPLOADS[0].raw_file.closed is True
 
     too_big = body_client.post(f"/{mode}/upload", files={"upload": ("b.txt", b"x" * 64, "text/plain")})
     assert too_big.status_code == 422, too_big.text
@@ -270,25 +271,24 @@ def test_a_dependency_gets_an_upload_within_its_constraints(body_client, mode):
 def test_the_schema_documents_the_parameters_and_body_of_dependencies():
     schema = SchemaGenerator(_body_api(), OpenAPIConfig(title="Test", version="1")).generate()
 
-    documented = schema.paths["/documented"].get
-    locations = {(p.param_in, p.name) for p in documented.parameters}
+    documented = oas.operation(schema, "/documented", "get")
+    locations = {(p.param_in, p.name) for p in oas.parameters(documented)}
     # From async_values, and once only although async_outer depends on it too.
     assert {("header", "X-Api-Token"), ("cookie", "theme"), ("query", "page")} <= locations
     # Two dependencies read the same header: it is documented one time.
-    assert [p.name for p in documented.parameters].count("x-tenant") == 1
-    assert len(documented.parameters) == len(locations)
+    assert [p.name for p in oas.parameters(documented)].count("x-tenant") == 1
+    assert len(oas.parameters(documented)) == len(locations)
 
-    body = schema.paths["/async/body"].post.request_body
+    body = oas.request_body(oas.operation(schema, "/async/body", "post"))
     assert body is not None and "application/json" in body.content
 
-    form = schema.paths["/async/form"].post.request_body
-    assert form is not None
-    form_schema = form.content["multipart/form-data"].schema
-    assert set(form_schema.properties) == {"name", "count"}
+    form = oas.request_body(oas.operation(schema, "/async/form", "post"))
+    form_schema = oas.schema(form.content["multipart/form-data"].schema)
+    assert set(form_schema.properties or {}) == {"name", "count"}
     assert form_schema.required == ["name"]
 
-    upload = schema.paths["/async/upload"].post.request_body
-    assert upload is not None and "upload" in upload.content["multipart/form-data"].schema.properties
+    upload = oas.request_body(oas.operation(schema, "/async/upload", "post"))
+    assert "upload" in (oas.schema(upload.content["multipart/form-data"].schema).properties or {})
 
 
 def test_the_schema_names_a_header_as_bolt_reads_it():
@@ -298,8 +298,8 @@ def test_the_schema_names_a_header_as_bolt_reads_it():
     async def headers_route(x_request_id: Annotated[str, Header()], token: Annotated[str, Header(alias="X-Token")]):
         return {}
 
-    parameters = (
-        SchemaGenerator(api, OpenAPIConfig(title="Test", version="1")).generate().paths["/headers"].get.parameters
+    parameters = oas.parameters(
+        oas.operation(SchemaGenerator(api, OpenAPIConfig(title="Test", version="1")).generate(), "/headers", "get")
     )
     assert {(p.param_in, p.name) for p in parameters} == {("header", "x-request-id"), ("header", "X-Token")}
 
@@ -455,8 +455,8 @@ def test_a_dependency_with_a_handler_name_in_another_source_gets_its_type():
         assert response.status_code == 200, response.text
         assert response.json() == {"query": "abc", "header": 7}
 
-    parameters = (
-        SchemaGenerator(api, OpenAPIConfig(title="Test", version="1")).generate().paths["/two-sources"].get.parameters
+    parameters = oas.parameters(
+        oas.operation(SchemaGenerator(api, OpenAPIConfig(title="Test", version="1")).generate(), "/two-sources", "get")
     )
     assert {(p.param_in, p.name) for p in parameters} == {("query", "token"), ("header", "token")}
 
@@ -1294,8 +1294,8 @@ def test_a_dependency_used_twice_does_not_hide_the_dependencies_after_it():
     assert response.status_code == 200, response.text
     assert response.json() == {"tenants": ["acme", "acme"], "page": 3}
 
-    parameters = (
-        SchemaGenerator(api, OpenAPIConfig(title="Test", version="1")).generate().paths["/twice"].get.parameters
+    parameters = oas.parameters(
+        oas.operation(SchemaGenerator(api, OpenAPIConfig(title="Test", version="1")).generate(), "/twice", "get")
     )
     # The header of the repeated dependency, and the fields of the dependency after it.
     assert {("header", "x-tenant"), ("header", "X-Api-Token"), ("cookie", "theme"), ("query", "page")} <= {

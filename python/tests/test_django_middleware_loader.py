@@ -8,6 +8,7 @@ to ensure middleware runs and affects request/response behavior.
 from __future__ import annotations
 
 import pytest
+from django.contrib import messages
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import ImproperlyConfigured
 from django.middleware.common import CommonMiddleware
@@ -550,8 +551,6 @@ class TestRealDjangoMiddleware:
 
         @api.get("/test")
         async def test_route(request):
-            from django.contrib import messages  # noqa: PLC0415
-
             # Try to add a message - this should work if middleware ran
             try:
                 messages.info(request, "Test message")

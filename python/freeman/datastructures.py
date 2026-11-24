@@ -75,7 +75,7 @@ class UploadFile:
         self.headers: dict[str, str] = headers or {}
         self._temp_path: str | None = None  # Not a Rust disk-spooled file
         # File must persist beyond a context manager - closed in close() method
-        self._file: SpooledTemporaryFile[bytes] | BinaryIO | None = SpooledTemporaryFile(max_size=max_spool_size)  # noqa: SIM115
+        self._file: SpooledTemporaryFile[bytes] | BinaryIO | None = SpooledTemporaryFile(max_size=max_spool_size)
         self._django_file: File | None = None
 
         if file_data:
@@ -160,7 +160,7 @@ class UploadFile:
         if file is None:
             # Only a disk-spooled file has no open file, and it has a temp path.
             # Open Rust's temp file directly - no memory copy!
-            file = self._file = open(self._temp_path, "r+b")  # noqa: SIM115
+            file = self._file = open(self._temp_path, "r+b")
         return file
 
     @property

@@ -259,7 +259,7 @@ class SharedConnections:
         """Do the installation. The caller holds ``_active_lock``."""
         try:
             initialized = list(connections.all(initialized_only=True))
-        except Exception as exc:  # noqa: BLE001 - unconfigured settings, no databases
+        except Exception as exc:
             logger.debug("Could not inspect database connections: %s", exc)
             return False
         if not any(conn.in_atomic_block for conn in initialized):
@@ -353,7 +353,7 @@ class SharedConnections:
         return guarded
 
     # -- parking ------------------------------------------------------------
-    def park(self) -> list[int] | None:  # noqa: D401 - see the delegation note
+    def park(self) -> list[int] | None:
         """Give back the locks of this thread while it waits for a response.
 
         A thread that waits in ``client.get()`` is blocked in the Rust

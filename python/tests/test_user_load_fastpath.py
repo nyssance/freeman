@@ -19,11 +19,11 @@ import uuid
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.db import models
+from django.db import DEFAULT_DB_ALIAS, connection, models, router
 
 from freeman import BoltAPI
 from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
-from freeman.auth.pk_loader import _pk_query_cache
+from freeman.auth.pk_loader import _compiled_pk_query, _pk_query_cache
 from freeman.auth.user_loader import load_user_by_pk_sync
 from freeman.testing import TestClient
 
@@ -150,8 +150,6 @@ def test_pk_too_large_for_the_database_returns_none(pk):
 @pytest.fixture(autouse=True, scope="module")
 def _filtered_account_table(django_db_setup, django_db_blocker):
     """Create the FilteredAccount table (test models are not in migrations)."""
-    from django.db import connection  # noqa: PLC0415
-
     with django_db_blocker.unblock():
         for model in (FilteredAccount, UuidAccount, SnapshotAccount):
             if model._meta.db_table not in connection.introspection.table_names():
@@ -197,9 +195,6 @@ def test_default_user_model_takes_compiled_path():
     """Perf tripwire: contrib's UserManager uses stock get_queryset, so the
     default user model must actually get the compiled statement — if this
     ever falls back, authenticated request throughput silently halves."""
-    from django.db import DEFAULT_DB_ALIAS, router  # noqa: PLC0415
-
-    from freeman.auth.pk_loader import _compiled_pk_query  # noqa: PLC0415
 
     alias = router.db_for_read(User) or DEFAULT_DB_ALIAS
     assert _compiled_pk_query(User, alias) is not None

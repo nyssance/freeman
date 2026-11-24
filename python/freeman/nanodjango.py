@@ -27,6 +27,11 @@ import logging
 import sys
 from typing import Any
 
+# This module is loaded by nanodjango's plugin manager during ``Django()``
+# construction, before ``settings.configure()``. Bind the ``django`` package,
+# not the lazy ``settings`` proxy: pluggy walks the module attributes, and
+# ``inspect.isroutine`` on the proxy raises ``ImproperlyConfigured``.
+import django.conf
 from nanodjango import Django, defer, hookimpl
 from nanodjango.convert.converter import Converter, Resolver
 from nanodjango.convert.utils import collect_references, get_decorators
@@ -90,13 +95,7 @@ class BoltAPI(_RealBoltAPI):
 
         super().__init__(**kwargs)
 
-        # Inline import: this module is loaded by nanodjango's plugin manager
-        # during ``Django()`` construction, before ``settings.configure()``.
-        # A module-top ``from django.conf import settings`` would expose the
-        # lazy ``settings`` proxy to pluggy's attribute walk and trigger
-        # ``ImproperlyConfigured`` via ``inspect.isroutine``.
-        from django.conf import settings  # noqa: PLC0415
-
+        settings = django.conf.settings
         if "freeman" not in settings.INSTALLED_APPS:
             settings.INSTALLED_APPS = list(settings.INSTALLED_APPS) + ["freeman"]
 
@@ -112,8 +111,7 @@ class BoltAPI(_RealBoltAPI):
             return
         self._bolt_api_configured = True
 
-        from django.conf import settings  # noqa: PLC0415
-
+        settings = django.conf.settings
         module = sys.modules.get(self._module_name)
         if module is None:
             self._warn_autoconfig_failed(f"module {self._module_name!r} is not in sys.modules")
@@ -164,8 +162,7 @@ def django_pre_setup(app: Django) -> None:
     is never instantiated (e.g. the app only uses runbolt management command
     without registering routes via this wrapper).
     """
-    from django.conf import settings  # noqa: PLC0415
-
+    settings = django.conf.settings
     if not defer.is_installed("freeman"):
         return
 

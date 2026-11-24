@@ -13,6 +13,7 @@ import inspect
 import json
 import os
 import threading
+import time
 import urllib.parse
 from time import sleep
 
@@ -34,16 +35,12 @@ from freeman.testing import TestClient
 # Test handler functions for analysis
 def sync_handler_with_orm():
     """Sync handler that uses Django ORM."""
-    from django.contrib.auth.models import User  # noqa: PLC0415
-
     users = User.objects.filter(is_active=True)
     return list(users)
 
 
 def sync_handler_with_multiple_orm_calls():
     """Sync handler with multiple ORM operations."""
-    from django.contrib.auth.models import User  # noqa: PLC0415
-
     User.objects.create(username="test")
     users = User.objects.all()
     count = User.objects.count()
@@ -53,16 +50,12 @@ def sync_handler_with_multiple_orm_calls():
 
 async def async_handler_with_sync_orm():
     """Async handler that incorrectly uses sync ORM methods."""
-    from django.contrib.auth.models import User  # noqa: PLC0415
-
     users = User.objects.filter(is_active=True)
     return list(users)
 
 
 async def async_handler_with_async_orm():
     """Async handler using proper async ORM methods."""
-    from django.contrib.auth.models import User  # noqa: PLC0415
-
     user = await User.objects.aget(id=1)
     users = [u async for u in User.objects.aiterator()]
     return {"user": user, "users": users}
@@ -81,8 +74,6 @@ async def async_handler_no_orm():
 
 def sync_handler_with_iteration():
     """Sync handler that iterates over QuerySet."""
-    from django.contrib.auth.models import User  # noqa: PLC0415
-
     result = []
     for user in User.objects.all():
         result.append(user.username)
@@ -91,15 +82,11 @@ def sync_handler_with_iteration():
 
 def sync_handler_with_list_comprehension():
     """Sync handler with list comprehension over QuerySet."""
-    from django.contrib.auth.models import User  # noqa: PLC0415
-
     return [user.username for user in User.objects.filter(is_active=True)]
 
 
 def sync_handler_with_save():
     """Sync handler that saves a model instance."""
-    from django.contrib.auth.models import User  # noqa: PLC0415
-
     user = User(username="test")
     user.save()
     return {"id": user.id}
@@ -107,15 +94,13 @@ def sync_handler_with_save():
 
 def sync_handler_with_blocking_io():
     """Sync handler with blocking I/O operations."""
-    import time  # noqa: PLC0415
-
     time.sleep(1)
     return {"waited": True}
 
 
 def sync_handler_with_requests():
     """Sync handler using requests library."""
-    import requests  # noqa: PLC0415 - intentional for testing blocking I/O detection
+    import requests
 
     response = requests.get("http://example.com")
     return {"status": response.status_code}
@@ -383,9 +368,7 @@ class TestAnalysisFailure:
 
     def test_lambda_analysis_fails_gracefully(self):
         """Test that lambda functions fail gracefully."""
-        handler = lambda: {"hello": "world"}  # noqa: E731
-
-        analysis = analyze_handler(handler)
+        analysis = analyze_handler(lambda: {"hello": "world"})
 
         # Lambdas may or may not be parseable depending on context
         # Either way, it shouldn't raise an exception
@@ -547,7 +530,10 @@ class TestAnalyzeDependencyTree:
 
     def test_typed_query_in_dep_is_picked_up_via_needs_query(self):
         """A dep with a typed Query() param already sets needs_query in its meta."""
-        dep_fn = lambda page: {"page": page}  # noqa: E731
+
+        def dep_fn(page):
+            return {"page": page}
+
         dep_meta = {"mode": "mixed", "fields": [], "needs_query": True}
         handler_meta = {"fields": [_make_fake_field(source="dependency", dep_fn=dep_fn)]}
 

@@ -45,7 +45,7 @@ class TestFileAutoCleanup:
             assert response.status_code == 200
 
         assert len(file_states) == 1
-        assert file_states[0]["file_obj"]._file.closed is True
+        assert file_states[0]["file_obj"].raw_file.closed is True
 
     def test_large_file_disk_spooled_auto_cleanup(self):
         """Large files that are disk-spooled should also be auto-cleaned up."""
@@ -66,7 +66,7 @@ class TestFileAutoCleanup:
             assert response.status_code == 200
 
         assert file_states[0]["rolled_to_disk"] is True
-        assert file_states[0]["file_obj"]._file.closed is True
+        assert file_states[0]["file_obj"].raw_file.closed is True
 
     def test_multiple_files_all_auto_cleaned(self):
         """When uploading multiple files, all should be auto-cleaned up."""
@@ -93,7 +93,7 @@ class TestFileAutoCleanup:
 
         assert len(file_states) == 3
         for f in file_states:
-            assert f._file.closed is True
+            assert f.raw_file.closed is True
 
     def test_file_cleanup_on_handler_exception(self):
         """Files should be cleaned up even if handler raises an exception."""
@@ -111,7 +111,7 @@ class TestFileAutoCleanup:
             assert response.status_code == 500
 
         assert len(file_states) == 1
-        assert file_states[0]._file.closed is True
+        assert file_states[0].raw_file.closed is True
 
     def test_no_file_descriptor_leak_many_requests(self):
         """Many consecutive file upload requests should not leak file descriptors."""

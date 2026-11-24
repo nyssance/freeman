@@ -110,7 +110,7 @@ def test_lifespan_startup_failure_prevents_tests():
     @asynccontextmanager
     async def bad_lifespan(app):
         raise RuntimeError("startup failed")
-        yield  # noqa: RET503
+        yield
 
     api = BoltAPI(lifespan=bad_lifespan)
 
@@ -259,7 +259,7 @@ def test_close_of_an_entered_test_client_stops_sharing_the_database_connection()
         try:
             with TestClient(api, share_db_connection=False) as other:
                 statuses.append(other.get("/health").status_code)
-        except BaseException as exc:  # noqa: BLE001 - the test reports it below
+        except BaseException as exc:
             errors.append(exc)
 
     thread = threading.Thread(target=other_thread)

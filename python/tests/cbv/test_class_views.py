@@ -8,6 +8,7 @@ Tests cover:
 - Return type annotations
 """
 
+import inspect
 from typing import Any
 
 import pytest
@@ -15,7 +16,7 @@ from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.auth.backends import JWTAuthentication
-from freeman.auth.guards import IsAuthenticated  # noqa: PLC0415
+from freeman.auth.guards import IsAuthenticated, Requires
 from freeman.params import Depends
 from freeman.views import APIView
 
@@ -29,11 +30,11 @@ def api():
 
 
 def create_request(
-    path_params: dict[str, Any] = None,
-    query_params: dict[str, Any] = None,
-    headers: dict[str, str] = None,
+    path_params: dict[str, Any] | None = None,
+    query_params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
     body: bytes = b"{}",
-    auth: dict[str, Any] = None,
+    auth: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Helper to create mock request dictionary."""
     return {
@@ -164,8 +165,6 @@ async def test_bolt_api_view_dependency_injection(api):
     handler = api._routes[0][3]
 
     # Check that handler has correct signature
-    import inspect  # noqa: PLC0415
-
     sig = inspect.signature(handler)
     assert "current_user" in sig.parameters
 
@@ -186,8 +185,6 @@ async def test_bolt_api_view_request_body(api):
     handler = api._routes[0][3]
 
     # Verify handler signature includes data parameter
-    import inspect  # noqa: PLC0415
-
     sig = inspect.signature(handler)
     assert "data" in sig.parameters
 
@@ -207,8 +204,6 @@ async def test_bolt_api_view_return_annotation(api):
 
     # Check that handler signature includes return annotation
     handler = api._routes[0][3]
-    import inspect  # noqa: PLC0415
-
     sig = inspect.signature(handler)
     assert sig.return_annotation == ResponseSchema
 
@@ -236,7 +231,6 @@ def test_bolt_api_view_class_level_guards(api):
 
 def test_bolt_api_view_route_level_guard_override(api):
     """Test route-level guards override class-level guards."""
-    from freeman.auth.guards import Requires  # noqa: PLC0415
 
     # Override with route-level guards
     @api.view("/admin", guards=[Requires("is_superuser", True)])

@@ -13,9 +13,18 @@ import sys
 import sysconfig
 import tempfile
 
+import django
 import pytest
+from django.conf import settings
+from django.core.management import call_command
+from django.db import connection, connections
 from hypothesis import settings as hypothesis_settings
 from hypothesis.database import DirectoryBasedExampleDatabase
+
+# Lazy: these load after pytest_configure configures Django and the app registry.
+lazy from freeman import _core
+
+lazy from .test_models import Article, Author, BlogPost, Comment, Document, Release, Tag, User, UserProfile
 
 # Suppress httpx INFO logs during tests
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -78,8 +87,6 @@ def _gil_stays_disabled():
 
 def pytest_collection_modifyitems(config, items):
     """Skip the ``mcp`` tests when the extension is built without the mcp feature."""
-    from freeman import _core  # noqa: PLC0415
-
     if hasattr(_core, "register_mcp_mounts"):
         return
     skip = pytest.mark.skip(reason="The extension is built without the mcp feature: `maturin develop --features mcp`.")
@@ -90,9 +97,6 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_configure(config):
     """Configure Django settings for pytest-django."""
-    import django  # noqa: PLC0415
-    from django.conf import settings  # noqa: PLC0415
-
     # Skip configuration if DJANGO_SETTINGS_MODULE is already set
     # This allows specific test modules to use their own Django settings
     if os.getenv("DJANGO_SETTINGS_MODULE"):
@@ -189,12 +193,6 @@ def django_db_setup(django_db_blocker):
 
     Note: We skip the default django_db_setup to have better control over test database.
     """
-    import os  # noqa: PLC0415
-
-    from django.conf import settings  # noqa: PLC0415
-    from django.core.management import call_command  # noqa: PLC0415
-    from django.db import connection  # noqa: PLC0415
-
     with django_db_blocker.unblock():
         # Ensure test database directory exists
         db_path = settings.DATABASES["default"]["NAME"]
@@ -209,8 +207,6 @@ def django_db_setup(django_db_blocker):
         # Create test model tables manually since they're not in migrations
         # migrate --run-syncdb can already create them; create only the missing ones.
         with connection.schema_editor() as schema_editor:
-            from .test_models import Article, Author, BlogPost, Comment, Document, Release, Tag, User, UserProfile  # noqa: PLC0415
-
             models = [Article, Author, Tag, BlogPost, Comment, User, UserProfile, Document, Release]
             for model in models:
                 # Check if table already exists
@@ -225,7 +221,5 @@ def pytest_unconfigure(config):
     handlers. A later session in the same process opens a new database at the
     same path, so the connections of this thread close first.
     """
-    from django.db import connections  # noqa: PLC0415
-
     connections.close_all()
     shutil.rmtree(_DB_DIR, ignore_errors=True)

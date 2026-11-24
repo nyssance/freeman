@@ -92,7 +92,7 @@ def test_auto_output_schema_rejects_tool_result():
 
 @pytest.mark.parametrize(
     "annotation",
-    [ToolResult | None, Optional[ToolResult], ToolResult | Day],  # noqa: UP045
+    [ToolResult | None, Optional[ToolResult], ToolResult | Day],
     ids=["pipe-none", "optional", "pipe-struct"],
 )
 def test_auto_output_schema_rejects_a_union_with_tool_result(annotation):

@@ -12,6 +12,7 @@ Django configured by the time it imports freeman.nanodjango.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import platform
 import shutil
@@ -60,12 +61,7 @@ if __name__ == "__main__":
 """
 
 
-try:
-    import nanodjango  # noqa: F401
-
-    _has_nanodjango = True
-except ImportError:
-    _has_nanodjango = False
+_has_nanodjango = importlib.util.find_spec("nanodjango") is not None
 
 
 pytestmark = [

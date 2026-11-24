@@ -10,35 +10,35 @@ from .params import Path as _Path
 from .params import Query as _Query
 
 
-def Query(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+def Query(*args: Any, **kwargs: Any) -> Any:
     return _Query(*args, **kwargs)
 
 
-def Path(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+def Path(*args: Any, **kwargs: Any) -> Any:
     return _Path(*args, **kwargs)
 
 
-def Body(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+def Body(*args: Any, **kwargs: Any) -> Any:
     return _Body(*args, **kwargs)
 
 
-def Header(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+def Header(*args: Any, **kwargs: Any) -> Any:
     return _Header(*args, **kwargs)
 
 
-def Cookie(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+def Cookie(*args: Any, **kwargs: Any) -> Any:
     return _Cookie(*args, **kwargs)
 
 
-def Depends(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+def Depends(*args: Any, **kwargs: Any) -> Any:
     return _Depends(*args, **kwargs)
 
 
-def Form(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+def Form(*args: Any, **kwargs: Any) -> Any:
     return _Form(*args, **kwargs)
 
 
-def File(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+def File(*args: Any, **kwargs: Any) -> Any:
     return _File(*args, **kwargs)
 
 

@@ -26,7 +26,7 @@ import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from functools import cache, wraps
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, get_args, get_origin
+from typing import TYPE_CHECKING, Any, get_args, get_origin
 
 import msgspec
 from django.core.exceptions import FieldDoesNotExist, ValidationError
@@ -58,7 +58,6 @@ __all__ = [
     "extract_pagination_item_type",
 ]
 
-T = TypeVar("T")
 # A cursor uses the URL-safe base64 alphabet. A cursor from an earlier release has "+" and "/".
 _URL_SAFE_TO_STANDARD = str.maketrans("-_", "+/")
 
@@ -120,7 +119,7 @@ def _no_default(schema: dict[str, Any]) -> None:
 _Optional = PydanticField(None, exclude_if=_unset, json_schema_extra=_no_default)
 
 
-class Page(BaseModel, Generic[T]):  # noqa: UP046 — PEP 695 params are unresolvable under PEP 563
+class Page[T](BaseModel):
     """The pagination envelope: ``Page[Item]``.
 
     An optional field that is None is not in the JSON, so each scheme sends

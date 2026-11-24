@@ -9,7 +9,7 @@ import time
 import django
 import jwt
 import pytest
-from django.conf import settings  # noqa: PLC0415
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 

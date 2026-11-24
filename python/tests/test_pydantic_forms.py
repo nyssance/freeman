@@ -432,14 +432,14 @@ class TestFormModelWithUploadFile:
         @api.post("/profile")
         async def update_profile(data: Annotated[ProfileForm, Form()]):
             tracked.append(data.avatar)
-            assert not data.avatar._file.closed
+            assert not data.avatar.raw_file.closed
             return {"name": data.name}
 
         with TestClient(api) as client:
             assert client.post("/profile", data={"name": "John"}, files={"avatar": _png()}).status_code == 200
 
         assert len(tracked) == 1
-        assert tracked[0]._file.closed
+        assert tracked[0].raw_file.closed
 
 
 class TestFileConstraintsByPartName:

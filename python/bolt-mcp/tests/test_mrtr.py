@@ -202,7 +202,7 @@ def test_user_except_blocks_do_not_swallow_input_required():
     async def greedy(ctx: Context) -> dict:
         try:
             answer = await ctx.elicit("Q?")
-        except Exception:  # noqa: BLE001 — the point: broad except must not eat MRTR
+        except Exception:
             return {"swallowed": True}
         return {"answer": answer}
 

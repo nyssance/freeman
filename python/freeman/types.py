@@ -387,7 +387,7 @@ class Request(Protocol):
         ...
 
     @property
-    def session(self) -> "SessionBase":  # noqa: UP037 - quotes needed for forward ref
+    def session(self) -> SessionBase:
         """
         Django session object (requires SessionMiddleware).
 

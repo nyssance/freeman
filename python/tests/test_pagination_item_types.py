@@ -440,7 +440,7 @@ def test_paginate_with_filtered_queryset_and_item_type(sample_articles, response
 
     @api.get("/articles", response_model=response_model)
     @paginate(SmallPagePagination)
-    async def list_articles(request, is_published: bool = None):
+    async def list_articles(request, is_published: bool | None = None):
         qs = Article.objects.all()
         if is_published is not None:
             qs = qs.filter(is_published=is_published)

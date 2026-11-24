@@ -13,6 +13,9 @@ import pytest
 from django.conf import settings
 from django.core.management import call_command
 
+# Lazy: Django is configured below, before freeman loads.
+lazy from freeman import _core
+
 # A temp *file* DB (not ``:memory:``): the OAuth Authorization Server tests touch the DB
 # from request handlers, which run ORM through ``sync_to_async`` on a worker thread with
 # its own SQLite connection. ``:memory:`` is per-connection, so that connection would see
@@ -85,8 +88,6 @@ def pytest_collection_modifyitems(items):
             + ", ".join(marked)
         )
     # The default wheel has no MCP transport. Each test here needs it.
-    from freeman import _core  # noqa: PLC0415 — Django is configured above, before freeman loads
-
     if not hasattr(_core, "register_mcp_mounts"):
         skip = pytest.mark.skip(
             reason="The extension is built without the mcp feature: `maturin develop --features mcp`."

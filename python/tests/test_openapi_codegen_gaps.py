@@ -16,8 +16,6 @@ test-driven (RED first):
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
-
 import pytest
 from openapi_spec_validator import validate
 from pydantic import BaseModel, create_model
@@ -31,22 +29,20 @@ from freeman.testing import TestClient
 
 from .test_models import Article
 
-T = TypeVar("T")
-
 
 class UserRead(BaseModel):
     id: int
     name: str
 
 
-class Page(BaseModel, Generic[T]):  # noqa: UP046
+class Page[T](BaseModel):
     """A page of results."""
 
     count: int
     results: list[T]
 
 
-class ModelPage(BaseModel, Generic[T]):  # noqa: UP046
+class ModelPage[T](BaseModel):
     count: int
     results: list[T]
 
@@ -174,7 +170,7 @@ def test_paginated_route_documents_the_envelope_not_a_bare_list():
 # ---------------------------------------------------------------------------
 
 
-class DRFPage(BaseModel, Generic[T]):  # noqa: UP046
+class DRFPage[T](BaseModel):
     count: int
     next: str | None
     previous: str | None

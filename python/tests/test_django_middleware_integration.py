@@ -18,6 +18,7 @@ from typing import Annotated
 
 import pytest
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import alogin, alogout
 from django.contrib.auth.decorators import login_not_required, login_required
 from django.contrib.auth.middleware import AuthenticationMiddleware
@@ -709,8 +710,6 @@ class TestMessagesFramework:
 
         @api.get("/test")
         async def test_route(request):
-            from django.contrib import messages  # noqa: PLC0415
-
             # Add messages - this requires _messages to be set by MessageMiddleware
             messages.info(request, "Test info message")
             messages.success(request, "Test success message")
