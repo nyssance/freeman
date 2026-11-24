@@ -4,7 +4,7 @@ icon: lucide/boxes
 
 # Class-Based Views
 
-Django-Bolt supports class-based views for organizing related endpoints. This guide covers `APIView`, `ViewSet`, and `ModelViewSet`.
+Freeman supports class-based views for organizing related endpoints. This guide covers `APIView`, `ViewSet`, and `ModelViewSet`.
 
 ## APIView
 
@@ -30,7 +30,7 @@ This creates:
 - `GET /hello` - Calls the `get` method
 - `POST /hello` - Calls the `post` method
 
-Bolt passes the request to the parameter with the name `request` or `req`, at each position. `self.request` is the same request. A method with no such parameter can still read `self.request`:
+Freeman passes the request to the parameter with the name `request` or `req`, at each position. `self.request` is the same request. A method with no such parameter can still read `self.request`:
 
 ```python
 @api.view("/whoami")
@@ -146,7 +146,7 @@ This creates:
 | PATCH | `/items/{pk}` | `partial_update` |
 | DELETE | `/items/{pk}` | `destroy` |
 
-An action can be `async def` or `def`. Bolt registers only the actions that the class defines.
+An action can be `async def` or `def`. Freeman registers only the actions that the class defines.
 
 Set `pagination_class` on a `ViewSet`, `ReadOnlyModelViewSet`, or `ModelViewSet`
 to have the `list()` action paginated automatically. Use `@paginate(...)` when

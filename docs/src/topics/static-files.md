@@ -4,7 +4,7 @@ icon: lucide/file-image
 
 # Static Files
 
-For production deployments, we recommend letting **Nginx** handle static files at the reverse proxy layer — this offloads static traffic entirely so Django-Bolt focuses on API requests. That said, Django-Bolt also serves static files directly from Rust using Actix-files, delivering high-performance static file serving without Python overhead — a solid option when you want a simpler setup without configuring static file handling in your reverse proxy.
+For production deployments, we recommend letting **Nginx** handle static files at the reverse proxy layer — this offloads static traffic entirely so Freeman focuses on API requests. That said, Freeman also serves static files directly from Rust using Actix-files, delivering high-performance static file serving without Python overhead — a solid option when you want a simpler setup without configuring static file handling in your reverse proxy.
 
 !!! tip "Serving user uploads?"
     This page covers **static assets** (CSS, JS, admin) from `STATIC_ROOT` / `STATICFILES_DIRS`. For user-uploaded media (`MEDIA_ROOT`), see [Media Files](media-files.md) — it shares this handler but applies stricter, upload-specific defaults.
@@ -22,7 +22,7 @@ Static files are served with:
 
 ## Configuration
 
-Django-Bolt reads your existing Django static files settings:
+Freeman reads your existing Django static files settings:
 
 ```python
 # settings.py
@@ -41,7 +41,7 @@ STATICFILES_DIRS = [
 
 ## File lookup order
 
-When a static file is requested, Django-Bolt searches in this order:
+When a static file is requested, Freeman searches in this order:
 
 1. **STATIC_ROOT** - Collected static files (fastest)
 2. **STATICFILES_DIRS** - Additional configured directories
@@ -75,7 +75,7 @@ INSTALLED_APPS = [
 
 ### Directory traversal protection
 
-Django-Bolt blocks directory traversal attacks:
+Freeman blocks directory traversal attacks:
 
 - Paths containing `..` are rejected with `400`
 - Symlink targets are verified to stay within allowed directories
@@ -94,7 +94,7 @@ Any request whose path has a leading-dot component — `.env`, `.git/config`, `.
 
 ### Content Security Policy (CSP)
 
-Django-Bolt applies CSP headers to all static file responses. This protects against XSS attacks in HTML files and ensures scripts/styles are loaded only from trusted sources.
+Freeman applies CSP headers to all static file responses. This protects against XSS attacks in HTML files and ensures scripts/styles are loaded only from trusted sources.
 
 Configure CSP using Django 6.0+'s native [`SECURE_CSP`](https://docs.djangoproject.com/en/6.0/ref/csp/) setting:
 
@@ -137,7 +137,7 @@ Django provides constants via `django.utils.csp.CSP`:
 
 - CSP configuration is read once at server startup
 - The header is pre-built for performance (no per-request overhead)
-- Bolt builds the header with the rules of Django. `True` gives a directive with no value, such as `"upgrade-insecure-requests": True`. `None`, `False` and an empty list skip the directive. A set is sorted, and one str is one value.
+- Freeman builds the header with the rules of Django. `True` gives a directive with no value, such as `"upgrade-insecure-requests": True`. `None`, `False` and an empty list skip the directive. A set is sorted, and one str is one value.
 - `CSP.NONCE` values are automatically filtered out (static files cannot inject nonces)
 - A `SECURE_CSP` that is not a dict, or that does not give a valid header, stops startup with `ImproperlyConfigured`
 - Media files get the same header
@@ -212,7 +212,7 @@ For production, collect static files (including admin assets) into `STATIC_ROOT`
 python manage.py collectstatic
 ```
 
-Then run Django-Bolt:
+Then run Freeman:
 
 ```bash
 python manage.py runbolt --host 0.0.0.0 --port 8000 --processes 4

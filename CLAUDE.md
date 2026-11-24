@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Django-Bolt: Rust-powered (Actix Web + PyO3) API endpoints for Django, msgspec serialization, multi-process via SO_REUSEPORT. See [docs/README.md](docs/README.md) for usage docs and [docs/PROFILING.md](docs/PROFILING.md) for measurement.
+Freeman: an HTTP engine for Python APIs on Django. Rust (Actix Web + PyO3) does routing, parameter checks, auth, guards, CORS, rate limits and compression; handlers are Python and take and return Pydantic models or msgspec structs. Multi-process via SO_REUSEPORT. Distribution and import package: `freeman` (`python/freeman`). Forked from django-bolt at `23c1990`; independent, does not track upstream. Usage docs: `docs/src` (Zensical, `docs/zensical.toml`). Measurement: [docs/PROFILING.md](docs/PROFILING.md).
 
 ## Commands
 
@@ -9,8 +9,11 @@ just build                 # rebuild the Rust extension (required after any Rust
 just rebuild               # clean + build
 just test-py               # Python tests
 just test-rs               # Rust unit tests
+just test-mcp              # build with the `mcp` Cargo feature, run the MCP tests
+just test-pg               # PostgreSQL tests in a throwaway container
 just test-example          # python/example: check, migrations, tests
 just docs-check            # Python blocks in docs/src and the readmes parse; their freeman/bolt_mcp imports exist
+just docs-serve            # docs site on localhost:8080 (just docs-build: static build)
 just clippy                # Rust lint, -D warnings (CI gate)
 just coverage              # Python + Rust coverage → coverage/ (needs cargo-llvm-cov)
 just fuzz query_string 60  # cargo-fuzz one parser target (fuzz/; needs nightly + cargo-fuzz)
@@ -22,15 +25,18 @@ just format
 just save-bench            # benchmarks → python/benchmark/BENCHMARK.md (needs bombardier)
 just bench-codspeed        # CodSpeed cases, one run each; CI measures them per PR
 python manage.py runbolt --dev              # from python/example
-just release VERSION=0.2.2 [DRY_RUN=1]      # bump, commit, tag, push
+just release 0.2.2 [--dry-run]         # bump, commit, tag, push
 ```
 
-Supported: Python 3.12–3.14 and Django 5.2–6.1 (source of truth: `pyproject.toml` classifiers;
-only upstream-supported Django series, enforced by `scripts/check_support_matrix.py`).
+Supported: Python 3.15 and Django 6.1 only (source of truth: `pyproject.toml`; checked by
+`scripts/check_support_matrix.py`). Wheels: Linux x86_64, Linux arm64, macOS arm64.
+
+Names older than the project stay: `BoltAPI` and other class names, `runbolt`, `BOLT_*` settings,
+`DJANGO_BOLT_*` environment variables, the `bolt-*` crates and the `bolt-mcp` / `bolt_mcp` package.
 
 ## Layout
 
-Cargo workspace, layered bottom-up with no back-edges: {`bolt-native-abi`, `bolt-loop`} → `bolt-core` → {`bolt-asgi`, `bolt-websocket`, `bolt-mcp`} → root `django-bolt` (`src/`, the `_core` PyO3 module).
+Cargo workspace, layered bottom-up with no back-edges: {`bolt-native-abi`, `bolt-loop`} → `bolt-core` → {`bolt-asgi`, `bolt-websocket`, `bolt-mcp`} → root `freeman` (`src/`, the `freeman._core` PyO3 module).
 
 - `src/` — `lib.rs` (module entry), `server.rs` (Actix + tokio, CORS/compression), `handler.rs` (dispatch, `DispatchOutcome`), `testing.rs` (`TestClient` backend: `handle_request` on test worker threads), `dev_reload.rs`
 - `crates/bolt-loop` — per-worker-thread asyncio `WorkerLoop` (a real `SelectorEventLoop` on the Tokio reactor; one shared loop for threads with no bound loop), timer thread

@@ -8,7 +8,7 @@ This page documents the `BoltAPI` class and its methods.
 
 ## BoltAPI
 
-The main class for creating Django-Bolt APIs.
+The main class for creating Freeman APIs.
 
 ```python
 from freeman import BoltAPI
@@ -101,7 +101,7 @@ The `trailing_slash` parameter controls how route paths are normalized at regist
 | `"append"` | Add trailing slashes | `/users` → `/users/` |
 | `"keep"` | No normalization, keep paths as-is | `/users/` → `/users/` |
 
-**Runtime behavior:** When a request doesn't match a route, Django-Bolt checks if the alternate path (with/without trailing slash) exists. If found, returns a **308 Permanent Redirect** to the canonical URL.
+**Runtime behavior:** When a request doesn't match a route, Freeman checks if the alternate path (with/without trailing slash) exists. If found, returns a **308 Permanent Redirect** to the canonical URL.
 
 ```python
 # Default: strip trailing slashes
@@ -270,7 +270,7 @@ Mount an HTTP ASGI application under a static prefix.
 
 See [ASGI Mounts](../topics/asgi-mounts.md) for full behavior, examples, and constraints.
 
-Mounted ASGI apps are outside Bolt middleware/auth/CORS flow and currently use a buffered response bridge (not true streaming passthrough).
+Mounted ASGI apps are outside Freeman middleware/auth/CORS flow and currently use a buffered response bridge (not true streaming passthrough).
 
 #### api.mount_django(path, app=None, *, clear_root_path=False)
 
@@ -291,7 +291,7 @@ Serve `method path` with a Rust handler from another extension module. `capsule`
 api.native_route("GET", "/native/users/{id}", my_extension.user_handler())
 ```
 
-See [Native Routes](../topics/native-routes.md) for what Bolt does for a native route and how to write a handler.
+See [Native Routes](../topics/native-routes.md) for what Freeman does for a native route and how to write a handler.
 
 ## Dependency injection
 

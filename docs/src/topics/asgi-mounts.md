@@ -4,13 +4,13 @@ icon: lucide/plug
 
 # ASGI Mounts
 
-This guide explains how to mount ASGI applications inside Django-Bolt.
+This guide explains how to mount ASGI applications inside Freeman.
 
-Use this when you want to serve existing Django URLconf apps (for example admin, allauth, or legacy ASGI apps) under a path prefix, while keeping Bolt routes fast.
+Use this when you want to serve existing Django URLconf apps (for example admin, allauth, or legacy ASGI apps) under a path prefix, while keeping Freeman routes fast.
 
 ## Overview
 
-Django-Bolt provides two mount APIs:
+Freeman provides two mount APIs:
 
 - `api.mount_asgi(path, app)`: Mount any HTTP or WebSocket ASGI callable.
 - `api.mount_django(path, app=None, *, clear_root_path=False)`: Mount Django's ASGI app (or a provided ASGI app).
@@ -19,7 +19,7 @@ These mounts do not support the lifespan protocol. Start and stop the app yourse
 
 ## WebSocket mounts
 
-A mounted app also serves WebSocket connections. Bolt matches the WebSocket routes first. If no route matches the path, Bolt gives the connection to the mounted app.
+A mounted app also serves WebSocket connections. Freeman matches the WebSocket routes first. If no route matches the path, Freeman gives the connection to the mounted app.
 
 The scope follows the ASGI specification. `path` keeps the mount prefix, `root_path` reports the prefix, and `headers` is a list of byte pairs. `path` is percent-decoded, and `raw_path` keeps the request bytes. This differs from an HTTP mount, which removes the prefix from `path`. A WebSocket router strips `root_path` itself, so a path with the prefix already removed makes the router strip it twice.
 
@@ -40,15 +40,15 @@ async def echo_app(scope, receive, send):
 api.mount_asgi("/ws", echo_app)
 ```
 
-Bolt sends the `101` response when the app sends `websocket.accept`. A `websocket.close` before the accept refuses the handshake with HTTP `403`. An app that returns before the accept also gets `403`. An app that raises before the accept gets `500`.
+Freeman sends the `101` response when the app sends `websocket.accept`. A `websocket.close` before the accept refuses the handshake with HTTP `403`. An app that returns before the accept also gets `403`. An app that raises before the accept gets `500`.
 
-`scope["subprotocols"]` lists the subprotocols that the client requested. Bolt puts the `subprotocol` of `websocket.accept` in the `Sec-WebSocket-Protocol` header of the `101` response, and the `headers` of `websocket.accept` too. A subprotocol that the client did not request fails the handshake with `500`.
+`scope["subprotocols"]` lists the subprotocols that the client requested. Freeman puts the `subprotocol` of `websocket.accept` in the `Sec-WebSocket-Protocol` header of the `101` response, and the `headers` of `websocket.accept` too. A subprotocol that the client did not request fails the handshake with `500`.
 
-A WebSocket connection that matches no route goes to the mounted app with the longest matching prefix. Bolt skips a `mount_django()` mount of Django's own ASGI app, because that app serves HTTP only. A `mount_django()` mount with a custom app, such as a Channels `ProtocolTypeRouter`, gets WebSocket connections.
+A WebSocket connection that matches no route goes to the mounted app with the longest matching prefix. Freeman skips a `mount_django()` mount of Django's own ASGI app, because that app serves HTTP only. A `mount_django()` mount with a custom app, such as a Channels `ProtocolTypeRouter`, gets WebSocket connections.
 
 Auth and guards do not run for a mounted app. Read the scope and do these checks in the app.
 
-A mount does not route. The mount prefix must be static, so Bolt cannot read URL captures for the app. Give the mount a router to get them:
+A mount does not route. The mount prefix must be static, so Freeman cannot read URL captures for the app. Give the mount a router to get them:
 
 ```python
 from channels.routing import URLRouter
@@ -60,7 +60,7 @@ api.mount_asgi(
 )
 ```
 
-The router sets `scope["url_route"]["kwargs"]`. Use `@api.websocket("/ws/room/{room_name}")` instead when you want Bolt to read the captures, and to run auth and guards in Rust.
+The router sets `scope["url_route"]["kwargs"]`. Use `@api.websocket("/ws/room/{room_name}")` instead when you want Freeman to read the captures, and to run auth and guards in Rust.
 
 ## `mount_asgi()`
 
@@ -141,9 +141,9 @@ Use `clear_root_path=True` when the mounted Django app's URL patterns already in
 
 An admin site in `i18n_patterns()` has one prefix for each language of `settings.LANGUAGES`, for example `/en/admin` and `/fr/admin`. `runbolt` mounts each of them. It also mounts the path with no language, `/admin`. Django's `LocaleMiddleware` redirects that path to the prefix of a language. With `prefix_default_language=False`, the default language has no prefix. The default language is the variant of `LANGUAGE_CODE` that `LANGUAGES` has: for `"en-us"` with only `"en"` in `LANGUAGES`, the prefix is `/en/admin`, as in Django. Set `LANGUAGES` to the languages that you use: the default of Django has about 100 languages, and each gets a mount.
 
-A prefix with a path parameter, such as `path("<tenant>/admin/", site.urls)`, is not a static path. A mount path must be static, so `runbolt` mounts Django at the root path for it. Bolt routes answer first. Django answers each path that has no Bolt route, so `/acme/admin/` goes to the admin. `runbolt` prints a warning about this wider mount. An admin site at the root path, `path("", admin.site.urls)`, gets the same mount and a warning.
+A prefix with a path parameter, such as `path("<tenant>/admin/", site.urls)`, is not a static path. A mount path must be static, so `runbolt` mounts Django at the root path for it. Freeman routes answer first. Django answers each path that has no Freeman route, so `/acme/admin/` goes to the admin. `runbolt` prints a warning about this wider mount. An admin site at the root path, `path("", admin.site.urls)`, gets the same mount and a warning.
 
-The mount at the root path costs nothing for a request to a Bolt route. Bolt reads the mounts only when no Bolt route matches. A path that has no Bolt route gets the answer of Django, for example a Django 404 page, not the 404 of Bolt. A path of a Bolt route with another method gets 405 from Bolt, not the mount.
+The mount at the root path costs nothing for a request to a Freeman route. Freeman reads the mounts only when no Freeman route matches. A path that has no Freeman route gets the answer of Django, for example a Django 404 page, not the 404 of Freeman. A path of a Freeman route with another method gets 405 from Freeman, not the mount.
 
 If you call `api.mount_django("/", ...)` yourself, `runbolt` keeps your mount and does not add one.
 
@@ -152,8 +152,8 @@ If you call `api.mount_django("/", ...)` yourself, `runbolt` keeps your mount an
 - Mount paths must be static (no dynamic segments like `/{id}`).
 - Prefixes are normalized (leading slash, no trailing slash except `/`).
 - Duplicate exact mount prefixes are rejected.
-- Exact collisions between Bolt route paths and mount prefixes are rejected.
-- A mount at `/` and a Bolt route at `/` can exist together. The route answers `/`, and the mount gets each request that no route matches.
+- Exact collisions between Freeman route paths and mount prefixes are rejected.
+- A mount at `/` and a Freeman route at `/` can exist together. The route answers `/`, and the mount gets each request that no route matches.
 - Non-exact prefix overlap is allowed.
 - Longest prefix wins when multiple mounts match.
 
@@ -161,28 +161,28 @@ If you call `api.mount_django("/", ...)` yourself, `runbolt` keeps your mount an
 
 Request dispatch order:
 
-1. Bolt route matching
+1. Freeman route matching
 2. ASGI mount fallback (only on route miss)
 
-This means mounted apps do not override matching Bolt routes.
+This means mounted apps do not override matching Freeman routes.
 
 Additionally, API near-miss behavior (such as method mismatch and trailing-slash redirect checks) is resolved before mount fallback, so ASGI mounts do not hijack those API semantics.
 
 ## Middleware boundary
 
-ASGI mounts run outside Bolt's route middleware pipeline.
+ASGI mounts run outside Freeman's route middleware pipeline.
 
-That means Bolt-level middleware features (for example rate limits, Bolt auth guards, and Bolt CORS behavior) do not apply to mounted ASGI apps. Mounted Django apps should rely on Django middleware/settings for those concerns.
+That means Bolt-level middleware features (for example rate limits, Freeman auth guards, and Freeman CORS behavior) do not apply to mounted ASGI apps. Mounted Django apps should rely on Django middleware/settings for those concerns.
 
 ## Timeouts and body limits
 
-- `BOLT_ASGI_MOUNT_TIMEOUT` (seconds, default `30`) limits how long Bolt waits for the mounted ASGI app to send the first `http.response.start` message (response headers). Once headers arrive, the response body streams indefinitely with no additional timeout. Timeout returns `504 Gateway Timeout`.
+- `BOLT_ASGI_MOUNT_TIMEOUT` (seconds, default `30`) limits how long Freeman waits for the mounted ASGI app to send the first `http.response.start` message (response headers). Once headers arrive, the response body streams indefinitely with no additional timeout. Timeout returns `504 Gateway Timeout`.
 - `BOLT_MAX_UPLOAD_SIZE` also applies to ASGI mount request bodies. Oversized bodies return `413 Payload Too Large`.
 - Request-body buffering for mounts currently has no dedicated read timeout before handoff to the mounted ASGI app. Enforce slow-client/read timeouts at your reverse proxy or ingress.
 
 ## Client disconnects
 
-Bolt sends `http.disconnect` to `receive()` when the client goes away. This works before headers and mid-body. After that, `send()` is a no-op. The mounted app does not get an error for a client that is gone. A second `http.response.start` for a live client still raises. Django's `ASGIHandler` uses this signal to cancel the view.
+Freeman sends `http.disconnect` to `receive()` when the client goes away. This works before headers and mid-body. After that, `send()` is a no-op. The mounted app does not get an error for a client that is gone. A second `http.response.start` for a live client still raises. Django's `ASGIHandler` uses this signal to cancel the view.
 
 ## Testing
 
@@ -198,6 +198,6 @@ async with WebSocketTestClient(api, "/ws/room") as ws:
 
 ## Performance note
 
-Matched Bolt API endpoints keep their existing fast path.
+Matched Freeman API endpoints keep their existing fast path.
 
 ASGI mount lookup runs on route-miss flow, so normal matched API routes do not pay mount fallback overhead.

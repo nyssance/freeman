@@ -4,7 +4,7 @@ icon: lucide/file-json
 
 # Serializers
 
-Django-Bolt provides a powerful `Serializer` class built on top of `msgspec.Struct`. It offers field validation, computed fields, dynamic field selection, and Django model integration - all with excellent performance.
+Freeman provides a powerful `Serializer` class built on top of `msgspec.Struct`. It offers field validation, computed fields, dynamic field selection, and Django model integration - all with excellent performance.
 
 ## Why use Serializers?
 
@@ -28,7 +28,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'created_at', 'is_staff']
 ```
 
-With Django-Bolt's `Serializer`, you define one class and create views dynamically:
+With Freeman's `Serializer`, you define one class and create views dynamically:
 
 ```python
 from freeman.serializers import Serializer
@@ -247,7 +247,7 @@ For the same field, validators run in order - if one fails, subsequent validator
 
 ### Multi-error collection
 
-Django-Bolt **collects all validation errors** from `@field_validator` and `@model_validator` across all fields before raising:
+Freeman **collects all validation errors** from `@field_validator` and `@model_validator` across all fields before raising:
 
 ```python
 class UserSerializer(Serializer):
@@ -295,7 +295,7 @@ container path (`["body", "items", "1", "email"]`):
 
 ### Understanding validation layers
 
-Django-Bolt Serializer has **two validation layers**:
+Freeman Serializer has **two validation layers**:
 
 | Layer | Source | Raw msgspec | With `model_validate()` |
 |-------|--------|-------------|-------------------------|
@@ -411,7 +411,7 @@ TestSerializer(value="test")
 
 | Validator | Gets | Returns |
 |-----------|------|---------|
-| `@field_validator(name, mode="before")` | The raw input value, before the type of the field converts it. | The value that the type of the field then validates. Bolt uses the result, also `None`. |
+| `@field_validator(name, mode="before")` | The raw input value, before the type of the field converts it. | The value that the type of the field then validates. Freeman uses the result, also `None`. |
 | `@field_validator(name)` | The value that the type of the field accepted. | The new value, or `None` to keep the value. |
 | `@model_validator(mode="before")` | The raw input data, usually a `dict`. It is a classmethod. | The data to validate. |
 | `@model_validator` | The built instance. | Nothing. |
@@ -456,7 +456,7 @@ Notes:
 
 - Before validators get raw values for a JSON request body, `model_validate()` and `model_validate_json()`, also in a nested serializer. A field validator with `mode="before"` runs only if the input has the field. The keys of the raw data are the names in the input (the names after `rename=`).
 - For an instance that Python code builds (`OrderSerializer(order_id=7)`), msgspec does no type conversion. The before validators then get the values of the fields.
-- If a before validator raises `ValueError` or `TypeError`, Bolt reports the errors of the before validators and stops. The `loc` of an error has the full path, for example `["body", "lines", 0, "qty"]`.
+- If a before validator raises `ValueError` or `TypeError`, Freeman reports the errors of the before validators and stops. The `loc` of an error has the full path, for example `["body", "lines", 0, "qty"]`.
 - A serializer with a before validator, at any depth of a body type, decodes the body to builtins first and then converts it. This is slower than the direct decode. A serializer without one keeps the direct decode.
 - `mode="wrap"` and `mode="plain"` are not supported. The decorator raises `ValueError`.
 
@@ -744,7 +744,7 @@ user.dump()
 
 Input is a JSON request body, `model_validate()` and `model_validate_json()`. A serializer that is a `Query()`, `Header()`, `Cookie()` or `Form()` model is input too. The rule also applies to a nested serializer in that input. `from_model()` and direct construction set the field.
 
-- Bolt ignores the input value. With `forbid_unknown_fields=True` on the serializer, the input value is an error, as an unknown field is.
+- Freeman ignores the input value. With `forbid_unknown_fields=True` on the serializer, the input value is an error, as an unknown field is.
 - A read-only field must have a default. Without one, route registration and `model_validate()` raise `ImproperlyConfigured`. A serializer that is only a response needs no default.
 - In the OpenAPI document, the request body schema has no read-only field. The response schema marks the field `readOnly: true`. If the API uses the serializer for a request body and for a response, the request body schema has the name `UserSerializerInput`.
 
@@ -787,7 +787,7 @@ async def login(request) -> dict:
     return {"user": user.dump(), "token": "..."}  # dump() hides the password
 ```
 
-Bolt makes the plan of each response type once, when the route registers. A type with no Serializer gets no plan and costs nothing.
+Freeman makes the plan of each response type once, when the route registers. A type with no Serializer gets no plan and costs nothing.
 
 ## Nested serializers
 
@@ -941,13 +941,13 @@ posts = PostSerializer.from_models(BlogPost.objects.filter(published=True))   # 
 posts = await PostSerializer.afrom_models(BlogPost.objects.all())            # async (async ORM iteration)
 ```
 
-The plan only adds loads. Bolt keeps the `select_related`, `prefetch_related`
-and `annotate` calls that you applied. Bolt does not apply them a second time.
-If you give a list of model instances, Bolt uses the list as it is.
+The plan only adds loads. Freeman keeps the `select_related`, `prefetch_related`
+and `annotate` calls that you applied. Freeman does not apply them a second time.
+If you give a list of model instances, Freeman uses the list as it is.
 Use `loading_plan(Model)` to see the plan.
 
 A route with the annotation `list[PostSerializer]` can return a QuerySet. This
-also applies to `@paginate` routes. Bolt applies the plan to that QuerySet. You
+also applies to `@paginate` routes. Freeman applies the plan to that QuerySet. You
 do not write more code. There is no N+1.
 
 ### Bulk serialization
@@ -978,7 +978,7 @@ post = PostCreate(title="Hello", author=3).to_model(BlogPost)
 await post.asave()
 ```
 
-Bolt writes the primary key to `author_id`. A model instance in the field goes to `author`, as before.
+Freeman writes the primary key to `author_id`. A model instance in the field goes to `author`, as before.
 `from_model()` reads the primary key from `author_id`, with no query.
 
 ### Serializers from a model
@@ -1004,7 +1004,7 @@ The inner `Config` class of a serializer has these options:
 | `read_only` | A set of field names that the server sets. |
 | `field_sets` | Named lists of fields for `use()` and `fields()`. |
 | `annotations` | Query annotations that `from_models()` applies to a QuerySet. |
-| `model` | The Django model of the serializer. `create_serializer()` sets it. Bolt does not read it. |
+| `model` | The Django model of the serializer. `create_serializer()` sets it. Freeman does not read it. |
 
 `Config` has no `validators` option. A `Config` that sets `validators` raises `TypeError` when the class is created. Declare validators with `@field_validator` and `@model_validator`.
 
@@ -1032,7 +1032,7 @@ admin = AdminSerializer(username="alice", email="alice@example.com", is_admin=Tr
 
 ## Built-in type aliases
 
-Django-Bolt provides pre-defined type aliases for common patterns:
+Freeman provides pre-defined type aliases for common patterns:
 
 ```python
 from freeman.serializers import (
@@ -1097,11 +1097,11 @@ async def get_user(user_id: int) -> UserDetailSerializer:
 
 ## Serializer vs raw msgspec.Struct
 
-Django-Bolt's `Serializer` extends `msgspec.Struct` with important enhancements, particularly around error handling:
+Freeman's `Serializer` extends `msgspec.Struct` with important enhancements, particularly around error handling:
 
 ### Error handling differences
 
-| Feature | `msgspec.Struct` | Django-Bolt `Serializer` |
+| Feature | `msgspec.Struct` | Freeman `Serializer` |
 |---------|------------------|--------------------------|
 | Meta constraint errors | Fail-fast (first error only) | **Collects all errors** via `model_validate()`/`model_validate_json()` |
 | Custom validators | Not supported | `@field_validator`, `@model_validator` with multi-error collection |

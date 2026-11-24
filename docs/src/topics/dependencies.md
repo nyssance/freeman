@@ -4,7 +4,7 @@ icon: lucide/plug
 
 # Dependencies
 
-Django-Bolt provides a dependency injection system using the `Depends` marker. Dependencies let you extract common logic into reusable functions.
+Freeman provides a dependency injection system using the `Depends` marker. Dependencies let you extract common logic into reusable functions.
 
 ## Basic usage
 
@@ -29,17 +29,17 @@ async def get_profile(user=Depends(get_current_user)):
     return {"id": user.id, "username": user.username}
 ```
 
-A dependency returns its value. Bolt has no cleanup dependencies, so a generator function (a function with `yield`) is not a dependency. Bolt binds each parameter by its name, so a dependency or a handler cannot have `*args` or `**kwargs`. Bolt raises `TypeError` for these shapes when it registers the route.
+A dependency returns its value. Freeman has no cleanup dependencies, so a generator function (a function with `yield`) is not a dependency. Freeman binds each parameter by its name, so a dependency or a handler cannot have `*args` or `**kwargs`. Freeman raises `TypeError` for these shapes when it registers the route.
 
 ### Dependency resolution
 
-When a handler parameter is annotated with `Depends()`, Django-Bolt:
+When a handler parameter is annotated with `Depends()`, Freeman:
 
 1. Calls the dependency function
 2. Passes the result to the handler
 3. Caches the result for subsequent uses in the same request
 
-When every dependency of a handler is a sync function, Bolt resolves them with no event loop. A sync handler then keeps its sync dispatch, and behind Django middleware its complete request runs on one lane. When a sync handler runs in a worker thread, its sync dependencies run in that thread too. They can use the ORM, and they see the thread-local state of the Django middleware.
+When every dependency of a handler is a sync function, Freeman resolves them with no event loop. A sync handler then keeps its sync dispatch, and behind Django middleware its complete request runs on one lane. When a sync handler runs in a worker thread, its sync dependencies run in that thread too. They can use the ORM, and they see the thread-local state of the Django middleware.
 
 ## Dependency patterns
 
@@ -129,7 +129,7 @@ async def fresh(
 
 ## Sync and async dependencies
 
-Django-Bolt supports both sync and async dependencies:
+Freeman supports both sync and async dependencies:
 
 ```python
 # Async dependency
@@ -200,7 +200,7 @@ async def get_data(db=Depends(DatabaseSession)):
         pass
 ```
 
-An object with a `__call__` method is also a dependency. Bolt reads the parameters of `__call__`. Bolt awaits the call when `__call__` is `async def`:
+An object with a `__call__` method is also a dependency. Freeman reads the parameters of `__call__`. Freeman awaits the call when `__call__` is `async def`:
 
 ```python
 class PageSize:
@@ -340,7 +340,7 @@ class ItemViewSet(ViewSet):
 
 ## Testing with dependencies
 
-Bolt has no API that replaces a dependency in a test. `TestClient` runs each dependency of a route, as `runbolt` does.
+Freeman has no API that replaces a dependency in a test. `TestClient` runs each dependency of a route, as `runbolt` does.
 
 To control the value in a test, write the dependency so that it reads data that the test controls. Examples are a request header, a database row or a Django setting:
 

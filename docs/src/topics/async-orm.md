@@ -4,11 +4,11 @@ icon: lucide/database
 
 # Async Django ORM
 
-Django-Bolt handlers are async, which means you use Django's async ORM methods. This guide explains how to work with the ORM efficiently and avoid common pitfalls.
+Freeman handlers are async, which means you use Django's async ORM methods. This guide explains how to work with the ORM efficiently and avoid common pitfalls.
 
 ## Why async handlers?
 
-Django-Bolt uses async handlers for maximum performance. The Rust runtime manages concurrent requests while your Python code handles business logic. Every supported Django version provides excellent async ORM support.
+Freeman uses async handlers for maximum performance. The Rust runtime manages concurrent requests while your Python code handles business logic. Every supported Django version provides excellent async ORM support.
 
 ## Basic async ORM methods
 
@@ -163,7 +163,7 @@ async def get_post(post_id: int):
 
 ## Returning querysets directly
 
-Django-Bolt can serialize querysets directly, but be careful:
+Freeman can serialize querysets directly, but be careful:
 
 ```python
 # This works, but may cause N+1 if serializer accesses relations

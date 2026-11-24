@@ -1,11 +1,14 @@
 ---
 icon: lucide/gauge
-description: Django-Bolt benchmarks — 300k+ requests/second measured with bombardier, with exact conditions, per-endpoint results (JSON, ORM, auth, forms, static files, SSE), comparison against Bun/Node JavaScript frameworks and Python frameworks, and reproduction commands.
+description: Benchmarks that upstream django-bolt 0.10 measured with bombardier, with exact conditions, per-endpoint results (JSON, ORM, auth, forms, static files, SSE), comparison against Bun/Node JavaScript frameworks and Python frameworks, and reproduction commands.
 ---
 
 # Benchmarks
 
-**Django-Bolt is the fastest Python web framework we have measured**: ~311,000 requests/second on a JSON hello-world from a single 12-core desktop, ~187,000 req/s for a 10 KB JSON body, and 21,000–27,000 req/s for a 10-row Django ORM query. Every number below states its conditions and can be reproduced with one command.
+!!! warning "Upstream measurements"
+    The numbers on this page were measured by upstream django-bolt 0.10, before the fork. Freeman has not repeated them. The [README](https://github.com/nyssance/freeman#readme) has the numbers measured on Freeman.
+
+Upstream django-bolt measured ~311,000 requests/second on a JSON hello-world from a single 12-core desktop, ~187,000 req/s for a 10 KB JSON body, and 21,000–27,000 req/s for a 10-row Django ORM query. Every number below states its conditions and can be reproduced with one command.
 
 !!! note "Read this first"
     Absolute numbers are hardware-specific. **Publish the conditions with the number** — the project holds itself to that rule, and you should too when you quote these figures. Run-to-run spread on the reference machine is about ±5%; treat gaps under ~10% as a tie.
@@ -18,8 +21,8 @@ description: Django-Bolt benchmarks — 300k+ requests/second measured with bomb
 | Load generator | [bombardier](https://github.com/codesenberg/bombardier), loopback, on the same machine |
 | Concurrency | `C=100` connections, `N=100000` requests per endpoint |
 | Server | `python manage.py runbolt --processes 8` (8 processes × 1 Actix worker, `SO_REUSEPORT`) |
-| App | [`python/example`](https://github.com/dj-bolt/django-bolt/tree/master/python/example) — full Django project with admin, sessions, CSRF, messages, CSP middleware installed |
-| Django-Bolt | 0.10.0 · results file: [`python/benchmark/BENCHMARK.md`](https://github.com/dj-bolt/django-bolt/blob/master/python/benchmark/BENCHMARK.md) (2026-07-28) |
+| App | [`python/example`](https://github.com/nyssance/freeman/tree/main/python/example) — full Django project with admin, sessions, CSRF, messages, CSP middleware installed |
+| django-bolt | 0.10.0 · upstream results file: [`python/benchmark/BENCHMARK.md`](https://github.com/nyssance/freeman/blob/main/python/benchmark/BENCHMARK.md) (2026-07-28) |
 
 Because bombardier shares the 12 cores with the 8 server processes, the load generator is part of the system under test. Read the numbers as a **floor**, not a ceiling.
 
@@ -50,7 +53,7 @@ Because bombardier shares the 12 cores with the 8 server processes, the load gen
 | `GET /users/sync-full10` | ORM: 10 full rows, SQLite, sync handler | 15,767 | — | — |
 | `GET /middleware/demo` | Full Django middleware stack + messages framework | 8,744 | — | — |
 
-The ORM rows are bounded by SQLite's single-writer file lock and by the ORM's own Python cost, not by Bolt; on PostgreSQL the ORM executor uses more threads. The middleware row runs the *entire* `settings.MIDDLEWARE` chain (sessions, CSRF, auth, messages, CSP) in Python for every request — it is there to show that nothing is stripped, and what the full stack costs.
+The ORM rows are bounded by SQLite's single-writer file lock and by the ORM's own Python cost, not by django-bolt; on PostgreSQL the ORM executor uses more threads. The middleware row runs the *entire* `settings.MIDDLEWARE` chain (sessions, CSRF, auth, messages, CSP) in Python for every request — it is there to show that nothing is stripped, and what the full stack costs.
 
 ### Streaming: Server-Sent Events
 
@@ -68,32 +71,32 @@ The ORM rows are bounded by SQLite's single-writer file lock and by the ORM's ow
 
 Same JSON payloads, same machine, same load generator, byte-identical response bodies checked on every run. `C=100`, `N=100000`.
 
-**8 processes each** (Bolt: `--processes 8`; Hono/Node: `node:cluster`; Bun: 8 processes with `reusePort`):
+**8 processes each** (django-bolt: `--processes 8`; Hono/Node: `node:cluster`; Bun: 8 processes with `reusePort`):
 
-| Payload | Django-Bolt | Elysia / Bun | Hono / Bun | Hono / Node |
+| Payload | django-bolt | Elysia / Bun | Hono / Bun | Hono / Node |
 | --- | ---: | ---: | ---: | ---: |
 | 1 KB JSON | 251,203 | **264,037** | 209,760 | 96,639 |
 | 10 KB JSON | **157,462** | 123,535 | 110,633 | 79,110 |
 
 **Single process:**
 
-| Payload | Django-Bolt | Elysia / Bun | Hono / Bun | Hono / Node |
+| Payload | django-bolt | Elysia / Bun | Hono / Bun | Hono / Node |
 | --- | ---: | ---: | ---: | ---: |
 | 26 B JSON (`/`) | 72,766 | **88,379** | 67,714 | 35,263 |
 | 1 KB JSON | 61,396 | **75,625** | 58,137 | 29,729 |
 | 10 KB JSON | **35,987** | 30,673 | 24,981 | 17,977 |
 
-Reading: Elysia leads on tiny payloads at one process (1.2×) and ties Bolt at eight (1.05×, inside the noise). Bolt leads on 10 KB at both scales (1.17× / 1.27×) — once serialization and body handling dominate, msgspec plus the zero-copy response path win. A Python framework beating Bun-native servers on realistic payload sizes is the headline here.
+Reading: Elysia leads on tiny payloads at one process (1.2×) and ties django-bolt at eight (1.05×, inside the noise). django-bolt leads on 10 KB at both scales (1.17× / 1.27×) — once serialization and body handling dominate, msgspec plus the zero-copy response path win. A Python framework beating Bun-native servers on realistic payload sizes is the headline here.
 
 ## Against Python frameworks
 
 A separate harness, [python-api-frameworks-benchmark](https://github.com/FarhanAliRaza/python-api-frameworks-benchmark),
-runs Django-Bolt, Litestar, and FastAPI against the same seven endpoints and the same PostgreSQL data (2026-08-30, same machine, Python 3.14, one process each).
+ran django-bolt, Litestar, and FastAPI against the same seven endpoints and the same PostgreSQL data (2026-08-30, same machine, Python 3.14, one process each).
 Each framework runs alone in a Docker container with a 750 MB memory limit and no CPU limit.
 bombardier runs on the host with `C=100` for 10 s per endpoint. Each framework starts twice;
 the table shows the median.
 
-| Endpoint | What it exercises | Django-Bolt | Litestar + uvicorn | FastAPI + uvicorn |
+| Endpoint | What it exercises | django-bolt | Litestar + uvicorn | FastAPI + uvicorn |
 | --- | --- | ---: | ---: | ---: |
 | `/json-1k` | 1 KB JSON response | **43,541** | 15,477 | 7,517 |
 | `/json-10k` | 10 KB JSON response | **27,610** | 12,925 | 1,805 |
@@ -103,15 +106,15 @@ the table shows the median.
 | `/auth/me` | JWT cookie auth, load the user | **4,478** | 1,155 | 941 |
 | `/auth/articles` | JWT cookie auth + the paginated query | **285** | 173 | 175 |
 
-Django-Bolt uses the Django ORM with psycopg 3 on a bounded thread pool. Litestar and FastAPI
-use SQLAlchemy with asyncpg. All three use the same pool size (8). Litestar and Django-Bolt
-serialize with msgspec; FastAPI serializes with Pydantic. The ORM rows compare two database
+django-bolt used the Django ORM with psycopg 3 on a bounded thread pool. Litestar and FastAPI
+use SQLAlchemy with asyncpg. All three used the same pool size (8). Litestar and django-bolt
+serialized with msgspec; FastAPI serializes with Pydantic. The ORM rows compare two database
 stacks as well as two frameworks. Read them with that in mind.
 
 ## Reproduce
 
 ```bash
-git clone https://github.com/dj-bolt/django-bolt.git && cd django-bolt
+git clone https://github.com/nyssance/freeman.git && cd freeman
 uv sync && just build
 go install github.com/codesenberg/bombardier@latest
 
@@ -126,12 +129,12 @@ git clone https://github.com/FarhanAliRaza/python-api-frameworks-benchmark.git &
 ./run_all.sh --docker --frameworks bolt litestar-uvicorn fastapi-uvicorn --restarts 2
 ```
 
-The app code for each framework is in the repository root: `django_project/api.py` (Bolt),
+The app code for each framework is in the repository root: `django_project/api.py` (django-bolt),
 `litestar_app.py`, and `fastapi_app.py`.
 
 ## How to quote these numbers
 
-- ✅ "Django-Bolt: ~311k req/s JSON hello-world, 8 processes, C=100, Ryzen 5 5600G, loopback bombardier."
-- ✅ "Django-Bolt beats Bun/Elysia by 1.27× on 10 KB JSON at 8 processes (same machine)."
-- ❌ "Django-Bolt does 300k RPS" with no conditions.
+- ✅ "django-bolt 0.10: ~311k req/s JSON hello-world, 8 processes, C=100, Ryzen 5 5600G, loopback bombardier."
+- ✅ "django-bolt 0.10 beats Bun/Elysia by 1.27× on 10 KB JSON at 8 processes (same machine)."
+- ❌ "Freeman does 300k RPS": that is an upstream number, and it has no conditions.
 - ❌ Comparing to numbers measured on a different machine or day.

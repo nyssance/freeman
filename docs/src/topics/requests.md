@@ -4,7 +4,7 @@ icon: lucide/arrow-down-to-line
 
 # Request Handling
 
-This guide covers how Django-Bolt processes requests and how to access request data in your handlers.
+This guide covers how Freeman processes requests and how to access request data in your handlers.
 
 ## The request object
 
@@ -36,11 +36,11 @@ The request dict contains:
 
 ### Absolute URLs
 
-Django's `HttpRequest.build_absolute_uri()` builds the URL of `request.build_absolute_uri()`. Thus Django joins a relative location to the request URL and encodes the result. When Django builds the URL from the request host, it checks that host against `ALLOWED_HOSTS`. A host that is not in the list raises `DisallowedHost`, and the response is 400. An absolute location, such as `https://cdn.example/a`, comes back as it is, with no host check, as in Django. Django reads `X-Forwarded-Host` only when `USE_X_FORWARDED_HOST` is `True`. The scheme follows [BOLT_TRUSTED_PROXIES](../ref/settings.md#bolt_trusted_proxies), and `SECURE_PROXY_SSL_HEADER` applies on top of it, as in Django. Bolt keeps the path and the query of the request as the client sent them.
+Django's `HttpRequest.build_absolute_uri()` builds the URL of `request.build_absolute_uri()`. Thus Django joins a relative location to the request URL and encodes the result. When Django builds the URL from the request host, it checks that host against `ALLOWED_HOSTS`. A host that is not in the list raises `DisallowedHost`, and the response is 400. An absolute location, such as `https://cdn.example/a`, comes back as it is, with no host check, as in Django. Django reads `X-Forwarded-Host` only when `USE_X_FORWARDED_HOST` is `True`. The scheme follows [BOLT_TRUSTED_PROXIES](../ref/settings.md#bolt_trusted_proxies), and `SECURE_PROXY_SSL_HEADER` applies on top of it, as in Django. Freeman keeps the path and the query of the request as the client sent them.
 
 ### Scheme
 
-`request.scheme` is `"http"` or `"https"`, and `request.is_secure()` is `True` for `"https"`. They give the scheme of `request.build_absolute_uri()`. The scheme follows [BOLT_TRUSTED_PROXIES](../ref/settings.md#bolt_trusted_proxies), and `SECURE_PROXY_SSL_HEADER` applies on top of it, as in Django. Bolt does not end TLS. Thus the scheme is `"https"` only when a proxy sets it.
+`request.scheme` is `"http"` or `"https"`, and `request.is_secure()` is `True` for `"https"`. They give the scheme of `request.build_absolute_uri()`. The scheme follows [BOLT_TRUSTED_PROXIES](../ref/settings.md#bolt_trusted_proxies), and `SECURE_PROXY_SSL_HEADER` applies on top of it, as in Django. Freeman does not end TLS. Thus the scheme is `"https"` only when a proxy sets it.
 
 ```python
 @api.get("/login-link")
@@ -120,7 +120,7 @@ async def search(
 
 If no type annotation is provided, the parameter is treated as a string.
 
-Bolt decodes query keys and values as Django `QueryDict` does:
+Freeman decodes query keys and values as Django `QueryDict` does:
 
 - A `+` is a space, and `%2B` is a literal `+`. Thus a client must send a literal `+` as `%2B`.
 - Bytes that are not UTF-8 become U+FFFD (`�`).
@@ -142,14 +142,14 @@ async def items(tag: Annotated[set[int], Query()]):
     return {"tags": sorted(tag)}
 ```
 
-Bolt converts each value to the item type. A bad item gives a 422.
+Freeman converts each value to the item type. A bad item gives a 422.
 A bare `list`, `set`, `frozenset` or `tuple` keeps each item as a string.
 A `tuple[int, str]` needs exactly one value for each position.
 A form field takes each value of its name in the same way.
 A WebSocket route takes each value of a repeated query key in the same way.
 A header or a cookie gives a sequence of one item.
 A path, header or cookie type that cannot hold one item, such as `tuple[int, str]`, raises `TypeError` when the route registers.
-Bolt keeps the last line of a repeated header and does not split a value at a comma.
+Freeman keeps the last line of a repeated header and does not split a value at a comma.
 Thus the OpenAPI schema of a path, header or cookie sequence has `maxItems: 1`.
 A default of two or more items for such a parameter raises `TypeError` when the route registers.
 The same rule applies to a sequence field of a header or cookie model.
@@ -176,7 +176,7 @@ A constraint that msgspec cannot apply, for example `ge` on a `Decimal`, raises 
 The types in `freeman.serializers.types`, such as `PositiveInt`, work the same way.
 
 `Query()` and `Path()` also take the constraint arguments `gt`, `ge`, `lt`, `le`, `min_length`, `max_length` and `pattern`.
-Bolt applies them as `msgspec.Meta`:
+Freeman applies them as `msgspec.Meta`:
 
 ```python
 @api.get("/search")
@@ -262,7 +262,7 @@ async def echo(token: bytes):
     return {"length": len(token)}
 ```
 
-`GET /echo?token=abc` gives the handler `b"abc"`. Bolt does not decode base64.
+`GET /echo?token=abc` gives the handler `b"abc"`. Freeman does not decode base64.
 This rule applies to a path, query, header, cookie and form parameter.
 It also applies to `bytearray`, to a sequence such as `list[bytes]`, and to a `bytes` item of a tuple such as `tuple[bytes, int]`.
 A `msgspec.Meta` constraint such as `max_length` counts the bytes.
@@ -271,10 +271,10 @@ A `bytes` field of a [parameter model](#parameter-models) follows the same rule.
 
 A JSON body is different. JSON has no bytes type, so msgspec reads the text of a `bytes` field in a JSON body as base64. The OpenAPI document shows this difference. A `bytes` parameter, form field or field of a parameter model is `{"type": "string"}`. A `bytes` field of a JSON body is `{"type": "string", "contentEncoding": "base64"}`.
 
-### Types that Bolt cannot convert
+### Types that Freeman cannot convert
 
 A path, query, header, cookie or form parameter gets text from the request.
-Bolt converts the text to `str`, `int`, `float`, `bool`, `Decimal`, `UUID`, `date`, `datetime`, `time`, `timedelta`, an `Enum` and a `Literal`.
+Freeman converts the text to `str`, `int`, `float`, `bool`, `Decimal`, `UUID`, `date`, `datetime`, `time`, `timedelta`, an `Enum` and a `Literal`.
 It also builds one `list`, `set`, `frozenset` or `tuple` of these types.
 A parameter with no annotation, or of the type `Any`, gets the text.
 
@@ -286,7 +286,7 @@ A `File()` parameter takes `UploadFile`, `bytes`, `dict`, or a list of one of th
 
 ### JSON body
 
-Use `msgspec.Struct` for validated JSON bodies:
+Use a `msgspec.Struct` or a Pydantic model for validated JSON bodies. Pydantic validates a model from the raw bytes with `validate_json`. A return type that is a Pydantic model is the response. This example uses a struct:
 
 ```python
 import msgspec
@@ -340,7 +340,7 @@ async def set_counter(count: Annotated[int, Body(embed=True, alias="item-count")
 
 | Option | Effect |
 |--------|--------|
-| `embed=True` | The body is a JSON object, and the value is at the key of the parameter name. `/items` reads `{"item": {"username": "ana"}}`. Bolt does not read the other keys of the object. |
+| `embed=True` | The body is a JSON object, and the value is at the key of the parameter name. `/items` reads `{"item": {"username": "ana"}}`. Freeman does not read the other keys of the object. |
 | `alias` | The key name with `embed=True`. `/counters` reads `{"item-count": 3}`. Without `embed`, `alias` has no effect. |
 | `default` | The value for a request with no body. With `embed=True`, it is also the value for an object that does not have the key. Set it with `=`, or as the first argument of `Body()`. |
 | `description` | The description of the request body in the OpenAPI document. |
@@ -663,7 +663,7 @@ async def secure_endpoint(headers: Annotated[AuthHeaders, Header()]):
 
 Request: `GET /secure` with headers `X-Api-Key: secret123`
 
-A `list`, `set`, `frozenset` or `tuple` field gets a sequence of one item, the value of the header. Bolt does not split the value at a comma.
+A `list`, `set`, `frozenset` or `tuple` field gets a sequence of one item, the value of the header. Freeman does not split the value at a comma.
 
 ### Cookie models
 
@@ -680,7 +680,7 @@ async def get_preferences(cookies: Annotated[SessionCookies, Cookie()]):
     return {"theme": cookies.theme, "language": cookies.language}
 ```
 
-The OpenAPI document shows a query, header or cookie model as one parameter for each field. The name of each parameter is the name that Bolt reads. For a header field, that name is in lower case with `-` for each `_`, for example `x-api-key`.
+The OpenAPI document shows a query, header or cookie model as one parameter for each field. The name of each parameter is the name that Freeman reads. For a header field, that name is in lower case with `-` for each `_`, for example `x-api-key`.
 
 ### Optional models
 
@@ -727,7 +727,7 @@ The keys of a dependency are not parameters of the handler, so the model rejects
 
 ### File size limits: global vs per-view
 
-There are two levels of file size validation in Django-Bolt:
+There are two levels of file size validation in Freeman:
 
 - **Global limit**: Set by `BOLT_MAX_UPLOAD_SIZE` in your Django settings. This is the maximum file size the server will accept for any upload. If a file exceeds this, the request is rejected with a 413 error before your view runs.
 - **Per-view limit**: Set by the `max_size` argument to the `File()` parameter in your view. This allows you to set a stricter limit for a specific endpoint, but it can never exceed the global limit.
@@ -759,7 +759,7 @@ In this example, files over 10 MB are rejected by the view, and files over 50 MB
     The global limit (`BOLT_MAX_UPLOAD_SIZE`) is enforced **before** your view handler runs. You cannot override it in your view. Always set it to the maximum file size your server should ever accept.
 
 
-Django-Bolt provides the `UploadFile` class for handling file uploads with Django integration.
+Freeman provides the `UploadFile` class for handling file uploads with Django integration.
 
 ### Basic file upload
 
@@ -870,11 +870,11 @@ async def checksums(parts: Annotated[list[bytes], File(max_files=5)]):
     return {"sizes": [len(part) for part in parts]}
 ```
 
-Bolt reads the complete file into memory for a `bytes` parameter. Set `max_size`. Use `UploadFile` for a large file, or when you need the filename or the content type.
+Freeman reads the complete file into memory for a `bytes` parameter. Set `max_size`. Use `UploadFile` for a large file, or when you need the filename or the content type.
 
 ### Saving to Django FileField / ImageField
 
-When a multipart request arrives, Django-Bolt parses it in Rust for performance — extracting file content, filename, content type, and size. The result is wrapped in an `UploadFile` object on the Python side, which gives you async read/write methods and automatic cleanup.
+When a multipart request arrives, Freeman parses it in Rust for performance — extracting file content, filename, content type, and size. The result is wrapped in an `UploadFile` object on the Python side, which gives you async read/write methods and automatic cleanup.
 
 However, Django's `FileField` and `ImageField` don't know about `UploadFile` — they expect a `django.core.files.base.File` object. The `.file` property bridges this gap: it wraps the Rust-parsed file data in a Django `File` without an additional memory copy, so you can assign it directly to any model field:
 
@@ -1020,7 +1020,7 @@ Dependencies can be chained and cached. See [Dependency Injection](../ref/api.md
 
 ## Validation errors
 
-When request validation fails, Django-Bolt returns a 422 Unprocessable Entity with details:
+When request validation fails, Freeman returns a 422 Unprocessable Entity with details:
 
 ```json
 {

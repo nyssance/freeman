@@ -109,7 +109,7 @@ RequestValidationError(
 )
 ```
 
-**Multi-error collection:** Django-Bolt collects all `@field_validator` and `@model_validator` errors before raising, so users see all issues at once:
+**Multi-error collection:** Freeman collects all `@field_validator` and `@model_validator` errors before raising, so users see all issues at once:
 
 ```python
 # Access all errors
@@ -141,7 +141,7 @@ except RequestValidationError as e:
 
 ### ResponseValidationError
 
-Raised when handler return value fails validation. Returns **500 Internal Server Error**. With `DEBUG=False`, the response body does not show the validation errors. Bolt writes them to the server log.
+Raised when handler return value fails validation. Returns **500 Internal Server Error**. With `DEBUG=False`, the response body does not show the validation errors. Freeman writes them to the server log.
 
 <!-- fragment -->
 ```python
@@ -162,7 +162,7 @@ ResponseValidationError(
 
 ## Validation Layers
 
-Django-Bolt's Serializer has two validation layers:
+Freeman's Serializer has two validation layers:
 
 | Layer | Source | Raw msgspec | With `model_validate()` |
 |-------|--------|-------------|-------------------------|
@@ -201,7 +201,7 @@ This approach is inspired by [Litestar](https://litestar.dev/) - when validation
 
 ## Validation Error Types
 
-When validation fails, Django-Bolt returns structured errors with these types:
+When validation fails, Freeman returns structured errors with these types:
 
 | Type | Description | Example Message |
 |------|-------------|-----------------|

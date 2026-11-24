@@ -4,7 +4,7 @@ icon: lucide/cable
 
 # WebSocket
 
-Django-Bolt provides WebSocket support for real-time bidirectional communication.
+Freeman provides WebSocket support for real-time bidirectional communication.
 
 ## Basic WebSocket endpoint
 
@@ -25,7 +25,7 @@ async def echo(websocket: WebSocket):
 A WebSocket connection goes through these stages:
 
 1. **Connection** - Client initiates WebSocket handshake
-2. **Accept** - The handler calls `accept()`. Bolt then sends the `101 Switching Protocols` response.
+2. **Accept** - The handler calls `accept()`. Freeman then sends the `101 Switching Protocols` response.
 3. **Communication** - Exchange messages
 4. **Close** - Either party closes the connection
 
@@ -125,7 +125,7 @@ async def room(websocket: WebSocket, room_id: str):
         await websocket.send_text(f"[{room_id}] {message}")
 ```
 
-Bolt decodes path values as for HTTP routes. Thus `/ws/room/hello%20world`
+Freeman decodes path values as for HTTP routes. Thus `/ws/room/hello%20world`
 gives `hello world`.
 
 ## Query parameters
@@ -175,8 +175,8 @@ raises `ValueError` with the same text.
 
 ### From the server
 
-When the handler returns after `accept()` with no `close()`, Bolt closes the
-connection with code 1000. When the handler raises, Bolt closes it with code
+When the handler returns after `accept()` with no `close()`, Freeman closes the
+connection with code 1000. When the handler raises, Freeman closes it with code
 1011 and the reason `Internal error`. To send a different code or a reason,
 call `close()`:
 
@@ -193,7 +193,7 @@ reserves the other codes. `close()` raises
 `ValueError` for a code or a reason that makes an invalid close frame. The
 connection stays open, and `WebSocketTestClient` raises the same error.
 
-To close from a helper or a dependency, raise `WebSocketException`. Bolt
+To close from a helper or a dependency, raise `WebSocketException`. Freeman
 closes the connection with the code and the reason of the exception, and it
 does not log an error. `WebSocketClose` is the same exception with code 1000
 as its default:
@@ -215,7 +215,7 @@ the handler then ends with that error: the connection closes with 1011.
 
 ### Refuse the handshake
 
-Bolt sends the `101` response only when the handler calls `accept()`.
+Freeman sends the `101` response only when the handler calls `accept()`.
 Before that, the handler can refuse the connection with an HTTP status:
 
 | Handler action before `accept()` | Response |
@@ -254,7 +254,7 @@ async def handler(websocket: WebSocket):
 ```
 
 A send to a client that left raises `WebSocketDisconnect` with code 1006.
-Bolt does not log it as a handler error.
+Freeman does not log it as a handler error.
 
 ## Close codes
 
@@ -281,7 +281,7 @@ await websocket.close(code=CloseCode.NORMAL)
 
 A client can request one or more subprotocols in the `Sec-WebSocket-Protocol`
 header. `websocket.subprotocols` gives the list, in the order of the client.
-Select one with `accept(subprotocol=...)`. Bolt sends it in the `101` response:
+Select one with `accept(subprotocol=...)`. Freeman sends it in the `101` response:
 
 ```python
 @api.websocket("/graphql")
@@ -368,7 +368,7 @@ A connection that the authentication or a guard refuses raises `PermissionError`
 
 A `revoked_token_handler` or a `revocation_store` of the backend applies to
 the handshake too. When the handler reports the token as revoked, the
-handshake gets `401 Unauthorized` and the connection does not open. Bolt
+handshake gets `401 Unauthorized` and the connection does not open. Freeman
 checks the token one time, at the handshake. An open connection stays open
 after its token is revoked. To end it, close it from the handler. See
 [Token revocation](authentication.md#token-revocation).

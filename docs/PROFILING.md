@@ -1,6 +1,6 @@
 # Profiling & Benchmarking Guide
 
-Django-Bolt has a layered measurement strategy. Different changes are visible at
+Freeman has a layered measurement strategy. Different changes are visible at
 different altitudes — use the right one for the change you're making:
 
 | Layer | Tool | Proves | Command |

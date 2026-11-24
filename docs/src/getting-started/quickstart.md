@@ -4,7 +4,7 @@ icon: lucide/rocket
 
 # Quick Start
 
-In this tutorial, you'll build a **Space Mission Tracker API**—a NASA-style mission control system that tracks space missions and astronauts. Along the way, you'll learn all the core features of Django-Bolt.
+In this tutorial, you'll build a **Space Mission Tracker API**—a NASA-style mission control system that tracks space missions and astronauts. Along the way, you'll learn all the core features of Freeman.
 
 ## What we're building
 
@@ -131,7 +131,7 @@ async def get_mission(mission_id: int):
         raise NotFound(detail=f"Mission {mission_id} not found")
 ```
 
-The `mission_id` parameter is automatically converted to an integer. If you pass an invalid value like `/missions/abc`, Django-Bolt returns a 422 validation error.
+The `mission_id` parameter is automatically converted to an integer. If you pass an invalid value like `/missions/abc`, Freeman returns a 422 validation error.
 
 Test it:
 
@@ -190,7 +190,7 @@ Try these URLs:
 
 ## Request body validation
 
-Use Django-Bolt's `Serializer` class to define and validate request bodies with built-in constraints and custom validators:
+Use Freeman's `Serializer` class to define and validate request bodies with built-in constraints and custom validators:
 
 ```python
 from datetime import datetime
@@ -247,7 +247,7 @@ Returns:
 {"id": 1, "name": "Artemis II", "status": "planned", "message": "Mission created successfully"}
 ```
 
-If you send invalid data, Django-Bolt collects **all validation errors** and returns them together:
+If you send invalid data, Freeman collects **all validation errors** and returns them together:
 
 ```bash
 curl -X POST http://localhost:8000/missions \
@@ -318,7 +318,7 @@ async def delete_mission(mission_id: int):
     await mission.adelete()
 ```
 
-Django-Bolt supports all HTTP methods: `@api.get`, `@api.post`, `@api.put`, `@api.patch`, `@api.delete`, `@api.head`, `@api.options`.
+Freeman supports all HTTP methods: `@api.get`, `@api.post`, `@api.put`, `@api.patch`, `@api.delete`, `@api.head`, `@api.options`.
 
 ## Headers
 
@@ -569,7 +569,7 @@ A few things to notice:
 
 ## Response types
 
-Django-Bolt supports multiple response types. Let's add some variety:
+Freeman supports multiple response types. Let's add some variety:
 
 ```python
 from freeman.responses import PlainText, HTML, Redirect
@@ -700,7 +700,7 @@ raise NotFound(detail="Mission not found")
 
 ## API documentation
 
-Django-Bolt automatically generates OpenAPI documentation. Visit `http://localhost:8000/docs` to see the interactive Swagger UI.
+Freeman automatically generates OpenAPI documentation. Visit `http://localhost:8000/docs` to see the interactive Swagger UI.
 
 Add descriptions and tags to improve your documentation:
 

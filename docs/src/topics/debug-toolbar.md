@@ -4,14 +4,14 @@ icon: lucide/bug
 
 # Django Debug Toolbar
 
-This guide shows how to use [Django Debug Toolbar](https://django-debug-toolbar.readthedocs.io/) with Django-Bolt.
+This guide shows how to use [Django Debug Toolbar](https://django-debug-toolbar.readthedocs.io/) with Freeman.
 
 The toolbar works on two kinds of routes:
 
-- **Bolt routes** (`@api.get`, `@api.post`, ...) when you run the toolbar middleware on them with `BoltAPI(django_middleware=[...])`. HTML responses get the toolbar. JSON responses get the `djdt-request-id` and `Server-Timing` headers, and show up in the History panel.
+- **Freeman routes** (`@api.get`, `@api.post`, ...) when you run the toolbar middleware on them with `BoltAPI(django_middleware=[...])`. HTML responses get the toolbar. JSON responses get the `djdt-request-id` and `Server-Timing` headers, and show up in the History panel.
 - **Mounted Django views** (`api.mount_django(...)`). These run the full Django middleware stack, so the toolbar works as it does under `runserver`.
 
-The SQL panel records queries from async Bolt handlers, including the async ORM.
+The SQL panel records queries from async Freeman handlers, including the async ORM.
 
 ## Install
 
@@ -44,11 +44,11 @@ MIDDLEWARE = [
 INTERNAL_IPS = ["127.0.0.1"]
 ```
 
-The toolbar shows only when `request.META["REMOTE_ADDR"]` is in `INTERNAL_IPS`. Bolt sets `REMOTE_ADDR` on Bolt routes and on mounted Django views. Behind a reverse proxy, set `BOLT_TRUSTED_PROXIES` so `REMOTE_ADDR` is the real client address. In Docker, use `debug_toolbar.middleware.show_toolbar_with_docker` as `SHOW_TOOLBAR_CALLBACK`.
+The toolbar shows only when `request.META["REMOTE_ADDR"]` is in `INTERNAL_IPS`. Freeman sets `REMOTE_ADDR` on Freeman routes and on mounted Django views. Behind a reverse proxy, set `BOLT_TRUSTED_PROXIES` so `REMOTE_ADDR` is the real client address. In Docker, use `debug_toolbar.middleware.show_toolbar_with_docker` as `SHOW_TOOLBAR_CALLBACK`.
 
-!!! note "Upgrading from Django-Bolt 0.10.3 or older"
+!!! note "Upgrading from django-bolt 0.10.3 or older"
 
-    Older versions did not set `REMOTE_ADDR` on Bolt routes. The `INTERNAL_IPS` check never matched. If you set `SHOW_TOOLBAR_CALLBACK` to work around that, remove the override. The default check works now.
+    Older versions did not set `REMOTE_ADDR` on Freeman routes. The `INTERNAL_IPS` check never matched. If you set `SHOW_TOOLBAR_CALLBACK` to work around that, remove the override. The default check works now.
 
 Add the toolbar URLs to your URLconf:
 
@@ -65,9 +65,9 @@ if "debug_toolbar" in settings.INSTALLED_APPS:
     urlpatterns.append(path("__debug__/", include("debug_toolbar.urls")))
 ```
 
-## Enable the toolbar on Bolt routes
+## Enable the toolbar on Freeman routes
 
-Run the toolbar middleware on Bolt routes, and mount the toolbar views at the site root:
+Run the toolbar middleware on Freeman routes, and mount the toolbar views at the site root:
 
 ```python
 # api.py
@@ -84,11 +84,11 @@ if "debug_toolbar" in settings.INSTALLED_APPS:
     api.mount_django("/__debug__", clear_root_path=True)
 ```
 
-**Why the `/__debug__` mount:** the toolbar's JavaScript loads panel data from `__debug__/...` URLs next to the page. On a Bolt route the page is at the site root, so it calls `/__debug__/render_panel/`. Only Django can serve that URL, so mount Django there. `clear_root_path=True` passes the full `/__debug__/...` path to the URLconf.
+**Why the `/__debug__` mount:** the toolbar's JavaScript loads panel data from `__debug__/...` URLs next to the page. On a Freeman route the page is at the site root, so it calls `/__debug__/render_panel/`. Only Django can serve that URL, so mount Django there. `clear_root_path=True` passes the full `/__debug__/...` path to the URLconf.
 
 Pages inside `api.mount_django("/django")` do not need this. Their toolbar calls `/django/__debug__/...`, and that mount already serves it.
 
-**Why a list, not `True`:** `django_middleware=True` runs all of `settings.MIDDLEWARE` on Bolt routes. That includes `CsrfViewMiddleware`, which rejects API `POST` requests with `403`. The list runs only the toolbar. See [Middleware](middleware.md#django-middleware-integration) for the per-request cost.
+**Why a list, not `True`:** `django_middleware=True` runs all of `settings.MIDDLEWARE` on Freeman routes. That includes `CsrfViewMiddleware`, which rejects API `POST` requests with `403`. The list runs only the toolbar. See [Middleware](middleware.md#django-middleware-integration) for the per-request cost.
 
 **`request.user` works in async handlers.** The toolbar is Django middleware, so each request gets a lane, and the user query runs there. `await request.auser()` loads the user without blocking the worker. See [Authentication](authentication.md#accessing-the-authenticated-user) and [Accessing Django request attributes](middleware.md#accessing-django-request-attributes).
 
@@ -104,7 +104,7 @@ The toolbar inserts its HTML before that tag.
 
 ## Static files
 
-The toolbar ships its CSS and JS as app static files. In `DEBUG`, Bolt serves them through Django's staticfiles finders. No extra setup is needed. See [Static Files](static-files.md).
+The toolbar ships its CSS and JS as app static files. In `DEBUG`, Freeman serves them through Django's staticfiles finders. No extra setup is needed. See [Static Files](static-files.md).
 
 ## Run
 
@@ -145,8 +145,8 @@ Each API response also has two headers you can read in the browser's network tab
 
 | Request | Result |
 |---|---|
-| Bolt route that returns HTML (`render(...)`, `HTML(...)`) | Toolbar is in the page. |
-| Bolt route that returns JSON | `djdt-request-id` and `Server-Timing` headers. Open any page with the toolbar and use the History panel. |
+| Freeman route that returns HTML (`render(...)`, `HTML(...)`) | Toolbar is in the page. |
+| Freeman route that returns JSON | `djdt-request-id` and `Server-Timing` headers. Open any page with the toolbar and use the History panel. |
 | Mounted Django HTML view | Toolbar is in the page. |
 | Streaming or compressed response | No toolbar. The toolbar only edits a complete, uncompressed `text/html` body. |
 

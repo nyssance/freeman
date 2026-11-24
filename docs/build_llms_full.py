@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 SRC = Path(__file__).parent / "src"
-BASE_URL = "https://bolt.farhana.li/"
+BASE_URL = "https://github.com/nyssance/freeman/blob/main/docs/src/"
 
 ORDER = [
     "index.md",
@@ -25,9 +25,7 @@ FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
 
 
 def page_url(rel: str) -> str:
-    if rel == "index.md":
-        return BASE_URL
-    return BASE_URL + rel[:-3] + "/"
+    return BASE_URL + rel
 
 
 def main() -> None:

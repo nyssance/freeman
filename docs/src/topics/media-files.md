@@ -4,16 +4,16 @@ icon: lucide/upload
 
 # Media Files
 
-Django-Bolt can serve user-uploaded media files (`MEDIA_ROOT`) directly from Rust, using the same high-performance handler as [static files](static-files.md). It's enabled automatically when both `MEDIA_URL` and `MEDIA_ROOT` are configured — no extra wiring.
+Freeman can serve user-uploaded media files (`MEDIA_ROOT`) directly from Rust, using the same high-performance handler as [static files](static-files.md). It's enabled automatically when both `MEDIA_URL` and `MEDIA_ROOT` are configured — no extra wiring.
 
 !!! warning "Offload media to a dedicated server in production"
-    Django-Bolt serves media *performantly*, but **we don't advise using it as your production media server.** Put a reverse proxy (Nginx), a CDN, or object storage (S3/GCS/R2) in front of `MEDIA_ROOT` and let it serve uploads directly. Built-in media serving is meant for development, internal tools, and small deployments — not as the primary delivery path for user content.
+    Freeman serves media *performantly*, but **we don't advise using it as your production media server.** Put a reverse proxy (Nginx), a CDN, or object storage (S3/GCS/R2) in front of `MEDIA_ROOT` and let it serve uploads directly. Built-in media serving is meant for development, internal tools, and small deployments — not as the primary delivery path for user content.
 
     See [Production: offload media](#production-offload-media) for why and how.
 
 ## Configuration
 
-Django-Bolt reads your existing Django media settings:
+Freeman reads your existing Django media settings:
 
 ```python
 # settings.py
@@ -25,7 +25,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 ```
 
-When both are set and `MEDIA_ROOT` exists on disk, Django-Bolt mounts a `/media/` scope served entirely in Rust. `GET` and `HEAD` are supported, with ETag/Last-Modified caching, conditional requests (`304 Not Modified`), and range requests — the same capabilities as static serving.
+When both are set and `MEDIA_ROOT` exists on disk, Freeman mounts a `/media/` scope served entirely in Rust. `GET` and `HEAD` are supported, with ETag/Last-Modified caching, conditional requests (`304 Not Modified`), and range requests — the same capabilities as static serving.
 
 If `MEDIA_ROOT` doesn't exist, the scope isn't registered and a startup warning is printed.
 
@@ -86,7 +86,7 @@ For production, serve media from something other than your application server:
 
 ### Nginx
 
-Serve `/media/` straight from disk so requests never reach Django-Bolt:
+Serve `/media/` straight from disk so requests never reach Freeman:
 
 ```nginx
 location /media/ {
@@ -98,11 +98,11 @@ location /media/ {
 ```
 
 !!! warning "Replicate the download-forcing for untrusted uploads"
-    Django-Bolt's built-in handler force-downloads script-bearing uploads (see above). If you move media to Nginx or another server, **you lose that protection** unless you reconfigure it there — force `Content-Disposition: attachment` (or `application/octet-stream`) for user-uploaded HTML/SVG/JS, or serve untrusted media from a separate, cookieless domain.
+    Freeman's built-in handler force-downloads script-bearing uploads (see above). If you move media to Nginx or another server, **you lose that protection** unless you reconfigure it there — force `Content-Disposition: attachment` (or `application/octet-stream`) for user-uploaded HTML/SVG/JS, or serve untrusted media from a separate, cookieless domain.
 
 ### Object storage (S3 / GCS / R2)
 
-For most production apps, store uploads in object storage via [`django-storages`](https://django-storages.readthedocs.io/) and serve them from the bucket/CDN. Set `Content-Disposition: attachment` on untrusted uploads at upload time, and use signed URLs for access control. With object storage, `MEDIA_URL` points at the bucket/CDN and Django-Bolt isn't in the media request path at all.
+For most production apps, store uploads in object storage via [`django-storages`](https://django-storages.readthedocs.io/) and serve them from the bucket/CDN. Set `Content-Disposition: attachment` on untrusted uploads at upload time, and use signed URLs for access control. With object storage, `MEDIA_URL` points at the bucket/CDN and Freeman isn't in the media request path at all.
 
 ## See also
 

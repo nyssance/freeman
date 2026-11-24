@@ -4,7 +4,7 @@ icon: lucide/route
 
 # Routing
 
-This guide explains how routing works in Django-Bolt and covers all the ways you can define API endpoints.
+This guide explains how routing works in Freeman and covers all the ways you can define API endpoints.
 
 ## Basic routing
 
@@ -28,7 +28,7 @@ Each method and path has one handler. A second handler for the same method and p
 
 ## HTTP methods
 
-Django-Bolt supports all common HTTP methods:
+Freeman supports all common HTTP methods:
 
 | Decorator | HTTP Method | Typical use |
 |-----------|-------------|-------------|
@@ -52,7 +52,7 @@ async def list_reports():
 # POST /missing  → 404
 ```
 
-Bolt adds no HEAD route for a GET route. Thus `HEAD /reports` also gets 405. Add `@api.head()` to serve HEAD.
+Freeman adds no HEAD route for a GET route. Thus `HEAD /reports` also gets 405. Add `@api.head()` to serve HEAD.
 
 The other slash form of a route path gets the same answer. `GET /reports/` redirects to `/reports`, and `POST /reports/` gets 405 with the `Allow` header of `/reports`.
 
@@ -119,7 +119,7 @@ Content-Type: application/json
 
 `QUERY` works everywhere the other methods do: on routers (`router.query(...)`), on class-based views (an `async def query` handler), and in the test client (`client.query("/search", json=...)`). It's included in the automatic `Allow` header and the default CORS method list.
 
-One caveat for tooling: `query` only becomes a documented operation in the OpenAPI 3.2 draft. Django-Bolt emits 3.1, so the built-in docs UIs render `QUERY` endpoints, but a strict 3.1 validator will reject the operation.
+One caveat for tooling: `query` only becomes a documented operation in the OpenAPI 3.2 draft. Freeman emits 3.1, so the built-in docs UIs render `QUERY` endpoints, but a strict 3.1 validator will reject the operation.
 
 ## Path parameters
 
@@ -159,7 +159,7 @@ async def get_user(user_id: int):
 
 ## URL names and reversing
 
-Bolt routes live in Rust's router, not Django's URLconf, so Django can't see them by default. Wire them up once and Django's native `reverse()`, `reverse_lazy()`, and the `{% url %}` template tag resolve Bolt route names like any other view.
+Freeman routes live in Rust's router, not Django's URLconf, so Django can't see them by default. Wire them up once and Django's native `reverse()`, `reverse_lazy()`, and the `{% url %}` template tag resolve Freeman route names like any other view.
 
 ### Wiring it up
 
@@ -175,7 +175,7 @@ urlpatterns = [
 ]
 ```
 
-This contributes a **reverse-only** entry for every named Bolt route. The registered views never run (Bolt still serves these paths in Rust) — they exist purely so Django can reverse the names.
+This contributes a **reverse-only** entry for every named Freeman route. The registered views never run (Freeman still serves these paths in Rust) — they exist purely so Django can reverse the names.
 
 ### Naming a route
 
@@ -197,7 +197,7 @@ reverse("mission-detail", kwargs={"mission_id": 42})  # "/missions/42"
 {% url "mission-detail" mission_id=42 %}
 ```
 
-Path converters and catch-alls come from Django's own resolver, so `args`/`kwargs`, `query`, and `fragment` all work. A Bolt `{name:path}` catch-all reverses through Django's `<path:name>` converter (accepts slashes); other `{name:type}` hints are untyped on reverse, matching the router.
+Path converters and catch-alls come from Django's own resolver, so `args`/`kwargs`, `query`, and `fragment` all work. A Freeman `{name:path}` catch-all reverses through Django's `<path:name>` converter (accepts slashes); other `{name:type}` hints are untyped on reverse, matching the router.
 
 ### Derived names
 
@@ -263,7 +263,7 @@ def sync_handler():
 
 Sync handlers are automatically wrapped to run in a thread pool.
 
-A handler is a function, a bound method, or an object with `__call__`. For an object, Bolt registers its `__call__` method. A `functools.partial` is not a handler, and the route decorator raises `TypeError` for it. Register a function that calls the partial. The rule is the same for `@api.websocket()`, where the function or the method must be `async`.
+A handler is a function, a bound method, or an object with `__call__`. For an object, Freeman registers its `__call__` method. A `functools.partial` is not a handler, and the route decorator raises `TypeError` for it. Register a function that calls the partial. The rule is the same for `@api.websocket()`, where the function or the method must be `async`.
 
 ## WebSocket routes
 
@@ -283,7 +283,7 @@ See the [WebSocket guide](websocket.md) for more details.
 
 ## Auto-discovery
 
-Django-Bolt automatically discovers `api.py` files in:
+Freeman automatically discovers `api.py` files in:
 
 1. Your project directory (where `settings.py` is)
 2. Each installed Django app
@@ -339,7 +339,7 @@ If you want to mount Django or other ASGI apps under path prefixes, see [ASGI Mo
 
 ## Trailing slash handling
 
-Django-Bolt normalizes trailing slashes at route registration time and uses **Starlette-style redirects** at runtime. By default, trailing slashes are stripped from paths:
+Freeman normalizes trailing slashes at route registration time and uses **Starlette-style redirects** at runtime. By default, trailing slashes are stripped from paths:
 
 ```python
 api = BoltAPI()
@@ -363,7 +363,7 @@ Another value raises `ValueError` when you make the `BoltAPI`.
 
 ### Runtime redirect behavior
 
-When a request URL doesn't exactly match a registered route, Django-Bolt checks if the alternate path (with or without trailing slash) exists. If it does, a **308 Permanent Redirect** is returned to the canonical URL:
+When a request URL doesn't exactly match a registered route, Freeman checks if the alternate path (with or without trailing slash) exists. If it does, a **308 Permanent Redirect** is returned to the canonical URL:
 
 ```python
 api = BoltAPI(trailing_slash="append")
@@ -444,11 +444,11 @@ async def room(websocket: WebSocket): ...
 # /ws/room/  → connects
 ```
 
-Django-Bolt stores a WebSocket route path with no trailing slash. It removes the trailing slash of a WebSocket request path before it finds the route. `WebSocketTestClient` follows the same rule.
+Freeman stores a WebSocket route path with no trailing slash. It removes the trailing slash of a WebSocket request path before it finds the route. `WebSocketTestClient` follows the same rule.
 
 ### Multiple APIs with different settings
 
-When Django-Bolt auto-discovers and merges multiple `api.py` files, **each API's routes keep their own trailing slash format**. This allows different apps to use different conventions:
+When Freeman auto-discovers and merges multiple `api.py` files, **each API's routes keep their own trailing slash format**. This allows different apps to use different conventions:
 
 ```python
 # myproject/api.py
@@ -506,4 +506,4 @@ async def list_users():
 
 This is useful for versioning your API or grouping routes under a common path.
 
-Bolt gives each path and each prefix a leading slash. Thus `BoltAPI(prefix="api/v1")` with `@api.get("users")` serves `/api/v1/users`. The rule is the same for `Router(prefix=...)`, `include_router(prefix=...)`, `mount()`, views, viewsets and WebSocket routes.
+Freeman gives each path and each prefix a leading slash. Thus `BoltAPI(prefix="api/v1")` with `@api.get("users")` serves `/api/v1/users`. The rule is the same for `Router(prefix=...)`, `include_router(prefix=...)`, `mount()`, views, viewsets and WebSocket routes.

@@ -4,7 +4,7 @@ icon: lucide/power
 
 # Lifespan
 
-Django Bolt supports lifespan events for running code during server startup and shutdown. This follows the same pattern as [Starlette's lifespan](https://www.starlette.io/lifespan/), using an async context manager.
+Freeman supports lifespan events for running code during server startup and shutdown. This follows the same pattern as [Starlette's lifespan](https://www.starlette.io/lifespan/), using an async context manager.
 
 Common use cases:
 

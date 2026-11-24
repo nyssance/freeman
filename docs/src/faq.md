@@ -1,19 +1,19 @@
 ---
 icon: lucide/circle-help
-description: Direct answers to the most common questions about Django-Bolt — production readiness, Django Admin and ORM support, WSGI vs async, gunicorn, and how it compares to Django Ninja, DRF and FastAPI.
+description: Direct answers to the most common questions about Freeman — production readiness, Django Admin and ORM support, WSGI vs async, gunicorn, and how it compares to Django Ninja, DRF and FastAPI.
 ---
 
 # Frequently asked questions
 
 Short, direct answers. Each answer links to the page with the full detail.
 
-## Is Django-Bolt a stripped-down version of Django?
+## Is Freeman a stripped-down version of Django?
 
-**No.** Django-Bolt removes nothing from Django. It *replaces the HTTP server and the API layer* — the part that WSGI/ASGI servers, DRF, or Django Ninja would otherwise handle — with a Rust server (Actix Web) and a typed, msgspec-based routing layer. Everything else is the same Django you already run:
+**No.** Freeman removes nothing from Django. It *replaces the HTTP server and the API layer* — the part that WSGI/ASGI servers, DRF, or Django Ninja would otherwise handle — with a Rust server (Actix Web) and a typed, msgspec-based routing layer. Everything else is the same Django you already run:
 
-| Django feature | In Django-Bolt | Notes |
+| Django feature | In Freeman | Notes |
 | --- | --- | --- |
-| Django ORM | ✅ Full | Sync and async (`aget`, `afilter`, …); return a `QuerySet` from an async handler and Bolt evaluates it on a bounded thread pool. [Async ORM](topics/async-orm.md) |
+| Django ORM | ✅ Full | Sync and async (`aget`, `afilter`, …); return a `QuerySet` from an async handler and Freeman evaluates it on a bounded thread pool. [Async ORM](topics/async-orm.md) |
 | Django Admin | ✅ Full | Auto-mounted from `INSTALLED_APPS`; served by `runbolt`, no second server. |
 | Django middleware | ✅ Full | `BoltAPI(django_middleware=True)` runs your `settings.MIDDLEWARE` stack (sessions, CSRF, auth, messages, CSP…) on API routes. [Middleware](topics/middleware.md#django-middleware-integration) |
 | Django auth / sessions | ✅ Full | JWT and API-key backends are built in (validated in Rust); with `django_middleware=True`, Django's `SessionMiddleware` + `AuthenticationMiddleware` populate `request.user` / `request.session` exactly as in Django. [Authentication](topics/authentication.md) |
@@ -23,11 +23,11 @@ Short, direct answers. Each answer links to the page with the full detail.
 | Third-party Django apps | ✅ Full | Anything that plugs into Django's ORM, admin, or middleware works. |
 | Templates / server-rendered views | ✅ | Existing Django URLconf views run through the ASGI mount alongside API routes. [ASGI mounts](topics/asgi-mounts.md) |
 
-The performance comes from *where* work runs (routing, auth, guards, CORS, rate limiting, compression in Rust without the GIL) — not from removing features. Django middleware is opt-in per API (`BoltAPI(django_middleware=True)`); the [example project](https://github.com/dj-bolt/django-bolt/tree/master/python/example) used for the published benchmarks runs the admin and sessions but not `settings.MIDDLEWARE` on Bolt routes.
+The performance comes from *where* work runs (routing, auth, guards, CORS, rate limiting, compression in Rust without the GIL) — not from removing features. Django middleware is opt-in per API (`BoltAPI(django_middleware=True)`); the [example project](https://github.com/nyssance/freeman/tree/main/python/example) used for the published benchmarks runs the admin and sessions but not `settings.MIDDLEWARE` on Freeman routes.
 
-## Does Django-Bolt use WSGI? Is it synchronous?
+## Does Freeman use WSGI? Is it synchronous?
 
-**No WSGI, no ASGI server, not sync-only.** Django-Bolt ships its own HTTP server: [Actix Web](https://actix.rs/) on the Tokio runtime, called from `python manage.py runbolt`. Handlers are `async def` (sync `def` is also supported). Requests flow HTTP → Rust → your Python handler via PyO3, with no WSGI or ASGI protocol layer in between. See [How Django-Bolt works](architecture.md).
+**No WSGI, no ASGI server, not sync-only.** Freeman ships its own HTTP server: [Actix Web](https://actix.rs/) on the Tokio runtime, called from `python manage.py runbolt`. Handlers are `async def` (sync `def` is also supported). Requests flow HTTP → Rust → your Python handler via PyO3, with no WSGI or ASGI protocol layer in between. See [How Freeman works](architecture.md).
 
 ## Do I need gunicorn or uvicorn?
 
@@ -37,37 +37,37 @@ The performance comes from *where* work runs (routing, auth, guards, CORS, rate 
 python manage.py runbolt --host 0.0.0.0 --port 8000 --processes 4
 ```
 
-## Is Django-Bolt production ready?
+## Is Freeman production ready?
 
-Django-Bolt is used in production, publishes a benchmark suite and regression gate for every release, and has a full test suite covering routing, auth, middleware, ORM, streaming, WebSockets, and multi-process behavior. It is pre-1.0, so minor releases can still change APIs; the [changelog](https://github.com/dj-bolt/django-bolt/blob/master/CHANGELOG.md) lists every breaking change.
+Freeman is pre-1.0. It has a full test suite covering routing, auth, middleware, ORM, streaming, WebSockets, and multi-process behavior. Minor releases can still change APIs; the [changelog](https://github.com/nyssance/freeman/blob/main/CHANGELOG.md) lists every breaking change.
 
-## How fast is Django-Bolt?
+## How fast is Freeman?
 
-On a 12-core desktop (Ryzen 5 5600G, 8 processes, `C=100`, loopback) Django-Bolt serves **~311,000 requests/second** on a JSON hello-world, ~187,000 req/s for a 10 KB JSON response, and ~21,000–27,000 req/s for a 10-row Django ORM query on SQLite. It is faster than FastAPI, Robyn, and — on 10 KB payloads — faster than Bun-based Elysia and Hono. Numbers, conditions, and reproduction commands are on the [Benchmarks](benchmarks.md) page.
+Upstream django-bolt 0.10 measured these numbers on a 12-core desktop (Ryzen 5 5600G, 8 processes, `C=100`, loopback): **~311,000 requests/second** on a JSON hello-world, ~187,000 req/s for a 10 KB JSON response, and ~21,000–27,000 req/s for a 10-row Django ORM query on SQLite. Freeman has not repeated them. The [README](https://github.com/nyssance/freeman#readme) has the numbers measured on Freeman. The upstream conditions and reproduction commands are on the [Benchmarks](benchmarks.md) page.
 
-## How does Django-Bolt compare to Django Ninja and Django REST Framework?
+## How does Freeman compare to Django Ninja and Django REST Framework?
 
-All three run inside a Django project. DRF and Django Ninja are Python view layers that still need gunicorn/uvicorn; Django-Bolt replaces the server with Rust and moves auth, guards, and middleware out of Python. Bolt's syntax is closest to Django Ninja/FastAPI (type-hinted function handlers) and it also provides DRF-style `ViewSet`/`ModelViewSet` classes. Full grid: [Comparison](comparison.md).
+All three run inside a Django project. DRF and Django Ninja are Python view layers that still need gunicorn/uvicorn; Freeman replaces the server with Rust and moves auth, guards, and middleware out of Python. Freeman's syntax is closest to Django Ninja/FastAPI (type-hinted function handlers) and it also provides DRF-style `ViewSet`/`ModelViewSet` classes. Full grid: [Comparison](comparison.md).
 
-## How does Django-Bolt compare to FastAPI and Litestar?
+## How does Freeman compare to FastAPI and Litestar?
 
-FastAPI and Litestar are standalone ASGI frameworks — you bring your own ORM, admin, auth, and migrations. Django-Bolt gives you the same type-hinted handler style plus the whole Django stack, and serves requests faster because the HTTP layer is Rust. See [Comparison](comparison.md).
+FastAPI and Litestar are standalone ASGI frameworks — you bring your own ORM, admin, auth, and migrations. Freeman gives you the same type-hinted handler style plus the whole Django stack, and serves requests faster because the HTTP layer is Rust. See [Comparison](comparison.md).
 
 ## Can I migrate from DRF or Django Ninja incrementally?
 
 **Yes.** Add `freeman` to `INSTALLED_APPS`, create an `api.py`, and move one endpoint at a time. Existing Django URLconf views (including DRF/Ninja routes) keep working through the ASGI mount while you migrate.
 
-## Does Django-Bolt support WebSockets, SSE, and streaming?
+## Does Freeman support WebSockets, SSE, and streaming?
 
 Yes — [WebSockets](topics/websocket.md), [Server-Sent Events](topics/sse.md), and [streaming responses](topics/responses.md) are built in and served by the Rust layer.
 
-## Does Django-Bolt generate OpenAPI docs?
+## Does Freeman generate OpenAPI docs?
 
 Yes. Swagger UI, ReDoc, Scalar, RapiDoc, and Stoplight Elements are served at `/docs` by default. See [OpenAPI](topics/openapi.md).
 
 ## Which Python and Django versions are supported?
 
-Python 3.12, 3.13, 3.14 (CPython and PyPy), and the free-threaded build of CPython 3.14 (`3.14t`). Django 5.2 (LTS), 6.0, 6.1. See [Free-threaded Python](getting-started/deployment.md#free-threaded-python).
+Python 3.15 (CPython) and Django 6.1 only. Wheels are built for Linux x86_64, Linux arm64 and macOS arm64. A project on an older Python or Django can use django-bolt.
 
 ## Why does `runbolt` hang on macOS when it connects to PostgreSQL?
 
@@ -96,7 +96,7 @@ This setting turns off GSSAPI encryption only. If the connection must be encrypt
 
 ## Where can I get help?
 
-[Discord](https://discord.gg/4xErptXK82) · [GitHub Issues](https://github.com/dj-bolt/django-bolt/issues) · [DeepWiki](https://deepwiki.com/FarhanAliRaza/django-bolt)
+[GitHub Issues](https://github.com/nyssance/freeman/issues)
 
 <script type="application/ld+json">
 {
@@ -105,18 +105,18 @@ This setting turns off GSSAPI encryption only. If the connection must be encrypt
  "mainEntity": [
   {
    "@type": "Question",
-   "name": "Is Django-Bolt a stripped-down version of Django?",
+   "name": "Is Freeman a stripped-down version of Django?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "No. Django-Bolt removes nothing from Django. It replaces the HTTP server and the API layer — the part that WSGI/ASGI servers, DRF, or Django Ninja would otherwise handle — with a Rust server (Actix Web) and a typed, msgspec-based routing layer. Everything else is the same Django you already run:"
+    "text": "No. Freeman removes nothing from Django. It replaces the HTTP server and the API layer — the part that WSGI/ASGI servers, DRF, or Django Ninja would otherwise handle — with a Rust server (Actix Web) and a typed, msgspec-based routing layer. Everything else is the same Django you already run:"
    }
   },
   {
    "@type": "Question",
-   "name": "Does Django-Bolt use WSGI? Is it synchronous?",
+   "name": "Does Freeman use WSGI? Is it synchronous?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "No WSGI, no ASGI server, not sync-only. Django-Bolt ships its own HTTP server: Actix Web on the Tokio runtime, called from python manage.py runbolt. Handlers are async def (sync def is also supported). Requests flow HTTP → Rust → your Python handler via PyO3, with no WSGI or ASGI protocol layer in between. See How Django-Bolt works."
+    "text": "No WSGI, no ASGI server, not sync-only. Freeman ships its own HTTP server: Actix Web on the Tokio runtime, called from python manage.py runbolt. Handlers are async def (sync def is also supported). Requests flow HTTP → Rust → your Python handler via PyO3, with no WSGI or ASGI protocol layer in between. See How Freeman works."
    }
   },
   {
@@ -129,34 +129,34 @@ This setting turns off GSSAPI encryption only. If the connection must be encrypt
   },
   {
    "@type": "Question",
-   "name": "Is Django-Bolt production ready?",
+   "name": "Is Freeman production ready?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "Django-Bolt is used in production, publishes a benchmark suite and regression gate for every release, and has a full test suite covering routing, auth, middleware, ORM, streaming, WebSockets, and multi-process behavior. It is pre-1.0, so minor releases can still change APIs; the changelog lists every breaking change."
+    "text": "Freeman is pre-1.0. It has a full test suite covering routing, auth, middleware, ORM, streaming, WebSockets, and multi-process behavior. Minor releases can still change APIs; the changelog lists every breaking change."
    }
   },
   {
    "@type": "Question",
-   "name": "How fast is Django-Bolt?",
+   "name": "How fast is Freeman?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "On a 12-core desktop (Ryzen 5 5600G, 8 processes, C=100, loopback) Django-Bolt serves ~311,000 requests/second on a JSON hello-world, ~187,000 req/s for a 10 KB JSON response, and ~21,000–27,000 req/s for a 10-row Django ORM query on SQLite. It is faster than FastAPI, Robyn, and — on 10 KB payloads — faster than Bun-based Elysia and Hono. Numbers, conditions, and reproduction commands are on the Benchmarks page."
+    "text": "Upstream django-bolt 0.10 measured these numbers on a 12-core desktop (Ryzen 5 5600G, 8 processes, C=100, loopback): ~311,000 requests/second on a JSON hello-world, ~187,000 req/s for a 10 KB JSON response, and ~21,000–27,000 req/s for a 10-row Django ORM query on SQLite. Freeman has not repeated them. The README has the numbers measured on Freeman."
    }
   },
   {
    "@type": "Question",
-   "name": "How does Django-Bolt compare to Django Ninja and Django REST Framework?",
+   "name": "How does Freeman compare to Django Ninja and Django REST Framework?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "All three run inside a Django project. DRF and Django Ninja are Python view layers that still need gunicorn/uvicorn; Django-Bolt replaces the server with Rust and moves auth, guards, and middleware out of Python. Bolt's syntax is closest to Django Ninja/FastAPI (type-hinted function handlers) and it also provides DRF-style ViewSet/ModelViewSet classes. Full grid: Comparison."
+    "text": "All three run inside a Django project. DRF and Django Ninja are Python view layers that still need gunicorn/uvicorn; Freeman replaces the server with Rust and moves auth, guards, and middleware out of Python. Freeman's syntax is closest to Django Ninja/FastAPI (type-hinted function handlers) and it also provides DRF-style ViewSet/ModelViewSet classes. Full grid: Comparison."
    }
   },
   {
    "@type": "Question",
-   "name": "How does Django-Bolt compare to FastAPI and Litestar?",
+   "name": "How does Freeman compare to FastAPI and Litestar?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "FastAPI and Litestar are standalone ASGI frameworks — you bring your own ORM, admin, auth, and migrations. Django-Bolt gives you the same type-hinted handler style plus the whole Django stack, and serves requests faster because the HTTP layer is Rust. See Comparison."
+    "text": "FastAPI and Litestar are standalone ASGI frameworks — you bring your own ORM, admin, auth, and migrations. Freeman gives you the same type-hinted handler style plus the whole Django stack, and serves requests faster because the HTTP layer is Rust. See Comparison."
    }
   },
   {
@@ -169,7 +169,7 @@ This setting turns off GSSAPI encryption only. If the connection must be encrypt
   },
   {
    "@type": "Question",
-   "name": "Does Django-Bolt support WebSockets, SSE, and streaming?",
+   "name": "Does Freeman support WebSockets, SSE, and streaming?",
    "acceptedAnswer": {
     "@type": "Answer",
     "text": "Yes — WebSockets, Server-Sent Events, and streaming responses are built in and served by the Rust layer."
@@ -177,7 +177,7 @@ This setting turns off GSSAPI encryption only. If the connection must be encrypt
   },
   {
    "@type": "Question",
-   "name": "Does Django-Bolt generate OpenAPI docs?",
+   "name": "Does Freeman generate OpenAPI docs?",
    "acceptedAnswer": {
     "@type": "Answer",
     "text": "Yes. Swagger UI, ReDoc, Scalar, RapiDoc, and Stoplight Elements are served at /docs by default. See OpenAPI."
@@ -188,7 +188,7 @@ This setting turns off GSSAPI encryption only. If the connection must be encrypt
    "name": "Which Python and Django versions are supported?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "Python 3.12, 3.13, 3.14 (CPython and PyPy), and the free-threaded build of CPython 3.14 (3.14t). Django 5.2 (LTS), 6.0, 6.1."
+    "text": "Python 3.15 (CPython) and Django 6.1 only. Wheels are built for Linux x86_64, Linux arm64 and macOS arm64. A project on an older Python or Django can use django-bolt."
    }
   },
   {

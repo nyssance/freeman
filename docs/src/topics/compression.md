@@ -1,6 +1,6 @@
 # Compression
 
-Django-Bolt compresses both buffered and streaming responses through a
+Freeman compresses both buffered and streaming responses through a
 single configuration. The same `CompressionConfig` controls every codec
 choice, the same `@no_compress` decorator opts a route out, and the same
 client-side `Accept-Encoding` negotiation picks the encoding. Streaming

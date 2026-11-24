@@ -1,6 +1,6 @@
 # Server-Sent Events (SSE)
 
-Server-Sent Events is a standard for pushing real-time updates from server to client over HTTP. Django-Bolt provides `EventSourceResponse` with automatic SSE framing, compression skipping, and keep-alive pings.
+Server-Sent Events is a standard for pushing real-time updates from server to client over HTTP. Freeman provides `EventSourceResponse` with automatic SSE framing, compression skipping, and keep-alive pings.
 
 ## Quick start
 

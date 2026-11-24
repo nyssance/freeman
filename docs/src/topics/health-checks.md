@@ -4,7 +4,7 @@ icon: lucide/heart-pulse
 
 # Health checks
 
-Django-Bolt provides a built-in health check system for Kubernetes readiness/liveness probes and load balancer health checks.
+Freeman provides a built-in health check system for Kubernetes readiness/liveness probes and load balancer health checks.
 
 ## Quick start
 
@@ -77,7 +77,7 @@ If any check fails:
 
 ### Database check
 
-Django-Bolt includes a database check:
+Freeman includes a database check:
 
 ```python
 from freeman.health import check_database

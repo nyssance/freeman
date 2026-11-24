@@ -4,7 +4,7 @@ icon: lucide/triangle-alert
 
 # Error handling
 
-Django-Bolt provides a structured exception hierarchy for HTTP errors and automatic error response formatting.
+Freeman provides a structured exception hierarchy for HTTP errors and automatic error response formatting.
 
 ## Exception classes
 
@@ -34,11 +34,11 @@ raise HTTPException(status_code=400, detail={"code": "out_of_stock", "items": [3
 # body: {"detail": {"code": "out_of_stock", "items": [3, 7]}}
 ```
 
-A detail of another type becomes its text, so `detail=42` gives `"42"`. An empty detail, such as `""`, `{}` or `[]`, gives the HTTP phrase of the status. Each value in the dict or the list must be a value that Bolt can encode as JSON.
+A detail of another type becomes its text, so `detail=42` gives `"42"`. An empty detail, such as `""`, `{}` or `[]`, gives the HTTP phrase of the status. Each value in the dict or the list must be a value that Freeman can encode as JSON.
 
 ### Specialized exceptions
 
-Django-Bolt provides pre-configured exceptions for common status codes:
+Freeman provides pre-configured exceptions for common status codes:
 
 ```python
 from freeman.exceptions import (
@@ -116,7 +116,7 @@ Response:
 
 ### RequestValidationError
 
-Raised when request validation fails. Django-Bolt's Serializer **automatically collects all validation errors** from `@field_validator` and `@model_validator` before raising, so users see all issues at once:
+Raised when request validation fails. Freeman's Serializer **automatically collects all validation errors** from `@field_validator` and `@model_validator` before raising, so users see all issues at once:
 
 ```python
 from freeman.serializers import Serializer, field_validator
@@ -200,11 +200,11 @@ raise ResponseValidationError(errors)
 
 Response validation errors indicate a server bug, so they return 500 Internal Server Error.
 
-The validation errors name the model, the fields and the types of your handler. With `DEBUG=False`, the body is only `{"detail": "Response validation error"}`. Bolt writes the validation errors to the server log. With `DEBUG=True`, the body also has `extra.validation_errors`. The `loc` of each error has `response` and then the path of the field, for example `["response", "id"]`.
+The validation errors name the model, the fields and the types of your handler. With `DEBUG=False`, the body is only `{"detail": "Response validation error"}`. Freeman writes the validation errors to the server log. With `DEBUG=True`, the body also has `extra.validation_errors`. The `loc` of each error has `response` and then the path of the field, for example `["response", "id"]`.
 
 ## Error handlers
 
-Django-Bolt provides built-in error handlers:
+Freeman provides built-in error handlers:
 
 ### http_exception_handler
 
@@ -256,7 +256,7 @@ The main entry point that routes to appropriate handlers. It maps some Django ex
 
 - `PermissionDenied` gives 403.
 - `Http404`, also from `get_object_or_404`, gives 404. With `DEBUG=False`, the detail is `Not Found`.
-- `SuspiciousOperation`, for example `DisallowedHost`, gives 400. Bolt logs it to the `django.security.<class name>` logger, as Django does. With `DEBUG=False`, the detail is `Bad Request`.
+- `SuspiciousOperation`, for example `DisallowedHost`, gives 400. Freeman logs it to the `django.security.<class name>` logger, as Django does. With `DEBUG=False`, the detail is `Bad Request`.
 
 ```python
 from freeman.error_handlers import handle_exception
@@ -283,7 +283,7 @@ The debug parameter defaults to Django's `DEBUG` setting.
 
 ## msgspec validation errors
 
-Django-Bolt converts `msgspec.ValidationError` to the standard error format:
+Freeman converts `msgspec.ValidationError` to the standard error format:
 
 ```python
 from freeman.error_handlers import msgspec_validation_error_to_dict
@@ -338,7 +338,7 @@ An error formatter changes the body of each error response that the framework ma
   - 422 from path, query, header, cookie and form values.
   - 429 from rate limits.
   - A `FileResponse` whose file Rust cannot open or read when it sends the response.
-  - 500 and 504 that Bolt makes for a native route. The formatter does not change a response from the native handler.
+  - 500 and 504 that Freeman makes for a native route. The formatter does not change a response from the native handler.
 - Python: request and response validation, `HTTPException`, and unhandled exceptions.
 
 Without a formatter, the errors keep their default body.
@@ -365,7 +365,7 @@ www-authenticate: Bearer
  "detail": "Authentication required", "instance": "/private"}
 ```
 
-An error with field errors also has `"errors"`, a list of `{"loc", "msg", "type"}` objects. Some objects also have `"ctx"`. The keys of `error.extra` become extension members, for example `"retry_after"` for a 429. A key does not replace a standard member. Bolt does not use an `"errors"` key of `error.extra`, because `"errors"` holds only field errors. The `title` is the RFC 9110 name of the status, on each Python version.
+An error with field errors also has `"errors"`, a list of `{"loc", "msg", "type"}` objects. Some objects also have `"ctx"`. The keys of `error.extra` become extension members, for example `"retry_after"` for a 429. A key does not replace a standard member. Freeman does not use an `"errors"` key of `error.extra`, because `"errors"` holds only field errors. The `title` is the RFC 9110 name of the status, on each Python version.
 
 `"detail"` is a string, as RFC 9457 specifies. A `dict` or a `list` detail of an `HTTPException` goes to extension members, by the rules of `error.extra`:
 
@@ -404,7 +404,7 @@ api = BoltAPI(error_formatter=format_error)
 |-----------|-------------|
 | `status` | The HTTP status code. |
 | `kind` | A stable name for the error. See the table below. |
-| `detail` | A message for a human. Bolt does not put internal data, such as a file path, in it. It is a `dict` or a `list` when an `HTTPException` has such a detail. |
+| `detail` | A message for a human. Freeman does not put internal data, such as a file path, in it. It is a `dict` or a `list` when an `HTTPException` has such a detail. |
 | `errors` | The field errors. Each one has `loc`, `msg` and `type`. Some also have `ctx`. A `response_validation` error has no `errors` when `DEBUG=False`. Read `error.exception.errors()` for them. |
 | `headers` | The headers that the error needs, for example `WWW-Authenticate` or `Retry-After`. |
 | `extra` | The `extra` of an `HTTPException`, or `{"retry_after": n}` for a rate limit. |
@@ -412,9 +412,9 @@ api = BoltAPI(error_formatter=format_error)
 
 | Kind | Status | Source |
 |------|--------|--------|
-| `bad_request` | 400 | Too many headers, a header that is too large, a body that Bolt cannot read, or a Django `SuspiciousOperation`, such as `DisallowedHost` |
+| `bad_request` | 400 | Too many headers, a header that is too large, a body that Freeman cannot read, or a Django `SuspiciousOperation`, such as `DisallowedHost` |
 | `not_authenticated` | 401 | A guard, or an `HTTPException(401)` |
-| `forbidden` | 403 | A guard, the CSRF origin check of Bolt, `PermissionDenied`, a `FileResponse` outside `BOLT_ALLOWED_FILE_PATHS` or an `HTTPException(403)` |
+| `forbidden` | 403 | A guard, the CSRF origin check of Freeman, `PermissionDenied`, a `FileResponse` outside `BOLT_ALLOWED_FILE_PATHS` or an `HTTPException(403)` |
 | `not_found` | 404 | No route, Django's `Http404` (also from `get_object_or_404`), a `FileResponse` or a `File` whose path names no regular file, or an `HTTPException(404)` |
 | `method_not_allowed` | 405 | A path that has routes, but none for the method of the request, or an `HTTPException(405)` |
 | `payload_too_large` | 413 | A body over `BOLT_MAX_UPLOAD_SIZE` |
@@ -426,9 +426,9 @@ api = BoltAPI(error_formatter=format_error)
 
 An `HTTPException` gets its kind from its status, for example `conflict` for 409. A status with no name gives `http_error`.
 
-Bolt adds `error.headers` to the response of the formatter. A header that the response sets wins. Thus a 401 keeps `WWW-Authenticate`, and a 429 keeps `Retry-After`.
+Freeman adds `error.headers` to the response of the formatter. A header that the response sets wins. Thus a 401 keeps `WWW-Authenticate`, and a 429 keeps `Retry-After`.
 
-For a 401 that your code raises on a route with auth backends, Bolt adds the `WWW-Authenticate` header of the route after the formatter runs. Thus `error.headers` does not have this header, but the response has it. A 401 of the Rust core has the header in `error.headers`.
+For a 401 that your code raises on a route with auth backends, Freeman adds the `WWW-Authenticate` header of the route after the formatter runs. Thus `error.headers` does not have this header, but the response has it. A 401 of the Rust core has the header in `error.headers`.
 
 An `HTTPException` with a typed `body` keeps its body. The route declares that body, so the formatter does not get the error.
 
@@ -436,11 +436,11 @@ On the request of an error from the Rust core, `method`, `path`, `headers` and `
 
 The formatter runs only for an error, and only when the app has a formatter. A request that succeeds does not call Python. With a formatter, each error of the Rust core calls Python, also a 404 or a 429. A flood of these errors then competes for the GIL with the other requests.
 
-The formatter must be a sync callable. Bolt raises `TypeError` for an async one. The response of the formatter must have a status from 400 to 599. Each header name and value must be a `str`. The response cannot set cookies. When the formatter raises an exception or returns a response that is not valid, Bolt logs the error and sends the default response.
+The formatter must be a sync callable. Freeman raises `TypeError` for an async one. The response of the formatter must have a status from 400 to 599. Each header name and value must be a `str`. The response cannot set cookies. When the formatter raises an exception or returns a response that is not valid, Freeman logs the error and sends the default response.
 
-An `HTTPException` with a status below 400, such as a redirect, is not an error. Bolt does not call the formatter for it, and sends the default `{"detail": ...}` response.
+An `HTTPException` with a status below 400, such as a redirect, is not an error. Freeman does not call the formatter for it, and sends the default `{"detail": ...}` response.
 
-Bolt logs each error that it answers with a 500 by default, also when the formatter gives another status. Bolt does not log an error that it answers with a 4xx by default, also when the formatter gives a 5xx. An `HTTPException` is a planned response, so Bolt does not log it.
+Freeman logs each error that it answers with a 500 by default, also when the formatter gives another status. Freeman does not log an error that it answers with a 4xx by default, also when the formatter gives a 5xx. An `HTTPException` is a planned response, so Freeman does not log it.
 
 With more than one API in a project, `runbolt` uses one formatter for all of them. Set the same formatter on each API, or set it on one API. Two different formatters stop startup.
 
@@ -448,7 +448,7 @@ With more than one API in a project, `runbolt` uses one formatter for all of the
 
 The formatter runs on the thread of the request, also for an async handler. Keep it fast. Do not use the database or the network in it.
 
-With a formatter, Bolt does not send the Django debug page for a 500 error when `DEBUG=True`. Use `error.exception` to show the details.
+With a formatter, Freeman does not send the Django debug page for a 500 error when `DEBUG=True`. Use `error.exception` to show the details.
 
 The formatter does not change a response that a handler or a middleware returns. It does not change the responses of a WebSocket handshake, an ASGI mount, an MCP mount, or a static file.
 
@@ -490,7 +490,7 @@ api = BoltAPI(error_formatter=format_error)
 
 The 401 and the 403 of a route with an auth backend and a guard show the same media type and schema. Without a formatter, their body is `{"detail": "<message>"}`.
 
-A formatter without `error_schema` gets a 422 with a description and no content. Bolt cannot know the media type or the shape of its body. A wrong media type or shape makes generated clients fail when they parse the error. A response with no content is valid OpenAPI and makes no claim about the body. `OpenAPIConfig(strict=True)` reports a formatter without `error_schema`.
+A formatter without `error_schema` gets a 422 with a description and no content. Freeman cannot know the media type or the shape of its body. A wrong media type or shape makes generated clients fail when they parse the error. A response with no content is valid OpenAPI and makes no claim about the body. `OpenAPIConfig(strict=True)` reports a formatter without `error_schema`.
 
 The formatter does not change the entries of `response_model`. For example, `response_model={409: Conflict}` keeps its `application/json` schema. This agrees with the response, because an `HTTPException` with a typed `body` skips the formatter.
 

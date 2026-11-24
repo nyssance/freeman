@@ -1,11 +1,11 @@
 ---
 icon: lucide/layers
-description: How Django-Bolt works — a Rust (Actix Web + Tokio) HTTP server calls Python handlers through PyO3, with routing, auth, guards, CORS, rate limiting and compression running in Rust without the GIL. No WSGI, no ASGI server.
+description: How Freeman works — a Rust (Actix Web + Tokio) HTTP server calls Python handlers through PyO3, with routing, auth, guards, CORS, rate limiting and compression running in Rust without the GIL. No WSGI, no ASGI server.
 ---
 
-# How Django-Bolt works
+# How Freeman works
 
-Django-Bolt is **not** a WSGI or ASGI application and does not run behind gunicorn or uvicorn. It is a Rust HTTP server that embeds the Python interpreter and calls your Django handlers directly. This page explains the request path and why it is fast.
+Freeman is **not** a WSGI or ASGI application and does not run behind gunicorn or uvicorn. It is a Rust HTTP server that embeds the Python interpreter and calls your Django handlers directly. This page explains the request path and why it is fast.
 
 ## The request path
 
@@ -36,7 +36,7 @@ Dispatch decision
 Your Python handler
    │  typed params (path/query/header/cookie/form/body) · Depends(...) · Django ORM
    ▼
-msgspec serialization → zero-copy bytes → Actix response
+msgspec or Pydantic serialization → zero-copy bytes → Actix response
 ```
 
 Only the last two boxes touch Python. Everything above them runs in Rust, so a request that fails auth or a guard, hits a rate limit, or is a CORS preflight never acquires the GIL at all.
@@ -48,7 +48,7 @@ Only the last two boxes touch Python. Everything above them runs in Rust, so a r
 | HTTP server | [Actix Web](https://actix.rs/) on [Tokio](https://tokio.rs/) | Connection handling, HTTP parsing, response writing |
 | Routing | [matchit](https://github.com/ibraheemdev/matchit) | Radix-tree router, no allocation per match |
 | Python bridge | [PyO3](https://pyo3.rs/) | Calls handlers, converts arguments, receives the response tuple |
-| Serialization | [msgspec](https://jcristharif.com/msgspec/) | Request validation and response encoding, 5–10× faster than `json` |
+| Serialization | [msgspec](https://jcristharif.com/msgspec/) and [Pydantic](https://docs.pydantic.dev/) | Request validation and response encoding. A Pydantic model validates with `validate_json` and writes with `dump_json` |
 | Process model | `SO_REUSEPORT` | N independent processes, kernel load-balanced on Linux; each has its own interpreter and Django |
 | Supervisor | `runbolt` | Spawns processes, recycles by RSS/lifetime, respawns on crash, drains WebSockets on shutdown |
 
@@ -56,7 +56,7 @@ Only the last two boxes touch Python. Everything above them runs in Rust, so a r
 
 Your Django project is loaded once per process at startup (`django.setup()`), the same way `manage.py` does it. From then on:
 
-- **ORM** — handlers call the ORM directly. Async handlers use `aget`/`afilter`/… or return a `QuerySet`, which Bolt evaluates on a bounded, vendor-aware thread pool. Sync handlers run on a thread pool with the ORM inline.
+- **ORM** — handlers call the ORM directly. Async handlers use `aget`/`afilter`/… or return a `QuerySet`, which Freeman evaluates on a bounded, vendor-aware thread pool. Sync handlers run on a thread pool with the ORM inline.
 - **Admin** — mounted automatically as an ASGI sub-application at your admin prefix; Django's own middleware stack runs for it.
 - **Django middleware** — opt in with `BoltAPI(django_middleware=True)` to run `settings.MIDDLEWARE` on API routes (sessions, CSRF, auth, messages…). Built-in Django middleware is executed directly; third-party middleware is wrapped safely.
 - **Signals, settings, apps, static/media** — unchanged. Static and media files are served from Rust.
@@ -75,7 +75,7 @@ Measured effect: [Benchmarks](benchmarks.md).
 ## What this is not
 
 - **Not a WSGI/ASGI adapter.** There is no protocol translation layer; Rust calls Python functions.
-- **Not a Django fork.** `django` is a normal dependency; Bolt is a Django app plus a Rust extension.
-- **Not a subset.** No Django feature is removed — see the [FAQ](faq.md#is-django-bolt-a-stripped-down-version-of-django).
+- **Not a Django fork.** `django` is a normal dependency; Freeman is a Django app plus a Rust extension.
+- **Not a subset.** No Django feature is removed — see the [FAQ](faq.md#is-freeman-a-stripped-down-version-of-django).
 
-For the deep dive (dispatch outcomes, wire format, worker loop), read [`CLAUDE.md`](https://github.com/dj-bolt/django-bolt/blob/master/CLAUDE.md) and [`docs/PROFILING.md`](https://github.com/dj-bolt/django-bolt/blob/master/docs/PROFILING.md) in the repository.
+For the deep dive (dispatch outcomes, wire format, worker loop), read [`CLAUDE.md`](https://github.com/nyssance/freeman/blob/main/CLAUDE.md) and [`docs/PROFILING.md`](https://github.com/nyssance/freeman/blob/main/docs/PROFILING.md) in the repository.

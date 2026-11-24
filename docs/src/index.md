@@ -7,34 +7,34 @@ hide:
 
 <div class="bolt-hero" markdown>
 
-<img class="bolt-hero__logo" src="images/bolt-logo.png" alt="Django-Bolt logo" width="140" height="127">
+<img class="bolt-hero__logo" src="images/bolt-logo.png" alt="Freeman logo" width="140" height="127">
 
-<p class="bolt-hero__eyebrow">Django-Bolt</p>
+<p class="bolt-hero__eyebrow">Freeman</p>
 
-# Faster than FastAPI. Still Django. { .bolt-hero__title }
+# An HTTP engine for Python APIs on Django { .bolt-hero__title }
 
 <p class="bolt-hero__tagline">
-A Rust server runs your typed async handlers.
+Rust does the routing, the checks and the limits.
+Your handler is plain Python, with Pydantic models in and out.
 Your models, Admin and middleware keep working.
-311,000 requests a second, measured.
 </p>
 
 <div class="bolt-hero__actions">
 <a class="md-button md-button--primary" href="getting-started/quickstart/">Get started</a>
 <a class="md-button" href="benchmarks/">See benchmarks</a>
-<a class="md-button" href="https://github.com/FarhanAliRaza/django-bolt">GitHub</a>
+<a class="md-button" href="https://github.com/nyssance/freeman">GitHub</a>
 </div>
 
 <div class="bolt-hero__install">
-<code>pip install django-bolt</code>
+<code>pip install freeman</code>
 </div>
 
 <div class="bolt-stats">
-<div class="bolt-stat"><span class="bolt-stat__value">311k</span><span class="bolt-stat__label">requests / second, JSON hello-world</span></div>
+<div class="bolt-stat"><span class="bolt-stat__value">125k</span><span class="bolt-stat__label">requests / second, one process, empty route</span></div>
 <div class="bolt-stat"><span class="bolt-stat__value">0</span><span class="bolt-stat__label">Python before your handler: routing, auth, CORS, rate limits run in Rust</span></div>
 <div class="bolt-stat"><span class="bolt-stat__value">1</span><span class="bolt-stat__label">command: <code>runbolt</code> replaces gunicorn, uvicorn and the process manager</span></div>
 </div>
-<p class="bolt-stats__note">311k measured with 8 processes, C=100, Ryzen 5 5600G, loopback. See <a href="benchmarks/">Benchmarks</a> for conditions and how to reproduce.</p>
+<p class="bolt-stats__note">125k measured on Freeman with one process, one worker thread and 100 connections. See the <a href="https://github.com/nyssance/freeman#readme">README</a>.</p>
 
 </div>
 
@@ -60,7 +60,7 @@ Add `freeman` to `INSTALLED_APPS`, run the command above, and open `http://local
 
 </div>
 
-## Why Django-Bolt { .bolt-section__title }
+## Why Freeman { .bolt-section__title }
 
 <div class="bolt-grid" markdown>
 
@@ -71,7 +71,7 @@ Actix Web and Tokio serve every request. Auth, guards, CORS, rate limiting and c
 
 <div class="bolt-card" markdown>
 ### :lucide-shield-check: Typed validation
-Parameters and bodies are validated from type hints with msgspec. One `msgspec.Struct` gives you validation, serialization and OpenAPI.
+Parameters and bodies are validated from type hints. One Pydantic model or `msgspec.Struct` gives you validation, serialization and OpenAPI.
 </div>
 
 <div class="bolt-card" markdown>
@@ -91,7 +91,7 @@ Swagger UI, Redoc, Scalar, RapiDoc and Stoplight Elements are served at `/docs`.
 
 <div class="bolt-card" markdown>
 ### :lucide-radio: Streaming, WebSocket, MCP
-Server-Sent Events, WebSocket handlers, ASGI mounts and an MCP server for LLM clients via `bolt-mcp`.
+Server-Sent Events, WebSocket handlers, ASGI mounts and an MCP server for LLM clients via `bolt-mcp` (a build with the `mcp` Cargo feature).
 </div>
 
 </div>
@@ -101,9 +101,9 @@ Server-Sent Events, WebSocket handlers, ASGI mounts and an MCP server for LLM cl
 === "Validation"
 
     ```python
-    import msgspec
+    from pydantic import BaseModel
 
-    class CreateUser(msgspec.Struct):
+    class CreateUser(BaseModel):
         username: str
         email: str
 
@@ -157,7 +157,7 @@ Build and run your first API in a few minutes.
 
 <a class="bolt-card bolt-card--link" href="getting-started/deployment/" markdown>
 **Deployment**
-Run multiple processes and put Bolt behind a proxy.
+Run multiple processes and put Freeman behind a proxy.
 </a>
 
 <a class="bolt-card bolt-card--link" href="architecture/" markdown>
@@ -167,7 +167,7 @@ Request flow from Rust to your handler and back.
 
 <a class="bolt-card bolt-card--link" href="comparison/" markdown>
 **Comparison**
-Django-Bolt vs Django Ninja, DRF, FastAPI and Litestar.
+Freeman vs Django Ninja, DRF, FastAPI and Litestar.
 </a>
 
 <a class="bolt-card bolt-card--link" href="faq/" markdown>

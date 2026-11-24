@@ -4,11 +4,11 @@ icon: lucide/key-round
 
 # Authentication
 
-Django-Bolt provides built-in authentication backends that run in Rust for high performance. This guide covers how to set up and use authentication in your API.
+Freeman provides built-in authentication backends that run in Rust for high performance. This guide covers how to set up and use authentication in your API.
 
 ## JWT authentication
 
-JWT (JSON Web Token) is the most common authentication method for APIs. Django-Bolt validates JWT tokens in Rust without the Python GIL overhead.
+JWT (JSON Web Token) is the most common authentication method for APIs. Freeman validates JWT tokens in Rust without the Python GIL overhead.
 
 ### Basic usage
 
@@ -106,7 +106,7 @@ The generated token includes:
 
 ### Accessing the authenticated user
 
-Django-Bolt provides lazy user loading via `request.user`:
+Freeman provides lazy user loading via `request.user`:
 
 ```python
 @api.get("/me", auth=[JWTAuthentication()], guards=[IsAuthenticated()])
@@ -122,7 +122,7 @@ def get_me(request):
 
 The user is only loaded from the database when you access `request.user`. If you don't need the full user object, use `request.context` which is available without a database query.
 
-A user with `is_active = False` is no user, as in Django's `ModelBackend`. `request.user` is then falsy, `await request.auser()` gives `None`, and `CurrentUser` answers 401. The same applies to a user that has no row. The check reads the loaded row, so it adds no query. A route that does not read the user accepts the token, because Bolt verifies the token without the database. To reject such a token on each route, revoke it: see [Token revocation](#token-revocation). A custom `get_user` or `get_user_sync` does its own check.
+A user with `is_active = False` is no user, as in Django's `ModelBackend`. `request.user` is then falsy, `await request.auser()` gives `None`, and `CurrentUser` answers 401. The same applies to a user that has no row. The check reads the loaded row, so it adds no query. A route that does not read the user accepts the token, because Freeman verifies the token without the database. To reject such a token on each route, revoke it: see [Token revocation](#token-revocation). A custom `get_user` or `get_user_sync` does its own check.
 
 In an async handler or an async middleware, prefer `await request.auser()`:
 
@@ -151,11 +151,11 @@ def home(user: OptionalCurrentUser):
 
 `CurrentUser` answers 401 when the request has no authenticated user. `OptionalCurrentUser` gives `None` then. In an async handler, both load the user with `await request.auser()`. In a sync handler, both read `request.user`, so the handler keeps its sync dispatch. For the type of your user model, make your own alias: `Annotated[User, Depends(require_current_user)]`.
 
-A valid token can name a user that does not exist, for example a deleted user. Bolt loads the user at the first read, so `request.user` is not `None` then. It is a falsy object: `not request.user` is `True`, and `await request.auser()` gives `None`. The read of an attribute, such as `request.user.id`, answers 401, as `CurrentUser` does.
+A valid token can name a user that does not exist, for example a deleted user. Freeman loads the user at the first read, so `request.user` is not `None` then. It is a falsy object: `not request.user` is `True`, and `await request.auser()` gives `None`. The read of an attribute, such as `request.user.id`, answers 401, as `CurrentUser` does.
 
-An async handler can also read `request.user`. The read loads the user when it occurs, and the worker thread waits for that query. Use `await request.auser()` when the loop must serve other requests during the query, for example with a networked database. The query runs on that worker thread, or on the lane of a request with Django middleware. On the lane, it sees the thread-local state of the request, for example a tenant schema. With `DEBUG = True` or `runbolt --dev`, Bolt logs each such read that blocks the event loop for more than 50 ms, with its file and line.
+An async handler can also read `request.user`. The read loads the user when it occurs, and the worker thread waits for that query. Use `await request.auser()` when the loop must serve other requests during the query, for example with a networked database. The query runs on that worker thread, or on the lane of a request with Django middleware. On the lane, it sees the thread-local state of the request, for example a tenant schema. With `DEBUG = True` or `runbolt --dev`, Freeman logs each such read that blocks the event loop for more than 50 ms, with its file and line.
 
-A thread with no event loop that is not the lane cannot wait for the lane, for example a thread from `asyncio.to_thread`. A sync read there raises `LaneAffinityError`, a subclass of `RuntimeError`. Its message names the route and the handler. With `DEBUG = True` or `runbolt --dev`, Bolt also logs the fix one time for each route.
+A thread with no event loop that is not the lane cannot wait for the lane, for example a thread from `asyncio.to_thread`. A sync read there raises `LaneAffinityError`, a subclass of `RuntimeError`. Its message names the route and the handler. With `DEBUG = True` or `runbolt --dev`, Freeman also logs the fix one time for each route.
 
 ### Custom user query
 
@@ -275,8 +275,8 @@ starts and parsed into per-`kid` verification keys. It is refreshed every
 cached key uses it while the refresh runs, so it does not wait for the
 provider. A token that names an unknown `kid` starts a refresh at once, and the
 request waits for the new keys. If a fetch already runs, the request does not
-wait, and Bolt rejects the token. After that, an unknown `kid` starts the next
-refresh after 30 seconds or more. Thus tokens with made-up `kid` values cannot make Bolt
+wait, and Freeman rejects the token. After that, an unknown `kid` starts the next
+refresh after 30 seconds or more. Thus tokens with made-up `kid` values cannot make Freeman
 fetch the key set for each request. Refreshes are single-flight within a
 process, and a provider outage leaves the last known-good keys active.
 
@@ -289,7 +289,7 @@ JWTAuthentication(
 )
 ```
 
-The issuer must be HTTPS. Django-Bolt fetches its
+The issuer must be HTTPS. Freeman fetches its
 `/.well-known/openid-configuration` document and rejects discovery documents
 without an issuer or JWKS URI.
 
@@ -336,7 +336,7 @@ auth=[
 ### Cross-site request forgery protection
 
 Browsers attach cookies to requests automatically, including requests
-made from other sites. Django-Bolt endpoints do not run Django's
+made from other sites. Freeman endpoints do not run Django's
 `CsrfViewMiddleware`, so cookie authentication provides its own CSRF
 protection, enabled by default.
 
@@ -377,7 +377,7 @@ Issuing a single long-lived token means a stolen token stays valid until
 it expires. The usual remedy is the dual-token pattern: a short-lived
 **access token** sent on every request, and a long-lived **refresh
 token**, sent only to a rotation endpoint, that is exchanged for fresh
-access tokens as they expire. Django-Bolt implements this pattern with
+access tokens as they expire. Freeman implements this pattern with
 `create_token_pair()`, `rotate_refresh_token()`, and
 `set_token_cookies()`.
 
@@ -617,9 +617,9 @@ async def internal_endpoint(request):
     return {"status": "authorized"}
 ```
 
-API keys are sent in the `X-API-Key` header by default. The header value is the key. The value can also name a scheme: `Bearer <key>` or `ApiKey <key>`. Bolt removes the scheme before it compares the key.
+API keys are sent in the `X-API-Key` header by default. The header value is the key. The value can also name a scheme: `Bearer <key>` or `ApiKey <key>`. Freeman removes the scheme before it compares the key.
 
-`api_keys` must be a set, list or tuple of non-empty strings. A str, such as `api_keys="sk-prod-123abc"`, or an empty key raises `ImproperlyConfigured`. A key that starts with `Bearer ` or `ApiKey ` (in any letter case) also raises, because Bolt reads these words as the scheme. Thus a missing environment variable in `api_keys={os.environ.get("API_KEY", "")}` stops startup.
+`api_keys` must be a set, list or tuple of non-empty strings. A str, such as `api_keys="sk-prod-123abc"`, or an empty key raises `ImproperlyConfigured`. A key that starts with `Bearer ` or `ApiKey ` (in any letter case) also raises, because Freeman reads these words as the scheme. Thus a missing environment variable in `api_keys={os.environ.get("API_KEY", "")}` stops startup.
 
 ### API key permissions (In Development)
 
@@ -675,10 +675,10 @@ async def reports():
 
 Django does the session work:
 
-1. Bolt adds Django's `SessionMiddleware` and `AuthenticationMiddleware` to each route that uses the backend. When the middleware of the API, router or route already has both, Bolt adds nothing. When it has only one of them, startup fails, because a second `SessionMiddleware` would load and save the session again.
+1. Freeman adds Django's `SessionMiddleware` and `AuthenticationMiddleware` to each route that uses the backend. When the middleware of the API, router or route already has both, Freeman adds nothing. When it has only one of them, startup fails, because a second `SessionMiddleware` would load and save the session again.
 2. Rust rejects a request with no session cookie with 401. No Python runs.
 3. For a request with the cookie, Django loads the session and the user.
-4. Bolt checks the guards of the route against `request.user`, before the handler. A rejection is the same 401 or 403 as for a token. It has the `WWW-Authenticate` header of a 401, and the `error_formatter` of the API formats it.
+4. Freeman checks the guards of the route against `request.user`, before the handler. A rejection is the same 401 or 403 as for a token. It has the `WWW-Authenticate` header of a 401, and the `error_formatter` of the API formats it.
 
 A guard can read `is_staff`, `is_superuser` and `permissions` of the Django user. `Requires("permissions", "app.perm")` uses the permissions of the user and of its groups. A `Requires` on another claim rejects a session request with 403. A `none_of` guard on another claim is an error at startup, because it would let every session user in. Startup also fails when a guard reads a field that your user model does not have.
 
@@ -690,15 +690,15 @@ A guard can read `is_staff`, `is_superuser` and `permissions` of the Django user
 With `csrf=True`, a client that is not a browser must send an `Origin` header that matches the host. Otherwise, use a token backend for that client, or set `csrf=False`.
 
 !!! note
-    - A route with the session backend runs Django middleware in Python. It does not get the sync fast path. When Bolt adds the middleware to the route, a sync handler runs on the thread pool, not on a request lane.
-    - For a session request, all Python middleware runs before Bolt checks the guards. For a token request, Rust checks the guards before any Python runs.
+    - A route with the session backend runs Django middleware in Python. It does not get the sync fast path. When Freeman adds the middleware to the route, a sync handler runs on the thread pool, not on a request lane.
+    - For a session request, all Python middleware runs before Freeman checks the guards. For a token request, Rust checks the guards before any Python runs.
     - A rate limit with `key="user"` counts a session request by its client IP.
 
 !!! tip "Performance"
     Each session request runs two Django queries: one for the session and one for the user. Set Django's `SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"` to read the session from the cache. In our measurement, this gave 40% to 60% more requests per second. A sync handler on an API with `django_middleware` runs on a request lane, which is also faster than the thread pool.
-    - Session authentication works on HTTP routes only. A WebSocket route or an MCP mount with the backend in `auth` raises an error at startup. When the backend comes from `BOLT_AUTHENTICATION_CLASSES`, Bolt leaves it out there.
+    - Session authentication works on HTTP routes only. A WebSocket route or an MCP mount with the backend in `auth` raises an error at startup. When the backend comes from `BOLT_AUTHENTICATION_CLASSES`, Freeman leaves it out there.
 
-You can also load the Django middleware on the whole API, with no backend. Then use Django's decorators, because Bolt guards do not see the session user:
+You can also load the Django middleware on the whole API, with no backend. Then use Django's decorators, because Freeman guards do not see the session user:
 
 ```python
 # Load session and auth middleware from Django settings
@@ -865,7 +865,7 @@ async def get_data(request):
     return {"authenticated_via": backend}
 ```
 
-Django-Bolt tries each backend in order until one succeeds. `SessionAuthentication` comes last in any order, because Rust can verify a token but not a session.
+Freeman tries each backend in order until one succeeds. `SessionAuthentication` comes last in any order, because Rust can verify a token but not a session.
 
 ### The challenge of a 401
 
@@ -878,7 +878,7 @@ A 401 has a `WWW-Authenticate` header ([RFC 9110, section 15.5.2](https://www.rf
 | `APIKeyAuthentication()` | `ApiKey` |
 | `SessionAuthentication()` | `ApiKey` |
 
-`Bearer` is the scheme of RFC 6750, for a token in the `Authorization` header. A key in another header or in a cookie has no registered scheme. Bolt names it `ApiKey`, as the OpenAPI document calls it an `apiKey`.
+`Bearer` is the scheme of RFC 6750, for a token in the `Authorization` header. A key in another header or in a cookie has no registered scheme. Freeman names it `ApiKey`, as the OpenAPI document calls it an `apiKey`.
 
 A route with more than one backend gets one challenge for each different scheme, in the order of the backends. The route above answers a request with no credential with:
 
@@ -887,7 +887,7 @@ HTTP/1.1 401 Unauthorized
 www-authenticate: Bearer, ApiKey
 ```
 
-Bolt builds the value one time, when it registers the route. A 401 that a handler, a dependency or a middleware raises on the route gets the same header. A `WWW-Authenticate` header that your code sets stays as it is. A route with no auth backend has no challenge, so Bolt adds no header to a 401 of its handler. Set the header in the exception of such a route, for example `Unauthorized(detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})` in your own login route.
+Freeman builds the value one time, when it registers the route. A 401 that a handler, a dependency or a middleware raises on the route gets the same header. A `WWW-Authenticate` header that your code sets stays as it is. A route with no auth backend has no challenge, so Freeman adds no header to a 401 of its handler. Set the header in the exception of such a route, for example `Unauthorized(detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})` in your own login route.
 
 To name another scheme, override `challenge_scheme` in a subclass of the backend:
 
@@ -919,7 +919,7 @@ async def show_context(request):
 
 ## Token revocation
 
-For logout functionality, Django-Bolt supports token revocation stores.
+For logout functionality, Freeman supports token revocation stores.
 When you pass `revocation_store=` to `JWTAuthentication`, every authenticated
 request is checked against the store before reaching your handler — revoked
 tokens are automatically rejected with `401 Unauthorized`. You don't need
@@ -1027,11 +1027,11 @@ have the fields of `RevokedToken`: `jti` (unique), `revoked_at`,
 ### Custom revocation handler
 
 Pass `revoked_token_handler=` to decide revocation with your own code.
-Bolt calls it for each authenticated request, before the handler runs.
+Freeman calls it for each authenticated request, before the handler runs.
 When it returns `True`, the request gets `401 Unauthorized`.
 
 A handler with one parameter gets the `jti` of the token. A handler with
-two parameters also gets the verified claims. Bolt reads the number of
+two parameters also gets the verified claims. Freeman reads the number of
 parameters one time, at registration.
 
 ```python
@@ -1041,14 +1041,14 @@ async def is_revoked_by_claims(jti: str, claims: dict) -> bool: ...
 ```
 
 A route can have more than one JWT backend, for example one for each
-issuer. Bolt checks a token only with the handler of the backend that
+issuer. Freeman checks a token only with the handler of the backend that
 accepted the token.
 
 ### Session-bound tokens (django-allauth)
 
 Some issuers bind an access token to a server-side session. For example,
 the JWT token strategy of django-allauth headless puts the session in the
-`sid` claim. When the user logs out, allauth ends that session. Bolt still
+`sid` claim. When the user logs out, allauth ends that session. Freeman still
 accepts the access token until it expires, because the signature stays
 valid.
 
@@ -1174,7 +1174,7 @@ async def api_only(request):
 
 ### A guard with no auth backend
 
-A guard such as `IsAuthenticated()` or `Requires(...)` needs a user. When a route has such a guard, no `auth` argument and no `BOLT_AUTHENTICATION_CLASSES` setting, Bolt gives the route `JWTAuthentication()`. That backend verifies an HS256 token in the `Authorization: Bearer <token>` header with `SECRET_KEY`:
+A guard such as `IsAuthenticated()` or `Requires(...)` needs a user. When a route has such a guard, no `auth` argument and no `BOLT_AUTHENTICATION_CLASSES` setting, Freeman gives the route `JWTAuthentication()`. That backend verifies an HS256 token in the `Authorization: Bearer <token>` header with `SECRET_KEY`:
 
 ```python
 # No auth and no BOLT_AUTHENTICATION_CLASSES: the route uses JWTAuthentication().
@@ -1183,7 +1183,7 @@ async def profile(request):
     return {"user_id": request.context["user_id"]}
 ```
 
-The rule is the same for the guards of a router, a class-based view, a `@action`, `BOLT_DEFAULT_PERMISSION_CLASSES`, a WebSocket route and an MCP mount. Bolt applies it when it registers the route.
+The rule is the same for the guards of a router, a class-based view, a `@action`, `BOLT_DEFAULT_PERMISSION_CLASSES`, a WebSocket route and an MCP mount. Freeman applies it when it registers the route.
 
 - A route with no guard, or with `AllowAny()` as its first guard, gets no backend. It does no token work.
 - `auth=[]` on the route and `BOLT_AUTHENTICATION_CLASSES = []` in the settings mean no backend. A guard that needs a user then rejects each request with 401.

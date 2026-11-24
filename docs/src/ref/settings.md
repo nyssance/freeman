@@ -4,9 +4,9 @@ icon: lucide/settings
 
 # Settings Reference
 
-Django-Bolt settings are configured in your Django `settings.py` file.
+Freeman settings are configured in your Django `settings.py` file.
 
-Bolt reads its settings at startup. A missing setting gives its default. A setting with the wrong type stops startup with `ImproperlyConfigured`. The error names the setting:
+Freeman reads its settings at startup. A missing setting gives its default. A setting with the wrong type stops startup with `ImproperlyConfigured`. The error names the setting:
 
 - A size or a count must be an `int`, such as `10 * 1024 * 1024` or `FileSize.MB_10`. A str such as `"10485760"` is not an int. A bool is not an int.
 - A flag such as `CORS_ALLOW_CREDENTIALS` must be a `bool`.
@@ -96,23 +96,23 @@ CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
 
 ### BOLT_TRUSTED_PROXIES
 
-Proxies that sit in front of Bolt, as addresses or CIDR blocks. The list is empty by default.
+Proxies that sit in front of Freeman, as addresses or CIDR blocks. The list is empty by default.
 
 ```python
 BOLT_TRUSTED_PROXIES = ["10.0.0.0/8"]
 ```
 
-Bolt uses this list to find the canonical client address for
+Freeman uses this list to find the canonical client address for
 `@rate_limit(key="ip")` and `request.META["REMOTE_ADDR"]`:
 
-- The list is empty. Bolt keys on the peer address of the connection and ignores every forwarding header.
-- The peer is not in the list. Bolt keys on the peer address. That peer is not a declared proxy, so its headers prove nothing.
-- The peer is in the list. Bolt reads `X-Forwarded-For` from the right and takes the first entry that is not a listed proxy. When every entry is a listed proxy, the client is inside your network and Bolt takes the leftmost entry. Without the header, Bolt falls back to the last `X-Real-IP` line when it is a valid address, then the peer address. A malformed chain also falls back to the peer.
+- The list is empty. Freeman keys on the peer address of the connection and ignores every forwarding header.
+- The peer is not in the list. Freeman keys on the peer address. That peer is not a declared proxy, so its headers prove nothing.
+- The peer is in the list. Freeman reads `X-Forwarded-For` from the right and takes the first entry that is not a listed proxy. When every entry is a listed proxy, the client is inside your network and Freeman takes the leftmost entry. Without the header, Freeman falls back to the last `X-Real-IP` line when it is a valid address, then the peer address. A malformed chain also falls back to the peer.
 
-Bolt uses the same list for the request scheme. Only a peer in the list can set the scheme with `X-Forwarded-Proto`. Bolt reads the rightmost value, because the proxy closest to Bolt adds it. A value other than `http` or `https` is ignored. From any other peer, the scheme is the scheme of the connection. Bolt does not end TLS, so that scheme is `http`. The scheme sets these values:
+Freeman uses the same list for the request scheme. Only a peer in the list can set the scheme with `X-Forwarded-Proto`. Freeman reads the rightmost value, because the proxy closest to Freeman adds it. A value other than `http` or `https` is ignored. From any other peer, the scheme is the scheme of the connection. Freeman does not end TLS, so that scheme is `http`. The scheme sets these values:
 
-- `request.scheme`, `request.is_secure()`, `request.build_absolute_uri()`, `request.META["wsgi.url_scheme"]` and the default `request.META["SERVER_PORT"]` on Bolt routes.
-- `request.scheme`, `request.is_secure()` and `request.build_absolute_uri()` of the Django request that a Django middleware gets on a Bolt route. Thus `SecurityMiddleware` and `CsrfViewMiddleware` see `https` behind a listed proxy that ends TLS.
+- `request.scheme`, `request.is_secure()`, `request.build_absolute_uri()`, `request.META["wsgi.url_scheme"]` and the default `request.META["SERVER_PORT"]` on Freeman routes.
+- `request.scheme`, `request.is_secure()` and `request.build_absolute_uri()` of the Django request that a Django middleware gets on a Freeman route. Thus `SecurityMiddleware` and `CsrfViewMiddleware` see `https` behind a listed proxy that ends TLS.
 - The `scheme` key, and the port of the `server` key, of the ASGI scope of `mount_asgi()` and `mount_django()`. Django reads `scope["scheme"]` for `request.is_secure()`.
 
 Django's `SECURE_PROXY_SSL_HEADER` still applies on top of this scheme, in Django code and in `request.scheme`, `request.is_secure()` and `request.build_absolute_uri()`, as in Django. That setting trusts the header from every peer, so set it only when the proxy removes the header from client requests.
@@ -122,7 +122,7 @@ The origin check of cookie authentication reads `X-Forwarded-Proto` from every p
 Both an address and a block are accepted. `127.0.0.1` matches one address. `10.0.0.0/8` matches the block. An invalid entry raises `ImproperlyConfigured` at startup.
 
 !!! warning "Set this when you run behind a proxy"
-    A client sends `X-Forwarded-For` itself, and a proxy appends to it. Without this setting Bolt ignores the header, so every caller behind the proxy shares one bucket. With the setting, Bolt separates them again and a client cannot pick its own bucket. Behind a proxy that ends TLS, Bolt also needs this setting to see `https`.
+    A client sends `X-Forwarded-For` itself, and a proxy appends to it. Without this setting Freeman ignores the header, so every caller behind the proxy shares one bucket. With the setting, Freeman separates them again and a client cannot pick its own bucket. Behind a proxy that ends TLS, Freeman also needs this setting to see `https`.
 
 ### BOLT_RATE_LIMIT_IPV6_PREFIX
 
@@ -175,7 +175,7 @@ BOLT_MAX_UPLOAD_SIZE = FileSize.MB_10
 
 ### BOLT_NATIVE_ROUTE_TIMEOUT
 
-Maximum time (seconds) to wait for a native route handler to complete a request. At the limit, Bolt sends `504 Gateway Timeout`.
+Maximum time (seconds) to wait for a native route handler to complete a request. At the limit, Freeman sends `504 Gateway Timeout`.
 
 ```python
 BOLT_NATIVE_ROUTE_TIMEOUT = 30
@@ -199,7 +199,7 @@ BOLT_ASGI_MOUNT_TIMEOUT = 30
 
 The value must be more than 0. An int or a float is valid.
 
-When exceeded, Django-Bolt returns `504 Gateway Timeout` for the mounted request.
+When exceeded, Freeman returns `504 Gateway Timeout` for the mounted request.
 
 ### BOLT_MEMORY_SPOOL_THRESHOLD
 
@@ -222,7 +222,7 @@ This setting controls memory usage during file uploads:
 
 ## Runtime environment variables
 
-Bolt reads its `DJANGO_BOLT_*` environment variables at startup. An unset or empty variable gives the default. A value that is not valid stops startup with `ImproperlyConfigured`. The error names the variable and the value, for example `DJANGO_BOLT_ORM_THREADS must be an int of 1 or more, got '0'.`
+Freeman reads its `DJANGO_BOLT_*` environment variables at startup. An unset or empty variable gives the default. A value that is not valid stops startup with `ImproperlyConfigured`. The error names the variable and the value, for example `DJANGO_BOLT_ORM_THREADS must be an int of 1 or more, got '0'.`
 
 ### DJANGO_BOLT_MAX_PARAM_LENGTH
 
@@ -309,7 +309,7 @@ Measured on one process with an empty route and 100 connections: 125,327 request
 
 ### DJANGO_BOLT_ORM_THREADS
 
-Number of threads in the ORM pool of each process. Django-Bolt evaluates the QuerySets that async handlers return on this pool. `await request.auser()` also loads the user on this pool. Django's async ORM API in async handlers without Django middleware, such as `await Model.objects.aget()`, `acount()` and `async for`, runs on this pool too. A route with Django middleware runs these calls on its request lane instead. The pool size is the number of queries in flight per process.
+Number of threads in the ORM pool of each process. Freeman evaluates the QuerySets that async handlers return on this pool. `await request.auser()` also loads the user on this pool. Django's async ORM API in async handlers without Django middleware, such as `await Model.objects.aget()`, `acount()` and `async for`, runs on this pool too. A route with Django middleware runs these calls on its request lane instead. The pool size is the number of queries in flight per process.
 
 ```bash
 export DJANGO_BOLT_ORM_THREADS=8
@@ -356,11 +356,11 @@ BOLT_ALLOWED_FILE_PATHS = [
 
 The setting is a list or a tuple of absolute paths. Each path is a str or a `Path`. One str is not a list, so it stops startup with `ImproperlyConfigured`. `runbolt` reads the setting at startup. Under `TestClient`, the first `FileResponse` reads it. `override_settings` changes the limit for the next `FileResponse`. A relative path, such as `""` or `"media"`, also stops startup. `None` or an empty list sets no limit.
 
-When set, `FileResponse` only serves files within these directories. For a path outside them, it raises `ResponseFileNotAllowed`, and Bolt answers 403. When the lookup of a path fails, Bolt follows its links, as `realpath` does, to the point where the lookup stops. Nothing exists below that point, so Bolt completes the path from there as text. When that path is outside these directories, Bolt answers 403, also when the path names no file. Thus a client cannot learn which regular files exist there, on Linux, macOS and Windows. A path can leave these directories with `..` and come back into them. Such a path can still show whether a directory, or a link into these directories, exists outside them.
+When set, `FileResponse` only serves files within these directories. For a path outside them, it raises `ResponseFileNotAllowed`, and Freeman answers 403. When the lookup of a path fails, Freeman follows its links, as `realpath` does, to the point where the lookup stops. Nothing exists below that point, so Freeman completes the path from there as text. When that path is outside these directories, Freeman answers 403, also when the path names no file. Thus a client cannot learn which regular files exist there, on Linux, macOS and Windows. A path can leave these directories with `..` and come back into them. Such a path can still show whether a directory, or a link into these directories, exists outside them.
 
 ## Static and media file serving
 
-Django-Bolt serves static and media files from Rust based on your standard Django settings — `STATIC_URL` / `STATIC_ROOT` / `STATICFILES_DIRS` for static, and `MEDIA_URL` / `MEDIA_ROOT` for media. The scopes mount automatically when those settings are configured.
+Freeman serves static and media files from Rust based on your standard Django settings — `STATIC_URL` / `STATIC_ROOT` / `STATICFILES_DIRS` for static, and `MEDIA_URL` / `MEDIA_ROOT` for media. The scopes mount automatically when those settings are configured.
 
 See [Static Files](../topics/static-files.md) and [Media Files](../topics/media-files.md) for full documentation.
 
@@ -389,7 +389,7 @@ BOLT_MEDIA_MAX_AGE = 3600  # 1 hour
 
 ## Authentication settings
 
-Django-Bolt uses Django's `SECRET_KEY` for JWT signing by default.
+Freeman uses Django's `SECRET_KEY` for JWT signing by default.
 
 ```python
 SECRET_KEY = "your-secret-key"
@@ -419,7 +419,7 @@ See [Global authentication](../topics/authentication.md#global-authentication) f
 
 ## Logging settings
 
-Django-Bolt integrates with Django's logging system.
+Freeman integrates with Django's logging system.
 
 ```python
 LOGGING = {
@@ -440,7 +440,7 @@ LOGGING = {
 
 ### BOLT_LOG_QUEUE_SIZE
 
-Django-Bolt logs through a bounded, non-blocking queue (a background thread
+Freeman logs through a bounded, non-blocking queue (a background thread
 forwards records to the console). This sets the queue's maximum depth. When the
 queue is full — e.g. during an extreme burst of error logging — new records are
 dropped rather than accumulating in memory, preventing unbounded RAM growth under
@@ -490,12 +490,12 @@ BOLT_EMIT_SIGNALS = True
 
 **Default:** `False`
 
-Django-Bolt disables signals by default for maximum performance. Enable this setting when:
+Freeman disables signals by default for maximum performance. Enable this setting when:
 
 - Using third-party packages that depend on request signals (e.g. django-debug-toolbar)
 - Implementing custom signal receivers for request lifecycle events
 
-`CONN_MAX_AGE` and `CONN_HEALTH_CHECKS` do not need signals. Bolt runs Django's connection check on the executor thread before each call when a database sets a positive `CONN_MAX_AGE` or `CONN_HEALTH_CHECKS`. A worker thread that opened a connection runs the check before each sync request. With neither set, Bolt runs the check only after a call raises. A connection that the database closed then fails one request. The next request reconnects, and the other threads reconnect before their next call. See [Database Connection Management](../topics/signals.md#database-connection-management).
+`CONN_MAX_AGE` and `CONN_HEALTH_CHECKS` do not need signals. Freeman runs Django's connection check on the executor thread before each call when a database sets a positive `CONN_MAX_AGE` or `CONN_HEALTH_CHECKS`. A worker thread that opened a connection runs the check before each sync request. With neither set, Freeman runs the check only after a call raises. A connection that the database closed then fails one request. The next request reconnects, and the other threads reconnect before their next call. See [Database Connection Management](../topics/signals.md#database-connection-management).
 
 See [Django Signals](../topics/signals.md) for detailed documentation.
 
@@ -524,7 +524,7 @@ BOLT_DEV_FORCE_POLLING = True
 
 **Default:** `False`
 
-Django-Bolt's dev reloader uses the `notify` crate's recommended watcher (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows). These backends are fast but rely on kernel events, which do not propagate across some bind-mount boundaries — most notably a Linux container running on a Windows host where the source tree is mounted from the host filesystem.
+Freeman's dev reloader uses the `notify` crate's recommended watcher (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows). These backends are fast but rely on kernel events, which do not propagate across some bind-mount boundaries — most notably a Linux container running on a Windows host where the source tree is mounted from the host filesystem.
 
 Enable polling when:
 
@@ -592,7 +592,7 @@ api = BoltAPI(
 
 ## Content Security Policy (CSP) settings
 
-Django-Bolt applies CSP headers to static files served by the Rust server using Django 6.0+'s native [`SECURE_CSP`](https://docs.djangoproject.com/en/6.0/ref/csp/) setting.
+Freeman applies CSP headers to static files served by the Rust server using Django 6.0+'s native [`SECURE_CSP`](https://docs.djangoproject.com/en/6.0/ref/csp/) setting.
 
 ### SECURE_CSP
 

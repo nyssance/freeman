@@ -4,7 +4,7 @@ icon: lucide/arrow-up-from-line
 
 # Responses
 
-This guide covers all the response types available in Django-Bolt and how to use them.
+This guide covers all the response types available in Freeman and how to use them.
 
 ## JSON responses
 
@@ -48,7 +48,7 @@ A dict, a list or a `msgspec.Struct` can contain these values. The table gives t
 
 A subclass of a type in the table has the JSON form of its base type. The items of a container go through the same rules. A typed response validates first. Then a value must match the declared type, so `-> list[int]` refuses a `range`.
 
-Bolt refuses a value with no clear JSON form, such as a `ZoneInfo`, a `datetime.timezone`, a `SimpleNamespace` or a `complex`. Django's `DjangoJSONEncoder` also refuses these values. The response is then a 500 with `TypeError: Unsupported type`. Convert such a value before you return it, for example `str(zone)` or `vars(namespace)`.
+Freeman refuses a value with no clear JSON form, such as a `ZoneInfo`, a `datetime.timezone`, a `SimpleNamespace` or a `complex`. Django's `DjangoJSONEncoder` also refuses these values. The response is then a 500 with `TypeError: Unsupported type`. Convert such a value before you return it, for example `str(zone)` or `vars(namespace)`.
 
 ### Custom status codes and headers
 
@@ -62,7 +62,7 @@ async def create_user():
     return JSON(
         {"id": 1, "username": "john"},
         status_code=201,
-        headers={"X-Created-By": "django-bolt"}
+        headers={"X-Created-By": "freeman"}
     )
 ```
 
@@ -165,11 +165,11 @@ async def show_page(request: Request):
     return TemplateResponse(request, "myapp/page.html", {"title": "My Page"})
 ```
 
-Bolt renders the template after the handler returns. A route behind Django middleware first calls the `process_template_response` hook of each middleware. A hook can change `template_name` and `context_data` before the render. See [Django middleware integration](middleware.md#django-middleware-integration). A route with no Django middleware renders it with no hooks.
+Freeman renders the template after the handler returns. A route behind Django middleware first calls the `process_template_response` hook of each middleware. A hook can change `template_name` and `context_data` before the render. See [Django middleware integration](middleware.md#django-middleware-integration). A route with no Django middleware renders it with no hooks.
 
 Pass `status`, `content_type` and `headers` as in Django.
 
-The render can read a QuerySet in the context, also in an async handler. Bolt runs the hooks and the render where a sync ORM call can run.
+The render can read a QuerySet in the context, also in an async handler. Freeman runs the hooks and the render where a sync ORM call can run.
 
 Use standard Django templates - nothing special required:
 
@@ -273,7 +273,7 @@ BOLT_ALLOWED_FILE_PATHS = [
 
 When configured, `FileResponse` only serves files within these directories, preventing path traversal attacks.
 
-A `FileResponse` for a path outside these directories raises `ResponseFileNotAllowed`, and Bolt answers 403, also when the path names no file. When the lookup fails, Bolt follows the links of the path, as `realpath` does, to where the lookup stops. Then it completes the path from there as text. A `FileResponse` for a path that names no regular file raises `ResponseFileNotFound`, and Bolt answers 404. Examples are a missing file, a directory and a path that is too long. The path often comes from the request, so a client does not get a 500 for it. The errors subclass `PermissionError` and `FileNotFoundError`. The 404 and 403 responses do not show the path. Bolt answers 500 for a `FileNotFoundError` or a `PermissionError` of other code, because it is a server fault.
+A `FileResponse` for a path outside these directories raises `ResponseFileNotAllowed`, and Freeman answers 403, also when the path names no file. When the lookup fails, Freeman follows the links of the path, as `realpath` does, to where the lookup stops. Then it completes the path from there as text. A `FileResponse` for a path that names no regular file raises `ResponseFileNotFound`, and Freeman answers 404. Examples are a missing file, a directory and a path that is too long. The path often comes from the request, so a client does not get a 500 for it. The errors subclass `PermissionError` and `FileNotFoundError`. The 404 and 403 responses do not show the path. Freeman answers 500 for a `FileNotFoundError` or a `PermissionError` of other code, because it is a server fault.
 
 ## Streaming responses
 
@@ -310,14 +310,14 @@ async def async_stream():
 
 ### Errors in a stream
 
-Bolt sends the status and the headers before the first chunk.
+Freeman sends the status and the headers before the first chunk.
 Thus an error in the generator cannot become a 500.
 The body ends at the error, and the client gets the chunks before it.
-Bolt logs the error with its traceback to the `freeman.streaming` logger, at level ERROR.
+Freeman logs the error with its traceback to the `freeman.streaming` logger, at level ERROR.
 
 ### Server-Sent Events (SSE)
 
-For SSE endpoints, see the dedicated [Server-Sent Events guide](sse.md). Django-Bolt provides `EventSourceResponse` with automatic SSE framing, compression skipping, and keep-alive pings:
+For SSE endpoints, see the dedicated [Server-Sent Events guide](sse.md). Freeman provides `EventSourceResponse` with automatic SSE framing, compression skipping, and keep-alive pings:
 
 ```python
 from collections.abc import AsyncIterable
@@ -374,10 +374,10 @@ async def login():
     return Response({"logged_in": True}).set_cookie("session", "abc123")
 ```
 
-Bolt writes the value as Django `set_cookie` writes it.
+Freeman writes the value as Django `set_cookie` writes it.
 A value with a space, a quote, `;` or another unsafe character gets double quotes and escapes.
-`request.cookies` and `Cookie()` remove them again, so a handler reads the value that Bolt sets.
-Bolt does not set a value that has a control character or a character above U+00FF, and logs a warning.
+`request.cookies` and `Cookie()` remove them again, so a handler reads the value that Freeman sets.
+Freeman does not set a value that has a control character or a character above U+00FF, and logs a warning.
 Django cannot send these values either.
 To keep other text in a cookie, encode it first, for example with `urllib.parse.quote()`.
 
@@ -535,7 +535,7 @@ async def get_user(user_id: int) -> User:
     return {"id": user_id, "username": "john", "email": "john@example.com"}
 ```
 
-The schema describes the body of the default status code of the route. Bolt validates a `JSON` or `Response` only when its status code is that default. A response with another status code, such as a 400 with a map of field errors, is encoded as-is. To document other status codes, use the per-status-code form below. It does not validate them either.
+The schema describes the body of the default status code of the route. Freeman validates a `JSON` or `Response` only when its status code is that default. A response with another status code, such as a 400 with a map of field errors, is encoded as-is. To document other status codes, use the per-status-code form below. It does not validate them either.
 
 ```python
 @api.post("/users", status_code=201)
@@ -547,7 +547,7 @@ async def create_user(body: UserCreate) -> User:
 
 ### Per-status-code response schemas
 
-`response_model` also accepts a dict mapping status codes to types. Each code gets its own OpenAPI response entry. Bolt encodes the body as-is and does not validate it.
+`response_model` also accepts a dict mapping status codes to types. Each code gets its own OpenAPI response entry. Freeman encodes the body as-is and does not validate it.
 
 ```python
 import msgspec
@@ -576,7 +576,7 @@ return 404, {"detail": "Not found"}       # documented as Error
 
 The status of the tuple must be an int from 200 to 599. A bool is not a status: `return True, data` gives a 500.
 
-The data of the tuple can be a response object. Bolt sends the response object with the status of the tuple. The body, the headers and the cookies come from the response object:
+The data of the tuple can be a response object. Freeman sends the response object with the status of the tuple. The body, the headers and the cookies come from the response object:
 
 ```python
 return 404, JSON({"detail": "Not found"}, headers={"X-Reason": "missing"})  # sent as 404
@@ -636,7 +636,7 @@ async def start_plan(request, pk: int) -> Plan:
     return Plan(id=pk)
 ```
 
-`body` replaces the default `{"detail": ...}` envelope. Bolt encodes it as-is and does not validate it. An unmapped status code is sent as-is too.
+`body` replaces the default `{"detail": ...}` envelope. Freeman encodes it as-is and does not validate it. An unmapped status code is sent as-is too.
 
 ## Setting default status codes
 

@@ -4,12 +4,12 @@ icon: lucide/activity
 
 # Metrics and Tracing
 
-Bolt routes, authenticates and rate-limits a request in Rust, before Python runs.
+Freeman routes, authenticates and rate-limits a request in Rust, before Python runs.
 It does not use ASGI or the request handler of Django.
 Thus the Django and ASGI integrations of Prometheus, OpenTelemetry and Sentry do not see the requests.
 Rust makes the metrics and the server spans itself.
 
-Each part is off by default. An environment variable turns it on. Bolt reads it once, when the server starts.
+Each part is off by default. An environment variable turns it on. Freeman reads it once, when the server starts.
 
 | Variable | Gives |
 |---|---|
@@ -43,7 +43,7 @@ Rust answers the path. Python does not run for it, and a scrape is not in the nu
 The labels have a limit, so a client cannot make new series:
 
 - `route` is the path of the route as you registered it, such as `/items/{id}`. It is never the path of the request. A request that matches no route gets `unmatched`. A request for an ASGI or MCP mount gets the prefix of the mount.
-- `method` is one of the HTTP methods that Bolt routes. Another method gets `_OTHER`.
+- `method` is one of the HTTP methods that Freeman routes. Another method gets `_OTHER`.
 - `status` is the status code. A value out of 100 to 599 gets `0`.
 
 The duration is the time from the request to the response headers. A streamed body can take longer.
@@ -73,7 +73,7 @@ scrape_configs:
 
 `runbolt --processes 4` runs four processes on one port with `SO_REUSEPORT`. A scrape reaches one of them.
 If each process gave only its own numbers, each scrape would give a different part of the total.
-Bolt does what the multiprocess mode of the Prometheus Python client does for Gunicorn:
+Freeman does what the multiprocess mode of the Prometheus Python client does for Gunicorn:
 
 1. Before the first fork, `runbolt` makes a folder and gives it to the workers in `DJANGO_BOLT_METRICS_DIR`.
 2. Once a second, each worker writes its numbers to its own file in the folder. The worker writes a new file and then renames it, so a reader never sees half a file.
@@ -113,7 +113,7 @@ A request that matches no route gets the name `GET`, with no `http.route`.
 
 The SDK reads the standard variables: `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` and `OTEL_BSP_*`.
 `OTEL_TRACES_EXPORTER=none` makes the spans and drops them: the ids still go to Python and to the access log.
-`OTEL_SDK_DISABLED=true` turns tracing off. Bolt has no gRPC exporter: a protocol other than `http/protobuf` stops the start.
+`OTEL_SDK_DISABLED=true` turns tracing off. Freeman has no gRPC exporter: a protocol other than `http/protobuf` stops the start.
 
 When the queue of the exporter is full (`OTEL_BSP_MAX_QUEUE_SIZE`, 2048 by default), the SDK drops new spans. A slow collector thus does not slow the requests.
 
@@ -154,12 +154,12 @@ PsycopgInstrumentor().instrument()
 ```
 
 Rust and Python export to the same collector with the same variables, and the collector joins the spans by their trace id into one trace.
-Do not add the ASGI or Django instrumentation of OpenTelemetry: Bolt does not run them, and Rust already makes the server span.
+Do not add the ASGI or Django instrumentation of OpenTelemetry: Freeman does not run them, and Rust already makes the server span.
 
 The sync, async and request-lane handlers get the parent. A QuerySet that a handler returns loads with the parent too.
 A thread that the handler starts gets the parent only with a copy of the context (`contextvars.copy_context()`), as in any OpenTelemetry code.
 
-Without the `opentelemetry` package, or with tracing off, Bolt imports nothing of OpenTelemetry. The server spans of Rust and the request ids still work.
+Without the `opentelemetry` package, or with tracing off, Freeman imports nothing of OpenTelemetry. The server spans of Rust and the request ids still work.
 
 How it stays cheap: each request attaches the same context object. Its span reads the request of the current context, and makes the `SpanContext` only when OpenTelemetry asks for it. A request whose handler makes no span thus pays two context-variable writes.
 

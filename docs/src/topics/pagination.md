@@ -4,7 +4,7 @@ icon: lucide/list
 
 # Pagination
 
-Django-Bolt provides three pagination styles for handling large datasets efficiently.
+Freeman provides three pagination styles for handling large datasets efficiently.
 
 ## PageNumber Pagination
 
@@ -85,9 +85,9 @@ Response includes `page_size`, `next_cursor`, `has_next`, `has_previous`. A curs
 
 Query: `/articles?cursor=eyJ2IjoxMDB9`
 
-The cursor is the `next_cursor` of the page before. It uses the URL-safe base64 alphabet, so put it into the query string as it is. A cursor that Bolt cannot read gives the first page. This includes a cursor with a value of the wrong type for the `ordering` field or the primary key.
+The cursor is the `next_cursor` of the page before. It uses the URL-safe base64 alphabet, so put it into the query string as it is. A cursor that Freeman cannot read gives the first page. This includes a cursor with a value of the wrong type for the `ordering` field or the primary key.
 
-The `ordering` field does not have to be unique. Bolt also orders by the primary key, so rows with equal values keep their place across pages. The cursor holds the value and the primary key of the last row. For an index, add the primary key after the ordering field, for example `models.Index(fields=["-created_at", "-id"])`.
+The `ordering` field does not have to be unique. Freeman also orders by the primary key, so rows with equal values keep their place across pages. The cursor holds the value and the primary key of the last row. For an index, add the primary key after the ordering field, for example `models.Index(fields=["-created_at", "-id"])`.
 
 A `values()` queryset must include the ordering field and the primary key, for example `Article.objects.values("id", "created_at", "title")`. Without one of them, the paginator cannot make the next cursor and raises `ValueError`.
 
@@ -117,9 +117,9 @@ async def list_articles(request):
 
 Both approaches work identically. The serializer automatically filters fields - only declared fields are included in the response.
 
-The item type can also be a plain `msgspec.Struct`. Bolt converts each page as it converts a `list[Struct]` response type with no `@paginate`. An item that does not fit the Struct gives a response validation error (status 500). `build_response()` then gets instances of the Struct as `items`.
+The item type can also be a plain `msgspec.Struct`. Freeman converts each page as it converts a `list[Struct]` response type with no `@paginate`. An item that does not fit the Struct gives a response validation error (status 500). `build_response()` then gets instances of the Struct as `items`.
 
-A page of a `Serializer` type sends each item as the same route with no `@paginate` sends it. Bolt validates a dict against the serializer, so a dict gets the defaults of the serializer. A serializer instance stays as it is. `from_model()` reads each other object. A page can mix these kinds. An item that does not fit the serializer gives a response validation error (status 500), not a `null`.
+A page of a `Serializer` type sends each item as the same route with no `@paginate` sends it. Freeman validates a dict against the serializer, so a dict gets the defaults of the serializer. A serializer instance stays as it is. `from_model()` reads each other object. A page can mix these kinds. An item that does not fit the serializer gives a response validation error (status 500), not a `null`.
 
 ## ViewSet with Pagination
 
@@ -198,14 +198,14 @@ as keyword arguments:
 
 ### Avoiding N+1 Queries
 
-If the item type is a Bolt `Serializer`, Bolt applies the loading plan of the
+If the item type is a Freeman `Serializer`, Freeman applies the loading plan of the
 serializer to the page QuerySet. The plan uses `select_related` for ForeignKey
 and OneToOne fields, `prefetch_related` for many-valued relations, and
 `Config.annotations`. Nested relations cost a small, fixed number of queries
 for each page. See
 [Loading a QuerySet with from_models()](serializers.md#loading-a-queryset-with-from_models).
 
-Bolt keeps the loads that you apply. Bolt does not apply them a second time.
+Freeman keeps the loads that you apply. Freeman does not apply them a second time.
 This code is correct:
 
 ```python

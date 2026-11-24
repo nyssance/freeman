@@ -65,7 +65,7 @@ For a project-local Claude config, drop an `.mcp.json` next to your project:
 ```json
 {
   "mcpServers": {
-    "django-bolt": { "type": "http", "url": "http://127.0.0.1:8000/mcp" }
+    "freeman": { "type": "http", "url": "http://127.0.0.1:8000/mcp" }
   }
 }
 ```
@@ -134,15 +134,15 @@ async def forecast(city: str) -> ToolResult:
 
 `content` is a string or a list of MCP content blocks (text, image, resource link). `structured` is optional, and a value that is not an object is sent as `{"result": ...}`. `output_schema="auto"` cannot read a schema from `-> ToolResult`, or from a union that contains `ToolResult`. It raises `TypeError`, so pass the schema of `structured` as a dict.
 
-Bolt does not validate the structured content against the `output_schema` of the tool. This applies to `ToolResult.structured` and to a `dict` or other return value. A `ToolResult` without `structured` sends no `structuredContent`, also when the tool declares an `output_schema`. Make sure that each result agrees with the schema that you declare.
+Freeman does not validate the structured content against the `output_schema` of the tool. This applies to `ToolResult.structured` and to a `dict` or other return value. A `ToolResult` without `structured` sends no `structuredContent`, also when the tool declares an `output_schema`. Make sure that each result agrees with the schema that you declare.
 
 **Errors are in-band.** A `raise` inside a tool becomes a `CallToolResult` with `isError: true` (the MCP convention), not a transport-level error — so the client sees a normal tool failure it can reason about.
 
-Raise `ToolError` for a message the client and the model may read. Bolt sends its text to the client.
+Raise `ToolError` for a message the client and the model may read. Freeman sends its text to the client.
 
-Bolt masks the text of every other exception. The client gets `Tool 'name' failed.` in place of the text. Thus database errors, host names, passwords and file paths stay on the server. Bolt logs the full traceback on the `bolt_mcp._execute` logger.
+Freeman masks the text of every other exception. The client gets `Tool 'name' failed.` in place of the text. Thus database errors, host names, passwords and file paths stay on the server. Freeman logs the full traceback on the `bolt_mcp._execute` logger.
 
-A resource or prompt handler that raises gives a JSON-RPC internal error. The client gets `Resource 'uri' failed.` or `Prompt 'name' failed.`. Bolt logs the traceback on the `bolt_mcp._dispatch` logger. For a message the client may read, raise `JsonRpcError` (see [Resource and prompt middleware](#resource-and-prompt-middleware)).
+A resource or prompt handler that raises gives a JSON-RPC internal error. The client gets `Resource 'uri' failed.` or `Prompt 'name' failed.`. Freeman logs the traceback on the `bolt_mcp._dispatch` logger. For a message the client may read, raise `JsonRpcError` (see [Resource and prompt middleware](#resource-and-prompt-middleware)).
 
 To send the exception text to the client during development, use `MCP("billing", mask_error_details=False)`. Do not use this setting in production.
 
@@ -159,11 +159,11 @@ async def pay_invoice(invoice_id: int) -> dict:
     return await payments.pay(invoice)                  # any error here is logged and masked
 ```
 
-**Accessing the request.** Declare a `request` (or `req`) parameter to receive the Django-Bolt `Request` — injected automatically and excluded from the tool's input schema. Read the authenticated principal with `bolt_mcp.principal(request)`, which returns `{user_id, is_staff, is_superuser, permissions, auth_claims}` and works under **every** auth tier (Tier 1 fills `request.context`; the OAuth tiers stash it on `request.state` — `principal()` reads both, so prefer it over `request.context` directly).
+**Accessing the request.** Declare a `request` (or `req`) parameter to receive the Freeman `Request` — injected automatically and excluded from the tool's input schema. Read the authenticated principal with `bolt_mcp.principal(request)`, which returns `{user_id, is_staff, is_superuser, permissions, auth_claims}` and works under **every** auth tier (Tier 1 fills `request.context`; the OAuth tiers stash it on `request.state` — `principal()` reads both, so prefer it over `request.context` directly).
 
 ### Tool middleware
 
-`@mcp.tool_middleware` registers an async function that runs around each `tools/call` that passes authentication and the guards of the tool. Bolt rejects a call to an unknown or denied tool in Rust, before middleware runs. Thus a log or a metric from middleware does not show these calls. The function gets a `ToolCall` with the tool `name`, the raw `arguments`, the request `meta` (the `_meta` the client sent) and the `principal`, and `call_next()` runs the tool. MCP calls do not pass through Django or Bolt HTTP middleware, so this is where per-call logging, metrics and tracing go.
+`@mcp.tool_middleware` registers an async function that runs around each `tools/call` that passes authentication and the guards of the tool. Freeman rejects a call to an unknown or denied tool in Rust, before middleware runs. Thus a log or a metric from middleware does not show these calls. The function gets a `ToolCall` with the tool `name`, the raw `arguments`, the request `meta` (the `_meta` the client sent) and the `principal`, and `call_next()` runs the tool. MCP calls do not pass through Django or Freeman HTTP middleware, so this is where per-call logging, metrics and tracing go.
 
 ```python
 from opentelemetry import propagate, trace
@@ -181,7 +181,7 @@ async def trace_tool(call: ToolCall, call_next) -> dict:
         return result
 ```
 
-`call_next()` returns the `CallToolResult` dict, and a tool exception or an argument error is already an `isError` result there. The middleware returns that dict or another one. Bolt adds `"resultType": "complete"` to a returned dict that does not have it. An exception that middleware raises gets the same treatment as a tool exception: Bolt logs it and masks its text. The first registered middleware runs outermost. Register middleware before the server is mounted.
+`call_next()` returns the `CallToolResult` dict, and a tool exception or an argument error is already an `isError` result there. The middleware returns that dict or another one. Freeman adds `"resultType": "complete"` to a returned dict that does not have it. An exception that middleware raises gets the same treatment as a tool exception: Freeman logs it and masks its text. The first registered middleware runs outermost. Register middleware before the server is mounted.
 
 When a tool asks a 2026-07-28 client for input (elicitation or sampling), the request passes up through the middleware as a `BaseException`. Let it propagate.
 
@@ -208,9 +208,9 @@ async def trace_prompt(get: PromptGet, call_next) -> dict:
         return await call_next()
 ```
 
-Unlike a tool, a failed read or prompt is a JSON-RPC error, not a result. An unknown URI or prompt, or invalid arguments, raises a `JsonRpcError` out of `call_next()`. An exception in the handler also raises out of `call_next()`. Let it propagate so the client gets the error. Bolt logs an exception from the handler or from middleware and masks its text, as for a handler with no middleware. Bolt does not mask a `JsonRpcError`.
+Unlike a tool, a failed read or prompt is a JSON-RPC error, not a result. An unknown URI or prompt, or invalid arguments, raises a `JsonRpcError` out of `call_next()`. An exception in the handler also raises out of `call_next()`. Let it propagate so the client gets the error. Freeman logs an exception from the handler or from middleware and masks its text, as for a handler with no middleware. Freeman does not mask a `JsonRpcError`.
 
-Bolt checks the `auth` and `guards` of the mount in Rust, before middleware runs. Resources and prompts have no guards of their own. To refuse a read or a prompt, raise `JsonRpcError` in the middleware. A resource or prompt function can raise it too. The client gets a JSON-RPC error with your message.
+Freeman checks the `auth` and `guards` of the mount in Rust, before middleware runs. Resources and prompts have no guards of their own. To refuse a read or a prompt, raise `JsonRpcError` in the middleware. A resource or prompt function can raise it too. The client gets a JSON-RPC error with your message.
 
 ```python
 from bolt_mcp import JsonRpcError, ResourceRead
@@ -355,7 +355,7 @@ How `elicit` reaches the client depends on the client's protocol era:
 
 ## Exposing existing REST routes as tools
 
-You can surface existing Django-Bolt endpoints as MCP tools without rewriting them. Exposure is **explicit and per-handler** — there is no "expose everything" switch, because a stray marker must never silently turn a route into an AI-callable tool.
+You can surface existing Freeman endpoints as MCP tools without rewriting them. Exposure is **explicit and per-handler** — there is no "expose everything" switch, because a stray marker must never silently turn a route into an AI-callable tool.
 
 Pass an allowlist of route handlers to `expose`:
 
@@ -395,11 +395,11 @@ api.mount_mcp(mcp)
 
 bolt-mcp offers three layers, smallest to largest:
 
-- **Tier 1** reuses Django-Bolt's own authentication + per-tool guards (you mint tokens).
+- **Tier 1** reuses Freeman's own authentication + per-tool guards (you mint tokens).
 - **Tier 2** turns the server into an OAuth 2.1 *Resource Server* that validates tokens issued by an external IdP.
 - **Tier 3** makes it a full OAuth 2.1 *Authorization Server* that issues its own tokens — so OAuth-native clients (Claude.ai, ChatGPT, the Claude Code CLI) link once and refresh silently.
 
-### Tier 1 — reuse Django-Bolt auth
+### Tier 1 — reuse Freeman auth
 
 Pass `auth` / `guards` to `mount_mcp` — the same authentication and permission classes you use on any route (see [Authentication](authentication.md) and [Permissions](permissions.md)), enforced in Rust before the handler.
 
@@ -447,7 +447,7 @@ api.mount_mcp(mcp, oauth=ProtectedResource(
 
 ### Tier 3 — built-in OAuth 2.1 Authorization Server
 
-Tiers 1 and 2 still leave token *issuance* to you. Tier 3 makes Django-Bolt the **Authorization Server** itself, so OAuth-native clients can link your server, run the OAuth flow **once**, and refresh silently — no pasting tokens, no re-adding the connector. It implements the full MCP authorization handshake end to end:
+Tiers 1 and 2 still leave token *issuance* to you. Tier 3 makes Freeman the **Authorization Server** itself, so OAuth-native clients can link your server, run the OAuth flow **once**, and refresh silently — no pasting tokens, no re-adding the connector. It implements the full MCP authorization handshake end to end:
 
 1. Client hits `/mcp` with no token → `401` + `WWW-Authenticate: Bearer resource_metadata="…"`
 2. Client fetches **Protected Resource Metadata** ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)) → discovers the authorization server
@@ -456,7 +456,7 @@ Tiers 1 and 2 still leave token *issuance* to you. Tier 3 makes Django-Bolt the 
 5. **Authorization Code + PKCE** (S256): the user signs in with their Django credentials and consents
 6. Client exchanges the code for an **access token + refresh token**, then refreshes silently
 
-Issued tokens are `HS256` JWTs signed with Django's `SECRET_KEY`, carrying the exact claims Django-Bolt's auth already reads (`sub`, `is_staff`, `is_superuser`, `permissions`, plus `scope`/`iss`/`aud`/`jti`). So they validate on `/mcp` and drive the same per-tool `guards` as Tier 1 — no extra verifier code.
+Issued tokens are `HS256` JWTs signed with Django's `SECRET_KEY`, carrying the exact claims Freeman's auth already reads (`sub`, `is_staff`, `is_superuser`, `permissions`, plus `scope`/`iss`/`aud`/`jti`). So they validate on `/mcp` and drive the same per-tool `guards` as Tier 1 — no extra verifier code.
 
 #### Setup
 
@@ -613,7 +613,7 @@ The transport defaults to localhost-only Host validation for DNS-rebinding prote
 
 ## Testing
 
-Use Django-Bolt's `TestClient` — it runs requests through the full Rust pipeline in-process, so MCP tools, framing, and auth are exercised end to end:
+Use Freeman's `TestClient` — it runs requests through the full Rust pipeline in-process, so MCP tools, framing, and auth are exercised end to end:
 
 ```python
 from freeman import BoltAPI
@@ -647,6 +647,6 @@ See the [Testing guide](testing.md) for more on `TestClient`.
 
 ## Supported MCP methods
 
-The protocol is implemented by the official MCP Rust SDK (rmcp) embedded in Django-Bolt. Served methods: `server/discover`, `tools/list`, `tools/call` (with MRTR `input_required` results), `resources/list`, `resources/read`, `resources/templates/list`, `prompts/list`, `prompts/get`, `subscriptions/listen` — plus, for legacy-era clients, `initialize`, `ping`, and the session `GET`/`DELETE` endpoints. List results carry the SEP-2549 `ttlMs`/`cacheScope` caching hints (configure with `MCP(list_ttl_ms=..., list_cache_scope=...)`), and the SEP-2243 routing headers (`Mcp-Method`, `Mcp-Name`, `Mcp-Param-*`) are validated against the body. With the built-in Authorization Server (Tier 3) it additionally serves `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource/mcp`, and `/oauth/{register,authorize,token,revoke}`, with RFC 9207 `iss` on authorization responses. The advertised `resource` (and token audience) is the full MCP endpoint URL — issuer + mount path.
+The protocol is implemented by the official MCP Rust SDK (rmcp) embedded in Freeman. Served methods: `server/discover`, `tools/list`, `tools/call` (with MRTR `input_required` results), `resources/list`, `resources/read`, `resources/templates/list`, `prompts/list`, `prompts/get`, `subscriptions/listen` — plus, for legacy-era clients, `initialize`, `ping`, and the session `GET`/`DELETE` endpoints. List results carry the SEP-2549 `ttlMs`/`cacheScope` caching hints (configure with `MCP(list_ttl_ms=..., list_cache_scope=...)`), and the SEP-2243 routing headers (`Mcp-Method`, `Mcp-Name`, `Mcp-Param-*`) are validated against the body. With the built-in Authorization Server (Tier 3) it additionally serves `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource/mcp`, and `/oauth/{register,authorize,token,revoke}`, with RFC 9207 `iss` on authorization responses. The advertised `resource` (and token audience) is the full MCP endpoint URL — issuer + mount path.
 
 The server advertises protocol version **2026-07-28** and negotiates every earlier revision back to `2024-11-05` with legacy clients.

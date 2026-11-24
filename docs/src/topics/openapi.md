@@ -4,11 +4,11 @@ icon: lucide/file-code-2
 
 # OpenAPI Documentation
 
-Django-Bolt automatically generates OpenAPI documentation for your API. This guide covers how to configure and customize the documentation.
+Freeman automatically generates OpenAPI documentation for your API. This guide covers how to configure and customize the documentation.
 
 ## Accessing the documentation
 
-By default, Django-Bolt serves multiple documentation UIs automatically:
+By default, Freeman serves multiple documentation UIs automatically:
 
 | Path | UI |
 |------|-----|
@@ -183,14 +183,14 @@ async def create_user():
 
 ### Error responses
 
-The schema shows a 422 response for each route whose input Bolt validates.
+The schema shows a 422 response for each route whose input Freeman validates.
 Such a route has a path, query, header or cookie parameter, or a request body.
 A route with no parameter and no body has no 422. Set
 `OpenAPIConfig(include_error_responses=False)` to remove these responses.
 
 Without a formatter, the 422 body is `{"detail": ...}`. For a route with only a
 JSON body, `detail` is a list of field errors. For a route with a parameter or
-a form field, `detail` is a list of field errors or a text. Bolt sends the text
+a form field, `detail` is a list of field errors or a text. Freeman sends the text
 for a missing value and for a value of the wrong type. With
 `BoltAPI(error_formatter=...)`, the 422 shows the body of the formatter. A route
 that declares its own 422 in `response_model` keeps it. The 422 also shows the
@@ -326,7 +326,7 @@ api = BoltAPI(
 )
 ```
 
-Bolt gives the path of `OpenAPIConfig` and the path of each plugin a leading slash. Thus `OpenAPIConfig(path="docs")` with `RedocRenderPlugin(path="redoc")` serves `/docs/redoc`.
+Freeman gives the path of `OpenAPIConfig` and the path of each plugin a leading slash. Thus `OpenAPIConfig(path="docs")` with `RedocRenderPlugin(path="redoc")` serves `/docs/redoc`.
 
 ## Raw OpenAPI JSON/YAML
 
@@ -341,7 +341,7 @@ The docs routes take `auth` and `guards`, as every route does. Without them, the
 
 ### Django session authentication
 
-A browser does not send a token. Use `SessionAuthentication` for docs that people open in a browser. Bolt adds Django's session and auth middleware to the docs routes.
+A browser does not send a token. Use `SessionAuthentication` for docs that people open in a browser. Freeman adds Django's session and auth middleware to the docs routes.
 
 This example gives the docs to staff users who logged in to the Django admin:
 
@@ -499,7 +499,7 @@ async def report():
 ```
 
 A route with the return type `str` shows `text/plain`. A route with the return
-type `bytes` shows `application/octet-stream`. Bolt sends these values as they
+type `bytes` shows `application/octet-stream`. Freeman sends these values as they
 are, not as JSON.
 
 A union shows one media type for each kind of result. For example,

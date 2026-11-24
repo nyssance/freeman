@@ -4,7 +4,7 @@ icon: lucide/layers
 
 # Deployment
 
-This guide explains how to deploy Django-Bolt for production.
+This guide explains how to deploy Freeman for production.
 
 ## Scaling with processes
 
@@ -15,13 +15,13 @@ Use `--processes` to scale your API. Each process runs a separate Python interpr
 python manage.py runbolt --processes 4
 ```
 
-Under the hood, Django-Bolt uses `SO_REUSEPORT` so the kernel load-balances incoming connections across all processes. Linux does this. macOS accepts `SO_REUSEPORT` but sends each connection to one process, so more processes add no throughput in local development on a Mac.
+Under the hood, Freeman uses `SO_REUSEPORT` so the kernel load-balances incoming connections across all processes. Linux does this. macOS accepts `SO_REUSEPORT` but sends each connection to one process, so more processes add no throughput in local development on a Mac.
 
 **Rule of thumb:** Set `--processes` to the number of CPU cores available.
 
 ## Worker recycling (memory leaks)
 
-Long-running Python processes slowly accumulate resident memory — leaky C extensions, allocator fragmentation, unbounded caches. Traditional servers like Gunicorn work around this with `max_requests` restarts; request count is only a proxy for memory, so Django-Bolt (like Granian) recycles workers on the actual symptoms instead:
+Long-running Python processes slowly accumulate resident memory — leaky C extensions, allocator fragmentation, unbounded caches. Traditional servers like Gunicorn work around this with `max_requests` restarts; request count is only a proxy for memory, so Freeman (like Granian) recycles workers on the actual symptoms instead:
 
 ```bash
 # Recycle any worker whose resident memory exceeds 512 MiB
@@ -62,21 +62,21 @@ The `DJANGO_BOLT_SHUTDOWN_TIMEOUT` environment variable (seconds) also sets the 
 
 ## Production deployment
 
-For production, run Django-Bolt as a managed service behind a reverse proxy.
+For production, run Freeman as a managed service behind a reverse proxy.
 
 ### Running as a service
 
-You need a process manager to keep Django-Bolt running. Choose systemd (most Linux distributions) or supervisor.
+You need a process manager to keep Freeman running. Choose systemd (most Linux distributions) or supervisor.
 
 `runbolt` stops with exit status 1 when it cannot start. Examples are a port in use, a failed system check, and a project with no `BoltAPI`.
 
 #### With systemd
 
-Create `/etc/systemd/system/django-bolt.service`:
+Create `/etc/systemd/system/freeman.service`:
 
 ```ini
 [Unit]
-Description=Django-Bolt API Server
+Description=Freeman API Server
 After=network.target
 
 [Service]
@@ -95,29 +95,29 @@ Enable and start the service:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable django-bolt
-sudo systemctl start django-bolt
+sudo systemctl enable freeman
+sudo systemctl start freeman
 ```
 
 Check status:
 
 ```bash
-sudo systemctl status django-bolt
+sudo systemctl status freeman
 ```
 
 #### With supervisor
 
-Install supervisor and create `/etc/supervisor/conf.d/django-bolt.conf`:
+Install supervisor and create `/etc/supervisor/conf.d/freeman.conf`:
 
 ```ini
-[program:django-bolt]
+[program:freeman]
 command=/path/to/venv/bin/python manage.py runbolt --host 127.0.0.1 --port 8000 --processes 4
 directory=/path/to/your/project
 user=www-data
 autostart=true
 autorestart=true
 redirect_stderr=true
-stdout_logfile=/var/log/django-bolt.log
+stdout_logfile=/var/log/freeman.log
 ```
 
 Then reload and start:
@@ -125,7 +125,7 @@ Then reload and start:
 ```bash
 sudo supervisorctl reread
 sudo supervisorctl update
-sudo supervisorctl start django-bolt
+sudo supervisorctl start freeman
 ```
 
 ### Reverse proxy with nginx
@@ -151,7 +151,7 @@ server {
 }
 ```
 
-Bolt reads `X-Forwarded-For` and `X-Forwarded-Proto` only from a declared proxy. Add nginx to `BOLT_TRUSTED_PROXIES`:
+Freeman reads `X-Forwarded-For` and `X-Forwarded-Proto` only from a declared proxy. Add nginx to `BOLT_TRUSTED_PROXIES`:
 
 ```python
 # settings.py
@@ -169,7 +169,7 @@ sudo systemctl reload nginx
 
 ## Database connections
 
-Django Bolt keeps Django request signals disabled by default for maximum throughput.
+Freeman keeps Django request signals disabled by default for maximum throughput.
 
 ```python
 # settings.py
@@ -178,7 +178,7 @@ BOLT_EMIT_SIGNALS = False
 
 With signals disabled, don't rely on request-signal-driven connection recycling.
 
-Without a connection pool, Bolt keeps each thread's connection open between requests. It drops the connection when a query on it raises. When that connection does not answer, every thread reconnects to that database before its next call. Connections to other databases stay open. A database restart therefore costs the request that meets the first dead connection, and requests that run at that time can fail too. It does not need a process restart. To serve every request through a database failover, set `CONN_HEALTH_CHECKS = True`. Bolt then runs Django's connection check before each executor call, and before each sync request on a worker thread that opened a connection. The health check replaces a dead connection before the query. Add a positive `CONN_MAX_AGE` to keep connections between calls. Neither setting is on by default. With a connection pool, read the next section instead. See [Database Connection Management](../topics/signals.md#database-connection-management).
+Without a connection pool, Freeman keeps each thread's connection open between requests. It drops the connection when a query on it raises. When that connection does not answer, every thread reconnects to that database before its next call. Connections to other databases stay open. A database restart therefore costs the request that meets the first dead connection, and requests that run at that time can fail too. It does not need a process restart. To serve every request through a database failover, set `CONN_HEALTH_CHECKS = True`. Freeman then runs Django's connection check before each executor call, and before each sync request on a worker thread that opened a connection. The health check replaces a dead connection before the query. Add a positive `CONN_MAX_AGE` to keep connections between calls. Neither setting is on by default. With a connection pool, read the next section instead. See [Database Connection Management](../topics/signals.md#database-connection-management).
 
 For ASGI deployments, keep persistent connections disabled (`CONN_MAX_AGE = 0`) and use pooling. See [Persistent connections](https://docs.djangoproject.com/en/6.0/ref/databases/#persistent-connections).
 
@@ -206,17 +206,17 @@ DATABASES = {
 }
 ```
 
-Install the `pool` extra: `pip install "django-bolt[pool]"`. It installs psycopg with psycopg_pool 3.3 or later. The extra does not install libpq, which psycopg needs at run time. Install libpq on the host, or install `psycopg[binary]`. On free-threaded Python, `psycopg[binary]` has no wheel, so install libpq. With psycopg2, Django raises `ImproperlyConfigured` if `OPTIONS["pool"]` is set.
+Install the `pool` extra: `pip install "freeman[pool]"`. It installs psycopg with psycopg_pool 3.3 or later. The extra does not install libpq, which psycopg needs at run time. Install libpq on the host, or install `psycopg[binary]`. On free-threaded Python, `psycopg[binary]` has no wheel, so install libpq. With psycopg2, Django raises `ImproperlyConfigured` if `OPTIONS["pool"]` is set.
 
-With a pool, a thread of Bolt holds a connection only while it has work. A worker of the ORM or executor thread pool gives the connection back when its queue is empty. Calls that wait in its queue use the same connection. A request lane gives it back at the end of its request. A worker thread gives it back at the end of a sync request that ran on it. A thread that your code starts keeps its connection until it closes the connection. Thus `max_size` limits the queries in flight in one process, not the threads. Set `max_size` to the number of calls that can query at the same time in one process. Count the ORM threads, the executor threads, and the concurrent requests on routes with Django middleware. A request that waits for a connection longer than the pool `timeout` (30 s by default) fails.
+With a pool, a thread of Freeman holds a connection only while it has work. A worker of the ORM or executor thread pool gives the connection back when its queue is empty. Calls that wait in its queue use the same connection. A request lane gives it back at the end of its request. A worker thread gives it back at the end of a sync request that ran on it. A thread that your code starts keeps its connection until it closes the connection. Thus `max_size` limits the queries in flight in one process, not the threads. Set `max_size` to the number of calls that can query at the same time in one process. Count the ORM threads, the executor threads, and the concurrent requests on routes with Django middleware. A request that waits for a connection longer than the pool `timeout` (30 s by default) fails.
 
 `runbolt --processes N` closes the connections and the pools of its parent before it starts each worker. Each worker opens its own pool. When a close fails, `runbolt` stops with the error and starts no worker.
 
 On macOS, a forked worker can hang or crash when it opens a PostgreSQL connection. Set `PGGSSENCMODE=disable` for local development. See [the FAQ](../faq.md#why-does-runbolt-hang-on-macos-when-it-connects-to-postgresql).
 
-Leave `CONN_HEALTH_CHECKS` off for a pooled database, and do not set `check` in `OPTIONS["pool"]`. The pool runs a check on each checkout, and a worker checks out a connection again after each idle time. Thus many ORM calls get one more round trip. Bolt logs a warning at startup when a pool has a check.
+Leave `CONN_HEALTH_CHECKS` off for a pooled database, and do not set `check` in `OPTIONS["pool"]`. The pool runs a check on each checkout, and a worker checks out a connection again after each idle time. Thus many ORM calls get one more round trip. Freeman logs a warning at startup when a pool has a check.
 
-After a database restart, Bolt drains the pool when it finds the first dead connection. The pool closes its idle connections, and it drops each older connection that a thread gives back. This needs psycopg_pool 3.3 or later, which the `pool` extra installs. With an older version, Bolt logs a warning at startup and does not drain the pool. Then each dead idle connection of the pool fails one request. See [Database Connection Management](../topics/signals.md#database-connection-management).
+After a database restart, Freeman drains the pool when it finds the first dead connection. The pool closes its idle connections, and it drops each older connection that a thread gives back. This needs psycopg_pool 3.3 or later, which the `pool` extra installs. With an older version, Freeman logs a warning at startup and does not drain the pool. Then each dead idle connection of the pool fails one request. See [Database Connection Management](../topics/signals.md#database-connection-management).
 
 ### Network partitions
 
@@ -233,7 +233,7 @@ DATABASES["default"]["OPTIONS"] |= {
 }
 ```
 
-With these values, TCP closes a connection that gets no answer after about 10 s: 10 s for sent data with no acknowledgement, or 5 + 3 × 2 s for a connection that waits for a result. The request then fails, and Bolt drops the connection. `keepalives_*` and `tcp_user_timeout` need support from the operating system. Linux has it. See [libpq connection parameters](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS). A `statement_timeout` does not help here, because the server cannot send its error.
+With these values, TCP closes a connection that gets no answer after about 10 s: 10 s for sent data with no acknowledgement, or 5 + 3 × 2 s for a connection that waits for a result. The request then fails, and Freeman drops the connection. `keepalives_*` and `tcp_user_timeout` need support from the operating system. Linux has it. See [libpq connection parameters](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS). A `statement_timeout` does not help here, because the server cannot send its error.
 
 ### Option 2: PgBouncer (external pooler)
 
@@ -293,7 +293,7 @@ The setting wins over the `compression` argument of `BoltAPI`. Set `BOLT_COMPRES
 
 Actix worker threads and Python processes scale different things. `--workers` sets the Actix worker threads in one process. `--processes` sets the number of processes.
 
-On a standard CPython build, Django-Bolt uses 1 worker thread per process. **Python's GIL is the bottleneck**, not Rust. Only one thread can run Python code at a time. More threads only wait:
+On a standard CPython build, Freeman uses 1 worker thread per process. **Python's GIL is the bottleneck**, not Rust. Only one thread can run Python code at a time. More threads only wait:
 
 ```
 Process with 4 workers:
@@ -309,7 +309,9 @@ The Rust parts (HTTP parsing and routing) usually take much less time than your 
 
 ## Free-threaded Python
 
-Django-Bolt supports the free-threaded build of CPython 3.14 (`python3.14t`, [PEP 703](https://peps.python.org/pep-0703/)). Wheels for `cp314t` are on PyPI. The Rust extension declares that it does not need the GIL, so the interpreter keeps the GIL disabled when it imports `freeman`.
+Freeman publishes no free-threaded wheels. To use a free-threaded interpreter ([PEP 703](https://peps.python.org/pep-0703/)), build the extension from source. The Rust extension declares that it does not need the GIL, so the interpreter keeps the GIL disabled when it imports `freeman`.
+
+The commands and the numbers in this section come from upstream django-bolt on Python 3.14. Freeman has not measured them again.
 
 With the GIL disabled, `runbolt` defaults `--workers` to the CPU count. Each Actix worker thread runs Python handlers, so one process runs handlers in parallel:
 
@@ -325,7 +327,7 @@ The startup banner shows the mode, for example `Workers: 1 process · 8 threads 
 
 What runs in parallel:
 
-- Sync handlers, and async handlers that never await, run on the worker thread that accepted the request. A sync handler that Django-Bolt detects as blocking (ORM access, `time.sleep`, `requests`) runs on the shared executor pool instead, so it does not stall the worker thread.
+- Sync handlers, and async handlers that never await, run on the worker thread that accepted the request. A sync handler that Freeman detects as blocking (ORM access, `time.sleep`, `requests`) runs on the shared executor pool instead, so it does not stall the worker thread.
 - Each worker thread owns its own asyncio loop. An async handler runs on the worker thread that accepted the request, and it resumes on that same thread after each await. Handlers on different worker threads run in parallel.
 - Auth, guards, CORS, rate limiting, and compression run in Rust, as on every build.
 
@@ -337,9 +339,9 @@ Each worker thread holds its own Django database connection, as in any threaded 
 
 ### Size the database thread pools
 
-An async handler that returns a QuerySet does not run the query on its worker thread. Django-Bolt evaluates the QuerySet on the ORM thread pool. Django's async ORM API, such as `await Model.objects.aget()`, `acount()` and `async for`, runs on the same pool when the route has no Django middleware. A route with Django middleware runs these calls on its request lane. One process has one ORM pool, and all worker threads in that process share it. The pool size is the number of queries in flight per process. A query that waits 20 ms on the database server needs 50 threads for 2,500 requests per second.
+An async handler that returns a QuerySet does not run the query on its worker thread. Freeman evaluates the QuerySet on the ORM thread pool. Django's async ORM API, such as `await Model.objects.aget()`, `acount()` and `async for`, runs on the same pool when the route has no Django middleware. A route with Django middleware runs these calls on its request lane. One process has one ORM pool, and all worker threads in that process share it. The pool size is the number of queries in flight per process. A query that waits 20 ms on the database server needs 50 threads for 2,500 requests per second.
 
-The pool has 1 thread when every database is SQLite, and 4 threads for other databases. These defaults fit a build with the GIL, where more threads in one process add no parallelism. With the GIL disabled, a small pool becomes the limit: the worker threads wait for it and the CPUs stay idle.
+The pool has 1 thread when every database is SQLite, and CPU count + 4 threads (maximum 32) for other databases. The pool size is the number of queries in flight. With the GIL disabled and SQLite, the pool of 1 thread becomes the limit: the worker threads wait for it and the CPUs stay idle.
 
 Set `DJANGO_BOLT_ORM_THREADS` when you run many worker threads in one process:
 
@@ -365,7 +367,7 @@ Start with one ORM thread for every one or two worker threads, then measure. Eac
 
 A blocking sync handler does not use the ORM pool. It runs on the shared executor pool, which has `CPU count + 4` threads (maximum 32). Set `DJANGO_BOLT_EXECUTOR_THREADS` to change it.
 
-In an async handler, `await request.auser()` loads the user on the ORM pool. The worker then serves other requests while the user loads. A sync read of `request.user`, in the handler, a helper, or a template, blocks the worker thread until the user loads. The query runs on that worker thread, or on the lane of the request. In dev mode, Bolt logs such a read when it blocks for more than 50 ms.
+In an async handler, `await request.auser()` loads the user on the ORM pool. The worker then serves other requests while the user loads. A sync read of `request.user`, in the handler, a helper, or a template, blocks the worker thread until the user loads. The query runs on that worker thread, or on the lane of the request. In dev mode, Freeman logs such a read when it blocks for more than 50 ms.
 
 ### Compare equal topologies
 

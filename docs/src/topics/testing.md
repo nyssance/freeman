@@ -4,14 +4,14 @@ icon: lucide/flask-conical
 
 # Testing
 
-Django-Bolt routes every request through its Rust HTTP layer, and so does its
+Freeman routes every request through its Rust HTTP layer, and so does its
 test client. When a test passes against `TestClient`, the request went through
 the same routing, parameter validation, authentication, and serialization code
 that will handle it in production. There is no separate "test mode" that
 quietly behaves differently.
 
 `TestClient` runs entirely in-process — no server to start, no port to pick —
-and it's built on `httpx`, which django-bolt already depends on, so there's
+and it's built on `httpx`, which Freeman already depends on, so there's
 nothing extra to install:
 
 ```python
@@ -312,13 +312,13 @@ rollback removes it.
 
 ### Its one limit
 
-One connection serves one thread at a time. Bolt handles this for you: the test
+One connection serves one thread at a time. Freeman handles this for you: the test
 and the handlers take turns.
 
 It cannot do so when a thread of your own keeps a cursor open across a request.
 A `QuerySet.iterator()` loop in a worker thread is the case that does it,
 because the cursor stays open for the whole loop. The request then waits for
-that thread, and Bolt raises `SharedTestConnectionError`.
+that thread, and Freeman raises `SharedTestConnectionError`.
 
 Pass `share_db_connection=False` for such a test. The handlers then use their
 own connections, thus the test must commit its rows with `transaction=True` or
@@ -442,8 +442,8 @@ Three `TestClient` arguments replace settings for one test:
 ## Using Django's test runner
 
 The sections above use pytest. `manage.py test` works too, with one change:
-**Django's test client does not find Bolt routes.** `self.client` looks in
-`ROOT_URLCONF`, and Bolt handlers are in the Rust router, so a route that exists
+**Django's test client does not find Freeman routes.** `self.client` looks in
+`ROOT_URLCONF`, and Freeman handlers are in the Rust router, so a route that exists
 gives a 404. Use `TestClient` in its place.
 
 `TestCase` is the right base class, including for handlers that use the
@@ -579,7 +579,7 @@ SSE consumer that must receive events *while* the handler is producing them,
 or a smoke test that your project actually boots under `runbolt` the way it
 will in production.
 
-For those cases you don't need anything from django-bolt — start your own
+For those cases you don't need anything from Freeman — start your own
 project's server in a subprocess and point `httpx` at it:
 
 ```python

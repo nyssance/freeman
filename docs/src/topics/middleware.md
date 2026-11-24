@@ -4,7 +4,7 @@ icon: lucide/layers
 
 # Middleware
 
-Django-Bolt provides middleware for cross-cutting concerns like CORS and rate limiting. This guide covers the built-in middleware and how to use it.
+Freeman provides middleware for cross-cutting concerns like CORS and rate limiting. This guide covers the built-in middleware and how to use it.
 
 ## CORS middleware
 
@@ -45,7 +45,7 @@ async def tenant_data():
     return {"data": "value"}
 ```
 
-A pattern can match a part of the origin, so start it with `^` and end it with `$`. Patterns use the syntax of the Rust `regex` crate, which has no look-around and no back-references. An invalid pattern or an empty pattern stops startup with `ValueError`. Bolt does not reject a pattern that allows too much. A pattern such as `.*` or `^` allows every origin.
+A pattern can match a part of the origin, so start it with `^` and end it with `$`. Patterns use the syntax of the Rust `regex` crate, which has no look-around and no back-references. An invalid pattern or an empty pattern stops startup with `ValueError`. Freeman does not reject a pattern that allows too much. A pattern such as `.*` or `^` allows every origin.
 
 The most specific `cors` config applies. A route-level `@cors` takes precedence over the router, and the router takes precedence over the API. A config with no origins and no patterns, such as a router config that sets only `credentials`, keeps the allow list of the outer config. A route takes one cors config. A second `@cors`, or a `@cors` together with `@middleware(type="cors")`, raises `ValueError`. The config stays on the function, so give each route with `@cors` its own function. `@cors` raises `ValueError` when it gets no origin and no pattern. It raises `TypeError` when an origin or a pattern is not a `str`. Give `methods` and `headers` as a list of `str`, `credentials` as a `bool`, and `max_age` as an `int` of 0 or more. Another type raises `TypeError`, and a `max_age` out of range raises `ValueError`. A `cors` dict gets the same checks when you register it. This applies to `@middleware(type="cors", ...)` and to a dict in the `middleware` of an API or a router. Only the config of a route needs an origin or a pattern. A method name or a header name with a character that is not valid in an HTTP header, such as a line break, stops startup with `ValueError`.
 
@@ -78,7 +78,7 @@ CORS_EXPOSE_HEADERS = ["X-Total-Count", "X-Page-Count"]
 CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
 ```
 
-Without these settings, Bolt allows the methods `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` and `QUERY`, and the headers `Content-Type` and `Authorization`. A preflight answer is cached for 3600 seconds. A `"*"` entry in `CORS_ALLOWED_ORIGINS` is not a wildcard. Use `CORS_ALLOW_ALL_ORIGINS = True` to allow each origin. A pattern in `CORS_ALLOWED_ORIGIN_REGEXES` can match a part of the origin, so start it with `^` and end it with `$`. An invalid pattern or an empty pattern stops startup with `ImproperlyConfigured`. A value in `CORS_ALLOW_METHODS`, `CORS_ALLOW_HEADERS` or `CORS_EXPOSE_HEADERS` that is not valid in an HTTP header does the same.
+Without these settings, Freeman allows the methods `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` and `QUERY`, and the headers `Content-Type` and `Authorization`. A preflight answer is cached for 3600 seconds. A `"*"` entry in `CORS_ALLOWED_ORIGINS` is not a wildcard. Use `CORS_ALLOW_ALL_ORIGINS = True` to allow each origin. A pattern in `CORS_ALLOWED_ORIGIN_REGEXES` can match a part of the origin, so start it with `^` and end it with `$`. An invalid pattern or an empty pattern stops startup with `ImproperlyConfigured`. A value in `CORS_ALLOW_METHODS`, `CORS_ALLOW_HEADERS` or `CORS_EXPOSE_HEADERS` that is not valid in an HTTP header does the same.
 
 ## Rate limiting
 
@@ -109,7 +109,7 @@ A route takes one rate limit. A second `@rate_limit`, or a `@rate_limit` togethe
 because one client often holds a whole /64. Set
 [`BOLT_RATE_LIMIT_IPV6_PREFIX`](../ref/settings.md#bolt_rate_limit_ipv6_prefix)
 to change the prefix. A header name counts per header value.
-Callers that do not send the header share one bucket. Bolt hashes the value,
+Callers that do not send the header share one bucket. Freeman hashes the value,
 so its length is not limited.
 
 `key="user"` counts per authenticated identity. `key="api_key"` counts per
@@ -129,8 +129,8 @@ not start.
 
 ### Client address behind a proxy
 
-With `key="ip"`, Bolt keys on the peer address of the connection. A client sends
-`X-Forwarded-For` itself, so Bolt ignores that header by default.
+With `key="ip"`, Freeman keys on the peer address of the connection. A client sends
+`X-Forwarded-For` itself, so Freeman ignores that header by default.
 
 Declare your proxies to make the header trustworthy:
 
@@ -139,21 +139,21 @@ Declare your proxies to make the header trustworthy:
 BOLT_TRUSTED_PROXIES = ["10.0.0.0/8"]
 ```
 
-Bolt then reads `X-Forwarded-For` from the right and takes the first entry that
+Freeman then reads `X-Forwarded-For` from the right and takes the first entry that
 is not a listed proxy. A client cannot pick its own bucket, because the proxy
 appends the real address to the right of anything the client sent.
 
 The resolved address is also exposed as `request.META["REMOTE_ADDR"]`. If any
-forwarding hop is malformed, Bolt ignores the chain and uses the connection
+forwarding hop is malformed, Freeman ignores the chain and uses the connection
 peer rather than searching farther left through client-controlled input.
 
-Set this whenever a proxy, a load balancer or a CDN is in front of Bolt.
+Set this whenever a proxy, a load balancer or a CDN is in front of Freeman.
 Without it every caller behind that proxy shares one bucket. See
 [BOLT_TRUSTED_PROXIES](../ref/settings.md#bolt_trusted_proxies).
 
 ### How it works
 
-Django-Bolt uses a token bucket algorithm:
+Freeman uses a token bucket algorithm:
 
 - Tokens are added at `rps` per second
 - Each request consumes one token
@@ -189,12 +189,12 @@ A name selects a Rust middleware: `cors`, `rate_limit` or `compression`. A name
 also selects a Python middleware by the name or the dotted path of its class or
 function. A name ignores the letter case. You can also give the middleware class
 itself, for example `@skip_middleware(TimingMiddleware)`. A value that is not a
-`str` or a class raises `TypeError`. `*` skips each Bolt middleware: the Python middleware and the Rust
+`str` or a class raises `TypeError`. `*` skips each Freeman middleware: the Python middleware and the Rust
 middleware. `*` does not skip a Django middleware. To skip a Django middleware,
 give the name of its class, for example `@skip_middleware("CsrfViewMiddleware")`.
 Thus `*` cannot remove the CSRF check of a route.
 
-Or skip each Bolt middleware:
+Or skip each Freeman middleware:
 
 ```python
 @api.get("/internal")
@@ -205,7 +205,7 @@ async def internal():
 
 ## Compression
 
-Django-Bolt compresses both buffered and streaming responses on by
+Freeman compresses both buffered and streaming responses on by
 default (brotli with gzip fallback). Opt out per-route with
 `@no_compress`, or tune the backend, levels, and per-stream memory via
 `CompressionConfig`:
@@ -326,11 +326,11 @@ class MaintenanceMiddleware(Middleware):
         return await self.get_response(request)
 ```
 
-A middleware can return what a handler can return, for example a response object such as `JSON`, `PlainText` or `Redirect`, or a dict. Bolt serializes the value as it serializes the return of the handler of the route. Thus a dict gets the status code of the route, and a `response_model` of the route validates it. A response object with its own status code is the clear form. `raise HTTPException(...)` also stops the request.
+A middleware can return what a handler can return, for example a response object such as `JSON`, `PlainText` or `Redirect`, or a dict. Freeman serializes the value as it serializes the return of the handler of the route. Thus a dict gets the status code of the route, and a `response_model` of the route validates it. A response object with its own status code is the clear form. `raise HTTPException(...)` also stops the request.
 
 An outer middleware gets the object that the inner middleware returned. A response object has `status_code` and `headers`. A dict has none of them, so return a response object when an outer middleware changes the response.
 
-A tuple from a middleware is the internal wire tuple of Bolt, not `(status, data)`.
+A tuple from a middleware is the internal wire tuple of Freeman, not `(status, data)`.
 
 ### Allowed middleware entries
 
@@ -341,7 +341,7 @@ A tuple from a middleware is the internal wire tuple of Bolt, not `(status, data
 
 Passing plain middleware instances in these lists fails fast with `TypeError` (`pass class, not instance`).
 
-A class with no `__call__` method, for example `int`, also raises `TypeError`. Bolt calls the instance with the request.
+A class with no `__call__` method, for example `int`, also raises `TypeError`. Freeman calls the instance with the request.
 
 A dict config needs `"type": "cors"` or `"type": "rate_limit"`. A dict with no type or with another type raises `ValueError`, because no middleware reads it. `@middleware(type="cors", ...)` is the same dict as keyword arguments. A dict config gets the checks of `@cors(...)` or `@rate_limit(...)`, so a value that the decorator refuses raises the same error. A key that is not a keyword argument of the decorator raises `TypeError`, and the error lists the valid keys. Other keyword arguments of `@middleware` raise `TypeError`. Use `@cors(...)`, `@rate_limit(...)` and `@skip_middleware(...)`.
 
@@ -353,7 +353,7 @@ A nested router also takes `auth`, `guards` and `tags` from its parent router. A
 
 ## Django middleware integration
 
-Django-Bolt seamlessly integrates with Django's middleware system, allowing you to use existing Django middleware with your API endpoints.
+Freeman seamlessly integrates with Django's middleware system, allowing you to use existing Django middleware with your API endpoints.
 
 ### Quick start
 
@@ -427,7 +427,7 @@ api = BoltAPI(
 
 Each wrapper runs the `process_view` hook of its middleware before the handler. The hook gets the route handler as the view, so view decorators such as `@csrf_exempt` and `@login_not_required` work.
 
-Put a view decorator below the route decorator. The route decorator registers the function that it gets. A view decorator above it marks a function that Bolt did not register. Thus it has no effect, and Bolt gives no error. The wrapper of `@csrf_exempt` passes `request` to the handler, so the handler must take `request` as its first parameter. Bolt raises a `TypeError` at registration when the handler has no parameter for it.
+Put a view decorator below the route decorator. The route decorator registers the function that it gets. A view decorator above it marks a function that Freeman did not register. Thus it has no effect, and Freeman gives no error. The wrapper of `@csrf_exempt` passes `request` to the handler, so the handler must take `request` as its first parameter. Freeman raises a `TypeError` at registration when the handler has no parameter for it.
 
 ```python
 @api.post("/webhook")   # First: the route decorator
@@ -436,17 +436,17 @@ async def webhook(request):
     return {"ok": True}
 ```
 
-Bolt runs the five hooks of a Django middleware: `process_request`, `process_view`, `process_template_response`, `process_response` and `process_exception`.
+Freeman runs the five hooks of a Django middleware: `process_request`, `process_view`, `process_template_response`, `process_response` and `process_exception`.
 
-When a handler returns a `TemplateResponse`, Bolt calls `process_template_response` of each middleware, as Django does. The last middleware runs first. A hook can change `response.template_name` and `response.context_data`. Bolt renders the response after the last hook. Then `process_response` of each middleware gets the rendered response. A hook must return a response. If it returns `None`, Bolt raises `ValueError`. As in Django, `process_exception` does not get an error of a hook, but it gets an error of the render. A `TemplateResponse` from `process_view` or `process_exception` goes through the same hooks. See [Template responses](responses.md#template-responses).
+When a handler returns a `TemplateResponse`, Freeman calls `process_template_response` of each middleware, as Django does. The last middleware runs first. A hook can change `response.template_name` and `response.context_data`. Freeman renders the response after the last hook. Then `process_response` of each middleware gets the rendered response. A hook must return a response. If it returns `None`, Freeman raises `ValueError`. As in Django, `process_exception` does not get an error of a hook, but it gets an error of the render. A `TemplateResponse` from `process_view` or `process_exception` goes through the same hooks. See [Template responses](responses.md#template-responses).
 
-When a handler raises an exception, Bolt calls `process_exception` of each middleware, as Django does. The last middleware runs first. The first response that a hook returns answers the request. If no hook returns a response, the Bolt error handlers make the error response. See [Error Handling](error-handling.md).
+When a handler raises an exception, Freeman calls `process_exception` of each middleware, as Django does. The last middleware runs first. The first response that a hook returns answers the request. If no hook returns a response, the Freeman error handlers make the error response. See [Error Handling](error-handling.md).
 
-An `HTTPException` and a validation error do not go to `process_exception`. They are responses of the API, and Bolt builds them.
+An `HTTPException` and a validation error do not go to `process_exception`. They are responses of the API, and Freeman builds them.
 
-Bolt makes the error response inside the middleware chain, as Django does. Thus `process_response` of each middleware gets the error response too. For example, `SessionMiddleware` saves the session, and a middleware that adds a header adds it. This applies to the response of `process_exception`, to an `HTTPException`, to a validation error and to the 500 of an unhandled exception.
+Freeman makes the error response inside the middleware chain, as Django does. Thus `process_response` of each middleware gets the error response too. For example, `SessionMiddleware` saves the session, and a middleware that adds a header adds it. This applies to the response of `process_exception`, to an `HTTPException`, to a validation error and to the 500 of an unhandled exception.
 
-`get_response(request)` does not raise the exception of the handler. It returns the error response. To handle the exception in a middleware, use `process_exception`. A Bolt middleware around a Django middleware gets the error response from `call_next` too.
+`get_response(request)` does not raise the exception of the handler. It returns the error response. To handle the exception in a middleware, use `process_exception`. A Freeman middleware around a Django middleware gets the error response from `call_next` too.
 
 The Django middleware also gets a response that Rust gives before the handler. See [Responses from Rust](#responses-from-rust).
 
@@ -476,7 +476,7 @@ An entry of the list can also be the dotted path of a class, as for `DjangoMiddl
 
 ### Accessing Django request attributes
 
-Django middleware sets attributes on the request that are automatically synced to the Bolt request:
+Django middleware sets attributes on the request that are automatically synced to the Freeman request:
 
 ```python
 @api.get("/profile")
@@ -511,15 +511,15 @@ Available synced attributes:
 | CSRF token | CsrfViewMiddleware | `request.state["_csrf_token"]` |
 | Custom attributes | Your middleware | `request.state["<name>"]` |
 
-In async code behind Django middleware, `request.user` works. Its query runs on the lane of the request (see [Authentication](authentication.md#accessing-the-authenticated-user)). This includes the session user of `AuthenticationMiddleware`: Bolt runs its query on the lane, where Django alone raises `SynchronousOnlyOperation`. The event loop waits for that query. `await request.auser()` does not block the loop.
+In async code behind Django middleware, `request.user` works. Its query runs on the lane of the request (see [Authentication](authentication.md#accessing-the-authenticated-user)). This includes the session user of `AuthenticationMiddleware`: Freeman runs its query on the lane, where Django alone raises `SynchronousOnlyOperation`. The event loop waits for that query. `await request.auser()` does not block the loop.
 
-Bolt copies each public attribute that a middleware sets on the Django request to `request.state`. For example, django-tenants sets `request.tenant`. Read it from `request.state["tenant"]`. Bolt does not copy names that start with `_`.
+Freeman copies each public attribute that a middleware sets on the Django request to `request.state`. For example, django-tenants sets `request.tenant`. Read it from `request.state["tenant"]`. Freeman does not copy names that start with `_`.
 
 ### Thread-local state and django-tenants
 
 Some libraries keep request state on the thread-local database connection. For example, django-tenants stores the tenant in `connection.tenant` and `connection.schema_name`.
 
-Bolt gives each request with Django middleware one request thread, which Bolt calls a lane. Django's ASGI handler has the same rule. These parts run on the lane and read the correct state:
+Freeman gives each request with Django middleware one request thread, which Freeman calls a lane. Django's ASGI handler has the same rule. These parts run on the lane and read the correct state:
 
 - The Django middleware.
 - Sync handlers.
@@ -563,21 +563,21 @@ A middleware class with an async `__call__`, its own `__acall__`, or `sync_capab
 
 On a lane, `DjangoMiddleware` uses a second instance of your middleware class in sync mode, as Django does under WSGI. Thus `__init__` runs two times, and the two instances do not share attributes.
 
-In an async request, Bolt moves work to the lane one time for all `process_request` and `process_view` hooks. It moves work one more time for all `process_response` hooks. A stack with only Django built-in hooks runs them on the event loop.
+In an async request, Freeman moves work to the lane one time for all `process_request` and `process_view` hooks. It moves work one more time for all `process_response` hooks. A stack with only Django built-in hooks runs them on the event loop.
 
-Lanes need no configuration. A request takes an idle lane, or Bolt starts a new one. A lane that stays idle for 10 seconds closes its database connections and stops. [`DJANGO_BOLT_LANE_IDLE_SECONDS`](../ref/settings.md#freeman_lane_idle_seconds) changes this time.
+Lanes need no configuration. A request takes an idle lane, or Freeman starts a new one. A lane that stays idle for 10 seconds closes its database connections and stops. [`DJANGO_BOLT_LANE_IDLE_SECONDS`](../ref/settings.md#freeman_lane_idle_seconds) changes this time.
 
-When `runbolt` stops, each lane closes its database connections and stops before Python exits. Bolt waits up to 2 seconds for a lane that still runs a call.
+When `runbolt` stops, each lane closes its database connections and stops before Python exits. Freeman waits up to 2 seconds for a lane that still runs a call.
 
 #### Database connections
 
-A lane keeps its database connections open between requests. This is different from Django, which closes a connection after each request when `CONN_MAX_AGE = 0`. Bolt applies `CONN_MAX_AGE` and `CONN_HEALTH_CHECKS` on lanes when you set them.
+A lane keeps its database connections open between requests. This is different from Django, which closes a connection after each request when `CONN_MAX_AGE = 0`. Freeman applies `CONN_MAX_AGE` and `CONN_HEALTH_CHECKS` on lanes when you set them.
 
 At peak load, the lane count equals the count of concurrent requests that run sync code. Each lane holds one connection for each database that it used. Set `max_connections` of the database for your peak concurrency, or use a pooler such as PgBouncer.
 
 ### Performance notes
 
-Django-Bolt optimizes middleware execution with a three-tier system:
+Freeman optimizes middleware execution with a three-tier system:
 
 1. **Django built-in middleware** - Executed directly without thread pool overhead (fastest)
 2. **Third-party middleware with hooks** - Wrapped in `sync_to_async` for safety
@@ -587,7 +587,7 @@ A class with hook methods is in tier 1 or 2, also when it defines its own `__cal
 
 The `DjangoMiddlewareStack` automatically categorizes your middleware for optimal performance.
 
-If a `DjangoMiddlewareStack` mixes hook middleware (`process_request` / `process_view` / `process_response`) with `__call__`-only middleware, Django-Bolt uses a correctness-first compatibility path to preserve strict declared order and hook semantics. This path is slower than the pure hook fast path.
+If a `DjangoMiddlewareStack` mixes hook middleware (`process_request` / `process_view` / `process_response`) with `__call__`-only middleware, Freeman uses a correctness-first compatibility path to preserve strict declared order and hook semantics. This path is slower than the pure hook fast path.
 
 ## Position of the route decorators
 
@@ -600,7 +600,7 @@ async def limited():
     return {"ok": True}
 ```
 
-The route decorator reads the configuration of the handler when it registers the route. A decorator above it has no effect, so Bolt raises `TypeError` at startup. A `Router` registers its routes in `include_router()`, so a decorator above `@router.get(...)` applies.
+The route decorator reads the configuration of the handler when it registers the route. A decorator above it has no effect, so Freeman raises `TypeError` at startup. A `Router` registers its routes in `include_router()`, so a decorator above `@router.get(...)` applies.
 
 ## Middleware order
 
@@ -628,12 +628,12 @@ Rust gives some responses before the handler runs:
 - a 404 for a path with no route, and a 405 for a method that the path does not have
 - a 401 or a 403 from authentication, a guard or the CSRF check of a cookie
 
-Django runs each middleware for such a request. Bolt does the same. The Python middleware and the Django middleware get the response of Rust as the response of the handler. Thus a request-id middleware adds its header to a 404, and a tenant middleware sets the tenant for it. The handler does not run.
+Django runs each middleware for such a request. Freeman does the same. The Python middleware and the Django middleware get the response of Rust as the response of the handler. Thus a request-id middleware adds its header to a 404, and a tenant middleware sets the tenant for it. The handler does not run.
 
 - A request with no route runs the middleware of the API. It does not run router or route middleware, because it has no route. When `runbolt` serves more than one API, the request gets the middleware of the first API. A 405 also gets the middleware of the first API. Its access-log line uses the config of the API of its path.
 - A rejection of a route runs all the middleware of the route: the API, router and route middleware.
 - `process_view` does not run for these requests, because no view runs. Thus `CsrfViewMiddleware` does not change a 401 or a 403 into a CSRF failure.
-- Bolt does not read the body of these requests. `request.body` is empty.
+- Freeman does not read the body of these requests. `request.body` is empty.
 - With an `error_formatter`, the middleware gets the formatted response.
 - A middleware cannot make the handler run. The response of Rust stays when a middleware removes values from `request.state`.
 
@@ -645,7 +645,7 @@ Other early responses of Rust do not go through the middleware. Examples are a 4
 
 ## Performance
 
-Django-Bolt's middleware runs in Rust where possible:
+Freeman's middleware runs in Rust where possible:
 
 - CORS preflight handling
 - Rate limiting with token bucket

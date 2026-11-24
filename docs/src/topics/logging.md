@@ -4,9 +4,9 @@ icon: lucide/scroll-text
 
 # Logging
 
-Bolt logs each request in the Rust server: the access log of `runbolt`.
+Freeman logs each request in the Rust server: the access log of `runbolt`.
 `LoggingConfig` sets the logger of the access log and the lines that it writes.
-Bolt also logs the exceptions that give a 5xx response.
+Freeman also logs the exceptions that give a 5xx response.
 
 ## Quick start
 
@@ -73,7 +73,7 @@ LOGGING = {
 }
 ```
 
-Bolt reads the level of each logger once, at startup. See [Access log](#access-log).
+Freeman reads the level of each logger once, at startup. See [Access log](#access-log).
 
 ### Skip paths and status codes
 
@@ -117,7 +117,7 @@ api = BoltAPI(logging_config=config)
 ```
 
 The two options apply to each route of that API, also after `mount()` and in a project with more than one API.
-Bolt reads them once, when the API registers its routes. The Rust server applies them without a call to Python.
+Freeman reads them once, when the API registers its routes. The Rust server applies them without a call to Python.
 A response must pass the two checks to get its line.
 
 **Important**: Errors (4xx, 5xx) are always logged regardless of sampling or duration settings.
@@ -180,7 +180,7 @@ except Exception as e:
     )
 ```
 
-Bolt calls `log_exception` for an exception that a handler does not handle, but only when the default response for the exception is a 5xx. A 4xx, such as a validation error, `PermissionDenied` or `Http404`, is the fault of the client. The access log of `runbolt` records it at `WARNING`. This also applies to a validation error that handler code raises, because Bolt answers it with a 422. An `error_formatter` can change the status of the response, but not this choice. Thus a formatter cannot hide a server error from the log. An `HTTPException` is a planned response, so Bolt does not call `log_exception` for it. When Bolt cannot build the error response, it logs that error too.
+Freeman calls `log_exception` for an exception that a handler does not handle, but only when the default response for the exception is a 5xx. A 4xx, such as a validation error, `PermissionDenied` or `Http404`, is the fault of the client. The access log of `runbolt` records it at `WARNING`. This also applies to a validation error that handler code raises, because Freeman answers it with a 422. An `error_formatter` can change the status of the response, but not this choice. Thus a formatter cannot hide a server error from the log. An `HTTPException` is a planned response, so Freeman does not call `log_exception` for it. When Freeman cannot build the error response, it logs that error too.
 
 ### Custom exception handler
 
@@ -206,7 +206,7 @@ config = LoggingConfig(
 )
 ```
 
-Bolt calls the handler only when the default response for the exception is a 5xx, as it does `log_exception`.
+Freeman calls the handler only when the default response for the exception is a 5xx, as it does `log_exception`.
 
 The request has what an error reporter needs:
 
@@ -219,11 +219,11 @@ The request has what an error reporter needs:
 
 `request.user` also works, but it can run a database query in the handler.
 The default handler puts `route` and `trace_id` in the `extra` of its log record.
-Bolt does not depend on `sentry-sdk`: install it yourself.
+Freeman does not depend on `sentry-sdk`: install it yourself.
 
 ## Queue-based logging
 
-Django-Bolt uses queue-based logging to prevent I/O blocking:
+Freeman uses queue-based logging to prevent I/O blocking:
 
 ```python
 from freeman.logging.config import setup_django_logging
@@ -236,23 +236,23 @@ This creates a `QueueHandler` that offloads log writing to a background thread, 
 
 ## Log records of the Rust core
 
-The Rust core of Bolt writes its own log records to stderr, one line each, without Python.
+The Rust core of Freeman writes its own log records to stderr, one line each, without Python.
 An example is an error that a mounted ASGI app raises:
 
 ```text
-[django-bolt] ERROR bolt_asgi::asgi_http: ASGI mount: coroutine raised an exception: RuntimeError: boom
+[freeman] ERROR bolt_asgi::asgi_http: ASGI mount: coroutine raised an exception: RuntimeError: boom
 ```
 
 The effective level of the `freeman` logger sets the level of these records.
-Bolt reads the level once, when `runbolt` starts the server or a test client starts.
+Freeman reads the level once, when `runbolt` starts the server or a test client starts.
 A later change of the level does not apply to the Rust records.
 A record of a lower level costs one check in Rust and is not formatted.
-Without a `LOGGING` setting, Bolt sets this level to `DEBUG` when `DEBUG = True`, and to `WARNING` when `DEBUG = False`.
+Without a `LOGGING` setting, Freeman sets this level to `DEBUG` when `DEBUG = True`, and to `WARNING` when `DEBUG = False`.
 With your own `LOGGING`, the level of `freeman` applies.
 If `LOGGING` does not set it, Python uses the level of the root logger.
 
 Other crates, such as Actix, write only their `WARNING` and `ERROR` records.
-Bolt escapes each line break in a message, such as `\n` or U+2028, so each record stays on one line.
+Freeman escapes each line break in a message, such as `\n` or U+2028, so each record stays on one line.
 
 To see the debug records of the Rust core, set the level of `freeman` to `DEBUG`:
 
@@ -271,7 +271,7 @@ Handlers and formatters of `LOGGING` do not get these records.
 
 ### With Django's LOGGING setting
 
-If you have a custom `LOGGING` configuration in `settings.py`, Django-Bolt respects it:
+If you have a custom `LOGGING` configuration in `settings.py`, Freeman respects it:
 
 ```python
 # settings.py
@@ -294,7 +294,7 @@ LOGGING = {
 
 ### Without custom LOGGING
 
-If no `LOGGING` is configured, Django-Bolt sets up sensible defaults with queue-based handlers.
+If no `LOGGING` is configured, Freeman sets up sensible defaults with queue-based handlers.
 
 ### Access log
 
@@ -305,20 +305,20 @@ That is `django.server`, or the `logger_name` of the `LoggingConfig` of the API:
 GET /items/7 200 0.4ms
 ```
 
-This includes a response that Bolt gives before the handler runs.
+This includes a response that Freeman gives before the handler runs.
 Examples are a 401 or a 403 from authentication or a guard, a 429 from a rate limit, and a 422 or a 400 from request validation.
-Bolt also writes a line for three answers about a route path: the 308 redirect to the other slash form, the automatic `OPTIONS` answer, and the 405 for a method that the path does not have.
+Freeman also writes a line for three answers about a route path: the 308 redirect to the other slash form, the automatic `OPTIONS` answer, and the 405 for a method that the path does not have.
 With an `error_formatter`, the line has the status of the formatted response.
 
-Bolt also writes a line for the 404 of a path with no route.
+Freeman also writes a line for the 404 of a path with no route.
 The line goes to the logger of the API.
 It uses the `skip_paths`, `skip_status_codes` and `sample_rate` of the API.
 When `runbolt` serves more than one API, it uses the config of the first API.
-Bolt takes the GIL to write each 404 line, and the limit of 429 lines below does not apply to it.
+Freeman takes the GIL to write each 404 line, and the limit of 429 lines below does not apply to it.
 Thus a scanner that sends many requests to paths with no route costs a GIL call for each request.
 To write no 404 line, add 404 to `skip_status_codes`. The filter runs in Rust, before the GIL.
 
-Bolt writes no line for a mounted ASGI app or MCP server, for a static or media file, and for a [native route](native-routes.md).
+Freeman writes no line for a mounted ASGI app or MCP server, for a static or media file, and for a [native route](native-routes.md).
 
 A flood of 429 responses does not fill the log.
 Each worker thread writes one line to each logger for the first 429 response of each second.
@@ -340,7 +340,7 @@ The log level follows the status code, the same as Django's `runserver`:
 | 5xx | `ERROR` |
 
 Set the logger to `WARNING` to keep only the 4xx and 5xx lines. Set it to `ERROR` to keep only the 5xx lines. Set it above `ERROR` to remove all its lines.
-Bolt reads the level of each logger once, at startup.
+Freeman reads the level of each logger once, at startup.
 When no route writes to a logger with a level of `ERROR` or lower, the access log is off.
 Then the request path has no logging code.
 

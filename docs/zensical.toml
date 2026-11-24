@@ -11,37 +11,36 @@
 # The site_name is shown in the page header and the browser window title
 #
 # Read more: https://zensical.org/docs/setup/basics/#site_name
-site_name = "Django-Bolt"
+site_name = "Freeman"
 
 # The site_description is included in the HTML head and should contain a
 # meaningful description of the site content for use by search engines.
 #
 # Read more: https://zensical.org/docs/setup/basics/#site_description
-site_description = "Django-Bolt: the fastest Python web framework, built on Django. Rust (Actix Web) HTTP server, async typed handlers, msgspec validation — with the full Django ORM, Admin, middleware and auth. 300k+ req/s, no gunicorn or uvicorn."
+site_description = "Freeman: an HTTP engine for Python APIs on Django. Rust (Actix Web) does the routing, the checks and the limits. Handlers are plain Python and can take and return Pydantic models."
 
 # The site_author attribute. This is used in the HTML head element.
 #
 # Read more: https://zensical.org/docs/setup/basics/#site_author
-site_author = "Farhan"
+site_author = "nyssance"
 
 # Source directory for markdown files
 docs_dir = "src"
 
 # Repository URL for edit links and header icon
-repo_url = "https://github.com/FarhanAliRaza/django-bolt"
-repo_name = "FarhanAliRaza/django-bolt"
+repo_url = "https://github.com/nyssance/freeman"
+repo_name = "nyssance/freeman"
 
-# The site_url is the canonical URL for your site. When building online
-# documentation you should set this.
+# The site_url is the canonical URL for your site. No docs site is deployed,
+# so it is not set.
 # Read more: https://zensical.org/docs/setup/basics/#site_url
-site_url = "https://bolt.farhana.li/"
 
 # The copyright notice appears in the page footer and can contain an HTML
 # fragment.
 #
 # Read more: https://zensical.org/docs/setup/basics/#copyright
 copyright = """
-Copyright &copy; 2026 Farhan Ali Raza
+Copyright &copy; 2025-2026 Farhan Ali Raza and the django-bolt contributors; 2026 nyssance
 """
 
 # Navigation structure following Django's progressive disclosure pattern:
@@ -365,8 +364,5 @@ repo = "fontawesome/brands/github"
 # ----------------------------------------------------------------------------
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/FarhanAliRaza/django-bolt"
+link = "https://github.com/nyssance/freeman"
 
-[[project.extra.social]]
-icon = "fontawesome/brands/python"
-link = "https://pypi.org/project/django-bolt/"
