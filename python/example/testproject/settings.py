@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+from freeman import _core
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -44,11 +46,17 @@ INSTALLED_APPS = [
     "users",
     "core",
     "missions",
-    "mcp_demo",
-    # Tables for the built-in MCP OAuth Authorization Server (bolt_mcp.oauth). Only used
-    # when an mcp mount passes oauth=AuthorizationServer(...); run `manage.py migrate`.
-    "bolt_mcp.oauth",
 ]
+
+# The MCP demo needs an extension built with the `mcp` Cargo feature. The
+# default build leaves it out, and the demo mounts an MCP server at import.
+if hasattr(_core, "register_mcp_mounts"):
+    INSTALLED_APPS += [
+        "mcp_demo",
+        # Tables for the built-in MCP OAuth Authorization Server (bolt_mcp.oauth). Only used
+        # when an mcp mount passes oauth=AuthorizationServer(...); run `manage.py migrate`.
+        "bolt_mcp.oauth",
+    ]
 
 # Django Debug Toolbar. See docs/src/topics/debug-toolbar.md.
 if DEBUG:
