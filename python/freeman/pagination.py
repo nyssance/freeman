@@ -26,7 +26,7 @@ import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from functools import cache, wraps
-from typing import Any, Generic, TypeVar, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, get_args, get_origin
 
 import msgspec
 from django.core.exceptions import FieldDoesNotExist, ValidationError
@@ -38,11 +38,15 @@ from pydantic import Field as PydanticField
 from pydantic import ValidationError as PydanticValidationError
 
 from . import _json
+from ._handler_attrs import set_handler_attr
 from ._pydantic import adapter_for, compile_queryset_reader, is_pydantic_model, refuse_msgspec_model, response_failure
 from .concurrency import run_in_orm_executor
 from .exceptions import ResponseValidationError
 from .middleware.middleware import note_config_decorator
-from .typing import REQUEST_PARAM_NAMES
+from .typing import REQUEST_PARAM_NAMES, HandlerFunction
+
+if TYPE_CHECKING:
+    from .request import Request
 
 __all__ = [
     "PaginationBase",
@@ -233,7 +237,7 @@ class PaginationBase(ABC):
         return self.response_class(items=items, total=total, has_next=has_next, has_previous=has_previous, **info)
 
     @abstractmethod
-    async def get_page_params(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def get_page_params(self, request: Request) -> dict[str, Any]:
         """
         Extract pagination parameters from request.
 
@@ -246,7 +250,7 @@ class PaginationBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def paginate_queryset(self, queryset: Any, request: dict[str, Any], **params: Any) -> Any:
+    async def paginate_queryset(self, queryset: Any, request: Request, **params: Any) -> Any:
         """
         Apply pagination to a queryset and return paginated response.
 
@@ -385,7 +389,7 @@ class PaginationBase(ABC):
         # Not a model, return as-is
         return item
 
-    def _get_page_size(self, request: dict[str, Any]) -> int:
+    def _get_page_size(self, request: Request) -> int:
         """
         Get page size from request, with validation.
 
@@ -435,7 +439,7 @@ class PageNumberPagination(PaginationBase):
     max_page_size: int = 1000
     page_size_query_param: str = "page_size"
 
-    async def get_page_params(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def get_page_params(self, request: Request) -> dict[str, Any]:
         """Extract page number and page_size from request."""
         query = request.get("query", {})
 
@@ -453,7 +457,7 @@ class PageNumberPagination(PaginationBase):
 
         return {"page": page, "page_size": page_size}
 
-    async def paginate_queryset(self, queryset: Any, request: dict[str, Any], **params: Any) -> Any:
+    async def paginate_queryset(self, queryset: Any, request: Request, **params: Any) -> Any:
         """
         Paginate queryset using page numbers.
 
@@ -522,7 +526,7 @@ class LimitOffsetPagination(PaginationBase):
     page_size: int = 100
     max_page_size: int = 1000
 
-    async def get_page_params(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def get_page_params(self, request: Request) -> dict[str, Any]:
         """Extract limit and offset from request."""
         query = request.get("query", {})
 
@@ -553,7 +557,7 @@ class LimitOffsetPagination(PaginationBase):
 
         return {"limit": limit, "offset": offset}
 
-    async def paginate_queryset(self, queryset: Any, request: dict[str, Any], **params: Any) -> Any:
+    async def paginate_queryset(self, queryset: Any, request: Request, **params: Any) -> Any:
         """
         Paginate queryset using limit/offset.
 
@@ -666,7 +670,7 @@ class CursorPagination(PaginationBase):
             return None, None
         return data.get("v"), data.get("pk")
 
-    async def get_page_params(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def get_page_params(self, request: Request) -> dict[str, Any]:
         """Extract cursor and page_size from request."""
         query = request.get("query", {})
 
@@ -710,7 +714,7 @@ class CursorPagination(PaginationBase):
         # The queryset defers the field. Load it on the ORM executor, not on the event loop.
         return await run_in_orm_executor(getattr, row, field.attname)
 
-    async def paginate_queryset(self, queryset: Any, request: dict[str, Any], **params: Any) -> Any:
+    async def paginate_queryset(self, queryset: Any, request: Request, **params: Any) -> Any:
         """
         Paginate queryset using cursor-based pagination.
 
@@ -906,7 +910,7 @@ def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
         Decorated handler function
     """
 
-    def decorator(handler: Callable) -> Callable:
+    def decorator(handler: HandlerFunction) -> HandlerFunction:
         note_config_decorator(handler, "paginate")
         # The route decorator uses the same test for is_async.
         handler_is_async = inspect.iscoroutinefunction(handler)
@@ -949,14 +953,14 @@ def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
             return paginated
 
         # The framework reads this signature. It has a request parameter, so the framework passes the request.
-        wrapper.__signature__ = signature
+        set_handler_attr(wrapper, "__signature__", signature)
         wrapper.__name__ = original_handler.__name__
         wrapper.__doc__ = original_handler.__doc__
         wrapper.__module__ = original_handler.__module__
 
         # Mark that this handler returns a page envelope for serialization
-        wrapper.__paginated__ = True
-        wrapper.__pagination_class__ = pagination_class
+        set_handler_attr(wrapper, "__paginated__", True)
+        set_handler_attr(wrapper, "__pagination_class__", pagination_class)
 
         return wrapper
 

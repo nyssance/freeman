@@ -19,6 +19,7 @@ from typing import (
     Annotated,
     Any,
     NewType,
+    Protocol,
     TypeAliasType,
     TypedDict,
     TypeVar,
@@ -57,6 +58,15 @@ __all__ = [
     "reads_text_value",
     "is_json_only_type",
 ]
+
+
+class HandlerFunction(Protocol):
+    """A route handler: a function, which has a name."""
+
+    __name__: str
+    __qualname__: str
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class HandlerPattern(Enum):
@@ -266,6 +276,7 @@ class HandlerMetadata(TypedDict, total=False):
     _has_auth_backends: bool
     _revocation_handlers: tuple[tuple[Callable[..., Any], bool] | None, ...] | None
     _takes_rust_answer: bool
+    _chain_error_response: Callable[[Exception, Any], Any]
 
     # The binding of a dependency (see dependencies.py)
     _is_async_dep: bool

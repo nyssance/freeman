@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from .middleware.middleware import normalize_middleware_specs
 
 if TYPE_CHECKING:
-    from .auth.backends import AuthenticationBackend
+    from .auth.backends import BaseAuthentication
     from .auth.guards import Guard
     from .middleware import MiddlewareType
 
@@ -65,7 +65,7 @@ class Router:
         prefix: str = "",
         tags: list[str] | None = None,
         middleware: list[MiddlewareType] | None = None,
-        auth: list[AuthenticationBackend] | None = None,
+        auth: list[BaseAuthentication] | None = None,
         guards: list[Guard] | None = None,
         parent: Router | None = None,
     ):

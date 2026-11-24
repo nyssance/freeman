@@ -21,6 +21,7 @@ from .serialization import (
     _RESPONSE_META_JSON,
     _RESPONSE_META_OCTETSTREAM,
     _RESPONSE_META_PLAINTEXT,
+    BodyKind,
 )
 
 # Map integer meta tags back to (response_type, None, None, None) for middleware compat
@@ -66,7 +67,7 @@ ResponseMetaTuple = tuple[
 ]
 
 ResponseBody = bytes | StreamingResponse | str
-Response = tuple[int, ResponseMetaTuple, int, ResponseBody]
+Response = tuple[int, ResponseMetaTuple, BodyKind, ResponseBody]
 
 
 class ResponseHeaders(dict[str, str]):
@@ -99,10 +100,11 @@ class ResponseHeaders(dict[str, str]):
         self.update(headers)
         return self
 
-    def get(self, name: str, default: Any = None) -> Any:  # type: ignore[override]
+    # Case-insensitive lookups take a str name only: a narrower signature than dict's.
+    def get(self, name: str, default: Any = None) -> Any:  # type: ignore[override]  # ty: ignore[incompatible-method-override]
         return super().get(name.lower(), default)
 
-    def pop(self, name: str, *default: Any) -> Any:  # type: ignore[override]
+    def pop(self, name: str, *default: Any) -> Any:  # type: ignore[override]  # ty: ignore[incompatible-method-override]
         return super().pop(name.lower(), *default)
 
     def setdefault(self, name: str, default: str) -> str:  # type: ignore[override]
@@ -174,7 +176,7 @@ class MiddlewareResponse:
         body: bytes | StreamingResponse | str,
         response_type: str = "json",
         raw_cookies: list[CookieTuple] | None = None,
-        body_kind: int = _BODY_BYTES,
+        body_kind: BodyKind = _BODY_BYTES,
     ):
         self.status_code = status_code
         # Middleware reads and changes these. A name ignores letter case.

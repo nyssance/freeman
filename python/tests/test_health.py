@@ -426,3 +426,18 @@ class TestHealthCheckScenarios:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_check_is_unhealthy():
+    """gather returns the CancelledError of a check. Before, the unpack of it raised TypeError."""
+    hc = HealthCheck()
+
+    async def cancelled_check():
+        raise asyncio.CancelledError
+
+    hc.add_check(cancelled_check)
+
+    results = await hc.run_checks()
+    assert results["status"] == "unhealthy"
+    assert results["checks"]["cancelled_check"]["healthy"] is False

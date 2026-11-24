@@ -38,7 +38,7 @@ _Converters = tuple[tuple[int, list[Any], Any], ...]
 _pk_query_cache: dict[tuple[type, str], tuple[str, list[str], _Converters] | None] = {}
 
 
-def _compiled_pk_query(model: type, alias: str) -> tuple[str, list[str], _Converters] | None:
+def _compiled_pk_query(model: type[models.Model], alias: str) -> tuple[str, list[str], _Converters] | None:
     key = (model, alias)
     if key in _pk_query_cache:
         return _pk_query_cache[key]
@@ -69,7 +69,7 @@ def _compiled_pk_query(model: type, alias: str) -> tuple[str, list[str], _Conver
     return compiled
 
 
-def load_user_by_pk_sync(model: type, user_id: Any) -> Any | None:
+def load_user_by_pk_sync(model: type[models.Model], user_id: Any) -> Any | None:
     """
     Load a user by primary key, skipping per-call SQL compilation when safe.
 

@@ -39,7 +39,7 @@ from ..middleware_response import (
     _split_content_type_headers,
 )
 from ..responses import StreamingResponse
-from ..serialization import _BOLT_RESPONSE_TYPES, django_cookie_tuples, serialize_bolt_response
+from ..serialization import _BOLT_RESPONSE_TYPES, BodyKind, django_cookie_tuples, serialize_bolt_response
 
 try:
     from asgiref.sync import SyncToAsync, ThreadSensitiveContext, async_to_sync, sync_to_async
@@ -1345,7 +1345,7 @@ def _store_preserved_body(django_response: HttpResponse, preserved_body: tuple[i
     setattr(django_response, _PRESERVED_BODY_KIND_ATTR, body_kind)
 
 
-def _load_preserved_body(django_response: HttpResponse) -> tuple[int, Any] | None:
+def _load_preserved_body(django_response: HttpResponse) -> tuple[BodyKind, Any] | None:
     """Load preserved transport metadata from a Django response if present."""
     body_kind = getattr(django_response, _PRESERVED_BODY_KIND_ATTR, None)
     if body_kind not in _PRESERVED_BODY_KINDS:
@@ -1449,7 +1449,7 @@ def _to_bolt_response(django_response: HttpResponse) -> MiddlewareResponse:
     )
     # The headers hold the Content-Type. A response without one stays without one.
     response_type = "json" if django_response.has_header("Content-Type") else "empty"
-    body_kind = _BODY_BYTES
+    body_kind: BodyKind = _BODY_BYTES
 
     if preserved_body is not None:
         body_kind, body = preserved_body

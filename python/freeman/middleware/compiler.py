@@ -152,14 +152,14 @@ def compile_middleware_meta(
 ) -> dict[str, Any] | None:
     """Compile middleware metadata for a handler, including guards and auth."""
     # Check for handler-specific middleware
-    handler_middleware = []
+    handler_middleware: list[Any] = []
     skip_middleware: set[str] = set()
 
     if hasattr(handler, "__bolt_middleware__"):
-        handler_middleware = handler.__bolt_middleware__
+        handler_middleware = getattr(handler, "__bolt_middleware__", handler_middleware)
 
     if hasattr(handler, "__bolt_skip_middleware__"):
-        skip_middleware = handler.__bolt_skip_middleware__
+        skip_middleware = getattr(handler, "__bolt_skip_middleware__", skip_middleware)
         # "*" skips each middleware that Rust runs.
         if "*" in skip_middleware:
             skip_middleware = {*skip_middleware, *_RUST_MIDDLEWARE}

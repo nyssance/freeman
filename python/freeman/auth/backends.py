@@ -31,7 +31,7 @@ import httpx
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
-from django.db import InterfaceError, OperationalError
+from django.db import InterfaceError, OperationalError, models
 
 from ..concurrency import run_in_orm_executor
 from .pk_loader import load_user_by_pk_sync
@@ -214,10 +214,10 @@ class JWTAuthentication(BaseAuthentication):
     """
 
     # Class-level cached User model - resolved once on first use
-    _user_model: type | None = None
+    _user_model: type[models.Model] | None = None
 
     @classmethod
-    def _get_user_model(cls) -> type:
+    def _get_user_model(cls) -> type[models.Model]:
         """Get User model, caching at class level after first call."""
         if cls._user_model is None:
             cls._user_model = get_user_model()

@@ -16,6 +16,7 @@ from typing import Annotated, Any, Literal, get_args, get_origin
 import msgspec
 from pydantic import Field, ValidationError, create_model
 
+from .._handler_attrs import set_handler_attr
 from .._pydantic import adapter_for, is_pydantic_model, param_fields
 from .._pydantic import body_errors as pydantic_body_errors
 from .._pydantic import build_body_extractor as build_pydantic_body_extractor
@@ -493,7 +494,7 @@ def _or_model_default(
             return default
 
     if needs_files is not None:
-        extract_or_default.needs_files_map = needs_files  # type: ignore[attr-defined]
+        set_handler_attr(extract_or_default, "needs_files_map", needs_files)
     return extract_or_default
 
 
@@ -627,7 +628,7 @@ def _create_pydantic_param_extractor(model: type, default: Any, source: str, oth
                 values[key] = [value]
         return run(values)
 
-    extract.needs_files_map = False  # type: ignore[attr-defined]
+    set_handler_attr(extract, "needs_files_map", False)
     return _or_model_default(extract, default, keys, needs_files=False)
 
 
@@ -667,7 +668,7 @@ def _create_pydantic_form_extractor(model: type, default: Any, other_keys: froze
         def extract(form_map: dict[str, Any]) -> Any:
             return run(collect(form_map))
 
-        extract.needs_files_map = False  # type: ignore[attr-defined]
+        set_handler_attr(extract, "needs_files_map", False)
         return _or_model_default(extract, default, keys, needs_files=False)
 
     def extract_with_files(form_map: dict[str, Any], files_map: dict[str, Any] | None = None) -> Any:
@@ -688,7 +689,7 @@ def _create_pydantic_form_extractor(model: type, default: Any, other_keys: froze
                 values[key] = files if many else files[0]
         return run(values)
 
-    extract_with_files.needs_files_map = True  # type: ignore[attr-defined]
+    set_handler_attr(extract_with_files, "needs_files_map", True)
     return _or_model_default(extract_with_files, default, keys, needs_files=True)
 
 

@@ -4,22 +4,22 @@ Provides standard health check endpoints for monitoring and load balancers.
 """
 
 import asyncio
-from collections.abc import Callable
 from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.db import DEFAULT_DB_ALIAS, DatabaseError, connections
 
 from .responses import JSON
+from .typing import HandlerFunction
 
 
 class HealthCheck:
     """Health check configuration and helpers."""
 
     def __init__(self):
-        self._checks: list[Callable] = []
+        self._checks: list[HandlerFunction] = []
 
-    def add_check(self, check_func: Callable) -> None:
+    def add_check(self, check_func: HandlerFunction) -> None:
         """Add a custom health check.
 
         Args:
@@ -43,7 +43,8 @@ class HealthCheck:
         all_healthy = True
 
         for check, result in zip(self._checks, results_list, strict=True):
-            if isinstance(result, Exception):
+            # gather returns a cancelled check as its CancelledError, a BaseException.
+            if isinstance(result, BaseException):
                 results[check.__name__] = {"healthy": False, "message": f"Check failed: {result!s}"}
                 all_healthy = False
             else:
@@ -113,7 +114,8 @@ async def ready_handler() -> dict[str, Any]:
     healthy, results = await _health_check._run()
     if healthy:
         return results
-    return JSON(results, status_code=503)
+    # The annotation documents the 200 body. Bolt sends a response object as it is.
+    return JSON(results, status_code=503)  # ty: ignore[invalid-explicit-return]
 
 
 def register_health_checks(api) -> None:
@@ -126,7 +128,7 @@ def register_health_checks(api) -> None:
     api.get("/ready")(ready_handler)
 
 
-def add_health_check(check_func: Callable) -> None:
+def add_health_check(check_func: HandlerFunction) -> None:
     """Add a custom health check.
 
     Args:

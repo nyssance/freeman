@@ -17,6 +17,8 @@ from freeman.exceptions import Unauthorized
 from freeman.params import Depends
 from freeman.types import Request
 
+from .._handler_attrs import set_handler_attr
+
 if TYPE_CHECKING:
     from django.contrib.auth.base_user import AbstractBaseUser
 
@@ -185,8 +187,8 @@ def require_current_user_sync(request: Request) -> Any:
 
 
 # The injector of a sync handler uses the sync form of these dependencies.
-get_current_user._bolt_sync_variant = get_current_user_sync
-require_current_user._bolt_sync_variant = require_current_user_sync
+set_handler_attr(get_current_user, "_bolt_sync_variant", get_current_user_sync)
+set_handler_attr(require_current_user, "_bolt_sync_variant", require_current_user_sync)
 
 if TYPE_CHECKING:
     CurrentUser = Annotated[AbstractBaseUser, Depends(require_current_user)]

@@ -73,7 +73,7 @@ class WebSocket:
         return self._scope.get("headers", {})
 
     @property
-    def query_params(self) -> dict[str, str]:
+    def query_params(self) -> dict[str, str | list[str]]:
         """Query parameters parsed from query string."""
         if not hasattr(self, "_query_params"):
             qs = self.query_string.decode("utf-8", errors="replace")

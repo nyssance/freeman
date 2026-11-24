@@ -110,6 +110,10 @@ class Request(Protocol):
         """Support `request["args"]`"""
         ...
 
+    def __setitem__(self, name: str, value: Any, /) -> None:
+        """Support `request["user"] = user`"""
+        ...
+
     def get(self, key: str, /, default: Any = None) -> Any:
         """Support `request.get("args")`"""
         ...

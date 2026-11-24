@@ -19,6 +19,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
+from ._handler_attrs import set_handler_attr
 from ._view_context import _current_request
 from .request import Request
 
@@ -36,9 +37,9 @@ def _copy_route_middleware(source: Callable, target: Callable) -> None:
     are new objects, because registration writes the normalized list back.
     """
     if hasattr(source, "__bolt_middleware__"):
-        target.__bolt_middleware__ = list(source.__bolt_middleware__)
+        set_handler_attr(target, "__bolt_middleware__", list(getattr(source, "__bolt_middleware__", ())))
     if hasattr(source, "__bolt_skip_middleware__"):
-        target.__bolt_skip_middleware__ = set(source.__bolt_skip_middleware__)
+        set_handler_attr(target, "__bolt_skip_middleware__", set(getattr(source, "__bolt_skip_middleware__", ())))
 
 
 _REQUEST_PARAM_NAMES = frozenset({"request", "req"})
@@ -178,10 +179,10 @@ class APIView:
                 _current_request.set(args[request_index] if request_name is None else kwargs[request_name])
                 return bound_method(*args[skip:], **kwargs)
 
-        view_handler.__wrapped__ = method_handler
+        set_handler_attr(view_handler, "__wrapped__", method_handler)
 
         # Attach the signature (for parameter extraction)
-        view_handler.__signature__ = new_sig
+        set_handler_attr(view_handler, "__signature__", new_sig)
         view_handler.__annotations__ = {k: v for k, v in inspect.get_annotations(method_handler).items() if k != "self"}
 
         # Preserve docstring and name
@@ -192,26 +193,26 @@ class APIView:
         # Attach class-level metadata for middleware compilation
         # These will be picked up by BoltAPI._route_decorator
         if cls.guards is not None:
-            view_handler.__bolt_guards__ = cls.guards
+            set_handler_attr(view_handler, "__bolt_guards__", cls.guards)
         if cls.auth is not None:
-            view_handler.__bolt_auth__ = cls.auth
+            set_handler_attr(view_handler, "__bolt_auth__", cls.auth)
         if cls.status_code is not None:
-            view_handler.__bolt_status_code__ = cls.status_code
+            set_handler_attr(view_handler, "__bolt_status_code__", cls.status_code)
         if cls.validate_response is not None:
-            view_handler.__bolt_validate_response__ = cls.validate_response
+            set_handler_attr(view_handler, "__bolt_validate_response__", cls.validate_response)
 
         if getattr(method_handler, "validate_response", None) is not None:
-            view_handler.validate_response = method_handler.validate_response
+            set_handler_attr(view_handler, "validate_response", method_handler.validate_response)
 
         _copy_route_middleware(method_handler, view_handler)
 
         # Copy pagination attributes from method handler (for @paginate decorator)
         if hasattr(method_handler, "__paginated__"):
-            view_handler.__paginated__ = method_handler.__paginated__
+            set_handler_attr(view_handler, "__paginated__", method_handler.__paginated__)
         if hasattr(method_handler, "__pagination_class__"):
-            view_handler.__pagination_class__ = method_handler.__pagination_class__
+            set_handler_attr(view_handler, "__pagination_class__", method_handler.__pagination_class__)
         # The route sets the item type of @paginate on this original handler.
-        view_handler.__original_handler__ = method_handler
+        set_handler_attr(view_handler, "__original_handler__", method_handler)
 
         return view_handler
 

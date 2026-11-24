@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any, Protocol, Union, runtime_checkable
 
 import msgspec
 
+from .._handler_attrs import set_handler_attr
 from ..exceptions import HTTPException, ValidationException
 
 if TYPE_CHECKING:
@@ -67,7 +68,7 @@ def mark_route_handler(handler: Callable) -> None:
         unread.clear()
         return
     try:
-        handler.__bolt_unread_config__ = []
+        set_handler_attr(handler, "__bolt_unread_config__", [])
     except AttributeError:
         # A bound method takes no attribute, so it takes no config decorator either.
         return
@@ -107,8 +108,8 @@ def refuse_unread_route_config(
 def _ensure_handler_middleware_list(handler: Callable) -> list[Any]:
     """Get/create per-handler middleware metadata list."""
     if not hasattr(handler, "__bolt_middleware__"):
-        handler.__bolt_middleware__ = []
-    return handler.__bolt_middleware__
+        set_handler_attr(handler, "__bolt_middleware__", [])
+    return getattr(handler, "__bolt_middleware__", [])
 
 
 def _is_function_middleware_callable(spec: Any) -> bool:
@@ -740,9 +741,9 @@ def _checked_cors_config(
 
 
 def cors(
-    origins: list[str] | str = None,
-    methods: list[str] = None,
-    headers: list[str] = None,
+    origins: list[str] | str | None = None,
+    methods: list[str] | None = None,
+    headers: list[str] | None = None,
     credentials: bool = False,
     max_age: int = 3600,
     origin_regexes: list[str] | str | None = None,

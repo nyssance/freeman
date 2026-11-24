@@ -1330,3 +1330,19 @@ def test_a_depends_without_a_callable_on_a_handler_fails_with_its_parameter_name
         @api.get("/items")
         def items(value: Annotated[int, Depends()]):
             return {"value": value}
+
+
+class _BodyDependency:
+    def __call__(self, body: Annotated[dict, Body()]) -> dict:
+        return body
+
+
+def test_a_callable_object_dependency_with_a_body_on_get_names_its_class():
+    """A callable object has no ``__name__``. Before, the check raised AttributeError."""
+    api = BoltAPI()
+
+    with pytest.raises(TypeError, match="Handler _BodyDependency for GET /items cannot have body parameters"):
+
+        @api.get("/items")
+        async def items(value: dict = Depends(_BodyDependency())):
+            return value

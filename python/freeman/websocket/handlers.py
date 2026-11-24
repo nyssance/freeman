@@ -7,6 +7,8 @@ import inspect
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from .._handler_attrs import set_handler_attr
+
 if TYPE_CHECKING:
     from .types import WebSocket
 
@@ -54,13 +56,13 @@ def is_websocket_handler(func: Callable[..., Any]) -> bool:
     return getattr(func, "_is_websocket_handler", False)
 
 
-def mark_websocket_handler(func: Callable[..., Any]) -> Callable[..., Any]:
+def mark_websocket_handler[F: Callable[..., Any]](func: F) -> F:
     """Mark a function as a WebSocket handler.
 
     A bound method cannot hold an attribute. The mark goes on its function, and
     `is_websocket_handler` reads it through the method.
     """
-    getattr(func, "__func__", func)._is_websocket_handler = True
+    set_handler_attr(getattr(func, "__func__", func), "_is_websocket_handler", True)
     return func
 
 

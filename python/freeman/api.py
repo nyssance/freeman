@@ -11,16 +11,9 @@ import logging
 import os
 import re
 import threading
-from collections.abc import AsyncIterator, Callable, Collection, Sequence
+from collections.abc import AsyncGenerator, Callable, Collection, Sequence
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any, get_origin, get_type_hints
-
-# Django import - may fail if Django not configured
-try:
-    from django.conf import settings as django_settings
-except ImportError:
-    django_settings = None
-
 
 # Import local modules
 from django.conf import settings as django_settings
@@ -31,6 +24,7 @@ from django.db.models import QuerySet
 
 from . import _core, _json
 from ._bridge import make_bound_dispatch
+from ._handler_attrs import set_handler_attr
 from ._kwargs import compile_argument_injector, compile_binder, compile_websocket_binder, field_has_upload_file
 from ._pydantic import refuse_msgspec_model
 from .admin.routes import AdminRouteRegistrar
@@ -106,13 +100,15 @@ from .serialization import (
     serialize_response,
     serialize_response_sync,
 )
-from .typing import HandlerMetadata, HandlerPattern
+from .typing import HandlerFunction, HandlerMetadata, HandlerPattern
 from .views import APIView, _layer
 from .websocket import mark_websocket_handler
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from types import EllipsisType
+
     from .request import Request
 
 # The route takes its response type from the return annotation.
@@ -257,7 +253,7 @@ def _request_only_sync_executor(is_async: bool, meta: HandlerMetadata, defer: Ca
     return execute
 
 
-def _check_wrapper_takes_handler_arguments(fn: Callable) -> None:
+def _check_wrapper_takes_handler_arguments(fn: HandlerFunction) -> None:
     """Refuse a decorated handler whose wrapper cannot take the arguments of the handler.
 
     Bolt reads the parameters of the wrapped function and calls the wrapper with them.
@@ -293,7 +289,7 @@ def _check_wrapper_takes_handler_arguments(fn: Callable) -> None:
         ) from exc
 
 
-def _route_handler(fn: Any) -> Callable:
+def _route_handler(fn: Any) -> HandlerFunction:
     """Return the callable that a route registers for `fn`.
 
     Registration reads the name, the module, the type hints and the code of a
@@ -640,7 +636,7 @@ def _wire_from_error_parts(status: int, headers: list[tuple[str, str]], body: by
 
 
 @contextlib.asynccontextmanager
-async def run_lifespans(source_lifespans: list[tuple[BoltAPI, Callable]]) -> AsyncIterator[None]:
+async def run_lifespans(source_lifespans: list[tuple[BoltAPI, Callable]]) -> AsyncGenerator[None]:
     """Enter every lifespan context in *source_lifespans*.
 
     Each ``(api, lifespan_ctx)`` pair is entered in order; teardown runs in
@@ -731,7 +727,7 @@ class BoltAPI:
         self._error_formatter = error_formatter
         self._routes: list[tuple[str, str, int, Callable]] = []
         # Handler IDs whose lane affinity error was logged with its fix, one time each.
-        self._lane_affinity_hinted: set[int] = set()
+        self._lane_affinity_hinted: set[int | None] = set()
         self._websocket_routes: list[tuple[str, int, Callable]] = []  # (path, handler_id, handler)
         self._handlers: dict[int, Callable] = {}
         # OPTIMIZATION: Use handler_id (int) as key instead of callable
@@ -1251,7 +1247,7 @@ class BoltAPI:
     ):
         """Internal decorator for WebSocket routes."""
 
-        def decorator(fn: Callable) -> Callable:
+        def decorator(fn: HandlerFunction) -> HandlerFunction:
             # Ensure handler is async
             if not inspect.iscoroutinefunction(fn):
                 raise TypeError(f"WebSocket handler '{fn.__qualname__}' must be an async function")
@@ -1349,7 +1345,7 @@ class BoltAPI:
 
             return fn
 
-        def normalizing_decorator(fn: Callable):
+        def normalizing_decorator(fn: Any):
             # Register the normalized handler. Return the object that the caller gave.
             decorator(_route_handler(fn))
             return fn
@@ -1438,24 +1434,24 @@ class BoltAPI:
 
                 # Merge guards: route-level overrides class-level
                 merged_guards = guards
-                if merged_guards is None and hasattr(handler, "__bolt_guards__"):
-                    merged_guards = handler.__bolt_guards__
+                if merged_guards is None:
+                    merged_guards = getattr(handler, "__bolt_guards__", None)
 
                 # Merge auth: route-level overrides class-level
                 merged_auth = auth
-                if merged_auth is None and hasattr(handler, "__bolt_auth__"):
-                    merged_auth = handler.__bolt_auth__
+                if merged_auth is None:
+                    merged_auth = getattr(handler, "__bolt_auth__", None)
 
                 # Merge status_code: route-level overrides class-level
                 merged_status_code = status_code
-                if merged_status_code is None and hasattr(handler, "__bolt_status_code__"):
-                    merged_status_code = handler.__bolt_status_code__
+                if merged_status_code is None:
+                    merged_status_code = getattr(handler, "__bolt_status_code__", None)
 
                 merged_validate_response = validate_response
                 if merged_validate_response is None:
                     merged_validate_response = getattr(handler, "validate_response", None)
-                if merged_validate_response is None and hasattr(handler, "__bolt_validate_response__"):
-                    merged_validate_response = handler.__bolt_validate_response__
+                if merged_validate_response is None:
+                    merged_validate_response = getattr(handler, "__bolt_validate_response__", None)
 
                 # A view's methods all share one path, so the name applies to each.
                 # When unnamed, fall back to the verbatim class name and mark it
@@ -1512,7 +1508,7 @@ class BoltAPI:
                 f"from {_MIN_RESPONSE_STATUS} to {_MAX_RESPONSE_STATUS}, got {status_code}"
             )
 
-        def decorator(fn: Callable):
+        def decorator(fn: HandlerFunction):
             _check_wrapper_takes_handler_arguments(fn)
 
             # Detect if handler is async or sync
@@ -1601,7 +1597,7 @@ class BoltAPI:
                 getattr(fn, "__bolt_middleware__", []), context="route", allow_function_middleware=True
             )
             if route_middleware or hasattr(fn, "__bolt_middleware__"):
-                fn.__bolt_middleware__ = route_middleware
+                set_handler_attr(fn, "__bolt_middleware__", route_middleware)
 
             router_middleware = normalize_middleware_specs(_router_middleware, context="router")
 
@@ -1721,14 +1717,14 @@ class BoltAPI:
             if getattr(fn, "__paginated__", False) and final_response_type is not None:
                 item_type = extract_pagination_item_type(final_response_type)
                 if item_type is not None:
-                    fn.__bolt_item_type__ = item_type
+                    set_handler_attr(fn, "__bolt_item_type__", item_type)
                     # For APIView methods wrapped by as_view(), also set on the original handler
                     original = getattr(fn, "__original_handler__", None)
                     if original is not None:
-                        original.__bolt_item_type__ = item_type
+                        set_handler_attr(original, "__bolt_item_type__", item_type)
                     # The wire shape is the pagination envelope, not the item
                     # list: validate and document ``response_class[item]``.
-                    meta["response_type"] = envelope_type(fn.__pagination_class__, item_type)
+                    meta["response_type"] = envelope_type(fn.__pagination_class__, item_type)  # ty: ignore[missing-attribute] - @paginate sets it with __paginated__
 
             # Guarantee all keys exist at registration time for direct access
             if meta["is_multi_response"]:
@@ -1751,7 +1747,7 @@ class BoltAPI:
             # avoiding a full dict(meta) copy (~25 keys) per status code entry.
             # Keys needed: response_type, default_status_code, is_multi_response.
             if meta["is_multi_response"]:
-                resolved_metas: dict[int | type(...), dict] = {}
+                resolved_metas: dict[int | EllipsisType, dict] = {}
                 handler_default_status = meta["default_status_code"]
                 # Per-status bodies are not validated. A Pydantic model of a
                 # status still decides which fields go out, so it checks them.
@@ -1904,7 +1900,7 @@ class BoltAPI:
 
             return fn
 
-        def normalizing_decorator(fn: Callable):
+        def normalizing_decorator(fn: Any):
             # Register the normalized handler. Return the object that the caller gave.
             decorator(_route_handler(fn))
             return fn
@@ -1947,13 +1943,11 @@ class BoltAPI:
             if getattr(dep_needs, needs_key):
                 meta[needs_key] = True
 
-    def _compile_websocket_binder(self, fn: Callable, path: str) -> HandlerMetadata:
+    def _compile_websocket_binder(self, fn: HandlerFunction, path: str) -> HandlerMetadata:
         """Delegate to compile_websocket_binder in api_compilation module."""
         return compile_websocket_binder(fn, path)
 
-    def _compile_argument_injector(
-        self, meta: HandlerMetadata
-    ) -> Callable[[dict[str, Any]], tuple[list[Any], dict[str, Any]]]:
+    def _compile_argument_injector(self, meta: HandlerMetadata) -> Callable[[Request], Any]:
         """Delegate to compile_argument_injector in api_compilation module."""
         return compile_argument_injector(meta, self._handler_meta, self._compile_binder)
 
@@ -2505,7 +2499,9 @@ class BoltAPI:
             return None
         return functools.partial(render_core_error, self._error_formatter)
 
-    def _describe_lane_affinity_error(self, error: LaneAffinityError, handler: Callable, handler_id: int) -> None:
+    def _describe_lane_affinity_error(
+        self, error: LaneAffinityError, handler: Callable, handler_id: int | None
+    ) -> None:
         """Add the route and the handler to the message. In dev mode, log the fix one time per route.
 
         The read of ``request.user`` can be indirect, for example in a template,
@@ -2559,7 +2555,7 @@ class BoltAPI:
             raise
 
     def _chain_error_response(
-        self, handler: Callable, meta: dict[str, Any], error: Exception, request: Any
+        self, handler: Callable, meta: HandlerMetadata, error: Exception, request: Any
     ) -> MiddlewareResponse:
         """Return the error response for an exception that reaches a Django middleware.
 
@@ -2733,13 +2729,13 @@ class BoltAPI:
         return chain
 
     async def _execute_handler_as_middleware_response(
-        self, handler: Callable, request: Request, meta: dict[str, Any]
+        self, handler: Callable, request: Request, meta: HandlerMetadata
     ) -> MiddlewareResponse:
         """Execute handler using middleware semantics and return MiddlewareResponse."""
         response_tuple = await meta["_handler_executor"](handler, request)
         return MiddlewareResponse.from_tuple(response_tuple)
 
-    def _build_route_executor(self, handler: Callable, meta: dict[str, Any]) -> Callable[[Any], Any]:
+    def _build_route_executor(self, handler: Callable, meta: HandlerMetadata) -> Callable[[Any], Any]:
         """Build the route executor of one route (router+route middleware + handler)."""
         # Registration normalized both lists.
         route_specs = [*meta["_router_middleware"], *meta["_route_middleware"]]
@@ -2782,7 +2778,7 @@ class BoltAPI:
 
         return chain
 
-    def _get_route_executor(self, handler: Callable, meta: dict[str, Any]) -> Callable[[Any], Any]:
+    def _get_route_executor(self, handler: Callable, meta: HandlerMetadata) -> Callable[[Any], Any]:
         """Get or lazily build the cached route executor of a route.
 
         The key is the metadata of the route, not the handler. The route keeps
@@ -2864,7 +2860,8 @@ class BoltAPI:
         request_state["_route_meta"] = meta
         request_state["_bolt_route_executor"] = self._get_route_executor(handler, meta)
 
-        middleware_response = await middleware_chain(request)
+        # Set once _middleware_chain_built is true; ty does not relate the flag to the chain.
+        middleware_response = await middleware_chain(request)  # ty: ignore[not-callable]
         if isinstance(middleware_response, MiddlewareResponse):
             return middleware_response.to_tuple()
         if isinstance(middleware_response, tuple):
@@ -2913,7 +2910,7 @@ class BoltAPI:
             return True
         return False
 
-    async def _dispatch(self, handler: Callable, request: Request, handler_id: int = None) -> Response:
+    async def _dispatch(self, handler: Callable, request: Request, handler_id: int | None = None) -> Response:
         """
         Optimized async dispatch that calls the handler and returns response tuple.
 
@@ -2987,7 +2984,7 @@ class BoltAPI:
                     with suppress(Exception):  # pragma: no mutate
                         upload.close_sync()
 
-    def _dispatch_sync(self, handler: Callable, request: Request, handler_id: int = None) -> Response:
+    def _dispatch_sync(self, handler: Callable, request: Request, handler_id: int | None = None) -> Response:
         """
         Synchronous dispatch for sync handlers without middleware/signals.
 
@@ -3052,7 +3049,7 @@ class BoltAPI:
                     with suppress(Exception):  # pragma: no mutate
                         upload.close_sync()
 
-    async def _serialize_on_orm_pool(self, result: QuerySet, meta: dict[str, Any], request: Request) -> Response:
+    async def _serialize_on_orm_pool(self, result: QuerySet, meta: HandlerMetadata, request: Request) -> Response:
         """Load the rows of a QuerySet from a sync executor on the ORM pool, then serialize them.
 
         Rust calls this on the worker loop when a sync executor returns it. Errors
@@ -3358,7 +3355,7 @@ class BoltAPI:
 
         # Django's ASGIHandler serves HTTP only. Keep WebSocket connections off it.
         if isinstance(asgi_app, ASGIHandler):
-            django_mount_wrapper._bolt_http_only = True
+            set_handler_attr(django_mount_wrapper, "_bolt_http_only", True)
 
         self.mount_asgi(path, django_mount_wrapper)
 

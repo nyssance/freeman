@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections.abc import Callable
-from typing import Annotated, Any, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Annotated, Any, get_args, get_origin, get_type_hints
 
 from .._pydantic import is_pydantic_model, param_fields, refuse_msgspec_model
 from ..analysis import annotation_globals, resolve_introspection_target
@@ -36,6 +36,9 @@ from ..typing import (
 from ..websocket import WebSocket as WebSocketType
 from .extractors import create_extractor_for_field
 from .runtime import extract_path_params
+
+if TYPE_CHECKING:
+    from ..request import Request
 
 # Positional parameter kinds — resolved ONCE at registration. Injector plans
 # store a precomputed bool instead of re-checking inspect.Parameter kinds on
@@ -280,7 +283,7 @@ def compile_binder(fn: Callable, http_method: str, path: str) -> HandlerMetadata
     if http_method in ("GET", "HEAD", "DELETE", "OPTIONS") and body_fields:
         param_names = [f.name for f in body_fields]
         raise TypeError(
-            f"Handler {fn.__name__} for {http_method} {path} cannot have body parameters.\n"
+            f"Handler {getattr(fn, '__name__', type(fn).__name__)} for {http_method} {path} cannot have body parameters.\n"
             f"Found body parameters: {param_names}\n"
             f"Solutions:\n"
             f"  1. Change HTTP method to POST/PUT/PATCH\n"
@@ -451,7 +454,7 @@ def _injector_no_params(request: Any) -> tuple[tuple[()], dict[str, Any]]:
 
 def compile_argument_injector(
     meta: HandlerMetadata, handler_meta_dict: dict[Any, HandlerMetadata], compile_binder_fn: Callable
-) -> Callable[[dict[str, Any]], tuple[list[Any], dict[str, Any]]]:
+) -> Callable[[Request], Any]:
     """
     Compile a specialized argument injector function for a handler.
 
@@ -483,7 +486,7 @@ def compile_argument_injector(
     # Fast path 1: Request-only mode (single request parameter)
     if mode == "request_only":
 
-        def injector_request_only(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+        def injector_request_only(request: Request) -> tuple[list[Any], dict[str, Any]]:
             return ([request], {})
 
         return injector_request_only
@@ -498,7 +501,7 @@ def compile_argument_injector(
         # Pre-compute extractors list for direct access
         extractors = [(f.extractor, f.kind in _POSITIONAL_KINDS, f.name) for f in fields]
 
-        def injector_path_only(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+        def injector_path_only(request: Request) -> tuple[list[Any], dict[str, Any]]:
             params_map = request["params"]
             args: list[Any] = []
             kwargs: dict[str, Any] = {}
@@ -516,7 +519,7 @@ def compile_argument_injector(
     if pattern is HandlerPattern.QUERY_ONLY:
         extractors = [(f.extractor, f.kind in _POSITIONAL_KINDS, f.name) for f in fields]
 
-        def injector_query_only(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+        def injector_query_only(request: Request) -> tuple[list[Any], dict[str, Any]]:
             query_map = request["query"]
             args: list[Any] = []
             kwargs: dict[str, Any] = {}
@@ -539,14 +542,14 @@ def compile_argument_injector(
 
         if is_positional:
 
-            def injector_body_only_positional(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+            def injector_body_only_positional(request: Request) -> tuple[list[Any], dict[str, Any]]:
                 body_bytes = request["body"]
                 return ([body_extractor(body_bytes)], {})
 
             return injector_body_only_positional
         else:
 
-            def injector_body_only_kwarg(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+            def injector_body_only_kwarg(request: Request) -> tuple[list[Any], dict[str, Any]]:
                 body_bytes = request["body"]
                 return ([], {field_name: body_extractor(body_bytes)})
 
@@ -560,7 +563,7 @@ def compile_argument_injector(
         _path_fields = [(f.extractor, f.kind in _POSITIONAL_KINDS, f.name) for f in fields if f.source == "path"]
         _query_fields = [(f.extractor, f.kind in _POSITIONAL_KINDS, f.name) for f in fields if f.source == "query"]
 
-        def injector_simple(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+        def injector_simple(request: Request) -> tuple[list[Any], dict[str, Any]]:
             args: list[Any] = []
             kwargs: dict[str, Any] = {}
 
@@ -671,7 +674,7 @@ def compile_argument_injector(
             # Every dependency is sync, so the injector needs no event loop. A sync
             # handler then keeps sync dispatch and lane dispatch, and an async handler
             # keeps its fast path.
-            def injector_with_sync_deps(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+            def injector_with_sync_deps(request: Request) -> tuple[list[Any], dict[str, Any]]:
                 params_map = request["params"] if needs_path_params else _EMPTY_DICT
                 query_map = request["query"] if needs_query else _EMPTY_DICT
                 headers_map = request.get("headers", _EMPTY_DICT) if needs_headers else _EMPTY_DICT
@@ -733,7 +736,7 @@ def compile_argument_injector(
 
             return injector_with_sync_deps
 
-        async def injector_with_deps(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+        async def injector_with_deps(request: Request) -> tuple[list[Any], dict[str, Any]]:
             """Optimized argument injector with dependency support."""
             params_map = request["params"] if needs_path_params else _EMPTY_DICT
             query_map = request["query"] if needs_query else _EMPTY_DICT
@@ -892,7 +895,7 @@ def compile_argument_injector(
         else:
             _extraction_plan.append((src_id, f.extractor, f.kind in _POSITIONAL_KINDS, f.name, False))
 
-    def injector_full(request: dict[str, Any]) -> tuple[list[Any], dict[str, Any]]:
+    def injector_full(request: Request) -> tuple[list[Any], dict[str, Any]]:
         """Full injector with pre-compiled extraction plan."""
         args: list[Any] = []
         kwargs: dict[str, Any] = {}

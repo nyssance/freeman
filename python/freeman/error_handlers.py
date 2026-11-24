@@ -17,6 +17,7 @@ import msgspec
 from pydantic import BaseModel
 
 from . import _json
+from ._handler_attrs import set_handler_attr
 from ._pydantic import NO_FIELD_TITLES, refuse_msgspec_model
 from .exceptions import (
     HTTPException,
@@ -437,7 +438,7 @@ def error_schema[F: Callable[..., Any]](schema: Any, *, media_type: str = "appli
 
     def decorate(formatter: F) -> F:
         refuse_msgspec_model(schema, "error_schema", getattr(formatter, "__qualname__", repr(formatter)))
-        formatter.__bolt_error_schema__ = _ErrorSchema(schema, media_type)
+        set_handler_attr(formatter, "__bolt_error_schema__", _ErrorSchema(schema, media_type))
         return formatter
 
     return decorate
