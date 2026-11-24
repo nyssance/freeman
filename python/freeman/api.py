@@ -1724,7 +1724,7 @@ class BoltAPI:
                         set_handler_attr(original, "__bolt_item_type__", item_type)
                     # The wire shape is the pagination envelope, not the item
                     # list: validate and document ``response_class[item]``.
-                    meta["response_type"] = envelope_type(fn.__pagination_class__, item_type)  # ty: ignore[missing-attribute] - @paginate sets it with __paginated__
+                    meta["response_type"] = envelope_type(fn.__pagination_class__, item_type)
 
             # Guarantee all keys exist at registration time for direct access
             if meta["is_multi_response"]:
@@ -2204,7 +2204,7 @@ class BoltAPI:
             _inline_spec = meta.get("_inline_response_validator")
             if _inline_spec is not None:
                 # compile_response_handlers sets the encoder with the inline validator.
-                _encode: Callable[[Any], bytes] = meta["_inline_encode"]  # ty: ignore[invalid-assignment]
+                _encode: Callable[[Any], bytes] = meta["_inline_encode"]
                 _meta_json = _RESPONSE_META_JSON
                 _match_types = _inline_spec
 
@@ -2364,7 +2364,7 @@ class BoltAPI:
             _inline_spec = meta.get("_inline_response_validator")
             if _inline_spec is not None:
                 # compile_response_handlers sets the encoder with the inline validator.
-                _encode: Callable[[Any], bytes] = meta["_inline_encode"]  # ty: ignore[invalid-assignment]
+                _encode: Callable[[Any], bytes] = meta["_inline_encode"]
                 _meta_json = _RESPONSE_META_JSON
                 _match_types = _inline_spec
 
@@ -2861,7 +2861,7 @@ class BoltAPI:
         request_state["_bolt_route_executor"] = self._get_route_executor(handler, meta)
 
         # Set once _middleware_chain_built is true; ty does not relate the flag to the chain.
-        middleware_response = await middleware_chain(request)  # ty: ignore[not-callable]
+        middleware_response = await middleware_chain(request)
         if isinstance(middleware_response, MiddlewareResponse):
             return middleware_response.to_tuple()
         if isinstance(middleware_response, tuple):

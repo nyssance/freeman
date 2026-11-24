@@ -79,7 +79,9 @@ class BoltAPI(_RealBoltAPI):
         if module is None:
             frame = inspect.currentframe()
             try:
-                module = frame.f_back.f_globals.get("__name__", "__main__")
+                # currentframe() is None on an interpreter without stack frame support.
+                caller = frame.f_back if frame is not None else None
+                module = caller.f_globals.get("__name__", "__main__") if caller is not None else "__main__"
             finally:
                 # Drop the frame ref before super().__init__ to avoid a cycle.
                 del frame
@@ -172,7 +174,7 @@ def django_pre_setup(app: Django) -> None:
 
 
 @hookimpl
-def convert_build_settings(converter: Converter, resolver: Resolver, settings_ast: ast.AST) -> None:
+def convert_build_settings(converter: Converter, resolver: Resolver, settings_ast: ast.Module) -> None:
     """
     Add ``freeman`` to INSTALLED_APPS in the generated settings.py.
     """

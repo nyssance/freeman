@@ -1,7 +1,8 @@
 """Type stub for the Rust extension module ``freeman._core`` (src/lib.rs)."""
 
 import datetime
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from collections.abc import Set as AbstractSet
 from os import PathLike
 from typing import Any, final
 
@@ -17,7 +18,7 @@ type _WebSocketRouteSpec = tuple[str, int, Any, Any | None]
 # Response helpers
 
 def format_cookie_date(value: datetime.datetime) -> str: ...
-def resolve_response_file(path: str | PathLike[str], allowed: list[str | PathLike[str]] | None) -> str: ...
+def resolve_response_file(path: str | PathLike[str], allowed: Sequence[str | PathLike[str]] | None) -> str: ...
 def populate_response_cookies(cookies: Any, rows: Any) -> None: ...
 
 # Request
@@ -110,7 +111,7 @@ def stop_idle_lanes() -> None: ...
 class GuardCheck:
     def __new__(cls, guards: list[dict[str, Any]]) -> GuardCheck: ...
     def check(
-        self, user_id: str | None, is_staff: bool, is_superuser: bool, permissions: set[str]
+        self, user_id: str | None, is_staff: bool, is_superuser: bool, permissions: AbstractSet[str]
     ) -> tuple[int, bytes] | None: ...
 
 # Production server

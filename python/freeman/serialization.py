@@ -593,7 +593,7 @@ def _to_stream_wire(stream_response: StreamingResponse) -> ResponseWireV1:
 def _build_auto_streaming_response(
     result: Any,
     stream_info: tuple[bool, Any | None],
-    meta: HandlerMetadata | dict[str, Any],
+    meta: HandlerMetadata,
     status_code: int,
     response_class: type | None = None,
 ) -> StreamingResponse | None:

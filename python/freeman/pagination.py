@@ -223,7 +223,7 @@ class PaginationBase(ABC):
     # Envelope type: a generic Pydantic model taking the item type
     # (``response_class[Item]``). Drives the OpenAPI schema and response
     # validation; override together with build_response() for a custom shape.
-    response_class: type = Page
+    response_class: type[BaseModel] = Page
 
     def build_response(
         self, items: list[Any], *, total: int, request: Any, has_next: bool, has_previous: bool, **info: Any
@@ -437,7 +437,7 @@ class PageNumberPagination(PaginationBase):
 
     page_size: int = 100
     max_page_size: int = 1000
-    page_size_query_param: str = "page_size"
+    page_size_query_param: str | None = "page_size"
 
     async def get_page_params(self, request: Request) -> dict[str, Any]:
         """Extract page number and page_size from request."""
@@ -632,7 +632,7 @@ class CursorPagination(PaginationBase):
 
     page_size: int = 100
     max_page_size: int = 1000
-    page_size_query_param: str = "page_size"
+    page_size_query_param: str | None = "page_size"
     ordering: str = "-id"  # Default ordering field
 
     def _encode_cursor(self, value: Any, pk: Any = None) -> str:

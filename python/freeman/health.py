@@ -115,7 +115,7 @@ async def ready_handler() -> dict[str, Any]:
     if healthy:
         return results
     # The annotation documents the 200 body. Bolt sends a response object as it is.
-    return JSON(results, status_code=503)  # ty: ignore[invalid-explicit-return]
+    return JSON(results, status_code=503)
 
 
 def register_health_checks(api) -> None:

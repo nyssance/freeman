@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import re
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from http import HTTPStatus
 from typing import Any
 
@@ -159,7 +159,7 @@ def _format_validation_errors(errors: Any, loc: str) -> list[dict[str, Any]]:
     return formatted_errors
 
 
-def _log_response_validation_error(exc: ResponseValidationError, errors: list[dict[str, Any]]) -> None:
+def _log_response_validation_error(exc: ResponseValidationError, errors: Sequence[Any]) -> None:
     # Response validation errors show bugs in the return values of handlers.
     logger.error("Response Validation Error: Handler returned invalid response. Errors: %s", errors, exc_info=exc)
 

@@ -432,7 +432,7 @@ def split_param_annotation(annotation: Any, default: Any = None) -> tuple[Any, A
     ):
         return base, marker
     # The metadata is known only at run time.
-    constrained = Annotated[(inner, *constraints)]  # ty: ignore[invalid-type-form]
+    constrained = Annotated[(inner, *constraints)]
     if is_optional(base):
         constrained = constrained | None
     # Check the constraints at registration. Else each request fails with a TypeError.
@@ -658,11 +658,11 @@ class FieldDefinition:
     @property
     def is_optional(self) -> bool:
         """Check if parameter is optional (has default or Optional type)."""
-        if self._is_optional is None:
-            object.__setattr__(
-                self, "_is_optional", self.default is not inspect.Parameter.empty or is_optional(self.annotation)
-            )
-        return self._is_optional  # type: ignore
+        value = self._is_optional
+        if value is None:
+            value = self.default is not inspect.Parameter.empty or is_optional(self.annotation)
+            object.__setattr__(self, "_is_optional", value)
+        return value
 
     @property
     def is_required(self) -> bool:
@@ -672,10 +672,11 @@ class FieldDefinition:
     @property
     def is_simple_type(self) -> bool:
         """Check if parameter type is simple (str, int, etc.)."""
-        if self._is_simple is None:
-            unwrapped = self.unwrapped_annotation
-            object.__setattr__(self, "_is_simple", is_simple_type(unwrapped))
-        return self._is_simple  # type: ignore
+        value = self._is_simple
+        if value is None:
+            value = is_simple_type(self.unwrapped_annotation)
+            object.__setattr__(self, "_is_simple", value)
+        return value
 
     @property
     def unwrapped_annotation(self) -> Any:

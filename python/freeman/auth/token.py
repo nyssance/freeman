@@ -8,9 +8,12 @@ token creation and inspection.
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import jwt
+
+if TYPE_CHECKING:
+    from jwt.types import Options
 
 
 def _normalize_datetime(value: datetime) -> datetime:
@@ -251,7 +254,7 @@ class Token:
             ValueError: If token is invalid or verification fails
         """
         try:
-            options = {
+            options: Options = {
                 "verify_signature": True,
                 "verify_exp": verify_exp,
                 "verify_nbf": verify_nbf,

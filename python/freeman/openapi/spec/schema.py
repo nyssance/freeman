@@ -672,7 +672,7 @@ class Schema(BaseSchemaObject):
         for field_def in fields(cls):
             if field_def.metadata is not None and (field_alias := field_def.metadata.get("alias")):
                 retval[field_alias] = field_def.name
-        cls._field_aliases = retval  # type: ignore[attr-defined]
+        cls._field_aliases = retval
         return retval
 
 

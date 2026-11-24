@@ -367,7 +367,7 @@ async def submit_report(
     mission_id: int,
     title: Annotated[str, Form()],
     summary: Annotated[str, Form()] = "",
-    attachments: Annotated[list[dict], File(alias="file")] = None,
+    attachments: Annotated[list[dict] | None, File(alias="file")] = None,
 ) -> MissionReportResponse:
     """Submit a mission report with optional attachments."""
     if attachments is None:

@@ -99,12 +99,12 @@ def _compile_dep_arg_plan(
             name,
             marker,
             # Checked above: each nested marker has a callable, and so has its sync form.
-            compile_dependency(marker.dependency, handler_meta, compile_binder, http_method, path),  # ty: ignore[invalid-argument-type]
+            compile_dependency(marker.dependency, handler_meta, compile_binder, http_method, path),
         ))
         nested_sync.append((
             name,
             sync_marker,
-            compile_dependency(sync_marker.dependency, handler_meta, compile_binder, http_method, path),  # ty: ignore[invalid-argument-type]
+            compile_dependency(sync_marker.dependency, handler_meta, compile_binder, http_method, path),
         ))
     dep_meta["_is_async_dep"] = is_async_dependency(dep_fn)
     dep_meta["_is_request_only_dep"] = dep_meta.get("mode") == "request_only"
@@ -410,7 +410,7 @@ def _bind_dependency_args(
             dval = extractor(cookies_map)
         elif src == _SRC_DEPENDENCY:
             # A plan with a dependency comes with its values.
-            dval = nested_values[name]  # ty: ignore[not-subscriptable]
+            dval = nested_values[name]
         elif src == _SRC_BODY:
             dval = decode_body_once(dep_cache, extractor, request["body"])
         elif src == _SRC_FORM:

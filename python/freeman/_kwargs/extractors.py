@@ -14,7 +14,7 @@ from collections.abc import Callable
 from typing import Annotated, Any, Literal, get_args, get_origin
 
 import msgspec
-from pydantic import Field, ValidationError, create_model
+from pydantic import BaseModel, Field, ValidationError, create_model
 
 from .._handler_attrs import set_handler_attr
 from .._pydantic import adapter_for, is_pydantic_model, param_fields
@@ -153,7 +153,7 @@ def _bytes_items(inner: Any, is_sequence: bool) -> bool | frozenset[int] | None:
     return frozenset(position for position, found in enumerate(is_bytes) if found) or None
 
 
-def _encode_items(values: list[Any], items: bool | frozenset[int]) -> list[Any]:
+def _encode_items(values: list[Any], items: Literal[True] | frozenset[int]) -> list[Any]:
     """Encode the text items of a sequence that ``_bytes_items`` names."""
     if items is True:
         return [value.encode() if type(value) is str else value for value in values]
@@ -503,7 +503,7 @@ def _header_name(key: str) -> str:
     return key.lower().replace("_", "-")
 
 
-def _pydantic_validator(model: type, source: str, locs: dict[str, str] | None = None) -> Callable:
+def _pydantic_validator(model: type[BaseModel], source: str, locs: dict[str, str] | None = None) -> Callable:
     """Validate the collected values with the model, and raise one 422 with every error.
 
     The values are text, or lists of text for a sequence field. Pydantic in lax
@@ -601,7 +601,9 @@ def _convert_literal_texts(
     return converted
 
 
-def _create_pydantic_param_extractor(model: type, default: Any, source: str, other_keys: frozenset[str]) -> Callable:
+def _create_pydantic_param_extractor(
+    model: type[BaseModel], default: Any, source: str, other_keys: frozenset[str]
+) -> Callable:
     """Create an extractor that validates a Pydantic model from the query or the cookies.
 
     The model gets the map of its source. A model that does not ignore extra
@@ -632,7 +634,7 @@ def _create_pydantic_param_extractor(model: type, default: Any, source: str, oth
     return _or_model_default(extract, default, keys, needs_files=False)
 
 
-def _create_pydantic_form_extractor(model: type, default: Any, other_keys: frozenset[str]) -> Callable:
+def _create_pydantic_form_extractor(model: type[BaseModel], default: Any, other_keys: frozenset[str]) -> Callable:
     """Create an extractor that validates a Pydantic model from the form fields and the file parts.
 
     The ``loc`` of an error starts with ``body``, as for a form struct. A text
@@ -693,7 +695,7 @@ def _create_pydantic_form_extractor(model: type, default: Any, other_keys: froze
     return _or_model_default(extract_with_files, default, keys, needs_files=True)
 
 
-def _create_pydantic_header_extractor(model: type, default: Any) -> Callable:
+def _create_pydantic_header_extractor(model: type[BaseModel], default: Any) -> Callable:
     """Create an extractor that validates a Pydantic model from the headers.
 
     Each field reads the header of its key, as a header parameter does. The

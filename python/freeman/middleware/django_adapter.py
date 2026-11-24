@@ -72,7 +72,7 @@ try:
         # Django maps these two errors to a 400 response. Bolt maps SuspiciousOperation to 400.
         def _set_content_type_params(self, meta):
             try:
-                super()._set_content_type_params(meta)  # ty: ignore[missing-attribute] - private Django method, not in django-stubs
+                super()._set_content_type_params(meta)
             except BadRequest as exc:
                 raise SuspiciousOperation(str(exc)) from exc
 
@@ -99,8 +99,8 @@ try:
             self._files = files
 
         # Lazy, as in WSGIRequest. django-stubs declare plain attributes.
-        POST = property(_get_post, _set_post)  # ty: ignore[invalid-assignment]
-        FILES = property(_get_files, _set_files)  # ty: ignore[invalid-assignment]
+        POST = property(_get_post, _set_post)
+        FILES = property(_get_files, _set_files)
 
     DJANGO_AVAILABLE = True
 except ImportError:
@@ -189,7 +189,7 @@ async def _run_request_affine(call: Callable, request: Request) -> Response | Mi
     context = ThreadSensitiveContext()
     lane = RequestLane()
     # asgiref only calls submit() of the executor, which the lane has.
-    SyncToAsync.context_to_thread_executor[context] = lane  # ty: ignore[invalid-assignment]
+    SyncToAsync.context_to_thread_executor[context] = lane
     token = SyncToAsync.thread_sensitive_context.set(context)
     try:
         return await call(request)
@@ -290,7 +290,7 @@ class DjangoMiddleware:
         _check_capabilities(self.middleware_class)
 
         self.init_kwargs = init_kwargs
-        self.get_response = None  # ty: ignore[invalid-assignment] - not built yet
+        self.get_response = None
         self._middleware_instance = None
         self._middleware_is_async = None
         self._sync_call_override = False
@@ -490,7 +490,7 @@ class DjangoMiddleware:
         try:
             if in_lane_mode():
                 # Lane mode runs only a middleware that supports it, which built the lane instance.
-                django_response = self._lane_instance(django_request)  # ty: ignore[not-callable]
+                django_response = self._lane_instance(django_request)
             elif self._sync_call_override:
                 # The bound method has no coroutine mark, where the instance has one.
                 django_response = await sync_to_async(self._middleware_instance.__call__, thread_sensitive=True)(
@@ -754,7 +754,7 @@ class DjangoMiddlewareStack:
         for middleware in middleware_classes:
             _check_capabilities(middleware)
         self.middleware_classes = middleware_classes
-        self.get_response = None  # ty: ignore[invalid-assignment] - not built yet
+        self.get_response = None
         self._django_hook_middleware = []  # Django built-in: direct calls
         self._thirdparty_hook_middleware = []  # Third-party: sync_to_async
         self._call_middleware_chain = None  # __call__-only: sync chain
@@ -809,7 +809,7 @@ class DjangoMiddlewareStack:
             return None
         if hook is raw or in_lane_mode():
             return raw(*args)
-        return await hook(*args)  # ty: ignore[not-callable] - set whenever raw is set
+        return await hook(*args)
 
     def _create_middleware_instance(self, get_response: _ChainCall) -> None:
         """
@@ -1062,7 +1062,7 @@ class DjangoMiddlewareStack:
 
                 async def call_layer(django_request, *, _call_layer=call_layer_async):
                     if in_lane_mode():
-                        return _call_layer.func(django_request)  # ty: ignore[missing-union-attribute] - a SyncToAsync
+                        return _call_layer.func(django_request)
                     return await _call_layer(django_request)
 
             chain = call_layer
@@ -1138,7 +1138,7 @@ class DjangoMiddlewareStack:
                 try:
                     if in_lane_mode():
                         # Built with _call_middleware_chain_async.
-                        django_response = self._call_middleware_chain(django_request)  # ty: ignore[not-callable]
+                        django_response = self._call_middleware_chain(django_request)
                     else:
                         django_response = await self._call_middleware_chain_async(django_request)
                 finally:
@@ -1197,7 +1197,7 @@ def _to_django_request(request: Request) -> HttpRequest:
     query_string = django_request.META["QUERY_STRING"]
     if query_string:
         # django-stubs type GET as immutable; Django's own handlers assign a QueryDict too.
-        django_request.GET = QueryDict(query_string, mutable=True)  # ty: ignore[invalid-assignment]
+        django_request.GET = QueryDict(query_string, mutable=True)
     else:
         django_request.GET = _get_empty_querydict()  # Reuse singleton (no allocation)
 
@@ -1421,10 +1421,10 @@ async def _stream_django_response(django_response: StreamingHttpResponse):
     try:
         # is_async tells which kind of iterator streaming_content is.
         if django_response.is_async:
-            async for chunk in django_response.streaming_content:  # ty: ignore[not-iterable]
+            async for chunk in django_response.streaming_content:
                 yield chunk
         else:
-            for chunk in django_response.streaming_content:  # ty: ignore[not-iterable]
+            for chunk in django_response.streaming_content:
                 yield chunk
     finally:
         django_response.close()

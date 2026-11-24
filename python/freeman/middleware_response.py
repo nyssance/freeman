@@ -96,21 +96,21 @@ class ResponseHeaders(dict[str, str]):
     def __contains__(self, name: object) -> bool:
         return isinstance(name, str) and super().__contains__(name.lower())
 
-    def __ior__(self, headers: Any) -> ResponseHeaders:  # type: ignore[override]
+    def __ior__(self, headers: Any) -> ResponseHeaders:
         self.update(headers)
         return self
 
     # Case-insensitive lookups take a str name only: a narrower signature than dict's.
-    def get(self, name: str, default: Any = None) -> Any:  # type: ignore[override]  # ty: ignore[incompatible-method-override]
+    def get(self, name: str, default: Any = None) -> Any:
         return super().get(name.lower(), default)
 
-    def pop(self, name: str, *default: Any) -> Any:  # type: ignore[override]  # ty: ignore[incompatible-method-override]
+    def pop(self, name: str, *default: Any) -> Any:
         return super().pop(name.lower(), *default)
 
-    def setdefault(self, name: str, default: str) -> str:  # type: ignore[override]
+    def setdefault(self, name: str, default: str) -> str:
         return super().setdefault(name.lower(), default)
 
-    def update(self, headers: Any = (), /, **more: str) -> None:  # type: ignore[override]
+    def update(self, headers: Any = (), /, **more: str) -> None:
         items = headers.items() if hasattr(headers, "items") else headers
         for name, value in items:
             self[name] = value

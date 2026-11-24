@@ -153,7 +153,7 @@ def missing_imports(tree: ast.AST) -> list[tuple[int, str]]:
     """Give (line, name) for each import from this repository that does not exist."""
     missing = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.level == 0 and _is_ours(node.module or ""):
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module is not None and _is_ours(node.module):
             if module_names(node.module) is None:
                 missing.append((node.lineno, node.module))
                 continue

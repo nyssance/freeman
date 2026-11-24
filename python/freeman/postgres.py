@@ -32,6 +32,7 @@ Call ``close_pools()`` on shutdown, from the ``lifespan`` of the API. A test run
 
 import asyncio
 from contextlib import AbstractAsyncContextManager
+from types import TracebackType
 from typing import Any
 
 from django.conf import settings
@@ -98,9 +99,11 @@ class _Connection(AbstractAsyncContextManager[AsyncConnection]):
         self._lease = (await pool(self._alias)).connection()
         return await self._lease.__aenter__()
 
-    async def __aexit__(self, *exc_info: object) -> bool | None:
+    async def __aexit__(
+        self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None
+    ) -> bool | None:
         assert self._lease is not None
-        return await self._lease.__aexit__(*exc_info)
+        return await self._lease.__aexit__(exc_type, exc, tb)
 
 
 def connection(alias: str = "default") -> AbstractAsyncContextManager[AsyncConnection]:

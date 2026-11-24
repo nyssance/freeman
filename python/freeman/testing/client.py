@@ -16,10 +16,14 @@ import threading
 import warnings
 import weakref
 from collections.abc import Iterator
+from types import TracebackType
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+from django.db import connections
 from httpx import Response
 
 from freeman import BoltAPI, _core
@@ -34,15 +38,6 @@ from freeman.testing.dbshare import SharedConnections
 from freeman.testing.server_exceptions import ServerExceptions, bound_dispatches
 
 logger = logging.getLogger(__name__)
-
-try:
-    from django.conf import settings
-    from django.core.exceptions import ImproperlyConfigured
-    from django.db import connections
-except ImportError:
-    settings = None  # type: ignore
-    ImproperlyConfigured = None  # type: ignore
-    connections = None  # type: ignore
 
 
 class BoltTestClientWarning(RuntimeWarning):
@@ -80,9 +75,7 @@ def _warn_if_inside_atomic_block() -> None:
     different connection object, thus the transaction of the test is not
     visible and there is nothing to detect.
     """
-    if connections is None or _atomic_block_warning_emitted.is_set():
-        return
-    if settings is None or not settings.configured:
+    if _atomic_block_warning_emitted.is_set() or not settings.configured:
         return
     try:
         open_aliases = [conn.alias for conn in connections.all(initialized_only=True) if conn.in_atomic_block]
@@ -463,14 +456,19 @@ class TestClient(httpx.Client):
                 self._release_app()
                 _close_server_connections()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
         """Exit context manager — runs lifespan shutdown, then cleans up test app."""
         try:
-            self._shut_down(exc_type, exc_val, exc_tb)
+            self._shut_down(exc_type, exc_value, traceback)
         except BaseException:
-            super().__exit__(exc_type, exc_val, exc_tb)
+            super().__exit__(exc_type, exc_value, traceback)
             raise
-        return super().__exit__(exc_type, exc_val, exc_tb)
+        return super().__exit__(exc_type, exc_value, traceback)
 
     def close(self) -> None:
         """Close the client and release its native test app.
@@ -488,10 +486,10 @@ class TestClient(httpx.Client):
         response._iter_content = lambda chunk_size=1024, decode_unicode=False: self._iter_response_content(
             response.content, chunk_size, decode_unicode
         )
-        response.iter_content = response._iter_content  # type: ignore
+        response.iter_content = response._iter_content
 
         response._iter_lines = lambda decode_unicode=True: self._iter_response_lines(response.content, decode_unicode)
-        response.iter_lines = response._iter_lines  # type: ignore
+        response.iter_lines = response._iter_lines
 
         return response
 
@@ -769,18 +767,23 @@ class AsyncTestClient(httpx.AsyncClient):
         self._lifespan = None
         await cm.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
         """Exit async context manager — runs lifespan shutdown, then cleans up test app."""
         try:
             try:
-                await self._stop_lifespan(exc_type, exc_val, exc_tb)
+                await self._stop_lifespan(exc_type, exc_value, traceback)
             finally:
                 self._release_app()
                 _close_server_connections()
         except BaseException:
-            await super().__aexit__(exc_type, exc_val, exc_tb)
+            await super().__aexit__(exc_type, exc_value, traceback)
             raise
-        return await super().__aexit__(exc_type, exc_val, exc_tb)
+        return await super().__aexit__(exc_type, exc_value, traceback)
 
     async def aclose(self) -> None:
         """Close the client and release its native test app.

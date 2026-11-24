@@ -29,7 +29,7 @@ def _describe(value: uuid.UUID, raw: str) -> dict:
     expected = uuid.UUID(raw)
     immutable = False
     try:
-        value.int = 0  # type: ignore[misc]
+        value.int = 0
     except TypeError:
         immutable = True
     return {

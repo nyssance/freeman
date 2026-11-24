@@ -37,10 +37,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-try:
-    from django.db import connections
-except ImportError:  # Django is optional for parts of the test suite
-    connections = None  # type: ignore[assignment]
+from django.db import connections
 
 logger = logging.getLogger(__name__)
 
@@ -241,8 +238,6 @@ class SharedConnections:
         """
         global _active, _active_owner
 
-        if connections is None:
-            return False
         with _active_lock:
             if _active_owner is not None:
                 if _active_owner != threading.get_ident():

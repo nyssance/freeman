@@ -34,6 +34,7 @@ from ..exceptions import HTTPException, ValidationException
 if TYPE_CHECKING:
     from ..request import Request
     from ..responses import Response
+    from .django_adapter import DjangoMiddlewareStack
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -46,7 +47,7 @@ GetResponse = Callable[["Request"], Awaitable["Response"]]
 
 
 # Type alias for middleware class (Django-style: takes get_response in __init__)
-MiddlewareType = Union["MiddlewareProtocol", type["BaseMiddleware"]]
+MiddlewareType = Union["MiddlewareProtocol", type["BaseMiddleware"], type["Middleware"], "DjangoMiddlewareStack"]
 
 
 @dataclass(frozen=True, slots=True)

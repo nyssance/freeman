@@ -149,17 +149,19 @@ class UploadFile:
                 instance._file = BytesIO()
             return instance
 
-    def _ensure_file_open(self) -> None:
+    def _ensure_file_open(self) -> SpooledTemporaryFile[bytes] | BinaryIO:
         """
         Ensure file is open, lazily opening disk-spooled files on first access.
 
         For Rust disk-spooled files, this opens the temp file directly without
         reading it into memory, preserving the disk spooling optimization.
         """
-        if self._file is None:
+        file = self._file
+        if file is None:
             # Only a disk-spooled file has no open file, and it has a temp path.
             # Open Rust's temp file directly - no memory copy!
-            self._file = open(self._temp_path, "r+b")  # noqa: SIM115
+            file = self._file = open(self._temp_path, "r+b")  # noqa: SIM115
+        return file
 
     @property
     def file(self) -> File:
@@ -173,15 +175,13 @@ class UploadFile:
         making it efficient for large files.
         """
         if self._django_file is None:
-            self._ensure_file_open()
-            self._django_file = File(self._file, name=self.filename)
+            self._django_file = File(self._ensure_file_open(), name=self.filename)
         return self._django_file
 
     @property
     def raw_file(self) -> SpooledTemporaryFile[bytes] | BinaryIO:
         """Direct access to the underlying file object."""
-        self._ensure_file_open()
-        return self._file  # type: ignore[return-value]
+        return self._ensure_file_open()
 
     @property
     def rolled_to_disk(self) -> bool:
@@ -211,11 +211,11 @@ class UploadFile:
         Returns:
             File content as bytes
         """
-        self._ensure_file_open()
+        file = self._ensure_file_open()
         if self.rolled_to_disk:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(None, self._file.read, size)  # type: ignore[union-attr]
-        return self._file.read(size)  # type: ignore[union-attr]
+            return await loop.run_in_executor(None, file.read, size)
+        return file.read(size)
 
     async def seek(self, offset: int, whence: int = 0) -> int:
         """
@@ -228,11 +228,11 @@ class UploadFile:
         Returns:
             New absolute position
         """
-        self._ensure_file_open()
+        file = self._ensure_file_open()
         if self.rolled_to_disk:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(None, self._file.seek, offset, whence)  # type: ignore[union-attr]
-        return self._file.seek(offset, whence)  # type: ignore[union-attr]
+            return await loop.run_in_executor(None, file.seek, offset, whence)
+        return file.seek(offset, whence)
 
     async def write(self, data: bytes) -> int:
         """
@@ -244,11 +244,11 @@ class UploadFile:
         Returns:
             Number of bytes written
         """
-        self._ensure_file_open()
+        file = self._ensure_file_open()
         if self.rolled_to_disk:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(None, self._file.write, data)  # type: ignore[union-attr]
-        return self._file.write(data)  # type: ignore[union-attr]
+            return await loop.run_in_executor(None, file.write, data)
+        return file.write(data)
 
     async def close(self) -> None:
         """Close the file asynchronously."""

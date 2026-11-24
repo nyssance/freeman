@@ -792,17 +792,15 @@ def compile_argument_injector(
                 _parallel_results: list[Any] = [_UNRESOLVED] * len(_dep_plan)
                 for idx, result in zip(_async_dep_fns, dep_results, strict=True):
                     _parallel_results[idx] = result
-                _has_parallel = True
             else:
                 _parallel_results = None
-                _has_parallel = False
 
             args: list[Any] = []
             kwargs: dict[str, Any] = {}
 
             for plan_idx, (src_id, extractor, positional, name, needs_files, dependency) in enumerate(_dep_plan):
                 if src_id == _SRC_DEP:
-                    if _has_parallel and _parallel_results[plan_idx] is not _UNRESOLVED:
+                    if _parallel_results is not None and _parallel_results[plan_idx] is not _UNRESOLVED:
                         value = _parallel_results[plan_idx]
                     else:
                         if dependency is None:
