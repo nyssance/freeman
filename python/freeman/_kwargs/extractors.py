@@ -19,6 +19,7 @@ from pydantic import Field, ValidationError, create_model
 
 from .._field_marker import _FieldMarker
 from .._pydantic import adapter_for, is_pydantic_model, names_pydantic_model, param_fields
+from .._pydantic import body_errors as pydantic_body_errors
 from .._pydantic import build_body_extractor as build_pydantic_body_extractor
 from .._pydantic import request_errors as pydantic_errors
 from .._serializer_before import RAW_VALIDATED, before_plan, run_before_validators
@@ -1315,7 +1316,7 @@ def _build_pydantic_embedded_body_extractor(annotation: Any, key: str, default: 
         try:
             return validate_json(body_bytes).value
         except ValidationError as e:
-            raise RequestValidationError(errors=pydantic_errors(e, "body"), body=body_bytes) from e
+            raise RequestValidationError(errors=pydantic_body_errors(e, body_bytes), body=body_bytes) from e
 
     return extract
 

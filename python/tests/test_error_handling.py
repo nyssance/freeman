@@ -9,6 +9,7 @@ import msgspec
 import pytest
 from django.conf import settings  # noqa: PLC0415
 from django.core.exceptions import PermissionDenied
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.error_handlers import (
@@ -682,7 +683,7 @@ class TestErrorHandlers:
     def test_msgspec_validation_error_conversion(self):
         """Test msgspec ValidationError to dict conversion."""
 
-        # Create a msgspec validation error
+        # Create a msgspec validation error. The test is about msgspec errors, so it keeps a Struct.
         class TestStruct(msgspec.Struct):
             name: str
             age: int
@@ -966,7 +967,7 @@ class TestParseMsgspecDecodeError:
     def test_http_422_names_the_line_and_the_column(self):
         api = BoltAPI()
 
-        class Payload(msgspec.Struct):
+        class Payload(BaseModel):
             name: str
 
         @api.post("/payload")
@@ -1054,7 +1055,7 @@ def test_a_route_status_code_that_is_not_a_final_http_status_stops_registration(
             return {"ok": True}
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     id: int
 
 
@@ -1106,7 +1107,7 @@ class TestResponseValidationDisclosure:
         assert len(logged) == 1
         assert logged[0].startswith("Response Validation Error:")
         assert "Response validation failed for Item" in logged[0]
-        assert "Expected `int`, got `str`" in logged[0]
+        assert "Input should be a valid integer" in logged[0]
 
     @pytest.mark.parametrize("path", ["/async-bad", "/sync-bad"])
     def test_debug_on_keeps_the_validation_errors(self, settings, path):
@@ -1119,7 +1120,7 @@ class TestResponseValidationDisclosure:
         assert body["detail"] == "Response validation error"
         errors = body["extra"]["validation_errors"]
         assert errors[0]["loc"][0] == "response"
-        assert "Expected `int`, got `str`" in errors[0]["msg"]
+        assert "Input should be a valid integer" in errors[0]["msg"]
 
     @pytest.mark.parametrize("kind", ["async", "sync"])
     @pytest.mark.parametrize(
@@ -1129,16 +1130,17 @@ class TestResponseValidationDisclosure:
                 "bad",
                 {
                     "loc": ["response", "id"],
-                    "msg": "Response validation failed for Item: Expected `int`, got `str`",
-                    "type": "validation_error",
+                    "msg": "Response validation failed for Item: Input should be a valid integer, "
+                    "unable to parse string as an integer",
+                    "type": "int_parsing",
                 },
             ),
             (
                 "missing",
                 {
                     "loc": ["response", "id"],
-                    "msg": "Response validation failed for Item: Object missing required field `id`",
-                    "type": "missing_field",
+                    "msg": "Response validation failed for Item: Field required",
+                    "type": "missing",
                 },
             ),
         ],
@@ -1193,4 +1195,4 @@ class TestResponseValidationDisclosure:
             response = client.get("/async-bad")
 
         assert response.status_code == 500
-        assert "Expected `int`, got `str`" in response.json()["errors"][0]["msg"]
+        assert "Input should be a valid integer" in response.json()["errors"][0]["msg"]

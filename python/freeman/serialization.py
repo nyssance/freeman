@@ -30,9 +30,9 @@ from django.template.response import SimpleTemplateResponse, TemplateResponse
 
 from . import _json
 from ._kwargs import compile_response_coercer, compile_struct_row_readers
+from ._pydantic import ResponseFailure, names_pydantic_model
 from ._pydantic import compile_queryset_reader as compile_pydantic_queryset_reader
 from ._pydantic import compile_response_coercer as compile_pydantic_response_coercer
-from ._pydantic import names_pydantic_model
 from ._response_dump import compile_serializer_dumper
 from ._template_response import render_template_response
 from .concurrency import run_in_orm_executor, run_orm_blocking
@@ -316,6 +316,8 @@ def _raise_response_validation_error(exc: Exception) -> NoReturn:
     """
     if isinstance(exc, msgspec.ValidationError):
         raise ResponseValidationError([exc]) from exc
+    if isinstance(exc, ResponseFailure):
+        raise ResponseValidationError(exc.errors) from exc
     raise ResponseValidationError([{"loc": ["response"], "msg": str(exc), "type": "validation_error"}]) from exc
 
 

@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.exceptions import HTTPException, NotFound
 from freeman.testing import TestClient
 
 
-class PlanRead(msgspec.Struct):
+class PlanRead(BaseModel):
     id: int
 
 
-class PlanError(msgspec.Struct):
+class PlanError(BaseModel):
     error: str
     code: int = 1
 

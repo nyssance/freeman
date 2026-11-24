@@ -970,10 +970,7 @@ def _pydantic_page_converter(item_type: Any) -> Callable[[list[Any]], list[Any]]
         try:
             return validate(items, from_attributes=True)
         except PydanticValidationError as exc:
-            failure = response_failure(exc)
-            raise ResponseValidationError([
-                {"loc": ["response"], "msg": str(failure), "type": "validation_error"}
-            ]) from exc
+            raise ResponseValidationError(response_failure(exc).errors) from exc
 
     return convert_page
 

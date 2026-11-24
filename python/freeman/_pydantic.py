@@ -24,10 +24,11 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from pydantic_core import PydanticUndefined
 
 from .concurrency import run_in_orm_executor
-from .exceptions import RequestValidationError
+from .exceptions import RequestValidationError, parse_msgspec_decode_error
 
 __all__ = (
     "adapter_for",
+    "body_errors",
     "build_body_extractor",
     "compile_queryset_reader",
     "compile_response_coercer",
@@ -38,6 +39,7 @@ __all__ = (
     "request_errors",
     "response_failure",
     "ParamField",
+    "ResponseFailure",
 )
 
 _ADAPTERS: dict[Any, TypeAdapter[Any]] = {}
@@ -136,6 +138,20 @@ def request_errors(exc: ValidationError, where: str) -> list[dict[str, Any]]:
     ]
 
 
+def body_errors(exc: ValidationError, body_bytes: bytes) -> list[dict[str, Any]]:
+    """The errors of a JSON body that Pydantic rejected.
+
+    Bytes that are not JSON give the error of the msgspec path: the line and
+    the column of the fault in ``loc`` and ``ctx``, and the line in the message.
+    """
+    if exc.errors(include_url=False, include_input=False, include_context=False)[0]["type"] == "json_invalid":
+        try:
+            msgspec.json.decode(body_bytes)
+        except msgspec.DecodeError as decode_error:
+            return [parse_msgspec_decode_error(decode_error, body_bytes)]
+    return request_errors(exc, "body")
+
+
 def build_body_extractor(annotation: Any) -> Callable[[bytes], Any]:
     """The body extractor of a type that names a Pydantic model.
 
@@ -148,20 +164,37 @@ def build_body_extractor(annotation: Any) -> Callable[[bytes], Any]:
         try:
             return validate_json(body_bytes)
         except ValidationError as e:
-            raise RequestValidationError(errors=request_errors(e, "body"), body=body_bytes) from e
+            raise RequestValidationError(errors=body_errors(e, body_bytes), body=body_bytes) from e
 
     return extract
 
 
-def response_failure(exc: ValidationError) -> TypeError:
+class ResponseFailure(TypeError):
+    """A result that does not fit its Pydantic model.
+
+    ``errors`` has one entry for each error, in the shape of a
+    ``ResponseValidationError``: the field in ``loc``, the Pydantic type, and
+    the model in the message.
+    """
+
+    def __init__(self, message: str, errors: list[dict[str, Any]]) -> None:
+        super().__init__(message)
+        self.errors = errors
+
+
+def response_failure(exc: ValidationError) -> ResponseFailure:
     """The error of a result that does not fit its model: the field and the reason, not the value.
 
     The message goes to the log. The response handler makes a 500 of it.
     """
-    problems = "; ".join(
-        f"{'.'.join(map(str, error['loc'])) or 'value'}: {error['msg']}" for error in request_errors(exc, "")
-    )
-    return TypeError(f"Response validation failed: {problems}")
+    entries = request_errors(exc, "")
+    problems = "; ".join(f"{'.'.join(map(str, error['loc'])) or 'value'}: {error['msg']}" for error in entries)
+    prefix = f"Response validation failed for {exc.title}"
+    errors = [
+        {"loc": ["response", *error["loc"]], "msg": f"{prefix}: {error['msg']}", "type": error["type"]}
+        for error in entries
+    ]
+    return ResponseFailure(f"Response validation failed: {problems}", errors)
 
 
 def encode_model(value: BaseModel) -> msgspec.Raw:

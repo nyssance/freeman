@@ -8,32 +8,32 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.params import Cookie, File, Form, Header, Path, Query
 from freeman.testing import TestClient
 
 
-class User(msgspec.Struct):
+class User(BaseModel):
     id: int
     name: str
     email: str
 
 
-class UserCreate(msgspec.Struct):
+class UserCreate(BaseModel):
     name: str
     email: str
     password: str
 
 
-class UserUpdate(msgspec.Struct):
+class UserUpdate(BaseModel):
     name: str | None = None
     email: str | None = None
 
 
-class SearchFilters(msgspec.Struct):
+class SearchFilters(BaseModel):
     query: str
     tags: list[str] = []
     min_score: float = 0.0

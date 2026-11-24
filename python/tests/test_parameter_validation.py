@@ -5,15 +5,15 @@ Test parameter validation and inference system.
 from dataclasses import dataclass
 from typing import Annotated
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.params import Body, Param, Query
 from freeman.testing import TestClient
 
 
-class UserCreate(msgspec.Struct):
+class UserCreate(BaseModel):
     name: str
     email: str
 
@@ -112,7 +112,7 @@ def test_get_with_simple_types_inferred_as_query():
 
 
 def test_post_with_struct_inferred_as_body():
-    """Test that msgspec.Struct is auto-inferred as body parameter."""
+    """Test that a Pydantic model is auto-inferred as body parameter."""
     api = BoltAPI()
 
     @api.post("/users")
@@ -126,9 +126,9 @@ def test_post_with_struct_inferred_as_body():
     assert user_field.source == "body"
 
 
-@pytest.mark.parametrize("item_type", [UserCreate, UserCreateDataclass], ids=["struct", "dataclass"])
+@pytest.mark.parametrize("item_type", [UserCreate, UserCreateDataclass], ids=["model", "dataclass"])
 def test_post_with_struct_list_inferred_as_body(item_type):
-    """A list of msgspec.Struct or dataclass items with no marker is the JSON body, as one item is."""
+    """A list of Pydantic model or dataclass items with no marker is the JSON body, as one item is."""
     api = BoltAPI()
 
     @api.post("/users/bulk")

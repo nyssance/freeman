@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-import msgspec
 import pytest
 from django.test import override_settings
+from pydantic import BaseModel
 
 from freeman import BoltAPI, UploadFile
 from freeman.params import File, Form
@@ -28,11 +28,11 @@ from freeman.testing import TestClient
 MAX_PAYLOAD = 2000
 
 
-class Payload(msgspec.Struct):
+class Payload(BaseModel):
     blob: str
 
 
-class ProfileUpload(msgspec.Struct):
+class ProfileUpload(BaseModel):
     document: UploadFile
 
 

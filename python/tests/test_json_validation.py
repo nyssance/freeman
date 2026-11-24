@@ -1,9 +1,9 @@
 """
-Comprehensive tests for JSON parsing and msgspec validation in production/debug modes.
+Comprehensive tests for JSON parsing and body model validation in production/debug modes.
 
 Tests cover:
 - Invalid JSON body parsing
-- msgspec struct validation failures
+- Pydantic model validation failures
 - Error responses in production vs debug mode
 - Request body validation errors
 - Type coercion and conversion
@@ -19,6 +19,7 @@ from typing import Annotated, Any, Literal, TypedDict
 
 import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman._kwargs import create_body_extractor, get_msgspec_decoder
@@ -39,53 +40,53 @@ class Counts(TypedDict):
     total: int
 
 
-class UserCreate(msgspec.Struct):
-    """Test user creation struct."""
+class UserCreate(BaseModel):
+    """Test user creation model."""
 
     name: str
     email: str
     age: int
 
 
-class UserWithDefaults(msgspec.Struct):
-    """Test struct with default values."""
+class UserWithDefaults(BaseModel):
+    """Test model with default values."""
 
     name: str
     email: str = "user@example.com"
     is_active: bool = True
 
 
-class NestedAddress(msgspec.Struct):
-    """Nested struct for testing."""
+class NestedAddress(BaseModel):
+    """Nested model for testing."""
 
     street: str
     city: str
     zipcode: str
 
 
-class UserWithNested(msgspec.Struct):
-    """Struct with nested struct."""
+class UserWithNested(BaseModel):
+    """Model with a nested model."""
 
     name: str
     address: NestedAddress
 
 
-class _Address(msgspec.Struct):
+class _Address(BaseModel):
     city: str
     zip: str
 
 
-class _Person(msgspec.Struct):
+class _Person(BaseModel):
     name: str
     address: _Address
 
 
-class _Company(msgspec.Struct):
+class _Company(BaseModel):
     name: str
     owner: _Person
 
 
-class _Order(msgspec.Struct):
+class _Order(BaseModel):
     name: str
     items: list[_Address]
 
@@ -116,43 +117,44 @@ class TestNestedValidationErrorBodies:
 
     def test_top_level_missing_field_is_unchanged(self):
         assert self._post("/people", {"address": {"city": "a", "zip": "1"}}) == [
-            {"loc": ["body", "name"], "msg": "Object missing required field `name`", "type": "missing_field"}
+            {"loc": ["body", "name"], "msg": "Field required", "type": "missing"}
         ]
 
     def test_nested_missing_field_has_the_missing_field_type_and_its_full_loc(self):
         assert self._post("/people", {"name": "x", "address": {"city": "a"}}) == [
-            {"loc": ["body", "address", "zip"], "msg": "Object missing required field `zip`", "type": "missing_field"}
+            {"loc": ["body", "address", "zip"], "msg": "Field required", "type": "missing"}
         ]
 
     def test_doubly_nested_missing_field(self):
         body = {"name": "c", "owner": {"name": "o", "address": {"zip": "1"}}}
         assert self._post("/companies", body) == [
-            {
-                "loc": ["body", "owner", "address", "city"],
-                "msg": "Object missing required field `city`",
-                "type": "missing_field",
-            }
+            {"loc": ["body", "owner", "address", "city"], "msg": "Field required", "type": "missing"}
         ]
 
     def test_missing_field_in_a_list_item_names_the_index(self):
         body = {"name": "x", "items": [{"city": "a", "zip": "1"}, {"city": "b"}]}
+        # Pydantic gives the index as an int.
         assert self._post("/orders", body) == [
-            {
-                "loc": ["body", "items", "1", "zip"],
-                "msg": "Object missing required field `zip`",
-                "type": "missing_field",
-            }
+            {"loc": ["body", "items", 1, "zip"], "msg": "Field required", "type": "missing"}
         ]
 
     def test_nested_type_mismatch_is_unchanged(self):
         assert self._post("/people", {"name": "x", "address": {"city": 5, "zip": "1"}}) == [
-            {"loc": ["body", "address", "city"], "msg": "Expected `str`, got `int`", "type": "validation_error"}
+            {"loc": ["body", "address", "city"], "msg": "Input should be a valid string", "type": "string_type"}
         ]
 
     def test_type_mismatch_in_a_list_item_names_the_index(self):
         body = {"name": "x", "items": [{"city": "a", "zip": 1}]}
         assert self._post("/orders", body) == [
-            {"loc": ["body", "items", "0", "zip"], "msg": "Expected `str`, got `int`", "type": "validation_error"}
+            {"loc": ["body", "items", 0, "zip"], "msg": "Input should be a valid string", "type": "string_type"}
+        ]
+
+    def test_every_error_of_the_body_is_in_one_422(self):
+        body = {"name": 1, "address": {"city": 5}}
+        assert self._post("/people", body) == [
+            {"loc": ["body", "name"], "msg": "Input should be a valid string", "type": "string_type"},
+            {"loc": ["body", "address", "city"], "msg": "Input should be a valid string", "type": "string_type"},
+            {"loc": ["body", "address", "zip"], "msg": "Field required", "type": "missing"},
         ]
 
 
@@ -212,17 +214,14 @@ class TestInvalidJSONParsing:
         """Test that JSON with wrong root type fails validation."""
         extractor = create_body_extractor("user", UserCreate)
 
-        # Array instead of object
-        with pytest.raises(msgspec.ValidationError):
-            extractor(b'["name", "email"]')
-
-        # String instead of object
-        with pytest.raises(msgspec.ValidationError):
-            extractor(b'"just a string"')
-
-        # Number instead of object
-        with pytest.raises(msgspec.ValidationError):
-            extractor(b"42")
+        # Array, string and number instead of object
+        for body in (b'["name", "email"]', b'"just a string"', b"42"):
+            with pytest.raises(RequestValidationError) as exc_info:
+                extractor(body)
+            assert exc_info.value.errors() == [
+                {"loc": ["body"], "msg": "Input should be an object", "type": "model_type"}
+            ]
+            assert exc_info.value.body == body
 
     def test_an_empty_body_gives_the_default_of_an_optional_body_parameter(self):
         api = BoltAPI()
@@ -807,41 +806,52 @@ def test_a_json_only_parameter_with_no_marker_is_the_json_body():
         assert "requestBody" not in operations["/any"]["post"]
 
 
+def _body_errors(extractor, body: bytes) -> list[dict]:
+    with pytest.raises(RequestValidationError) as exc_info:
+        extractor(body)
+    return exc_info.value.errors()
+
+
 class TestMsgspecStructValidation:
-    """Test msgspec struct validation failures."""
+    """Test body model validation failures."""
 
     def test_missing_required_field(self):
-        """Test that missing required field raises ValidationError."""
+        """Test that missing required field gives a 422 error."""
         extractor = create_body_extractor("user", UserCreate)
 
         # Missing 'age' field
-        with pytest.raises(msgspec.ValidationError) as exc_info:
-            extractor(b'{"name": "John", "email": "john@example.com"}')
-
-        # Verify error mentions the missing field
-        assert "age" in str(exc_info.value).lower() or "required" in str(exc_info.value).lower()
+        assert _body_errors(extractor, b'{"name": "John", "email": "john@example.com"}') == [
+            {"loc": ["body", "age"], "msg": "Field required", "type": "missing"}
+        ]
 
     def test_wrong_field_type(self):
-        """Test that wrong field type raises ValidationError."""
+        """Test that wrong field type gives a 422 error."""
         extractor = create_body_extractor("user", UserCreate)
 
         # age should be int, not string
-        with pytest.raises(msgspec.ValidationError):
-            extractor(b'{"name": "John", "email": "john@example.com", "age": "twenty"}')
+        assert _body_errors(extractor, b'{"name": "John", "email": "john@example.com", "age": "twenty"}') == [
+            {
+                "loc": ["body", "age"],
+                "msg": "Input should be a valid integer, unable to parse string as an integer",
+                "type": "int_parsing",
+            }
+        ]
 
         # name should be string, not number
-        with pytest.raises(msgspec.ValidationError):
-            extractor(b'{"name": 123, "email": "john@example.com", "age": 20}')
+        assert _body_errors(extractor, b'{"name": 123, "email": "john@example.com", "age": 20}') == [
+            {"loc": ["body", "name"], "msg": "Input should be a valid string", "type": "string_type"}
+        ]
 
     def test_null_for_required_field(self):
-        """Test that null for required field raises ValidationError."""
+        """Test that null for required field gives a 422 error."""
         extractor = create_body_extractor("user", UserCreate)
 
-        with pytest.raises(msgspec.ValidationError):
-            extractor(b'{"name": null, "email": "john@example.com", "age": 20}')
+        assert _body_errors(extractor, b'{"name": null, "email": "john@example.com", "age": 20}') == [
+            {"loc": ["body", "name"], "msg": "Input should be a valid string", "type": "string_type"}
+        ]
 
     def test_extra_fields_allowed_by_default(self):
-        """Test that extra fields are allowed by default in msgspec."""
+        """Test that extra fields are ignored by default."""
         extractor = create_body_extractor("user", UserCreate)
 
         # Should succeed even with extra field
@@ -875,13 +885,14 @@ class TestMsgspecStructValidation:
                 "zipcode": "10001"
             }
         }"""
-        with pytest.raises(msgspec.ValidationError):
-            extractor(invalid_json)
+        assert _body_errors(extractor, invalid_json) == [
+            {"loc": ["body", "address", "city"], "msg": "Field required", "type": "missing"}
+        ]
 
     def test_array_field_validation(self):
         """Test validation of array fields."""
 
-        class UserWithTags(msgspec.Struct):
+        class UserWithTags(BaseModel):
             name: str
             tags: list[str]
 
@@ -892,12 +903,14 @@ class TestMsgspecStructValidation:
         assert result.tags == ["admin", "user"]
 
         # Invalid array element type
-        with pytest.raises(msgspec.ValidationError):
-            extractor(b'{"name": "John", "tags": ["admin", 123]}')
+        assert _body_errors(extractor, b'{"name": "John", "tags": ["admin", 123]}') == [
+            {"loc": ["body", "tags", 1], "msg": "Input should be a valid string", "type": "string_type"}
+        ]
 
         # Array instead of string element
-        with pytest.raises(msgspec.ValidationError):
-            extractor(b'{"name": "John", "tags": [["nested"]]}')
+        assert _body_errors(extractor, b'{"name": "John", "tags": [["nested"]]}') == [
+            {"loc": ["body", "tags", 0], "msg": "Input should be a valid string", "type": "string_type"}
+        ]
 
 
 class TestProductionVsDebugMode:
@@ -1008,7 +1021,7 @@ class TestRequestValidationErrorHandling:
     def test_msgspec_error_to_request_validation_error(self):
         """Test that msgspec.ValidationError is converted properly."""
 
-        # Create a validation error
+        # Create a validation error. This test is about msgspec errors, so it keeps a Struct.
         class TestStruct(msgspec.Struct):
             name: str
             age: int
@@ -1038,7 +1051,7 @@ class TestTypeCoercionEdgeCases:
     def test_optional_fields_with_none(self):
         """Test that optional fields handle None correctly."""
 
-        class UserOptional(msgspec.Struct):
+        class UserOptional(BaseModel):
             name: str
             email: str | None = None
 
@@ -1060,21 +1073,26 @@ class TestJSONParsingPerformance:
 
     def test_decoder_caching(self):
         """Test that msgspec decoders are cached for performance."""
+
+        # The msgspec decoder takes a msgspec type, so this test keeps a Struct.
+        class StructUser(msgspec.Struct):
+            name: str
+
         # Clear cache
         _DECODER_CACHE.clear()
 
         # First call should create decoder
-        decoder1 = get_msgspec_decoder(UserCreate)
-        assert UserCreate in _DECODER_CACHE
+        decoder1 = get_msgspec_decoder(StructUser)
+        assert StructUser in _DECODER_CACHE
 
         # Second call should return cached decoder
-        decoder2 = get_msgspec_decoder(UserCreate)
+        decoder2 = get_msgspec_decoder(StructUser)
         assert decoder1 is decoder2, "Decoder should be cached"
 
     def test_large_json_parsing(self):
         """Test parsing of large JSON payloads."""
 
-        class LargeStruct(msgspec.Struct):
+        class LargeStruct(BaseModel):
             items: list[dict]
 
         extractor = create_body_extractor("data", LargeStruct)
@@ -1090,13 +1108,13 @@ class TestJSONParsingPerformance:
     def test_deeply_nested_json(self):
         """Test parsing of deeply nested JSON structures."""
 
-        class Level3(msgspec.Struct):
+        class Level3(BaseModel):
             value: str
 
-        class Level2(msgspec.Struct):
+        class Level2(BaseModel):
             level3: Level3
 
-        class Level1(msgspec.Struct):
+        class Level1(BaseModel):
             level2: Level2
 
         extractor = create_body_extractor("data", Level1)

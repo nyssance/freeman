@@ -172,8 +172,18 @@ def test_a_result_that_does_not_fit_the_model_is_a_server_error(client, api):
     with pytest.raises(ResponseValidationError) as raised:
         client.get("/wrong")
     message = str(raised.value)
-    assert "id: Input should be a valid integer" in message
-    assert "uuid: Field required" in message
+    errors = raised.value.errors()
+    # One error for each field, with the field in its loc.
+    assert errors[0] == {
+        "loc": ["response", "id"],
+        "msg": "Response validation failed for Post: Input should be a valid integer, unable to parse string as an integer",
+        "type": "int_parsing",
+    }
+    assert {
+        "loc": ["response", "uuid"],
+        "msg": "Response validation failed for Post: Field required",
+        "type": "missing",
+    } in errors
     # The value that did not fit is not in the message.
     assert "not a number" not in message
 

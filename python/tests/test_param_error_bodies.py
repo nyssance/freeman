@@ -1,6 +1,6 @@
 """The 422 body for a parameter that fails validation in Python.
 
-Rust coerces scalar values. Python validates a msgspec struct parameter, a
+Rust coerces scalar values. Python validates a Pydantic model parameter, a
 sequence parameter, and a parameter with ``msgspec.Meta`` constraints. Each
 error names the source in ``loc`` as a scalar parameter does: ``query``,
 ``header``, ``cookie`` or ``body``.
@@ -12,6 +12,7 @@ from typing import Annotated
 
 import msgspec
 import pytest
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from freeman import BoltAPI, UploadFile
 from freeman.middleware import ErrorHandlerMiddleware
@@ -19,17 +20,17 @@ from freeman.params import Cookie, File, Form, Header, Path, Query
 from freeman.testing import TestClient
 
 
-class Filters(msgspec.Struct):
+class Filters(BaseModel):
     page: int
     ids: list[int] = []
-    size: Annotated[int, msgspec.Meta(ge=1)] = 10
-    tag: Annotated[str, msgspec.Meta(min_length=2)] = msgspec.field(name="t", default="ok")
+    size: Annotated[int, Field(ge=1)] = 10
+    tag: Annotated[str, Field(min_length=2)] = Field(alias="t", default="ok")
 
 
-class Headers(msgspec.Struct):
+class Headers(BaseModel):
     x_api_key: str
-    x_count: Annotated[int, msgspec.Meta(ge=1)] = 1
-    label: Annotated[str, msgspec.Meta(min_length=2)] = msgspec.field(name="x_label", default="ok")
+    x_count: Annotated[int, Field(ge=1)] = 1
+    label: Annotated[str, Field(min_length=2)] = Field(alias="x_label", default="ok")
 
 
 # Function scope: each test registers its routes, so a mutation tool sees
@@ -66,28 +67,36 @@ def client():
         yield client
 
 
-def _missing(source: str, noun: str, name: str) -> dict:
-    return {"type": "missing_field", "loc": [source, name], "msg": f"Missing required {noun}: {name}", "input": None}
+def _missing(source: str, name: str) -> dict:
+    return {"type": "missing", "loc": [source, name], "msg": "Field required"}
+
+
+def _at_least_one(source: str, name: str) -> dict:
+    return {"type": "greater_than_equal", "loc": [source, name], "msg": "Input should be greater than or equal to 1"}
+
+
+def _too_short(source: str, name: str) -> dict:
+    return {"type": "string_too_short", "loc": [source, name], "msg": "String should have at least 2 characters"}
 
 
 @pytest.mark.parametrize(
-    ("path", "kwargs", "source", "noun"),
+    ("path", "kwargs", "source"),
     [
-        ("/query-struct", {}, "query", "query parameter"),
-        ("/cookie-struct", {}, "cookie", "cookie"),
-        ("/form-struct", {"data": {"size": "5"}}, "body", "form field"),
+        ("/query-struct", {}, "query"),
+        ("/cookie-struct", {}, "cookie"),
+        ("/form-struct", {"data": {"size": "5"}}, "body"),
     ],
 )
-def test_missing_struct_field_names_the_source(client, path, kwargs, source, noun):
+def test_missing_struct_field_names_the_source(client, path, kwargs, source):
     method = client.post if path == "/form-struct" else client.get
     response = method(path, **kwargs)
 
     assert response.status_code == 422
-    assert response.json()["detail"] == [_missing(source, noun, "page")]
+    assert response.json()["detail"] == [_missing(source, "page")]
 
 
-class Renamed(msgspec.Struct):
-    page_number: int = msgspec.field(name="pageNumber")
+class Renamed(BaseModel):
+    page_number: int = Field(alias="pageNumber")
 
 
 def test_missing_renamed_field_uses_its_wire_name():
@@ -101,14 +110,18 @@ def test_missing_renamed_field_uses_its_wire_name():
         response = client.get("/renamed")
 
     assert response.status_code == 422
-    assert response.json()["detail"] == [_missing("query", "query parameter", "pageNumber")]
+    assert response.json()["detail"] == [_missing("query", "pageNumber")]
 
 
-class Closed(msgspec.Struct, forbid_unknown_fields=True):
+class Closed(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     page: int = 1
 
 
-class ClosedUpload(msgspec.Struct, forbid_unknown_fields=True):
+class ClosedUpload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str
     cover: UploadFile | None = None
 
@@ -149,7 +162,7 @@ def test_a_struct_that_forbids_unknown_fields_ignores_the_keys_of_other_paramete
         unknown = client.get("/query?page=2&max=5&other=1")
         assert unknown.status_code == 422
         assert unknown.json()["detail"] == [
-            {"type": "unknown_field", "loc": ["query", "other"], "msg": "Unknown query parameter: other", "input": "1"}
+            {"type": "extra_forbidden", "loc": ["query", "other"], "msg": "Extra inputs are not permitted"}
         ]
         unknown = client.post("/form", data={"page": "2", "other": "1"})
         assert unknown.status_code == 422
@@ -160,36 +173,25 @@ def test_missing_header_struct_field_names_the_header(client):
     response = client.get("/header-struct")
 
     assert response.status_code == 422
-    assert response.json()["detail"] == [_missing("header", "header", "x-api-key")]
+    assert response.json()["detail"] == [_missing("header", "x-api-key")]
 
 
 def test_invalid_header_struct_fields_name_the_headers(client):
     response = client.get("/header-struct", headers={"X-Api-Key": "k", "X-Count": "0", "X-Label": "x"})
 
     assert response.status_code == 422
-    assert response.json()["detail"] == [
-        {"type": "validation_error", "loc": ["header", "x-count"], "msg": "Expected `int` >= 1", "input": 0},
-        {
-            "type": "validation_error",
-            "loc": ["header", "x-label"],
-            "msg": "Expected `str` of length >= 2",
-            "input": "x",
-        },
-    ]
+    assert response.json()["detail"] == [_at_least_one("header", "x-count"), _too_short("header", "x-label")]
 
 
 def test_header_struct_reports_a_missing_and_an_invalid_field_together(client):
     response = client.get("/header-struct", headers={"X-Count": "0"})
 
     assert response.status_code == 422
-    assert response.json()["detail"] == [
-        _missing("header", "header", "x-api-key"),
-        {"type": "validation_error", "loc": ["header", "x-count"], "msg": "Expected `int` >= 1", "input": 0},
-    ]
+    assert response.json()["detail"] == [_missing("header", "x-api-key"), _at_least_one("header", "x-count")]
 
 
-class AuthHeaders(msgspec.Struct):
-    token: str = msgspec.field(name="X-Api-Key")
+class AuthHeaders(BaseModel):
+    token: str = Field(alias="X-Api-Key")
 
 
 def test_missing_renamed_header_field_names_the_header():
@@ -204,7 +206,7 @@ def test_missing_renamed_header_field_names_the_header():
         response = client.get("/auth")
 
     assert response.status_code == 422
-    assert response.json()["detail"] == [_missing("header", "header", "x-api-key")]
+    assert response.json()["detail"] == [_missing("header", "x-api-key")]
 
 
 def test_an_optional_struct_parameter_takes_its_default_when_the_request_has_none_of_its_keys():
@@ -240,10 +242,10 @@ def test_an_optional_struct_parameter_takes_its_default_when_the_request_has_non
         # With one of its keys in the request, the struct validates as a required one does.
         response = client.get("/query?size=5")
         assert response.status_code == 422
-        assert response.json()["detail"] == [_missing("query", "query parameter", "page")]
+        assert response.json()["detail"] == [_missing("query", "page")]
         response = client.get("/header", headers={"X-Count": "2"})
         assert response.status_code == 422
-        assert response.json()["detail"] == [_missing("header", "header", "x-api-key")]
+        assert response.json()["detail"] == [_missing("header", "x-api-key")]
 
 
 @pytest.mark.parametrize(
@@ -257,10 +259,7 @@ def test_invalid_struct_fields_each_get_one_error(client, path, send, source):
     response = send(client, path)
 
     assert response.status_code == 422
-    assert response.json()["detail"] == [
-        {"type": "validation_error", "loc": [source, "size"], "msg": "Expected `int` >= 1", "input": 0},
-        {"type": "validation_error", "loc": [source, "t"], "msg": "Expected `str` of length >= 2", "input": "x"},
-    ]
+    assert response.json()["detail"] == [_at_least_one(source, "size"), _too_short(source, "t")]
 
 
 def test_valid_sequence_field_gets_no_error_when_another_field_fails(client):
@@ -294,13 +293,15 @@ def test_constrained_scalar_error_has_no_holder_path(client):
     ]
 
 
-class Range(msgspec.Struct):
+class Range(BaseModel):
     x_low: int
     x_high: int
 
-    def __post_init__(self):
+    @model_validator(mode="after")
+    def check_order(self):
         if self.x_low > self.x_high:
             raise ValueError("x_low must be <= x_high")
+        return self
 
 
 def test_a_header_struct_check_across_fields_keeps_its_message():
@@ -315,7 +316,9 @@ def test_a_header_struct_check_across_fields_keeps_its_message():
         response = client.get("/range", headers={"X-Low": "5", "X-High": "1"})
 
     assert response.status_code == 422
-    assert [error["msg"] for error in response.json()["detail"]] == ["x_low must be <= x_high"]
+    assert response.json()["detail"] == [
+        {"type": "value_error", "loc": ["header"], "msg": "Value error, x_low must be <= x_high"}
+    ]
 
 
 @pytest.mark.parametrize(

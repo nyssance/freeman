@@ -21,6 +21,7 @@ from django.db import DatabaseError, connection
 from django.db.models import QuerySet
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.error_handlers import is_server_exception
@@ -33,7 +34,7 @@ from freeman.testing import TestClient
 from .test_models import Article
 
 
-class Filters(msgspec.Struct):
+class Filters(BaseModel):
     page: int
 
 

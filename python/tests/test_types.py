@@ -5,14 +5,14 @@ Test type definitions and protocols.
 import time
 
 import jwt
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Request
 from freeman.auth import IsAuthenticated, JWTAuthentication
 from freeman.testing import TestClient
 
 
-class UserCreate(msgspec.Struct):
+class UserCreate(BaseModel):
     name: str
     email: str
     age: int
@@ -59,7 +59,7 @@ def test_request_type_in_handler():
 
 
 def test_request_with_validated_body():
-    """Test Request type with msgspec validated body parameter."""
+    """Test Request type with a validated Pydantic body parameter."""
     api = BoltAPI()
 
     @api.post("/users")
