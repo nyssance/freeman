@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 
@@ -14,7 +14,7 @@ async def health():
     return {"status": "ok"}
 
 
-class SearchQuery(msgspec.Struct):
+class SearchQuery(BaseModel):
     term: str
     limit: int = 10
 

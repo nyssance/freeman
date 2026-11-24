@@ -6,7 +6,7 @@ router re-initialization issues (the Rust global router can only be set once).
 
 from typing import Annotated
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.param_functions import Header
@@ -33,7 +33,7 @@ def test_test_client_comprehensive():
         return {"query": q, "limit": limit}
 
     # Test 4: POST with body
-    class UserCreate(msgspec.Struct):
+    class UserCreate(BaseModel):
         name: str
         email: str
 

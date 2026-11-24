@@ -13,8 +13,8 @@ including:
 
 from __future__ import annotations
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.auth.backends import JWTAuthentication
@@ -28,22 +28,22 @@ from tests.test_models import Article
 # --- Schema Definitions ---
 
 
-class CreateUserRequest(msgspec.Struct):
+class CreateUserRequest(BaseModel):
     username: str
     email: str
 
 
-class ItemSchema(msgspec.Struct):
+class ItemSchema(BaseModel):
     name: str
     price: float
 
 
-class UserSchema(msgspec.Struct):
+class UserSchema(BaseModel):
     name: str
     email: str
 
 
-class InputSchema(msgspec.Struct):
+class InputSchema(BaseModel):
     name: str
     age: int
 

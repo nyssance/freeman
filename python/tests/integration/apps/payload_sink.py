@@ -9,7 +9,7 @@ so only the aggregate bound can reject them.
 
 from __future__ import annotations
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI, UploadFile
 from freeman.params import File
@@ -22,7 +22,7 @@ async def health():
     return {"status": "ok"}
 
 
-class Blob(msgspec.Struct):
+class Blob(BaseModel):
     data: str
 
 

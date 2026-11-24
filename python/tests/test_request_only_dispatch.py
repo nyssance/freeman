@@ -13,10 +13,10 @@ import functools
 import inspect
 import threading
 
-import msgspec
 import pytest
 from asgiref.sync import sync_to_async
 from django.db.models import QuerySet
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Request
 from freeman.responses import PlainText
@@ -122,7 +122,7 @@ def test_a_sync_to_async_request_handler_runs_in_a_task():
     assert response.json() == {"q": "bolt"}
 
 
-class Echo(msgspec.Struct):
+class Echo(BaseModel):
     q: str
     in_task: bool
 

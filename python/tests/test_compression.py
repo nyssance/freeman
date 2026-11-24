@@ -7,9 +7,9 @@ Tests both global compression configuration and per-route skip functionality.
 import gzip
 import json
 
-import msgspec
 import pytest
 from django.core.exceptions import ImproperlyConfigured
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.middleware import CompressionConfig, no_compress, skip_middleware
@@ -385,7 +385,7 @@ def test_pre_compressed_response_sync_handler():
 def test_pre_compressed_response_with_response_model():
     """A route with a response_model must not validate pre-encoded bytes."""
 
-    class Item(msgspec.Struct):
+    class Item(BaseModel):
         data: str
 
     api = BoltAPI(compression=False)

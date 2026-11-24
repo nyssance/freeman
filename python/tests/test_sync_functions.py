@@ -10,8 +10,8 @@ import time
 from typing import Annotated
 
 import jwt
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.auth import IsAuthenticated, JWTAuthentication
@@ -29,7 +29,7 @@ TEST_JWT_SECRET = "test-secret-key-for-sync-functions-012345"
 # ========================
 
 
-class UserCreate(msgspec.Struct):
+class UserCreate(BaseModel):
     """User creation request model."""
 
     name: str
@@ -461,8 +461,7 @@ class TestSyncRequestBodyValidation:
             json={"name": "John"},  # Missing email
         )
         assert response.status_code == 422
-        assert response.json()["detail"][0]["loc"] == ["body", "email"]
-        assert response.json()["detail"][0]["type"] == "missing_field"
+        assert response.json()["detail"] == [{"loc": ["body", "email"], "msg": "Field required", "type": "missing"}]
 
 
 # ========================
@@ -665,7 +664,7 @@ class TestAsyncSyncParityAuthentication:
 # ========================
 
 
-class ArticleResponse(msgspec.Struct):
+class ArticleResponse(BaseModel):
     """Article response model."""
 
     id: int
@@ -676,7 +675,7 @@ class ArticleResponse(msgspec.Struct):
     is_published: bool
 
 
-class ArticleCreate(msgspec.Struct):
+class ArticleCreate(BaseModel):
     """Article creation request model."""
 
     title: str
@@ -685,7 +684,7 @@ class ArticleCreate(msgspec.Struct):
     status: str = "draft"
 
 
-class ArticleUpdate(msgspec.Struct):
+class ArticleUpdate(BaseModel):
     """Article update request model."""
 
     title: str | None = None

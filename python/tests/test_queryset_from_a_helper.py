@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import asyncio
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.middleware import middleware
@@ -22,7 +22,7 @@ from .test_models import Article
 from .test_request_only_dispatch import ThreadRecordingQuerySet, articles
 
 
-class Row(msgspec.Struct):
+class Row(BaseModel):
     title: str
 
 
@@ -132,7 +132,7 @@ def sync_no_params_unvalidated_with_middleware(api: BoltAPI) -> None:
 # A route with one response model for each status code has its own executor.
 
 
-class Missing(msgspec.Struct):
+class Missing(BaseModel):
     detail: str
 
 

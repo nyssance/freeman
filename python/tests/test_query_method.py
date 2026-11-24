@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Router
 from freeman.openapi.config import OpenAPIConfig
@@ -10,7 +10,7 @@ from freeman.testing import TestClient
 from freeman.views import APIView
 
 
-class SearchQuery(msgspec.Struct):
+class SearchQuery(BaseModel):
     term: str
     limit: int = 10
 

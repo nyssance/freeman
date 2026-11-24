@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 from typing import Annotated
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI, UploadFile
 from freeman.params import File, Form
@@ -22,7 +22,7 @@ async def health():
     return {"status": "ok"}
 
 
-class ProfileForm(msgspec.Struct):
+class ProfileForm(BaseModel):
     name: str
     avatar: Annotated[UploadFile, File(max_size=5_000_000, allowed_types=["image/*"])]
 

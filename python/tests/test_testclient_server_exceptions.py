@@ -13,11 +13,11 @@ import logging
 import weakref
 from types import SimpleNamespace
 
-import msgspec
 import pytest
 from django.core.exceptions import PermissionDenied
 from django.db.models import QuerySet
 from django.http import HttpResponse
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.error_handlers import problem_details
@@ -229,7 +229,7 @@ def test_an_exception_that_the_error_formatter_answers_with_a_4xx_is_not_raised(
             assert response.json() == {"code": "conflict"}, path
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     name: str
 
 

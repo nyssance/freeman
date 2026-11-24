@@ -1,12 +1,14 @@
 """App under test for tagged-union response serialization + OpenAPI.
 
-Each branch is a tagged ``msgspec.Struct``; handlers return a single union value
+Each branch is a Pydantic model with a ``type`` discriminator; handlers return a single union value
 and a ``list`` of union values, with ``response_model`` advertising all branches.
 """
 
 from __future__ import annotations
 
-import msgspec
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field
 
 from freeman import BoltAPI
 
@@ -18,28 +20,31 @@ async def health():
     return {"status": "ok"}
 
 
-class PostActivity(msgspec.Struct, tag="post"):
+class PostActivity(BaseModel):
+    type: Literal["post"] = "post"
     id: int
     actor: str
     title: str
     body: str
 
 
-class CommentActivity(msgspec.Struct, tag="comment"):
+class CommentActivity(BaseModel):
+    type: Literal["comment"] = "comment"
     id: int
     actor: str
     post_id: int
     text: str
 
 
-class LikeActivity(msgspec.Struct, tag="like"):
+class LikeActivity(BaseModel):
+    type: Literal["like"] = "like"
     id: int
     actor: str
     target_id: int
     target_kind: str
 
 
-FeedItem = PostActivity | CommentActivity | LikeActivity
+FeedItem = Annotated[PostActivity | CommentActivity | LikeActivity, Field(discriminator="type")]
 
 
 @api.get("/feed/{item_id}", response_model=FeedItem)

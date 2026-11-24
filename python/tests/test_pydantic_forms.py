@@ -542,7 +542,8 @@ def test_a_form_model_without_a_file_is_urlencoded_or_multipart():
         "properties": {
             "name": {"type": "string", "description": "The name"},
             "tags": {"type": "array", "items": {"type": "string"}, "default": []},
-            "age": {"type": ["integer", "null"], "default": None},
+            # A form value cannot be null. The field is not required, and its schema is that of the type.
+            "age": {"type": "integer"},
         },
         "required": ["name"],
     }

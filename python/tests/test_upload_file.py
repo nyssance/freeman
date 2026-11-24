@@ -14,6 +14,7 @@ import msgspec
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import File as DjangoFile
+from pydantic import BaseModel, Field
 
 from freeman import BoltAPI, FileSize, UploadFile
 from freeman.datastructures import UploadFile as UploadFileClass
@@ -22,18 +23,18 @@ from freeman.testing import TestClient
 from tests.test_models import Document
 
 
-# Define structs at module level to avoid NameError with get_type_hints
-class ProfileForm(msgspec.Struct):
+# Define models at module level to avoid NameError with get_type_hints
+class ProfileForm(BaseModel):
     name: str
     avatar: UploadFile
 
 
-class DocumentForm(msgspec.Struct):
+class DocumentForm(BaseModel):
     title: str
     documents: list[UploadFile]
 
 
-class RegistrationForm(msgspec.Struct):
+class RegistrationForm(BaseModel):
     username: str
     email: str
     age: int
@@ -41,33 +42,33 @@ class RegistrationForm(msgspec.Struct):
     resume: UploadFile
 
 
-class ProfileFormOptional(msgspec.Struct):
+class ProfileFormOptional(BaseModel):
     name: str
     avatar: UploadFile | None = None
 
 
-class ProfileFormAnnotated(msgspec.Struct):
-    """Struct whose file field keeps Annotated metadata visible to msgspec."""
+class ProfileFormAnnotated(BaseModel):
+    """Model whose file field keeps its Annotated metadata."""
 
     name: str
     avatar: Annotated[UploadFile, File(max_size=1_000_000, allowed_types=["image/*"])]
 
 
-class ProfileFormAnnotatedOptional(msgspec.Struct):
+class ProfileFormAnnotatedOptional(BaseModel):
     name: str
     avatar: Annotated[UploadFile | None, File(max_size=1_000_000)] = None
 
 
-class DocumentFormAnnotated(msgspec.Struct):
+class DocumentFormAnnotated(BaseModel):
     title: str
     documents: Annotated[list[UploadFile], File(max_files=5)]
 
 
-class AdultRegistrationForm(msgspec.Struct):
-    """Struct whose scalar field has a msgspec.Meta constraint."""
+class AdultRegistrationForm(BaseModel):
+    """Model whose scalar field has a constraint."""
 
     username: str
-    age: Annotated[int, msgspec.Meta(ge=18)]
+    age: Annotated[int, Field(ge=18)]
     resume: UploadFile
 
 
@@ -75,6 +76,8 @@ class Shade(Enum):
     RED = "red"
 
 
+# Stays on a Struct: a Pydantic form model does not convert the text "2" to
+# Literal[1, 2]. test_pydantic_forms.py covers the other field types.
 class TypedFileForm(msgspec.Struct):
     """Struct with a file and a field of each type that a form text value becomes."""
 
@@ -90,8 +93,8 @@ class TypedFileForm(msgspec.Struct):
     ids: list[int]
 
 
-class RequiredNameForm(msgspec.Struct):
-    """Struct with a file and a required text field."""
+class RequiredNameForm(BaseModel):
+    """Model with a file and a required text field."""
 
     name: str
     doc: UploadFile
@@ -104,21 +107,21 @@ class PdfTypesByIndex:
         return ["application/pdf"][index]
 
 
-class RenamedAvatarForm(msgspec.Struct):
-    """Struct whose optional file field has another name on the wire."""
+class RenamedAvatarForm(BaseModel):
+    """Model whose optional file field has another name on the wire."""
 
-    avatar: Annotated[UploadFile, File(min_size=5)] | None = msgspec.field(name="picture", default=None)
+    avatar: Annotated[UploadFile, File(min_size=5)] | None = Field(None, alias="picture")
 
 
-class LimitedFilesForm(msgspec.Struct):
-    """Struct whose file fields have small size and count limits."""
+class LimitedFilesForm(BaseModel):
+    """Model whose file fields have small size and count limits."""
 
     avatar: Annotated[UploadFile, File(max_size=10)]
     docs: Annotated[list[UploadFile], File(max_files=2)]
 
 
-class PdfDocForm(msgspec.Struct):
-    """Struct whose file field accepts only PDF files."""
+class PdfDocForm(BaseModel):
+    """Model whose file field accepts only PDF files."""
 
     doc: Annotated[UploadFile, File(allowed_types=["application/pdf"])]
 
@@ -1204,11 +1207,7 @@ class TestFormStructWithUploadFile:
         response = client.post("/profile", data={"name": "John"})
 
         assert response.status_code == 422
-        errors = response.json()["detail"]
-        assert len(errors) == 1
-        assert errors[0]["type"] == "file_missing"
-        assert errors[0]["loc"] == ["body", "avatar"]
-        assert errors[0]["msg"] == "Missing required file"
+        assert response.json()["detail"] == [{"loc": ["body", "avatar"], "msg": "Field required", "type": "missing"}]
 
     def test_struct_with_bad_field_reports_only_that_field(self):
         """A valid file does not add an error next to the error of a bad field."""
@@ -1295,7 +1294,7 @@ class TestFormStructWithUploadFile:
 
         assert response.status_code == 422, response.text
         errors = response.json()["detail"]
-        assert [(err["loc"], err["msg"]) for err in errors] == [(["body", "name"], "Missing required form field: name")]
+        assert [(err["loc"], err["msg"]) for err in errors] == [(["body", "name"], "Field required")]
 
     def test_struct_with_annotated_upload_file(self):
         """Annotated[UploadFile, File(...)] inside a struct must be parsed as a file."""

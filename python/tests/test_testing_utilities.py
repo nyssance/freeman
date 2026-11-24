@@ -6,9 +6,9 @@ This file tests the TestClient (V2) that routes through Rust with per-instance s
 import asyncio
 from typing import Annotated
 
-import msgspec
 import pytest
 from django.http import QueryDict
+from pydantic import BaseModel
 
 from freeman import BoltAPI, _core
 from freeman.param_functions import Header
@@ -117,7 +117,7 @@ def test_query_matches_django_querydict(query_string):
 def test_post_with_body():
     """Test POST with JSON body."""
 
-    class UserCreate(msgspec.Struct):
+    class UserCreate(BaseModel):
         name: str
         email: str
 

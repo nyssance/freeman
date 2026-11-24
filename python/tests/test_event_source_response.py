@@ -6,6 +6,7 @@ from collections.abc import AsyncIterable
 
 import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI, EventSourceResponse, ServerSentEvent, format_sse_event
 from freeman.testing import TestClient
@@ -111,7 +112,14 @@ class TestServerSentEvent:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
+    name: str
+    price: float
+
+
+# Stays on msgspec: the route compiler cannot build a Pydantic adapter for
+# AsyncIterable[BaseModel] yet (PydanticSchemaGenerationError at registration).
+class StructItem(msgspec.Struct):
     name: str
     price: float
 
@@ -169,9 +177,9 @@ def api():
         yield {"message": "implicit-world"}
 
     @api.get("/sse-implicit-struct", response_class=EventSourceResponse)
-    async def sse_implicit_struct() -> AsyncIterable[Item]:
-        yield Item(name="Gadget", price=19.99)
-        yield Item(name="Doohickey", price=4.50)
+    async def sse_implicit_struct() -> AsyncIterable[StructItem]:
+        yield StructItem(name="Gadget", price=19.99)
+        yield StructItem(name="Doohickey", price=4.50)
 
     @api.get("/sse-implicit-sse-event", response_class=EventSourceResponse)
     async def sse_implicit_sse_event() -> AsyncIterable[ServerSentEvent]:

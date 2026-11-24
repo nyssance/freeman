@@ -17,12 +17,19 @@ import msgspec
 import pytest
 from django.db import models
 from openapi_spec_validator import validate
+from pydantic import BaseModel, Field, TypeAdapter
 
 from freeman import BoltAPI
 from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
 from freeman.datastructures import UploadFile
 from freeman.openapi import OpenAPIConfig
-from freeman.openapi.schema_generator import ComponentNameCollisionError, SchemaGenerator
+from freeman.openapi.schema_generator import (
+    ComponentNameCollisionError,
+    SchemaGenerator,
+    _BoltJsonSchema,
+    _drop_default_titles,
+    _plain_nullable,
+)
 from freeman.openapi.spec import Components, SecurityScheme
 from freeman.param_functions import File, Form, Query
 from freeman.serializers import Serializer, computed_field, field
@@ -32,25 +39,25 @@ from freeman.websocket import WebSocket
 
 
 # Fixtures
-class ConstrainedFilters(msgspec.Struct):
-    page: Annotated[int, msgspec.Meta(ge=1)]
-    size: Annotated[int, msgspec.Meta(ge=1, le=100)] = 20
-    ratio: Annotated[float, msgspec.Meta(gt=0.0, lt=1.0)] | None = None
-    step: Annotated[int, msgspec.Meta(multiple_of=5)] = 10
+class ConstrainedFilters(BaseModel):
+    page: Annotated[int, Field(ge=1)]
+    size: Annotated[int, Field(ge=1, le=100)] = 20
+    ratio: Annotated[float, Field(gt=0.0, lt=1.0)] | None = None
+    step: Annotated[int, Field(multiple_of=5)] = 10
 
 
-class StringConstrainedQuery(msgspec.Struct):
-    name: Annotated[str, msgspec.Meta(min_length=1, max_length=50)]
-    code: Annotated[str, msgspec.Meta(pattern=r"^[A-Z]{3}$")] | None = None
+class StringConstrainedQuery(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=50)]
+    code: Annotated[str, Field(pattern=r"^[A-Z]{3}$")] | None = None
 
 
-class ResponseWithDefaults(msgspec.Struct):
+class ResponseWithDefaults(BaseModel):
     message: str = "hello"
     count: int = 0
     active: bool = True
 
 
-class NoDefaultsResponse(msgspec.Struct):
+class NoDefaultsResponse(BaseModel):
     id: str
     name: str
 
@@ -85,7 +92,9 @@ def _get_schema(api: BoltAPI) -> dict:
     with TestClient(api) as client:
         response = client.get("/docs/openapi.json")
         assert response.status_code == 200
-        return response.json()
+        document = response.json()
+    validate(document)
+    return document
 
 
 def _get_param(params: list[dict], name: str) -> dict:
@@ -107,6 +116,25 @@ def _get_query_param_schema(query_type: type, param_name: str) -> dict:
     schema = _get_schema(api)
     params = schema["paths"]["/items"]["get"]["parameters"]
     return _get_param(params, param_name)["schema"]
+
+
+def _get_query_param(query_type: type, param_name: str) -> dict:
+    """Build an API with a query model and return one OpenAPI parameter."""
+    api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
+
+    @api.get("/items")
+    async def get_items(query: Annotated[query_type, Query()]) -> dict:
+        pass
+
+    return _get_param(_get_schema(api)["paths"]["/items"]["get"]["parameters"], param_name)
+
+
+def _pydantic_component(model: type, mode: str = "serialization") -> dict:
+    """Pydantic's own schema of ``model``, through the finalisation rules of the generator."""
+    schema = TypeAdapter(model).json_schema(
+        mode=mode, ref_template="#/components/schemas/{model}", schema_generator=_BoltJsonSchema
+    )
+    return _plain_nullable(_drop_default_titles(schema))
 
 
 def _get_response_component_schema(response_type: type, path: str = "/item") -> dict:
@@ -159,7 +187,7 @@ def test_int_multiple_of_constraint():
 def test_unconstrained_int_has_no_constraint_fields():
     """Test that an unconstrained int produces no constraint fields."""
 
-    class SimpleQuery(msgspec.Struct):
+    class SimpleQuery(BaseModel):
         page: int = 1
 
     page_schema = _get_query_param_schema(SimpleQuery, "page")
@@ -195,7 +223,7 @@ def test_str_enum_produces_string_enum_schema():
     value cannot be null, so the parameter has the schema of the enum.
     """
 
-    class FilterQuery(msgspec.Struct):
+    class FilterQuery(BaseModel):
         status: RegularEnum | None = None
 
     status_schema = _get_query_param_schema(FilterQuery, "status")
@@ -207,7 +235,7 @@ def test_str_enum_produces_string_enum_schema():
 def test_int_enum_produces_integer_enum_schema():
     """Test that an annotated int with an enum constraint produces the correct schema."""
 
-    class FilterQuery(msgspec.Struct):
+    class FilterQuery(BaseModel):
         priority: IntEnum | None = None
 
     priority_schema = _get_query_param_schema(FilterQuery, "priority")
@@ -219,7 +247,7 @@ def test_int_enum_produces_integer_enum_schema():
 def test_django_text_choices_produces_string_enum():
     """Test that a Django TextChoices enum produces the correct schema."""
 
-    class FilterQuery(msgspec.Struct):
+    class FilterQuery(BaseModel):
         status: DjangoStatus | None = None
 
     status_schema = _get_query_param_schema(FilterQuery, "status")
@@ -231,7 +259,7 @@ def test_django_text_choices_produces_string_enum():
 def test_django_integer_choices_produces_integer_enum():
     """Test that a Django IntegerChoices enum produces the correct schema."""
 
-    class FilterQuery(msgspec.Struct):
+    class FilterQuery(BaseModel):
         priority: DjangoPriority | None = None
 
     priority_schema = _get_query_param_schema(FilterQuery, "priority")
@@ -243,7 +271,7 @@ def test_django_integer_choices_produces_integer_enum():
 def test_literal_string_query_param():
     """Test that a literal string query param produces the correct schema."""
 
-    class SortQuery(msgspec.Struct):
+    class SortQuery(BaseModel):
         order: Literal["asc", "desc"] = "asc"
 
     order_schema = _get_query_param_schema(SortQuery, "order")
@@ -254,7 +282,7 @@ def test_literal_string_query_param():
 def test_literal_integers_produces_integer_type():
     """Test that a literal integer query param produces the correct schema."""
 
-    class PageQuery(msgspec.Struct):
+    class PageQuery(BaseModel):
         size: Literal[10, 25, 50, 100] = 10
 
     size_schema = _get_query_param_schema(PageQuery, "size")
@@ -303,10 +331,10 @@ def test_response_struct_reference_field_with_default_none():
     workaround.
     """
 
-    class Inner(msgspec.Struct):
+    class Inner(BaseModel):
         value: str
 
-    class Outer(msgspec.Struct):
+    class Outer(BaseModel):
         name: str
         inner: Inner | None = None
 
@@ -320,15 +348,15 @@ def test_response_struct_reference_field_with_default_none():
 # ---------- operations: responses, request body, parameters ----------
 
 
-class Widget(msgspec.Struct):
+class Widget(BaseModel):
     name: str
 
 
-class Problem(msgspec.Struct):
+class Problem(BaseModel):
     detail: str
 
 
-class WidgetFilters(msgspec.Struct):
+class WidgetFilters(BaseModel):
     q: str
     page: int = 1
 
@@ -346,17 +374,22 @@ class Position(NamedTuple):
     x: int
 
 
-class Shelf(msgspec.Struct):
+class Shelf(BaseModel):
     pair: tuple[Widget, Problem]
     many: tuple[Widget, ...]
     by_name: dict[str, Widget]
-    noted: Annotated[Widget, msgspec.Meta(description="The first widget")]
+    noted: Annotated[Widget, Field(description="The first widget")]
     widgets: list[Widget]
     position: Position
 
 
+# msgspec.Struct: the engine writes the examples of each variant of a struct union only.
+class StructWidget(msgspec.Struct):
+    name: str
+
+
 class Circle(msgspec.Struct, tag="circle"):
-    center: Widget
+    center: StructWidget
     labels: dict[str, str]
     note: str | None
     radius: float = 1.0
@@ -587,7 +620,8 @@ def test_struct_field_refers_to_the_component_of_each_named_type():
         "pair": {"type": "array", "prefixItems": [WIDGET_REF, PROBLEM_REF], "minItems": 2, "maxItems": 2},
         "many": {"type": "array", "items": WIDGET_REF},
         "by_name": {"type": "object", "additionalProperties": WIDGET_REF},
-        "noted": WIDGET_REF,
+        # Pydantic keeps the description of the field beside the reference.
+        "noted": {**WIDGET_REF, "description": "The first widget"},
         "widgets": {"type": "array", "items": WIDGET_REF},
         "position": {"$ref": "#/components/schemas/Position"},
     }
@@ -598,13 +632,13 @@ def test_struct_field_refers_to_the_component_of_each_named_type():
 # `_struct_to_schema` carries the struct's `__name__` and `__doc__`
 # through to the OpenAPI Schema so that downstream codegen (notably
 # `openapi-typescript`) renders type labels and JSDoc on the generated
-# types. Mirrors the shape `msgspec.json.schema_components` produces.
+# types. A Pydantic model gives its component the same title and description.
 
 
 def test_component_schema_carries_title_from_struct_name():
     """The component schema's `title` field equals the struct's class name."""
 
-    class TitledStruct(msgspec.Struct):
+    class TitledStruct(BaseModel):
         name: str
 
     schema = _get_response_component_schema(TitledStruct)
@@ -614,7 +648,7 @@ def test_component_schema_carries_title_from_struct_name():
 def test_component_schema_carries_description_from_docstring():
     """The component schema's `description` field equals the struct's docstring."""
 
-    class DocumentedStruct(msgspec.Struct):
+    class DocumentedStruct(BaseModel):
         """Concise summary of the struct."""
 
         name: str
@@ -625,10 +659,10 @@ def test_component_schema_carries_description_from_docstring():
 
 def test_component_schema_strips_docstring_indentation():
     """Multi-line docstrings have uniform leading indentation removed
-    (the same `inspect.cleandoc` behavior `msgspec.json.schema_components`
+    (the same `inspect.cleandoc` behavior that Pydantic
     applies), so the rendered JSDoc isn't wrapped in stray spaces."""
 
-    class MultiLineStruct(msgspec.Struct):
+    class MultiLineStruct(BaseModel):
         """Summary line.
 
         Continuation paragraph that explains the struct in more detail.
@@ -644,7 +678,7 @@ def test_component_schema_omits_description_when_no_docstring():
     """Structs without a docstring don't carry an empty `description` —
     the field is dropped from the emitted JSON entirely."""
 
-    class BareStruct(msgspec.Struct):
+    class BareStruct(BaseModel):
         name: str
 
     schema = _get_response_component_schema(BareStruct)
@@ -669,8 +703,8 @@ def test_component_schema_omits_description_when_no_docstring():
 def test_documented_str_constraint_renders_as_string_not_object():
     """A str field with constraints AND a description must render as `string`."""
 
-    class DocStr(msgspec.Struct):
-        code: Annotated[str, msgspec.Meta(max_length=10, pattern=r"^[A-Z]+$", description="A code")]
+    class DocStr(BaseModel):
+        code: Annotated[str, Field(max_length=10, pattern=r"^[A-Z]+$", description="A code")]
 
     props = _get_response_component_schema(DocStr)["properties"]
     # Without the fix this is {"type": "object"} (the reported bug).
@@ -683,8 +717,8 @@ def test_documented_str_constraint_renders_as_string_not_object():
 def test_documented_int_constraint_renders_as_integer_not_object():
     """An int field with a constraint AND a description must render as `integer`."""
 
-    class DocInt(msgspec.Struct):
-        qty: Annotated[int, msgspec.Meta(gt=0, description="Positive quantity")]
+    class DocInt(BaseModel):
+        qty: Annotated[int, Field(gt=0, description="Positive quantity")]
 
     props = _get_response_component_schema(DocInt)["properties"]
     assert props["qty"]["type"] == "integer"
@@ -695,8 +729,8 @@ def test_documented_int_constraint_renders_as_integer_not_object():
 def test_documented_type_carries_examples():
     """The `examples` carried by a documented Meta survive onto the schema."""
 
-    class WithExamples(msgspec.Struct):
-        name: Annotated[str, msgspec.Meta(min_length=1, examples=["alice", "bob"])]
+    class WithExamples(BaseModel):
+        name: Annotated[str, Field(min_length=1, examples=["alice", "bob"])]
 
     props = _get_response_component_schema(WithExamples)["properties"]
     assert props["name"]["type"] == "string"
@@ -705,13 +739,13 @@ def test_documented_type_carries_examples():
 
 
 def test_extra_json_schema_keys_in_camel_case_reach_the_schema():
-    """A JSON Schema keyword of ``Meta(extra_json_schema=...)`` keeps its camelCase name in the document."""
+    """A JSON Schema keyword of ``Field(json_schema_extra=...)`` keeps its camelCase name in the document."""
 
-    class Upload(msgspec.Struct):
+    class Upload(BaseModel):
         payload: Annotated[
             str,
-            msgspec.Meta(
-                extra_json_schema={
+            Field(
+                json_schema_extra={
                     "contentEncoding": "base64",
                     "readOnly": True,
                     "externalDocs": {"url": "https://example.com/payload"},
@@ -1069,13 +1103,13 @@ def test_documented_query_struct_field_renders_concrete_type():
     distinct from the response-component path.
     """
 
-    class Filters(msgspec.Struct):
-        code: Annotated[str, msgspec.Meta(max_length=5, description="Short code")] = "AB"
+    class Filters(BaseModel):
+        code: Annotated[str, Field(max_length=5, description="Short code")] = "AB"
 
     code_schema = _get_query_param_schema(Filters, "code")
-    assert code_schema["type"] == "string"
-    assert code_schema["maxLength"] == 5
-    assert code_schema["description"] == "Short code"
+    assert code_schema == {"type": "string", "maxLength": 5, "default": "AB"}
+    # The description of a model field is the description of its parameter.
+    assert _get_query_param(Filters, "code")["description"] == "Short code"
 
 
 def test_documented_custom_type_as_bare_response_model():
@@ -1121,8 +1155,8 @@ def test_constraints_only_meta_still_omits_description():
     becomes a Metadata node. This must keep working unchanged.
     """
 
-    class ConstraintsOnly(msgspec.Struct):
-        n: Annotated[int, msgspec.Meta(ge=1, le=9)]
+    class ConstraintsOnly(BaseModel):
+        n: Annotated[int, Field(ge=1, le=9)]
 
     props = _get_response_component_schema(ConstraintsOnly)["properties"]
     assert props["n"]["type"] == "integer"
@@ -1146,7 +1180,7 @@ def test_constraints_only_meta_still_omits_description():
 def test_dict_str_int_value_type_preserved():
     """`dict[str, int]` must carry the value type, not collapse to `true`."""
 
-    class IntMap(msgspec.Struct):
+    class IntMap(BaseModel):
         counts: dict[str, int]
 
     props = _get_response_component_schema(IntMap)["properties"]
@@ -1158,7 +1192,7 @@ def test_dict_str_int_value_type_preserved():
 def test_dict_str_str_value_type_preserved():
     """`dict[str, str]` renders a string-valued `additionalProperties`."""
 
-    class StrMap(msgspec.Struct):
+    class StrMap(BaseModel):
         labels: dict[str, str]
 
     props = _get_response_component_schema(StrMap)["properties"]
@@ -1168,10 +1202,10 @@ def test_dict_str_str_value_type_preserved():
 def test_dict_str_struct_value_emits_ref_and_registers_component():
     """`dict[str, SomeStruct]` emits a `$ref` value and registers the component."""
 
-    class DictValueItem(msgspec.Struct):
+    class DictValueItem(BaseModel):
         x: int
 
-    class StructMap(msgspec.Struct):
+    class StructMap(BaseModel):
         items: dict[str, DictValueItem]
 
     api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
@@ -1188,16 +1222,16 @@ def test_dict_str_struct_value_emits_ref_and_registers_component():
 
 
 def test_dict_str_optional_value_renders_anyof_with_null():
-    """`dict[str, int | None]` renders an `anyOf` value with a `null` arm."""
+    """`dict[str, int | None]` renders a value type list with `null`."""
 
-    class OptMap(msgspec.Struct):
+    class OptMap(BaseModel):
         maybe: dict[str, int | None]
 
     props = _get_response_component_schema(OptMap)["properties"]
-    assert props["maybe"]["additionalProperties"]["anyOf"] == [{"type": "integer"}, {"type": "null"}]
+    assert props["maybe"]["additionalProperties"] == {"type": ["integer", "null"]}
 
 
-class MaybeItem(msgspec.Struct):
+class MaybeItem(BaseModel):
     id: int
 
 
@@ -1241,10 +1275,10 @@ def test_optional_type_keeps_its_null_arm_outside_a_struct():
     assert (page["schema"], page["required"]) == ({"type": "integer"}, False)
 
 
-class OptionalFields(msgspec.Struct):
+class OptionalFields(BaseModel):
     name: str
     opt: str | None = None
-    count: Annotated[int, msgspec.Meta(ge=1)] | None = None
+    count: Annotated[int, Field(ge=1)] | None = None
     tags: list[str] | None = None
     label: str | None = "x"
     either: int | str | None = None
@@ -1320,7 +1354,7 @@ def test_dict_str_any_keeps_additional_properties_true():
     `AnyType`) must NOT become `additionalProperties: {"type": "object"}`.
     """
 
-    class AnyMap(msgspec.Struct):
+    class AnyMap(BaseModel):
         meta: dict[str, Any]
 
     props = _get_response_component_schema(AnyMap)["properties"]
@@ -1329,22 +1363,22 @@ def test_dict_str_any_keeps_additional_properties_true():
 
 
 def test_dict_value_types_match_msgspec_schema():
-    """Bolt's `additionalProperties` matches `msgspec.json.schema` for typed dicts.
+    """Bolt's `additionalProperties` matches the schema that Pydantic gives for typed dicts.
 
-    Compares the directly-comparable cases (primitive + nullable values); the
-    struct-valued case differs only in `$ref` path (`#/components/schemas` vs
-    msgspec's `#/$defs`) and is covered separately above.
+    The oracle is Pydantic's own schema of the model, through the finalisation
+    rules of the generator.
     """
 
-    class Maps(msgspec.Struct):
+    class Maps(BaseModel):
         counts: dict[str, int]
         labels: dict[str, str]
         maybe: dict[str, int | None]
 
     bolt_props = _get_response_component_schema(Maps)["properties"]
-    msgspec_props = msgspec.json.schema_components((Maps,))[1]["Maps"]["properties"]
+    pydantic_props = _pydantic_component(Maps)["properties"]
     for field_name in ("counts", "labels", "maybe"):
-        assert bolt_props[field_name]["additionalProperties"] == msgspec_props[field_name]["additionalProperties"]
+        assert bolt_props[field_name]["additionalProperties"] == pydantic_props[field_name]["additionalProperties"]
+    assert bolt_props == pydantic_props
 
 
 def test_dict_value_type_preserved_in_typing_path():
@@ -1380,13 +1414,13 @@ def test_untyped_dict_typing_path_keeps_additional_properties_true():
 # Regression tests for #245. `_msgspec_field_schema` carried `field.default`
 # onto the schema but never read `field.default_factory`, so factory-defaulted
 # fields (the usual mutable-default case: `list`/`dict`) lost their `default`.
-# It now materializes the factory, matching `msgspec.json.schema`.
+# It now materializes the factory. For a Pydantic model, the generator does so too.
 
 
-class FactoryDefaults(msgspec.Struct):
+class FactoryDefaults(BaseModel):
     name: str = ""
-    tags: list[str] = msgspec.field(default_factory=list)
-    meta: dict[str, str] = msgspec.field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+    meta: dict[str, str] = Field(default_factory=dict)
 
 
 def test_factory_default_list_materialized():
@@ -1415,29 +1449,34 @@ def test_factory_defaulted_fields_are_not_required():
 
 
 def test_factory_defaults_match_msgspec_schema():
-    """Bolt's component schema for factory defaults matches `msgspec.json.schema`."""
+    """Bolt's component schema for factory defaults matches Pydantic's own schema after finalisation."""
     bolt_props = _get_response_component_schema(FactoryDefaults, path="/factory")["properties"]
-    msgspec_props = msgspec.json.schema_components((FactoryDefaults,))[1]["FactoryDefaults"]["properties"]
+    pydantic_props = _pydantic_component(FactoryDefaults)["properties"]
     for field_name in ("name", "tags", "meta"):
-        assert bolt_props[field_name]["default"] == msgspec_props[field_name]["default"]
+        assert bolt_props[field_name]["default"] == pydantic_props[field_name]["default"]
+    assert bolt_props == {
+        "name": {"type": "string", "default": ""},
+        "tags": {"type": "array", "items": {"type": "string"}, "default": []},
+        "meta": {"type": "object", "additionalProperties": {"type": "string"}, "default": {}},
+    }
 
 
 def test_arbitrary_default_factory_emits_no_default():
-    """A non-builtin factory (e.g. `datetime.now`) emits NO `default`, matching msgspec.
+    """A non-builtin factory (e.g. `datetime.now`) emits NO `default`.
 
-    msgspec only materializes the four builtin mutable factories
-    (`list`/`dict`/`set`/`bytearray`); every other factory gets no `default`.
-    Materializing one here would both diverge from msgspec and freeze a value
-    (e.g. a generation-time timestamp) into the spec.
+    The generator only materializes the builtin collection factories
+    (`list`/`dict`/`set`/`frozenset`/`tuple`); every other factory gets no
+    `default`. Materializing one here would freeze a value (e.g. a
+    generation-time timestamp) into the spec.
     """
 
-    class WithDynamicFactory(msgspec.Struct):
-        created: datetime.datetime = msgspec.field(default_factory=datetime.datetime.now)
+    class WithDynamicFactory(BaseModel):
+        created: datetime.datetime = Field(default_factory=datetime.datetime.now)
 
     props = _get_response_component_schema(WithDynamicFactory, path="/dyn")["properties"]
     assert "default" not in props["created"]
-    msgspec_props = msgspec.json.schema_components((WithDynamicFactory,))[1]["WithDynamicFactory"]["properties"]
-    assert "default" not in msgspec_props["created"]
+    assert props["created"] == _pydantic_component(WithDynamicFactory)["properties"]["created"]
+    assert props["created"] == {"type": "string", "format": "date-time"}
 
 
 def test_nonencodable_default_factory_does_not_break_schema_generation():
@@ -1451,53 +1490,43 @@ def test_nonencodable_default_factory_does_not_break_schema_generation():
     class Opaque:
         pass
 
-    class WithOpaqueFactory(msgspec.Struct):
-        thing: Opaque = msgspec.field(default_factory=Opaque)
+    class WithOpaqueFactory(BaseModel):
+        # Pydantic holds no field of an unknown type, so the field takes any value.
+        thing: Any = Field(default_factory=Opaque)
 
     props = _get_response_component_schema(WithOpaqueFactory, path="/opaque")["properties"]
     assert "default" not in props["thing"]
 
 
 def test_every_factory_kind_matches_msgspec_default():
-    """Across every factory kind, bolt's `default` presence + value matches msgspec.
+    """Across every factory kind, bolt's `default` presence + value matches Pydantic's own schema.
 
-    msgspec is the correctness oracle here. It materializes the four builtin
-    mutable factories (`list`/`dict`/`set`/`bytearray`); stores immutable
-    factories (`tuple`/`frozenset`) as a plain `default`; and emits NO default
-    for arbitrary factories. This pins all three behaviors at once — and would
-    catch the whitelist being narrowed (e.g. dropping `set`/`bytearray`) or
-    widened (materializing `datetime.now`). Both sides are normalized through
-    the same JSON encode so set→[] / bytearray→"" compare like-for-like.
+    The oracle is Pydantic's schema of the model through the finalisation
+    rules of the generator. The generator materializes the builtin collection
+    factories (`list`/`dict`/`set`/`frozenset`/`tuple`) and emits NO default
+    for arbitrary factories. This pins both behaviors at once — and would
+    catch the whitelist being narrowed (e.g. dropping `set`) or widened
+    (materializing `datetime.now`). A Pydantic model holds no `bytearray`, so
+    the msgspec `bytearray` factory has no counterpart here.
     """
 
-    class EveryFactory(msgspec.Struct):
-        as_list: list = msgspec.field(default_factory=list)
-        as_dict: dict = msgspec.field(default_factory=dict)
-        as_set: set = msgspec.field(default_factory=set)
-        as_bytearray: bytearray = msgspec.field(default_factory=bytearray)
-        as_tuple: tuple = msgspec.field(default_factory=tuple)
-        as_frozenset: frozenset = msgspec.field(default_factory=frozenset)
-        as_dynamic: datetime.datetime = msgspec.field(default_factory=datetime.datetime.now)
-
-    def as_json(value):
-        return msgspec.json.decode(msgspec.json.encode(value))
+    class EveryFactory(BaseModel):
+        as_list: list = Field(default_factory=list)
+        as_dict: dict = Field(default_factory=dict)
+        as_set: set = Field(default_factory=set)
+        as_tuple: tuple = Field(default_factory=tuple)
+        as_frozenset: frozenset = Field(default_factory=frozenset)
+        as_dynamic: datetime.datetime = Field(default_factory=datetime.datetime.now)
 
     bolt_props = _get_response_component_schema(EveryFactory, path="/every")["properties"]
-    msgspec_props = msgspec.json.schema_components((EveryFactory,))[1]["EveryFactory"]["properties"]
-
-    sentinel = object()
-    for field_name in ("as_list", "as_dict", "as_set", "as_bytearray", "as_tuple", "as_frozenset", "as_dynamic"):
-        bolt_default = bolt_props[field_name].get("default", sentinel)
-        ms_field = msgspec_props[field_name]
-        if "default" in ms_field:
-            assert bolt_default == as_json(ms_field["default"]), field_name
-        else:
-            assert bolt_default is sentinel, f"{field_name} should carry no default (matching msgspec)"
+    assert bolt_props == _pydantic_component(EveryFactory)["properties"]
 
     # Concrete spot-checks so the parity assertion can't pass vacuously.
+    assert bolt_props["as_list"]["default"] == []
+    assert bolt_props["as_dict"]["default"] == {}
     assert bolt_props["as_set"]["default"] == []
-    assert bolt_props["as_bytearray"]["default"] == ""
     assert bolt_props["as_tuple"]["default"] == []
+    assert bolt_props["as_frozenset"]["default"] == []
     assert "default" not in bolt_props["as_dynamic"]
 
 
@@ -1526,7 +1555,7 @@ class UndocumentedColor(enum.StrEnum):
 def test_named_enum_field_emits_ref_in_component_schema():
     """An enum field inside a response struct becomes a `$ref`, not inline."""
 
-    class FeatureState(msgspec.Struct):
+    class FeatureState(BaseModel):
         reason: GateReason
 
     props = _get_response_component_schema(FeatureState)["properties"]
@@ -1536,7 +1565,7 @@ def test_named_enum_field_emits_ref_in_component_schema():
 def test_named_enum_registers_component_with_description():
     """The promoted enum component carries its values, title, and docstring."""
 
-    class FeatureState(msgspec.Struct):
+    class FeatureState(BaseModel):
         reason: GateReason
 
     api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
@@ -1557,7 +1586,7 @@ def test_named_enum_registers_component_with_description():
 def test_named_enum_without_docstring_omits_description():
     """An undocumented enum component carries no `description` field."""
 
-    class Palette(msgspec.Struct):
+    class Palette(BaseModel):
         color: UndocumentedColor
 
     api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
@@ -1611,10 +1640,10 @@ def test_bare_enum_inside_list_response_model_emits_ref():
 def test_nullable_named_enum_field_refs_inside_anyof():
     """`GateReason | None = None` → `anyOf: [$ref, null]` with `default: null`.
 
-    Matches the shape `msgspec.json.schema_components` produces.
+    Pydantic's own schema has this shape.
     """
 
-    class FeatureState(msgspec.Struct):
+    class FeatureState(BaseModel):
         reason: GateReason | None = None
 
     schema = _get_response_component_schema(FeatureState)
@@ -1626,7 +1655,7 @@ def test_nullable_named_enum_field_refs_inside_anyof():
 def test_django_text_choices_promoted_to_component():
     """A Django `TextChoices` field (msgspec `CustomType`) is promoted too."""
 
-    class Task(msgspec.Struct):
+    class Task(BaseModel):
         status: DjangoStatus
 
     api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
@@ -1648,7 +1677,7 @@ def test_anonymous_literal_field_stays_inline():
     components; anonymous literal unions have no name to register under.
     """
 
-    class SortSpec(msgspec.Struct):
+    class SortSpec(BaseModel):
         order: Literal["asc", "desc"] = "asc"
 
     schema = _get_response_component_schema(SortSpec)
@@ -1663,7 +1692,7 @@ def test_anonymous_literal_field_stays_inline():
 def test_query_param_enum_stays_inline():
     """Query-param enums are NOT promoted (inline context); existing behavior holds."""
 
-    class FilterQuery(msgspec.Struct):
+    class FilterQuery(BaseModel):
         status: RegularEnum | None = None
 
     status_schema = _get_query_param_schema(FilterQuery, "status")
@@ -1677,8 +1706,8 @@ def test_same_named_types_from_different_modules_coexist():
     """Two distinct same-named types from different modules both get components.
 
     Component names are a flat namespace, but a clash on the short `__name__`
-    expands *both* colliding types to their `module.qualname` (matching
-    `msgspec.json.schema_components`) so neither silently steals the other's
+    expands *both* colliding types to their `module__qualname` (as
+    Pydantic names them) so neither silently steals the other's
     `$ref`. The bare name is not used; each `$ref` resolves to the right shape;
     `title` stays the short class name.
     """
@@ -1689,13 +1718,13 @@ def test_same_named_types_from_different_modules_coexist():
     Status.__module__ = "app_a.api"
     StatusEnum = Status
 
-    class Status(msgspec.Struct):  # noqa: F811 - intentional short-name clash with the enum above
+    class Status(BaseModel):  # noqa: F811 - intentional short-name clash with the enum above
         code: int
 
     Status.__module__ = "app_b.api"
     StatusStruct = Status
 
-    class Wrapper(msgspec.Struct):
+    class Wrapper(BaseModel):
         state: StatusEnum
         detail: StatusStruct
 
@@ -1734,6 +1763,7 @@ def test_genuinely_indistinguishable_types_raise():
 
     StatusEnum = Status
 
+    # msgspec.Struct: Pydantic names two such models `<qualname>__1` and `<qualname>__2` and does not raise.
     class Status(msgspec.Struct):  # noqa: F811 - intentional clash with the enum above
         code: int
 
@@ -1762,7 +1792,7 @@ def test_genuinely_indistinguishable_types_raise():
 def test_same_named_enum_reused_across_fields_does_not_falsely_collide():
     """The same enum on multiple fields is reuse, not a collision — no raise."""
 
-    class TwoStages(msgspec.Struct):
+    class TwoStages(BaseModel):
         primary: GateReason
         secondary: GateReason
 
@@ -1779,7 +1809,7 @@ def test_same_named_enum_reused_across_fields_does_not_falsely_collide():
 def test_shared_enum_reuses_single_component():
     """The same enum on two fields registers one component and two `$ref`s."""
 
-    class TwoGates(msgspec.Struct):
+    class TwoGates(BaseModel):
         primary: GateReason
         secondary: GateReason
 

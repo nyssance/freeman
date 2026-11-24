@@ -18,6 +18,7 @@ import jwt
 import msgspec
 import pytest
 from django.test import override_settings
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Router
 from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
@@ -41,7 +42,7 @@ from freeman.testing import TestClient
 
 
 # Test models
-class ItemModel(msgspec.Struct):
+class ItemModel(BaseModel):
     id: int
     name: str
 
@@ -1591,7 +1592,7 @@ def test_base_middleware_skips_the_excluded_paths_and_methods(method, path, hand
     assert ("x-handled" in response.headers) is handled
 
 
-class TimingState(msgspec.Struct):
+class TimingState(BaseModel):
     request_id: str
     start_time: float
 

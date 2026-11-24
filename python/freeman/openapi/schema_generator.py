@@ -182,6 +182,44 @@ def _plain_nullable(node: Any) -> Any:
 
 
 _DECIMAL_BOUNDS = ("gt", "ge", "lt", "le", "multiple_of")
+_COLLECTION_FACTORIES = (list, dict, set, frozenset, tuple)
+
+
+def _is_union(annotation: Any) -> bool:
+    return get_origin(annotation) in (Union, UnionType)
+
+
+def _local_refs(node: Any, found: set[str]) -> set[str]:
+    """The names of the components that ``node`` refers to."""
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            found.add(ref.rsplit("/", 1)[-1])
+        for value in node.values():
+            _local_refs(value, found)
+    elif isinstance(node, list):
+        for item in node:
+            _local_refs(item, found)
+    return found
+
+
+def _inline_enum(schema: dict[str, Any], definitions: dict[str, Any]) -> dict[str, Any]:
+    """Write the enum that a parameter or a form field refers to in its schema, as a struct field has it.
+
+    The schema of the parameter or of its array items holds the values. The
+    keywords of the use, such as its default, stay.
+    """
+    for node in (schema, schema.get("items")):
+        if not isinstance(node, dict) or not isinstance(node.get("$ref"), str):
+            continue
+        target = definitions.get(node["$ref"].rsplit("/", 1)[-1])
+        if target is None or "enum" not in target:
+            continue
+        inlined = {key: value for key, value in target.items() if key not in ("title", "description")}
+        inlined.update((key, value) for key, value in node.items() if key != "$ref")
+        node.clear()
+        node.update(inlined)
+    return schema
 
 
 class _BoltJsonSchema(GenerateJsonSchema):
@@ -200,6 +238,19 @@ class _BoltJsonSchema(GenerateJsonSchema):
         if self._config.ser_json_bytes == "base64":
             json_schema["contentEncoding"] = "base64"
         return json_schema
+
+    def get_default_value(self, schema: core_schema.WithDefaultSchema) -> Any:
+        """The default of a field, also when a builtin collection factory gives it.
+
+        Each call of ``list``, ``dict``, ``set``, ``frozenset`` or ``tuple`` gives
+        an empty value, so the schema can show it, as a struct field does. Any
+        other factory is not called: it could give a different value each time,
+        or a value that has no JSON form.
+        """
+        factory = schema.get("default_factory")
+        if factory in _COLLECTION_FACTORIES and not schema.get("default_factory_takes_data"):
+            return factory()
+        return super().get_default_value(schema)
 
     def decimal_schema(self, schema: core_schema.DecimalSchema) -> JsonSchemaValue:
         if any(schema.get(bound) is not None for bound in _DECIMAL_BOUNDS):
@@ -2105,8 +2156,9 @@ class SchemaGenerator:
         placeholder = _PydanticSchema()
         annotation = field.annotation
         default = field.default
-        if not describe:
-            # A query, header or cookie value cannot be null. ``required: false`` says that it is optional.
+        if is_optional(annotation) and not _is_union(unwrap_optional(annotation)):
+            # A query, header, cookie or form value cannot be null. ``required: false`` says that it is optional.
+            # A union of two types or more keeps its null arm, so the None default stays valid.
             annotation = unwrap_optional(annotation)
             if default is None:
                 default = inspect.Parameter.empty
@@ -2125,7 +2177,7 @@ class SchemaGenerator:
                     schema["minItems"] = 1
             return schema
 
-        # A form field may be null, so its key differs from that of the same field as a parameter.
+        # A form field has its description in its schema, so its key differs from that of the same parameter.
         self._pydantic_uses.append((placeholder, (model, field.name, describe), "validation", adapter, adjust))
         return placeholder
 
@@ -2137,7 +2189,19 @@ class SchemaGenerator:
         schemas, definitions = TypeAdapter.json_schemas(
             list(inputs.values()), ref_template="#/components/schemas/{model}", schema_generator=_BoltJsonSchema
         )
-        for name, schema in definitions.get("$defs", {}).items():
+        components = definitions.get("$defs", {})
+        for placeholder, key, mode, _, adjust in self._pydantic_uses:
+            schema = schemas[key, mode]
+            if adjust is not None:
+                schema = _inline_enum(adjust(schema), components)
+            placeholder.resolved = _plain_nullable(schema)
+        # An enum that only parameters or form fields named is in their schemas now.
+        used = _local_refs(list(components.values()), set())
+        for placeholder, *_ in self._pydantic_uses:
+            _local_refs(placeholder.resolved, used)
+        for name, schema in components.items():
+            if name not in used and "enum" in schema:
+                continue
             title = schema.get("title")
             if isinstance(title, str) and name != title and name.endswith(f"__{title}"):
                 # Two models share the class name, so Pydantic names each one ``module__qualname``.
@@ -2150,9 +2214,6 @@ class SchemaGenerator:
                 )
             # As a schema object, the component keeps a ``"default": None``. A plain dict drops each None value.
             self.schemas[name] = _PydanticSchema(resolved=schema)
-        for placeholder, key, mode, _, adjust in self._pydantic_uses:
-            schema = schemas[key, mode]
-            placeholder.resolved = _plain_nullable(schema if adjust is None else adjust(schema))
 
     def _register_component(self, cls: type, build_schema: Callable[[], Schema]) -> Reference:
         """Register ``cls`` as a component (by type identity) and return its shared Reference.

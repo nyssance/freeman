@@ -6,7 +6,7 @@ request through each second, so a second request at once gets the 429.
 
 from __future__ import annotations
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.auth import IsAuthenticated, JWTAuthentication
@@ -17,7 +17,7 @@ api = BoltAPI()
 SECRET = "unread-body-server-secret-32-bytes!"
 
 
-class Blob(msgspec.Struct):
+class Blob(BaseModel):
     data: str
 
 

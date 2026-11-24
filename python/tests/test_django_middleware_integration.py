@@ -16,7 +16,6 @@ from functools import partial
 from types import SimpleNamespace
 from typing import Annotated
 
-import msgspec
 import pytest
 from django.conf import settings
 from django.contrib.auth import alogin, alogout
@@ -35,6 +34,7 @@ from django.template import RequestContext, Template
 from django.utils.deprecation import MiddlewareMixin
 from django.utils.functional import SimpleLazyObject
 from django.views.decorators.csrf import csrf_exempt
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Request, Router
 from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user
@@ -50,7 +50,7 @@ from freeman.testing import TestClient
 
 # Define at module level to avoid issues with `from __future__ import annotations`
 # Named without "Test" prefix to avoid pytest collection
-class SampleRequestBody(msgspec.Struct):
+class SampleRequestBody(BaseModel):
     """Request body for body parsing tests."""
 
     name: str

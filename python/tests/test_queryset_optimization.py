@@ -6,13 +6,14 @@ These tests verify that field names are pre-computed at route registration time.
 
 from typing import get_origin
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
+from freeman._pydantic import _lookup_keys
 from freeman.testing import TestClient
 
 
-class UserSchema(msgspec.Struct):
+class UserSchema(BaseModel):
     id: int
     username: str
 
@@ -35,10 +36,9 @@ def test_metadata_precomputes_field_names():
     _method, _path, handler_id, _handler = api._routes[0]
     meta = api._handler_meta[handler_id]
 
-    # Verify field names are pre-computed
-    assert "response_field_names" in meta, "Field names should be pre-computed"
-    assert set(meta["response_field_names"]) == {"id", "username"}
+    # A Pydantic list[Model] reads a QuerySet with values() on the keys of the model.
     assert get_origin(meta["response_type"]) is list
+    assert set(_lookup_keys(UserSchema)) == {"id", "username"}
 
 
 def test_metadata_has_no_field_names_for_non_list_responses():
@@ -91,7 +91,7 @@ def test_precomputed_fields_match_struct():
     This test will FAIL if field pre-computation logic is wrong.
     """
 
-    class DetailedSchema(msgspec.Struct):
+    class DetailedSchema(BaseModel):
         id: int
         name: str
         email: str
@@ -106,9 +106,9 @@ def test_precomputed_fields_match_struct():
     _method, _path, handler_id, _handler = api._routes[0]
     meta = api._handler_meta[handler_id]
 
-    # Pre-computed fields should exactly match struct annotations
-    assert "response_field_names" in meta
-    precomputed = set(meta["response_field_names"])
+    # The keys that values() reads should exactly match the model annotations
+    assert get_origin(meta["response_type"]) is list
+    precomputed = set(_lookup_keys(DetailedSchema))
     expected = set(DetailedSchema.__annotations__.keys())
 
     assert precomputed == expected, f"Pre-computed fields {precomputed} don't match struct {expected}"
@@ -121,7 +121,7 @@ def test_field_order_preserved():
     This is important for QuerySet.values() to work correctly.
     """
 
-    class OrderedSchema(msgspec.Struct):
+    class OrderedSchema(BaseModel):
         # Order matters!
         z_field: str
         a_field: int
@@ -137,7 +137,9 @@ def test_field_order_preserved():
     meta = api._handler_meta[handler_id]
 
     # Check that all fields are present
-    field_names = meta["response_field_names"]
+    assert get_origin(meta["response_type"]) is list
+    field_names = _lookup_keys(OrderedSchema)
+    assert field_names == ("z_field", "a_field", "m_field")
     assert set(field_names) == {"z_field", "a_field", "m_field"}
     # The order should match the struct definition order
     assert "z_field" in field_names

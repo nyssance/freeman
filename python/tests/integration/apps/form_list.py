@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.params import Form
@@ -21,7 +21,7 @@ async def health():
     return {"status": "ok"}
 
 
-class TagsForm(msgspec.Struct):
+class TagsForm(BaseModel):
     name: str
     tags: list[str] = []
     counts: list[int] = []

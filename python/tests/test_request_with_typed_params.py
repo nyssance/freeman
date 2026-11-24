@@ -11,15 +11,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.params import Cookie, Header
 from freeman.testing import TestClient
 
 
-class _Item(msgspec.Struct):
+class _Item(BaseModel):
     name: str
 
 

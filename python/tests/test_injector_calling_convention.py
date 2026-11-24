@@ -14,6 +14,7 @@ from typing import Annotated
 
 import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Depends, UploadFile
 from freeman.param_functions import Cookie, File, Form, Header
@@ -22,11 +23,11 @@ from freeman.testing import TestClient
 Count = Annotated[int, msgspec.Meta(ge=0)]
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     name: str
 
 
-class Profile(msgspec.Struct):
+class Profile(BaseModel):
     name: str
     avatar: UploadFile
 

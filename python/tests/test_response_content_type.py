@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import asyncio
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import JSON, BoltAPI
 from freeman.middleware import Middleware
@@ -217,7 +217,7 @@ def test_python_middleware_gets_bytes_like_content_as_bytes(body_type):
     assert response.content == b"RAW"
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     id: int
 
 

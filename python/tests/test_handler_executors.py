@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import msgspec
 import pytest
 from django.test import override_settings
+from pydantic import BaseModel
 
 from freeman import JSON, BoltAPI, Depends
 from freeman.middleware import Middleware
@@ -30,7 +31,15 @@ def in_task() -> bool:
         return False
 
 
+# The executor matrix stays on a Struct: a Pydantic response type takes no sync
+# executor yet, and a Pydantic model returned with no declared type is a 500.
 class Item(msgspec.Struct):
+    id: int
+    q: str
+    in_task: bool
+
+
+class ItemModel(BaseModel):
     id: int
     q: str
     in_task: bool
@@ -366,7 +375,7 @@ def test_an_async_handler_with_no_await_has_a_running_loop():
 @pytest.mark.parametrize("middleware", [[], [PassThrough]], ids=["sync-dispatch", "async-executor"])
 @pytest.mark.parametrize(
     ("declared", "options"),
-    [(dict, {}), (list[Item], {"validate_response": False})],
+    [(dict, {}), (list[ItemModel], {"validate_response": False})],
     ids=["dict", "list-no-validation"],
 )
 def test_a_route_with_a_json_type_can_return_a_response_object(middleware, declared, options):
@@ -427,6 +436,8 @@ def test_a_queryset_from_a_sync_handler_loads(middleware):
     assert (filtered.status_code, filtered.json()) == (200, [{"title": "One"}]), filtered.text
 
 
+# Stays on a Struct: for a Pydantic type, the error of a QuerySet for a single
+# model does not name the fix (list[TitleRow]).
 class TitleRow(msgspec.Struct):
     title: str
 

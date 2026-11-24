@@ -10,10 +10,10 @@ import time
 from typing import Annotated
 
 import jwt
-import msgspec
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
+from pydantic import BaseModel, Field
 
 from freeman import BoltAPI, UploadFile
 from freeman.auth import JWTAuthentication, Requires
@@ -28,15 +28,15 @@ except ImportError:  # Django 5.2 has no django.utils.csp
     CSP = build_policy = None
 
 
-class _Tags(msgspec.Struct):
+class _Tags(BaseModel):
     tag: list[str] = []
 
 
-class _BoundedTags(msgspec.Struct):
-    tag: Annotated[list[int], msgspec.Meta(max_length=3)] = []
+class _BoundedTags(BaseModel):
+    tag: Annotated[list[int], Field(max_length=3)] = []
 
 
-class _Page(msgspec.Struct):
+class _Page(BaseModel):
     page: int = 1
 
 
@@ -114,8 +114,17 @@ def test_rust_converts_an_int_field_of_a_query_struct():
     with TestClient(api) as client:
         response = client.get("/items?page=abc")
 
+    # A Pydantic query model is validated by Pydantic, not converted by Rust.
     assert response.status_code == 422
-    assert response.json() == {"detail": RUST_INT_ERROR.format(key="page")}
+    assert response.json() == {
+        "detail": [
+            {
+                "loc": ["query", "page"],
+                "msg": "Input should be a valid integer, unable to parse string as an integer",
+                "type": "int_parsing",
+            }
+        ]
+    }
 
 
 # --- A guard that cannot compile names itself ------------------------------------
