@@ -105,6 +105,9 @@ dev = [
     "django-allauth>=65.19", # session login through allauth, read by Bolt routes
     "redis>=5.0", # Django RedisCache for the shared revocation store tests (`-m redis`)
     "hypothesis>=6.140",
+    "opentelemetry-sdk>=1.45.2", # the spans of a handler join the server span of Rust (DJANGO_BOLT_TRACING)
+    "opentelemetry-instrumentation-httpx>=0.66b2", # an outgoing call of a traced handler carries the trace
+    "opentelemetry-exporter-otlp-proto-http>=1.45.2", # the Python exporter, and the protobuf types to read the OTLP of Rust
 ]
 docs = [
     "zensical",

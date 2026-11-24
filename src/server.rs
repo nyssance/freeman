@@ -597,6 +597,13 @@ pub fn server_listening() -> bool {
     SERVER_LISTENING.load(Ordering::Relaxed)
 }
 
+/// Tell if `DJANGO_BOLT_TRACING` turns tracing on. Python reads this when it
+/// builds an API, to decide if the handlers get the trace context.
+#[pyfunction]
+pub fn tracing_enabled(py: Python<'_>) -> PyResult<bool> {
+    bolt_core::trace::enabled(py)
+}
+
 #[pyfunction]
 #[pyo3(signature = (dispatch, host, port, compression_config=None, error_renderer=None))]
 pub fn start_server(
@@ -709,6 +716,12 @@ pub fn start_server(
     // The native log writes each request, also when no Python logger writes a line.
     let access_log_enabled = access_log_enabled || bolt_core::access_log::native_sink().is_some();
     let access_loggers = if access_log_enabled { access_loggers } else { Vec::new() };
+    // Metrics and tracing read their variables once, here. An invalid value
+    // stops the start. The SDK of the tracing starts in this process, after
+    // the fork of `runbolt --processes`, so each worker has its own exporter.
+    let metrics_enabled = bolt_core::metrics::init(py)?.is_some();
+    let tracing_enabled = bolt_core::trace::init(py)?.is_some();
+    let observed = access_log_enabled || metrics_enabled || tracing_enabled;
     let route_metadata = Arc::new(RouteMetadataStore::from_map(metadata));
 
     let global_compression_config = match compression_config {
@@ -809,8 +822,9 @@ pub fn start_server(
 
                         // Default service handles all unmatched HTTP requests.
                         // Granian pattern: select handler variant at registration time.
-                        // handle_request::<false> has zero access-logging instructions (compiler eliminated).
-                        if access_log_enabled {
+                        // handle_request::<false> has no instructions of the access
+                        // log, the metrics or the tracing (compiler eliminated).
+                        if observed {
                             app.default_service(web::to(handle_request::<true>))
                         } else {
                             app.default_service(web::to(handle_request::<false>))
@@ -876,6 +890,9 @@ pub fn start_server(
                     });
 
                     let served = server.await;
+                    // The last numbers and spans of this process, before it exits.
+                    bolt_core::metrics::flush();
+                    bolt_core::trace::shutdown();
                     // The lanes close their database connections and stop
                     // before Python exits.
                     let busy = bolt_core::lane::shutdown();

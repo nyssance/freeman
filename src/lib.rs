@@ -79,6 +79,7 @@ fn _core(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(register_middleware_metadata, m)?)?;
     m.add_function(wrap_pyfunction!(start_server, m)?)?;
     m.add_function(wrap_pyfunction!(server_listening, m)?)?;
+    m.add_function(wrap_pyfunction!(crate::server::tracing_enabled, m)?)?;
     m.add_function(wrap_pyfunction!(run_dev_reloader, m)?)?;
 
     // Test infrastructure functions (async-native, uses Actix test utilities)

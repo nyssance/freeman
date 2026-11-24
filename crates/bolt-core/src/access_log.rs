@@ -5,6 +5,7 @@
 //! request path reads them from the route metadata, with no Python call.
 
 use ahash::AHashSet;
+use opentelemetry::trace::TraceId;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -132,13 +133,14 @@ pub fn write_native_lines(receiver: &Receiver<String>, out: &mut impl Write) {
 }
 
 /// One line of the native access log: the time as seconds since the epoch,
-/// the method, the path, the status and the duration in milliseconds.
-pub fn native_line(method: &str, path: &str, status: u16, dur_ms: f64) -> String {
+/// the method, the path, the status and the duration in milliseconds. With
+/// tracing on, the line also has the trace id, so a log line joins its trace.
+pub fn native_line(method: &str, path: &str, status: u16, dur_ms: f64, trace: Option<TraceId>) -> String {
     use std::fmt::Write as _;
 
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0.0, |elapsed| elapsed.as_secs_f64());
     // One allocation for the line. A method is a token of visible ASCII.
-    let mut line = String::with_capacity(72 + path.len());
+    let mut line = String::with_capacity(116 + path.len());
     let _ = write!(line, r#"{{"ts":{now:.3},"method":"{method}","path":"#);
     // Most paths need no escape. serde_json escapes the others.
     if path.bytes().all(|byte| byte >= 0x20 && byte != b'"' && byte != b'\\') {
@@ -148,7 +150,11 @@ pub fn native_line(method: &str, path: &str, status: u16, dur_ms: f64) -> String
     } else {
         line.push_str(&serde_json::to_string(path).unwrap_or_else(|_| "\"\"".to_string()));
     }
-    let _ = write!(line, r#","status":{status},"ms":{dur_ms:.1}}}"#);
+    let _ = write!(line, r#","status":{status},"ms":{dur_ms:.1}"#);
+    if let Some(trace) = trace {
+        let _ = write!(line, r#","trace":"{trace}""#);
+    }
+    line.push('}');
     line
 }
 
@@ -584,7 +590,7 @@ mod tests {
 
     #[test]
     fn a_native_line_is_one_json_object_with_the_five_keys() {
-        let line = native_line("GET", "/items/7", 200, 1.26);
+        let line = native_line("GET", "/items/7", 200, 1.26, None);
         let value: serde_json::Value = serde_json::from_str(&line).expect("valid JSON");
         assert_eq!(value["method"], "GET");
         assert_eq!(value["path"], "/items/7");
@@ -595,8 +601,17 @@ mod tests {
     }
 
     #[test]
+    fn a_native_line_has_the_trace_id_when_tracing_is_on() {
+        let trace = opentelemetry::trace::TraceId::from(0x4bf92f3577b34da6a3ce929d0e0e4736);
+        let line = native_line("GET", "/", 200, 0.1, Some(trace));
+        let value: serde_json::Value = serde_json::from_str(&line).expect("valid JSON");
+        assert_eq!(value["trace"], "4bf92f3577b34da6a3ce929d0e0e4736");
+        assert_eq!(value["status"], 200);
+    }
+
+    #[test]
     fn a_native_line_escapes_the_path() {
-        let line = native_line("GET", "/a\"b\\c\nd", 404, 0.0);
+        let line = native_line("GET", "/a\"b\\c\nd", 404, 0.0, None);
         let value: serde_json::Value = serde_json::from_str(&line).expect("valid JSON");
         assert_eq!(value["path"], "/a\"b\\c\nd");
     }

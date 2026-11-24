@@ -46,6 +46,10 @@ class LoggingMiddleware:
         data = {
             "method": request.get("method", ""),
             "path": path,
+            # The route template and the trace id let a reader group the
+            # errors of one route and find the trace of the request.
+            "route": getattr(request, "route", None),
+            "trace_id": getattr(request, "trace_id", None),
             "exception_type": type(exc).__name__,
             "exception": str(exc),
         }

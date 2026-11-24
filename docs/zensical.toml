@@ -80,6 +80,7 @@ nav = [
     { "Django Signals" = "topics/signals.md" },
     { "Error Handling" = "topics/error-handling.md" },
     { "Logging" = "topics/logging.md" },
+    { "Metrics and Tracing" = "topics/observability.md" },
     { "Health Checks" = "topics/health-checks.md" },
     { "Testing" = "topics/testing.md" },
     { "Server-Sent Events" = "topics/sse.md" },

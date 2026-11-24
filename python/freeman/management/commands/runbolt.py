@@ -7,8 +7,10 @@ import importlib
 import importlib.metadata
 import importlib.util
 import os
+import shutil
 import signal
 import sys
+import tempfile
 import time
 import traceback
 from datetime import datetime
@@ -587,6 +589,28 @@ _OPTION_RANGES: dict[str, tuple[int, int | None]] = {
 }
 
 
+def _prepare_metrics_dir() -> str | None:
+    """Give the worker processes one folder for their metrics files.
+
+    A scrape reaches one worker. That worker adds the files of the other
+    workers to its own numbers. Return the folder that this call made, which
+    runbolt removes when it stops, or None. A folder that the user set stays,
+    but its old files go: they are of a server that stopped.
+    """
+    if not os.environ.get("DJANGO_BOLT_METRICS", "").strip():
+        return None
+    existing = os.environ.get("DJANGO_BOLT_METRICS_DIR", "").strip()
+    if existing:
+        folder = Path(existing)
+        folder.mkdir(parents=True, exist_ok=True)
+        for old in folder.glob("metrics-*.json"):
+            old.unlink(missing_ok=True)
+        return None
+    created = tempfile.mkdtemp(prefix="freeman-metrics-")
+    os.environ["DJANGO_BOLT_METRICS_DIR"] = created
+    return created
+
+
 def _validate_option_ranges(options) -> None:
     """Raise CommandError for a number that the server cannot use.
 
@@ -798,6 +822,8 @@ class Command(BaseCommand):
         # Run autodiscovery + banner once in the parent before forking so the
         # user sees a single clean banner instead of N copies.
         self._print_multiprocess_banner(options)
+        # Before the first fork, so each worker gets the folder.
+        metrics_dir = _prepare_metrics_dir()
 
         def spawn_worker(slot: int) -> int:
             # A forked worker inherits the sockets of the parent's open database
@@ -859,7 +885,11 @@ class Command(BaseCommand):
         for signum in stop_signals:
             signal.signal(signum, signal_handler)
 
-        exit_code = supervisor.run()
+        try:
+            exit_code = supervisor.run()
+        finally:
+            if metrics_dir is not None:
+                shutil.rmtree(metrics_dir, ignore_errors=True)
         if exit_code:
             sys.exit(exit_code)
 

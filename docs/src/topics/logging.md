@@ -185,9 +185,19 @@ Bolt calls `log_exception` for an exception that a handler does not handle, but 
 ### Custom exception handler
 
 ```python
+import sentry_sdk
+
+
 def my_exception_handler(logger, request, exception, exc_info):
-    # Send to error tracking service
-    sentry_sdk.capture_exception(exception)
+    auth = request.get("auth") or {}
+    with sentry_sdk.new_scope() as scope:
+        # One route groups the errors of all its paths, such as /items/7 and /items/8.
+        scope.set_tag("route", request.route)
+        scope.set_tag("trace_id", request.trace_id)
+        scope.set_context("request", {"method": request.method, "path": request.path})
+        if auth.get("user_id"):
+            scope.set_user({"id": auth["user_id"]})
+        sentry_sdk.capture_exception(exception)
     # Still log it
     logger.error(f"Exception: {exception}", exc_info=exc_info)
 
@@ -197,6 +207,19 @@ config = LoggingConfig(
 ```
 
 Bolt calls the handler only when the default response for the exception is a 5xx, as it does `log_exception`.
+
+The request has what an error reporter needs:
+
+| Attribute | Value |
+|---|---|
+| `request.method`, `request.path` | The method and the path of the request |
+| `request.route` | The route template, such as `/items/{id}`, or `None` when no route matched |
+| `request.trace_id`, `request.span_id` | The ids of the server span, or `None` when [tracing](observability.md#tracing) is off |
+| `request.get("auth")` | The context of the authentication backend, with `user_id`, or `None` |
+
+`request.user` also works, but it can run a database query in the handler.
+The default handler puts `route` and `trace_id` in the `extra` of its log record.
+Bolt does not depend on `sentry-sdk`: install it yourself.
 
 ## Queue-based logging
 

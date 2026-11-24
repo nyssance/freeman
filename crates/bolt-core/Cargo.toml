@@ -43,6 +43,9 @@ urlencoding = { workspace = true }
 uuid = { workspace = true }
 zstd = { workspace = true }
 bolt-loop = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+opentelemetry-otlp = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }

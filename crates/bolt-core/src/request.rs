@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 /// Parse host:port from Actix's connection_info().host()
 /// Returns (hostname, port_string) - port defaults to "443" for HTTPS, else "80"
 #[inline]
-fn parse_host_port<'a>(host: &'a str, scheme: &str) -> (&'a str, u16) {
+pub(crate) fn parse_host_port<'a>(host: &'a str, scheme: &str) -> (&'a str, u16) {
     let default_port = if scheme.eq_ignore_ascii_case("https") { 443 } else { 80 };
 
     // IPv6 with brackets: [::1]:8080 or [::1]
@@ -83,6 +83,10 @@ pub struct PyRequest {
     /// The ResponseWireV1 of a response that Rust gave before the handler.
     /// The middleware chain returns it, and the handler does not run.
     pub rust_answer: Option<Py<PyAny>>,
+    /// The route template, such as `/items/{id}`. Empty when no route matched.
+    pub route: &'static str,
+    /// The ids of the server span. `None` when tracing is off.
+    pub trace: Option<crate::trace::TraceIds>,
 }
 
 impl PyRequest {
@@ -423,6 +427,42 @@ impl PyRequest {
         let state_py = self.get_or_init_state(py);
         state_py.bind(py).set_item("auser", value)?;
         Ok(())
+    }
+
+    /// The route template of the request, such as `/items/{id}`, or None when
+    /// no route matched. An error reporter can group errors by it: it has one
+    /// value for each route, and the path has one for each id.
+    #[getter]
+    fn route(&self) -> Option<&'static str> {
+        if self.route.is_empty() || self.route == crate::router::UNMATCHED_ROUTE { None } else { Some(self.route) }
+    }
+
+    /// The trace id of the request as 32 hex digits, or None when tracing is off.
+    /// The native access log line of the request has the same id.
+    #[getter]
+    fn trace_id(&self) -> Option<String> {
+        self.trace.as_ref().map(|trace| trace.trace_id.to_string())
+    }
+
+    /// The id of the server span of the request as 16 hex digits, or None when tracing is off.
+    #[getter]
+    fn span_id(&self) -> Option<String> {
+        self.trace.as_ref().map(|trace| trace.span_id.to_string())
+    }
+
+    /// The server span as `(trace_id, span_id, sampled, tracestate)`, with the
+    /// ids as ints, or None. `freeman.tracing` makes the OpenTelemetry parent
+    /// of the handler from it.
+    #[getter(_trace)]
+    fn trace_tuple(&self) -> Option<(u128, u64, bool, &str)> {
+        self.trace.as_ref().map(|trace| {
+            (
+                u128::from_be_bytes(trace.trace_id.to_bytes()),
+                u64::from_be_bytes(trace.span_id.to_bytes()),
+                trace.sampled,
+                trace.trace_state.as_str(),
+            )
+        })
     }
 
     /// Get the full path with query string (Django-compatible).

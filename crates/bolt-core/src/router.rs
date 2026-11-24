@@ -67,6 +67,10 @@ pub struct Route {
     /// Per-route bound sync dispatch (same shape as `dispatch`).
     pub dispatch_sync: Py<PyAny>,
     pub handler_id: usize, // Store handler_id for middleware metadata lookup
+    /// The path of the route as it was registered, such as `/items/{id}`.
+    /// Metrics and traces use it as the route label. It is bounded: one value
+    /// for each registered path, never the path of a request.
+    pub template: &'static str,
     /// Set for a native route: the request goes to this handler, not to Python.
     /// `handler` then holds the capsule, which keeps the handler alive.
     pub native: Option<NativeHandler>,
@@ -76,6 +80,23 @@ pub struct Route {
 /// metadata, and no Python or WebSocket route has this id, so a lookup by it
 /// finds nothing.
 pub const NATIVE_HANDLER_ID: usize = usize::MAX;
+
+/// The route label of a request that matches no route.
+pub const UNMATCHED_ROUTE: &str = "unmatched";
+
+/// Keep one copy of each route label for the life of the process. A test
+/// suite makes many apps with the same paths, so each path is stored once.
+pub fn intern_template(template: &str) -> &'static str {
+    static TEMPLATES: parking_lot::Mutex<Option<AHashSet<&'static str>>> = parking_lot::Mutex::new(None);
+    let mut templates = TEMPLATES.lock();
+    let templates = templates.get_or_insert_with(AHashSet::new);
+    if let Some(found) = templates.get(template) {
+        return found;
+    }
+    let stored: &'static str = Box::leak(template.to_owned().into_boxed_str());
+    templates.insert(stored);
+    stored
+}
 
 /// A handler from a `bolt_native_abi` capsule, checked at registration.
 #[derive(Clone, Copy)]
@@ -331,7 +352,8 @@ impl Router {
     pub fn set_no_route(
         &mut self, handler_id: usize, handler: Py<PyAny>, dispatch: Py<PyAny>, dispatch_sync: Py<PyAny>,
     ) {
-        self.no_route = Some(Route { handler, dispatch, dispatch_sync, handler_id, native: None });
+        self.no_route =
+            Some(Route { handler, dispatch, dispatch_sync, handler_id, template: UNMATCHED_ROUTE, native: None });
     }
 
     /// The route of a request that matches no route, if the app has one.
@@ -349,7 +371,8 @@ impl Router {
         &mut self, method: &str, path: &str, handler_id: usize, handler: Py<PyAny>, dispatch: Py<PyAny>,
         dispatch_sync: Py<PyAny>,
     ) -> PyResult<()> {
-        let route = Route { handler, dispatch, dispatch_sync, handler_id, native: None };
+        let route =
+            Route { handler, dispatch, dispatch_sync, handler_id, template: intern_template(path), native: None };
         self.insert(method, path, route)
     }
 
@@ -362,6 +385,7 @@ impl Router {
             dispatch: py.None(),
             dispatch_sync: py.None(),
             handler_id: NATIVE_HANDLER_ID,
+            template: intern_template(path),
             native: Some(native),
         };
         self.insert(method, path, route)

@@ -4,6 +4,8 @@ import asyncio
 import contextlib
 import dis
 import functools
+import importlib
+import importlib.util
 import inspect
 import logging
 import os
@@ -902,6 +904,15 @@ class BoltAPI:
                     await request_finished.asend(sender=BoltAPI)
 
             self._dispatch = _dispatch_with_signals
+
+        # Tracing: the handler runs with the server span of Rust as its
+        # OpenTelemetry parent. Only when tracing is on and the package is
+        # installed; otherwise nothing imports opentelemetry and the dispatch
+        # stays as it is.
+        if _core.tracing_enabled() and importlib.util.find_spec("opentelemetry") is not None:
+            otel = importlib.import_module("freeman._otel")
+            self._dispatch = otel.traced_dispatch(self._dispatch)
+            self._dispatch_sync = otel.traced_dispatch_sync(self._dispatch_sync)
 
     def _rust_compression_config(self) -> dict | None:
         """Compression config dict for Rust startup, or `None` when disabled.

@@ -34,7 +34,7 @@ use bolt_core::request_pipeline::{
 use bolt_core::response_builder;
 use bolt_core::response_meta::ResponseMeta;
 use bolt_core::responses;
-use bolt_core::router::{QueryParams, normalize_request_path, parse_query_string};
+use bolt_core::router::{QueryParams, UNMATCHED_ROUTE, normalize_request_path, parse_query_string};
 use bolt_core::state::{AppState, find_asgi_mount};
 use bolt_core::streaming::{StreamConfig, create_python_stream, create_sse_stream};
 use bolt_core::type_coercion::{CoercedValue, TypeHints, coerced_value_to_py, string_map_to_py_dict};
@@ -674,26 +674,78 @@ pub(crate) async fn read_body(payload: &mut web::Payload, max_payload_size: usiz
     Ok(body)
 }
 
-pub async fn handle_request<const ACCESS_LOG: bool>(
+/// What `route_request` learns about a request for the access log, the
+/// metrics and the trace, and the trace ids that it gives to Python.
+#[derive(Default)]
+pub(crate) struct Seen {
+    /// The route whose access-log filter applies. `None` writes no line.
+    handler_id: Option<usize>,
+    /// The route label: the route template, or a mount prefix. `None` means
+    /// that no route matched.
+    route: Option<&'static str>,
+    /// The ids of the server span. Python gets them with the request.
+    trace: Option<bolt_core::trace::TraceIds>,
+}
+
+impl Seen {
+    /// Take the filter and the label of `route`. The no-route route has no label.
+    #[inline]
+    fn route(&mut self, route: &bolt_core::router::Route) {
+        self.handler_id = Some(route.handler_id);
+        self.route = (route.template != UNMATCHED_ROUTE).then_some(route.template);
+    }
+
+    /// Take the prefix of a mount as the route label. It is a registered
+    /// prefix, so the labels stay bounded. Only metrics and traces read it.
+    #[inline]
+    fn mount(&mut self, prefix: &str) {
+        if bolt_core::metrics::get().is_some() || bolt_core::trace::get().is_some() {
+            self.route = Some(bolt_core::router::intern_template(prefix));
+        }
+    }
+}
+
+/// Handle one request. `OBSERVED` is true when the access log, the metrics or
+/// the tracing is on. With all three off, the compiler removes their code.
+pub async fn handle_request<const OBSERVED: bool>(
     req: HttpRequest, payload: web::Payload, state: web::Data<Arc<AppState>>,
 ) -> HttpResponse {
-    // Without the access log and an error formatter, this is the whole cost: one Option check.
-    if !ACCESS_LOG && state.error_renderer.is_none() {
-        return route_request(req, payload, state, &mut None).await;
+    // With all three off and no error formatter, this is the whole cost: one Option check.
+    if !OBSERVED && state.error_renderer.is_none() {
+        return route_request(req, payload, state, &mut Seen::default()).await;
     }
-    // ACCESS_LOG: the compiler removes the timer when ACCESS_LOG=false (const generic).
-    let access_log_start = if ACCESS_LOG { Some(std::time::Instant::now()) } else { None };
+    // OBSERVED: the compiler removes the timer when OBSERVED=false (const generic).
+    let start = if OBSERVED { Some(std::time::Instant::now()) } else { None };
+    let metrics = if OBSERVED { bolt_core::metrics::get() } else { None };
+    // Rust answers the metrics path itself. Python does not run for it, and it
+    // is not in the metrics or the access log.
+    if let Some(metrics) = metrics
+        && req.path() == metrics.path()
+    {
+        return metrics.answer(req.headers(), req.peer_addr().map(|address| address.ip()));
+    }
+    let _in_flight = metrics.map(bolt_core::metrics::Metrics::start);
+    let span = if OBSERVED { bolt_core::trace::get().map(|tracing| tracing.start(&req)) } else { None };
     let kept_req = req.clone();
     let kept_state = state.clone();
-    let mut access_log_route = None;
-    let mut response = route_request(req, payload, state, &mut access_log_route).await;
+    let mut seen = Seen { trace: span.as_ref().map(bolt_core::trace::ServerSpan::ids), ..Seen::default() };
+    let mut response = route_request(req, payload, state, &mut seen).await;
     if kept_state.error_renderer.is_some() && response.status().as_u16() >= 400 {
         response = crate::error_formatter::format_error_response(response, &kept_req, &kept_state);
     }
-    if let Some(start) = access_log_start
-        && let Some(handler_id) = access_log_route
-    {
-        write_access_log(&kept_state, &kept_req, response.status().as_u16(), start, handler_id);
+    if let Some(start) = start {
+        let status = response.status().as_u16();
+        if let Some(metrics) = metrics {
+            let route = seen.route.unwrap_or(UNMATCHED_ROUTE);
+            metrics.record(route, kept_req.method().as_str(), status, start.elapsed().as_secs_f64());
+        }
+        if let Some(handler_id) = seen.handler_id {
+            let trace_id = span.as_ref().map(|span| span.context().trace_id());
+            write_access_log(&kept_state, &kept_req, status, start, handler_id, trace_id);
+        }
+        if let Some(span) = span {
+            span.finish(&kept_req, seen.route, status);
+        }
     }
     response
 }
@@ -716,7 +768,10 @@ fn access_log_level(status: u16) -> (u8, &'static str) {
 /// skipped paths and status codes, the sample rate and the slow-request
 /// threshold. A 4xx or a 5xx always passes the last two. A route with no
 /// metadata has no filter and writes to `django.server`.
-fn write_access_log(state: &AppState, req: &HttpRequest, status: u16, start: std::time::Instant, handler_id: usize) {
+fn write_access_log(
+    state: &AppState, req: &HttpRequest, status: u16, start: std::time::Instant, handler_id: usize,
+    trace_id: Option<opentelemetry::trace::TraceId>,
+) {
     let (bit, level) = access_log_level(status);
     let meta = state.route_metadata.get(handler_id);
     let logger_index = meta.map_or(0, |meta| meta.access_log_filter.logger);
@@ -745,7 +800,8 @@ fn write_access_log(state: &AppState, req: &HttpRequest, status: u16, start: std
     };
     if let Some(sink) = native {
         // A full queue drops the line. The request does not wait for the log.
-        let _ = sink.try_send(bolt_core::access_log::native_line(req.method().as_str(), req.path(), status, dur_ms));
+        let line = bolt_core::access_log::native_line(req.method().as_str(), req.path(), status, dur_ms, trace_id);
+        let _ = sink.try_send(line);
         return;
     }
     let Some(logger) = logger else {
@@ -837,7 +893,7 @@ impl RustAnswer {
     }
 }
 
-/// Route one request. `access_log_route` becomes the handler id of the route
+/// Route one request. `seen.handler_id` becomes the handler id of the route
 /// when the response is for a Bolt route: each response after the route match,
 /// the redirect to the other slash form of a route path, the automatic OPTIONS
 /// answer, and the 405 for a method that the route path does not have.
@@ -846,7 +902,7 @@ impl RustAnswer {
 /// the filter of that route keeps it. A native route, a mount and the
 /// preflight answer of global CORS leave it `None`.
 async fn route_request(
-    req: HttpRequest, mut payload: web::Payload, state: web::Data<Arc<AppState>>, access_log_route: &mut Option<usize>,
+    req: HttpRequest, mut payload: web::Payload, state: web::Data<Arc<AppState>>, seen: &mut Seen,
 ) -> HttpResponse {
     // Keep as &str - no allocation, only clone on error paths
     let method = req.method().as_str();
@@ -890,7 +946,7 @@ async fn route_request(
                 && let Some(alternate) = router.find(method, alternate_path)
             {
                 // The line of the redirect has the filter of the route at the other form.
-                *access_log_route = Some(alternate.handler_id());
+                seen.route(alternate.route());
                 let query = req.query_string();
                 let location =
                     if query.is_empty() { alternate_path.clone() } else { format!("{}?{}", alternate_path, query) };
@@ -906,7 +962,9 @@ async fn route_request(
                     let allow_header = available_methods.join(", ");
                     // CORS headers will be added by CorsMiddleware
                     // The line of this answer has the filter of the first route of the path.
-                    *access_log_route = router.find(&available_methods[0], route_path).map(|found| found.handler_id());
+                    if let Some(found) = router.find(&available_methods[0], route_path) {
+                        seen.route(found.route());
+                    }
                     return HttpResponse::NoContent()
                         .insert_header(("Allow", allow_header))
                         .insert_header(("Content-Type", "application/json"))
@@ -918,6 +976,7 @@ async fn route_request(
             // pays nothing. Before the ASGI fallback so an overlapping prefix
             // cannot shadow an MCP endpoint.
             if let Some(mcp_mount) = bolt_mcp::find_mcp_mount(state.get_ref(), path) {
+                seen.mount(&mcp_mount.path);
                 let response = bolt_mcp::bridge::handle_mcp_request(req, payload, mcp_mount, state.get_ref()).await;
                 return without_error_info(response, &state);
             }
@@ -936,7 +995,9 @@ async fn route_request(
             }
             let answer = if !allowed_methods.is_empty() {
                 // The line of this answer has the filter of the first route of the path.
-                *access_log_route = router.find(&allowed_methods[0], allowed_path).map(|found| found.handler_id());
+                if let Some(found) = router.find(&allowed_methods[0], allowed_path) {
+                    seen.route(found.route());
+                }
                 // The automatic OPTIONS answer of the route path.
                 if other_form && method == "OPTIONS" {
                     return HttpResponse::NoContent()
@@ -950,6 +1011,7 @@ async fn route_request(
                 // - only after Bolt route miss
                 // - only after trailing-slash/API-method near-miss checks above
                 if let Some(asgi_mount) = find_asgi_mount(state.get_ref(), path) {
+                    seen.mount(&asgi_mount.prefix);
                     let response = asgi_http::handle_asgi_mount_request(
                         req,
                         payload,
@@ -986,8 +1048,8 @@ async fn route_request(
             let Some(no_route) = router.no_route() else {
                 return answer;
             };
-            if access_log_route.is_none() {
-                *access_log_route = Some(no_route.handler_id);
+            if seen.handler_id.is_none() {
+                seen.route(no_route);
             }
             let runs_middleware =
                 state.route_metadata.get(no_route.handler_id).is_some_and(|meta| meta.plan.runs_python_middleware());
@@ -1003,6 +1065,8 @@ async fn route_request(
     // Actix middleware such as CORS and compression does. The boxed future
     // keeps the future of this function small for Python routes.
     if let Some(native) = route.native {
+        // A native route has a route label, but no access-log filter.
+        seen.route = Some(route.template);
         return Box::pin(crate::native::dispatch(&req, payload, native, path_params, &state)).await;
     }
 
@@ -1014,9 +1078,9 @@ async fn route_request(
     // Get parsed route metadata (Rust-native) by reference.
     // NOTE: Fetch metadata EARLY so we can use optimization flags to skip unnecessary parsing.
     let route_metadata = state.route_metadata.get(handler_id);
-    // A 405 keeps the filter of the route of its path.
-    if access_log_route.is_none() {
-        *access_log_route = Some(handler_id);
+    // A 405 keeps the filter and the label of the route of its path.
+    if seen.handler_id.is_none() {
+        seen.route(route);
     }
 
     // OPTIMIZATION: Extract the execution plan bitfield once (Copy u16).
@@ -1475,6 +1539,8 @@ async fn route_request(
             conn_scheme,
             conn_remote_addr,
             rust_answer,
+            route: seen.route.unwrap_or(""),
+            trace: seen.trace.take(),
         };
         let request_obj = Py::new(py, request)?;
 

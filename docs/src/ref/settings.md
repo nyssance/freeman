@@ -256,6 +256,57 @@ export DJANGO_BOLT_ACCESS_LOG=stdout
 
 Measured on one process with an empty route and 100 connections: 126,000 requests per second with no access log, 122,000 with this log, and 35,000 with a Python logger at `INFO`.
 
+With `DJANGO_BOLT_TRACING` on, each line also has `"trace"`: the trace id of the request, 32 hex digits. A log line thus joins its trace.
+
+### DJANGO_BOLT_METRICS
+
+Set it to a path, and Rust serves the request metrics there in the Prometheus text format. Python does not run for a scrape.
+
+```bash
+export DJANGO_BOLT_METRICS=/metrics
+```
+
+**Default:** not set. There are no metrics.
+
+The value must start with `/`. Each request adds to `http_server_requests_total` and `http_server_request_duration_seconds`, by method, route template and status. `http_server_active_requests` gives the requests in flight. With `runbolt --processes N`, each scrape gives the total of all workers. See [Metrics and Tracing](../topics/observability.md#metrics).
+
+Without `DJANGO_BOLT_METRICS_TOKEN`, only a client on the same host with no forwarding header can read the metrics.
+
+Measured on one process with an empty route and 100 connections: 125,327 requests per second without metrics, and 123,944 with metrics.
+
+### DJANGO_BOLT_METRICS_TOKEN
+
+A scrape must send this token as `Authorization: Bearer <token>`. A request without it gets a `401`.
+
+```bash
+export DJANGO_BOLT_METRICS_TOKEN="$(openssl rand -hex 32)"
+```
+
+**Default:** not set. Only a client on the same host can read the metrics: its address is a loopback address, and the request has no `Forwarded`, `X-Forwarded-For` or `X-Real-IP` header.
+
+### DJANGO_BOLT_METRICS_DIR
+
+The folder where each worker process writes its metrics once a second. The worker that gets a scrape adds the files of the other workers to its own numbers.
+
+**Default:** not set. `runbolt --processes N` makes a temporary folder before the first fork and removes it when it stops.
+
+Set it only to keep the folder in a known place. `runbolt` then deletes the old `metrics-*.json` files in it at start, and keeps the folder. Do not give one folder to two servers.
+
+### DJANGO_BOLT_TRACING
+
+Set it to `1`, and Rust reads the W3C `traceparent` and `tracestate` headers, makes the server span of each request, and exports the sampled spans over OTLP/HTTP.
+
+```bash
+export DJANGO_BOLT_TRACING=1
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+```
+
+**Default:** not set. There are no spans, and `request.trace_id` is `None`.
+
+The OpenTelemetry SDK for Rust reads the standard `OTEL_*` variables, such as `OTEL_SERVICE_NAME`, `OTEL_TRACES_SAMPLER` and `OTEL_BSP_SCHEDULE_DELAY`. `OTEL_TRACES_EXPORTER` must be `otlp` (the default) or `none`, which drops each span. The protocol must be `http/protobuf`. `OTEL_SDK_DISABLED=true` turns tracing off. With the `opentelemetry` Python package installed, the spans of a handler are children of the server span. See [Metrics and Tracing](../topics/observability.md#tracing).
+
+Measured on one process with an empty route and 100 connections: 125,327 requests per second without tracing, 120,822 with the sampler at 0, and 110,597 with each request sampled.
+
 ### DJANGO_BOLT_ORM_THREADS
 
 Number of threads in the ORM pool of each process. Django-Bolt evaluates the QuerySets that async handlers return on this pool. `await request.auser()` also loads the user on this pool. Django's async ORM API in async handlers without Django middleware, such as `await Model.objects.aget()`, `acount()` and `async for`, runs on this pool too. A route with Django middleware runs these calls on its request lane instead. The pool size is the number of queries in flight per process.
@@ -604,3 +655,8 @@ api = BoltAPI(
 | `DJANGO_BOLT_ORM_THREADS` | `int` (env var) | `1` (SQLite) or CPU count + 4 (max `32`) | Threads in the ORM pool of each process |
 | `DJANGO_BOLT_LANE_IDLE_SECONDS` | `float` (env var) | `10` | Idle time after which a request lane stops |
 | `DJANGO_BOLT_EXECUTOR_THREADS` | `int` (env var) | CPU count + 4 (max `32`) | Threads in the shared executor pool of each process |
+| `DJANGO_BOLT_ACCESS_LOG` | `str` (env var) | not set | `stdout`: Rust writes a JSON access log |
+| `DJANGO_BOLT_METRICS` | `str` (env var) | not set | Path of the Prometheus metrics, such as `/metrics` |
+| `DJANGO_BOLT_METRICS_TOKEN` | `str` (env var) | not set | Bearer token that a scrape must send |
+| `DJANGO_BOLT_METRICS_DIR` | `str` (env var) | temporary folder of `runbolt --processes` | Folder of the metrics files of the worker processes |
+| `DJANGO_BOLT_TRACING` | `bool` (env var) | `False` | W3C trace context and server spans over OTLP/HTTP |

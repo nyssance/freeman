@@ -67,6 +67,11 @@ http-body = "1"
 http-body-util = "0.1"
 tokio-util = "0.7"
 sha2 = "0.11"  # MRTR requestState digests (args/principal)
+# Tracing: the W3C trace context, the server span of each request and its
+# export over OTLP/HTTP. The SDK reads the standard OTEL_* variables.
+opentelemetry = { version = "0.33", default-features = false, features = ["trace"] }
+opentelemetry_sdk = { version = "0.33", default-features = false, features = ["trace"] }
+opentelemetry-otlp = { version = "0.33", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
 # Property tests (dev only)
 proptest = "1"
 # Internal crates
@@ -117,6 +122,7 @@ http = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
 notify = { workspace = true }
+opentelemetry = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 pyo3 = { workspace = true }
