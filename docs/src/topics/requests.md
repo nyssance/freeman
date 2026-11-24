@@ -173,7 +173,7 @@ The constraints apply to path, query, header, cookie and form parameters.
 On `int | None`, they apply to the `int` value, and the parameter stays optional.
 The OpenAPI schema shows them, for example `minimum: 1`.
 A constraint that msgspec cannot apply, for example `ge` on a `Decimal`, raises `TypeError` when the route registers.
-The types in `freeman.serializers.types`, such as `PositiveInt`, work the same way.
+An alias such as `PositiveInt = Annotated[int, msgspec.Meta(gt=0)]` works the same way.
 
 `Query()` and `Path()` also take the constraint arguments `gt`, `ge`, `lt`, `le`, `min_length`, `max_length` and `pattern`.
 Freeman applies them as `msgspec.Meta`:
@@ -583,7 +583,7 @@ async def update_profile(
 
 ## Parameter models
 
-You can use `msgspec.Struct` or `Serializer` to group related parameters into a single validated object. This works with `Form()`, `Query()`, `Header()`, and `Cookie()`.
+You can use a Pydantic model or a `msgspec.Struct` to group related parameters into a single validated object. See [Models](models.md#parameter-models). This works with `Form()`, `Query()`, `Header()`, and `Cookie()`.
 
 ### Form models
 
@@ -604,17 +604,18 @@ async def login(form: Annotated[LoginForm, Form()]):
     return {"username": form.username, "remember": form.remember_me}
 ```
 
-With `Serializer` for custom validation:
+With a Pydantic model for custom validation:
 
 ```python
-from freeman.serializers import Serializer, field_validator
+from pydantic import BaseModel, field_validator
 
-class RegisterForm(Serializer):
+class RegisterForm(BaseModel):
     username: str
     email: str
     password: str
 
     @field_validator("username")
+    @classmethod
     def validate_username(cls, value):
         if len(value) < 3:
             raise ValueError("Username must be at least 3 characters")

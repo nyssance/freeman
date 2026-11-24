@@ -34,10 +34,29 @@ from freeman.openapi.schema_generator import (
 )
 from freeman.openapi.spec import Components, SecurityScheme
 from freeman.param_functions import File, Form, Query
-from freeman.serializers import Serializer, computed_field, field
-from freeman.serializers.types import Email, HttpsURL, PositiveInt
 from freeman.testing import TestClient
 from freeman.websocket import WebSocket
+
+# Documented constrained types: a msgspec Meta with a description.
+Email = Annotated[
+    str,
+    msgspec.Meta(
+        max_length=254,
+        pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$(?!\n)",
+        description="Valid email address",
+        examples=["user@example.com"],
+    ),
+]
+HttpsURL = Annotated[
+    str,
+    msgspec.Meta(
+        max_length=200,
+        pattern=r"^https://[^\s/$.?#].[^\s]*$(?!\n)",
+        description="HTTPS-only URL",
+        examples=["https://example.com"],
+    ),
+]
+PositiveInt = Annotated[int, msgspec.Meta(gt=0, description="Positive integer (> 0)")]
 
 
 # Fixtures
@@ -735,7 +754,7 @@ def test_component_schema_omits_description_when_no_docstring():
 # the underlying type (+ constraints + docs); otherwise the field falls
 # through to the generic `object` fallback and codegen tools (typescript-fetch,
 # openapi-typescript) emit `object` instead of string/integer. Every built-in
-# type in `serializers.types` (Email, PositiveInt, HttpsURL, …) carries a
+# documented type (Email, PositiveInt, HttpsURL below) carries a
 # `description`, so all of them hit this path.
 
 
@@ -800,197 +819,6 @@ def test_extra_json_schema_keys_in_camel_case_reach_the_schema():
     }
 
 
-def test_builtin_custom_types_in_serializer_render_concrete_types():
-    """The reported scenario: a Serializer using built-in Email/PositiveInt/HttpsURL.
-
-    Each property must carry its concrete base type, not the generic `object`.
-    """
-
-    class Account(Serializer):
-        email: Email
-        age: PositiveInt
-        site: HttpsURL
-
-    props = _get_response_component_schema(Account)["properties"]
-    assert props["email"]["type"] == "string"
-    assert props["email"]["maxLength"] == 254
-    assert props["age"]["type"] == "integer"
-    assert props["age"]["exclusiveMinimum"] == 0
-    assert props["site"]["type"] == "string"
-    # None of them may collapse to a bare object.
-    assert all(props[f]["type"] != "object" for f in ("email", "age", "site"))
-
-
-def test_read_only_field_is_not_in_the_request_body_schema():
-    """Input cannot set a read_only field. So only the response schema has it, as readOnly."""
-
-    class Owner(Serializer):
-        id: int = field(read_only=True, default=0)
-        name: str
-
-    class Pet(Serializer):
-        id: int = field(read_only=True, default=0)
-        name: str
-        created: str | None = None
-        owner: Owner | None = None
-
-        class Config:
-            read_only = {"created"}
-
-    class Plain(Serializer):
-        name: str
-
-    class BodyOnly(Serializer):
-        id: int = field(read_only=True, default=0)
-        name: str
-
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
-
-    @api.post("/pets")
-    async def create_pet(body: Pet) -> Pet:
-        pass
-
-    @api.post("/plain")
-    async def create_plain(body: Plain) -> Plain:
-        pass
-
-    @api.post("/owners")
-    async def create_owner(body: BodyOnly) -> dict:
-        pass
-
-    spec = _get_schema(api)
-    validate(spec)
-    schemas = spec["components"]["schemas"]
-    operation = spec["paths"]["/pets"]["post"]
-    assert operation["requestBody"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/PetInput"
-    }
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/Pet"
-    }
-
-    assert schemas["PetInput"]["title"] == "Pet"
-    assert list(schemas["PetInput"]["properties"]) == ["name", "owner"]
-    assert schemas["PetInput"]["required"] == ["name"]
-    # The nested serializer of a request body is an input schema too.
-    assert schemas["PetInput"]["properties"]["owner"]["anyOf"][0] == {"$ref": "#/components/schemas/OwnerInput"}
-    assert list(schemas["OwnerInput"]["properties"]) == ["name"]
-
-    assert schemas["Pet"]["properties"]["id"] == {"type": "integer", "default": 0, "readOnly": True}
-    assert schemas["Pet"]["properties"]["created"]["readOnly"] is True
-    assert "readOnly" not in schemas["Pet"]["properties"]["name"]
-    assert schemas["Pet"]["properties"]["owner"]["anyOf"][0] == {"$ref": "#/components/schemas/Owner"}
-    assert schemas["Owner"]["properties"]["id"]["readOnly"] is True
-
-    # A serializer that is only a request body keeps its name.
-    assert spec["paths"]["/owners"]["post"]["requestBody"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/BodyOnly"
-    }
-    assert list(schemas["BodyOnly"]["properties"]) == ["name"]
-    assert "BodyOnlyInput" not in schemas
-
-    # A serializer with no read_only field has one schema.
-    plain = spec["paths"]["/plain"]["post"]
-    assert plain["requestBody"]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/Plain"}
-    assert "PlainInput" not in schemas
-
-
-class ComputedOwner(Serializer):
-    name: str
-
-
-class ComputedUser(Serializer):
-    """A user."""
-
-    first_name: str
-    last_name: str
-    password: str = field(write_only=True, default="")
-    internal: str = field(exclude=True, default="")
-
-    @computed_field(description="Name for display", title="Display name", deprecated=True, examples=["A B"])
-    def full_name(self) -> str:
-        """The docstring that the description argument replaces."""
-        return f"{self.first_name} {self.last_name}"
-
-    @computed_field
-    def initials(self) -> str:
-        """First letters of the names.
-
-        In upper case.
-        """
-        return (self.first_name[:1] + self.last_name[:1]).upper()
-
-    @computed_field(alias="ownerInfo")
-    def owner(self) -> ComputedOwner | None:
-        return None
-
-    @computed_field
-    def scores(self) -> list[int]:
-        return [1]
-
-    @computed_field(include_in_schema=False)
-    def debug(self) -> str:
-        return "d"
-
-
-def test_computed_fields_are_in_the_response_schema_only():
-    """The response schema has each computed field, read-only and required. The request body schema has none."""
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
-
-    @api.post("/users")
-    async def create_user(body: ComputedUser) -> ComputedUser:
-        return body
-
-    spec = _get_schema(api)
-    validate(spec)
-    schemas = spec["components"]["schemas"]
-    operation = spec["paths"]["/users"]["post"]
-    assert operation["requestBody"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/ComputedUserInput"
-    }
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/ComputedUser"
-    }
-
-    response_schema = schemas["ComputedUser"]
-    props = response_schema["properties"]
-    # A write_only field and a field with exclude=True are not in the output, so not in its schema.
-    assert list(props) == ["first_name", "last_name", "full_name", "initials", "ownerInfo", "scores"]
-    assert response_schema["required"] == ["first_name", "last_name", "full_name", "initials", "ownerInfo", "scores"]
-    assert props["full_name"] == {
-        "type": "string",
-        "readOnly": True,
-        "description": "Name for display",
-        "title": "Display name",
-        "deprecated": True,
-        "examples": ["A B"],
-    }
-    assert props["initials"] == {
-        "type": "string",
-        "readOnly": True,
-        "description": "First letters of the names.\n\nIn upper case.",
-    }
-    assert props["ownerInfo"] == {
-        "anyOf": [{"$ref": "#/components/schemas/ComputedOwner"}, {"type": "null"}],
-        "readOnly": True,
-    }
-    assert props["scores"] == {"type": "array", "items": {"type": "integer"}, "readOnly": True}
-
-    request_schema = schemas["ComputedUserInput"]
-    assert list(request_schema["properties"]) == ["first_name", "last_name", "password", "internal"]
-    assert request_schema["required"] == ["first_name", "last_name"]
-    assert request_schema["properties"]["password"] == {"type": "string", "default": "", "writeOnly": True}
-    assert request_schema["description"] == "A user."
-
-    # The schema of the response is the shape of the response.
-    with TestClient(api) as client:
-        response = client.post("/users", json={"first_name": "a", "last_name": "b", "password": "p", "internal": "i"})
-        assert response.status_code == 200
-        body = response.json()
-        assert list(body) == [*props, "debug"]
-        assert body["debug"] == "d"
-
-
 def test_documented_constrained_field_matches_msgspec_schema():
     """Bolt's component schema for documented custom types matches msgspec's own.
 
@@ -998,7 +826,7 @@ def test_documented_constrained_field_matches_msgspec_schema():
     same one `msgspec.json.schema` would produce for the equivalent struct.
     """
 
-    class Account(Serializer):
+    class Account(msgspec.Struct):
         email: Email
         age: PositiveInt
         site: HttpsURL
@@ -1007,132 +835,6 @@ def test_documented_constrained_field_matches_msgspec_schema():
     msgspec_props = msgspec.json.schema(Account)["$defs"]["Account"]["properties"]
     for field_name in ("email", "age", "site"):
         assert bolt_props[field_name]["type"] == msgspec_props[field_name]["type"]
-
-
-def test_field_options_are_in_the_serializer_schema():
-    """description, title, examples and deprecated of field() are in the property schema."""
-
-    class Maker(Serializer):
-        name: str = field(description="Name of the maker")
-
-    class Product(Serializer):
-        sku: str = field(description="Stock unit", title="SKU", examples=["AB-1", "AB-2"], deprecated=True)
-        price: float = field(default=1.5, description="Price in euro")
-        maker: Maker = field(description="Who makes it", title="Maker of the product", deprecated=True)
-        second_maker: Maker | None = field(default=None, description="Optional maker")
-        makers: list[Maker] = field(default_factory=list, description="Each maker")
-        note: Annotated[str, msgspec.Meta(description="From Meta")] = field(default="", description="From field()")
-        plain: int = 0
-
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
-
-    @api.post("/products")
-    async def create_product(body: Product) -> Product:
-        pass
-
-    spec = _get_schema(api)
-    validate(spec)
-    operation = spec["paths"]["/products"]["post"]
-    ref = {"$ref": "#/components/schemas/Product"}
-    # The request body and the response use the same schema.
-    assert operation["requestBody"]["content"]["application/json"]["schema"] == ref
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == ref
-
-    props = spec["components"]["schemas"]["Product"]["properties"]
-    assert props["sku"] == {
-        "type": "string",
-        "description": "Stock unit",
-        "title": "SKU",
-        "examples": ["AB-1", "AB-2"],
-        "deprecated": True,
-    }
-    assert props["price"] == {"type": "number", "default": 1.5, "description": "Price in euro"}
-    # A reference to a component keeps the options next to it.
-    assert props["maker"] == {
-        "allOf": [{"$ref": "#/components/schemas/Maker"}],
-        "description": "Who makes it",
-        "title": "Maker of the product",
-        "deprecated": True,
-    }
-    assert props["second_maker"]["description"] == "Optional maker"
-    assert props["second_maker"]["anyOf"][0] == {"$ref": "#/components/schemas/Maker"}
-    assert props["makers"]["description"] == "Each maker"
-    assert props["makers"]["items"] == {"$ref": "#/components/schemas/Maker"}
-    # field() wins over msgspec.Meta.
-    assert props["note"]["description"] == "From field()"
-    assert props["plain"] == {"type": "integer", "default": 0}
-    # The nested serializer has the options of its own fields.
-    assert spec["components"]["schemas"]["Maker"]["properties"]["name"] == {
-        "type": "string",
-        "description": "Name of the maker",
-    }
-    assert spec["components"]["schemas"]["Product"]["required"] == ["sku", "maker"]
-
-
-class HiddenFieldOwner(Serializer):
-    name: str
-
-
-class HiddenFieldItem(Serializer):
-    name: str
-    token: str = field(include_in_schema=False)
-    trace: str = field(include_in_schema=False, default="t")
-    owner: HiddenFieldOwner | None = field(include_in_schema=False, default=None)
-
-
-def test_field_with_include_in_schema_false_is_not_in_the_schema():
-    """The schema has no such property. The field still validates and serializes."""
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
-
-    @api.post("/items")
-    async def create_item(body: HiddenFieldItem) -> HiddenFieldItem:
-        return body
-
-    spec = _get_schema(api)
-    validate(spec)
-    component = spec["components"]["schemas"]["HiddenFieldItem"]
-    assert list(component["properties"]) == ["name"]
-    assert component["required"] == ["name"]
-    # No component for a type that only a hidden field uses.
-    assert "HiddenFieldOwner" not in spec["components"]["schemas"]
-
-    with TestClient(api) as client:
-        response = client.post("/items", json={"name": "n", "token": "k", "owner": {"name": "o"}})
-        assert response.status_code == 200
-        assert response.json() == {"name": "n", "token": "k", "trace": "t", "owner": {"name": "o"}}
-        # The hidden field is still required.
-        assert client.post("/items", json={"name": "n"}).status_code == 422
-
-
-class RequiredFieldFilters(Serializer):
-    code: str = field(description="Short code", examples=["AB"])
-    secret: str = field(include_in_schema=False)
-
-
-def test_required_field_options_are_in_query_and_form_schemas():
-    """A required field of a query or form Serializer has its field() options in the schema."""
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
-
-    @api.get("/items")
-    async def get_items(query: Annotated[RequiredFieldFilters, Query()]) -> dict:
-        pass
-
-    @api.post("/items")
-    async def post_items(form: Annotated[RequiredFieldFilters, Form()]) -> dict:
-        pass
-
-    spec = _get_schema(api)
-    validate(spec)
-    params = spec["paths"]["/items"]["get"]["parameters"]
-    assert [(param["name"], param["required"]) for param in params] == [("code", True)]
-    assert params[0]["schema"] == {"type": "string", "description": "Short code", "examples": ["AB"]}
-
-    content = spec["paths"]["/items"]["post"]["requestBody"]["content"]
-    for media_type in content.values():
-        assert media_type["schema"]["properties"] == {
-            "code": {"type": "string", "description": "Short code", "examples": ["AB"]}
-        }
-        assert media_type["schema"]["required"] == ["code"]
 
 
 def test_documented_query_struct_field_renders_concrete_type():
@@ -1176,7 +878,7 @@ def test_nullable_documented_custom_type_unwraps_inside_union():
     under OpenAPI 3.1 the type sits in the first `anyOf` arm beside `{"type": "null"}`.
     """
 
-    class Profile(Serializer):
+    class Profile(msgspec.Struct):
         website: HttpsURL | None = None
 
     props = _get_response_component_schema(Profile)["properties"]

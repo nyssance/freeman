@@ -72,7 +72,7 @@ def extract_response_metadata(response_type: Any) -> dict[str, Any]:
         args = get_args(response_type)
         if args:
             elem_type = args[0]
-            if is_msgspec_struct(elem_type) and not getattr(elem_type, "__is_bolt_serializer__", False):
+            if is_msgspec_struct(elem_type):
                 # __struct_fields__ includes inherited msgspec fields.
                 struct_fields = getattr(elem_type, "__struct_fields__", None)
                 if struct_fields:

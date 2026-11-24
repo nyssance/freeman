@@ -19,7 +19,6 @@ from freeman.openapi.config import OpenAPIConfig
 from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.responses import HTML, JSON, PlainText
 from freeman.serialization import serialize_response, serialize_response_sync
-from freeman.serializers import Serializer
 from freeman.testing import TestClient
 from tests.test_models import Article
 
@@ -28,20 +27,20 @@ from tests.test_models import Article
 # ============================================================================
 
 
-class OkSchema(Serializer):
+class OkSchema(msgspec.Struct):
     """OK response schema for testing."""
 
     id: int
     name: str
 
 
-class ErrorSchema(Serializer):
+class ErrorSchema(msgspec.Struct):
     """Error response schema for testing."""
 
     detail: str
 
 
-class CreatedSchema(Serializer):
+class CreatedSchema(msgspec.Struct):
     """Created response schema for testing."""
 
     id: int
@@ -1008,60 +1007,3 @@ def test_a_multi_response_handler_that_does_not_block_runs_off_the_pool():
         response = client.get("/thread")
 
     assert not response.json()["handler"].startswith("bolt_default"), response.json()
-
-
-class ArticleSerializer(Serializer):
-    id: int
-    title: str
-
-
-class ArticleTitleSerializer(Serializer):
-    title: str
-
-
-@pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("is_async", [False, True], ids=["sync", "async"])
-def test_a_serializer_entry_converts_model_instances(is_async):
-    """A Serializer type builds a converter even when the entry does not validate."""
-    api = BoltAPI()
-    # 201 has its own Serializer, which keeps only the title.
-    responses = {200: list[ArticleSerializer], 201: list[ArticleTitleSerializer], 404: ErrorSchema}
-
-    if is_async:
-
-        @api.get("/tuple", response_model=responses)
-        async def as_tuple():
-            return 200, [article async for article in Article.objects.all()]
-
-        @api.get("/json", response_model=responses)
-        async def as_json():
-            return JSON([article async for article in Article.objects.all()], status_code=200)
-
-        @api.get("/json-created", response_model=responses)
-        async def as_json_created():
-            return JSON([article async for article in Article.objects.all()], status_code=201)
-
-    else:
-
-        @api.get("/tuple", response_model=responses)
-        def as_tuple():
-            return 200, list(Article.objects.all())
-
-        @api.get("/json", response_model=responses)
-        def as_json():
-            return JSON(list(Article.objects.all()), status_code=200)
-
-        @api.get("/json-created", response_model=responses)
-        def as_json_created():
-            return JSON(list(Article.objects.all()), status_code=201)
-
-    article = Article.objects.create(title="One", content="First", author="A")
-    with TestClient(api) as client:
-        tuple_response = client.get("/tuple")
-        json_response = client.get("/json")
-        created_response = client.get("/json-created")
-
-    expected = [{"id": article.id, "title": "One"}]
-    assert (tuple_response.status_code, tuple_response.json()) == (200, expected), tuple_response.text
-    assert (json_response.status_code, json_response.json()) == (200, expected), json_response.text
-    assert (created_response.status_code, created_response.json()) == (201, [{"title": "One"}]), created_response.text

@@ -5,7 +5,6 @@ This test suite verifies that:
 1. response_model parameter takes precedence over return annotations
 2. Return annotations work as fallback when response_model not provided
 3. Both syntaxes produce identical metadata
-4. Works with Serializer subclasses (Freeman's enhanced msgspec.Struct)
 5. Works with both sync and async handlers
 """
 
@@ -16,24 +15,23 @@ import sys
 
 import msgspec
 import pytest
+from pydantic import BaseModel
 
 import freeman.api as api_module
 from freeman import BoltAPI
-from freeman.serializers import Serializer
 from freeman.testing import TestClient
-from freeman.typing import is_msgspec_struct
 
 
-# Test serializers
-class UserMini(Serializer):
-    """Minimal user serializer for testing."""
+# Test schemas: Pydantic models, which get no row field names
+class UserMini(BaseModel):
+    """Minimal user schema for testing."""
 
     id: int
     username: str
 
 
-class UserFull(Serializer):
-    """Full user serializer for testing."""
+class UserFull(BaseModel):
+    """Full user schema for testing."""
 
     id: int
     username: str
@@ -228,32 +226,7 @@ def test_both_syntaxes_produce_same_metadata_async():
 
 
 # ============================================================================
-# Test 4: Works with Serializer subclasses
 # ============================================================================
-
-
-def test_serializer_subclass_recognized():
-    """Test that Serializer subclasses are recognized as msgspec.Struct."""
-    # Verify Serializer is a proper msgspec.Struct subclass
-    assert is_msgspec_struct(UserMini)
-    assert is_msgspec_struct(UserFull)
-    assert is_msgspec_struct(PlainStruct)
-
-
-def test_serializer_not_projected_via_values():
-    """Serializer subclasses are routed through from_model+dump, not .values()."""
-    api = BoltAPI()
-
-    @api.get("/users", response_model=list[UserFull])
-    def get_users():
-        pass
-
-    # Get handler function name from previous decorator
-    _method, _path, handler_id, _handler = api._routes[0]
-    meta = api._handler_meta[handler_id]
-
-    assert meta["response_type"] == list[UserFull]
-    assert "response_field_names" not in meta
 
 
 def test_plain_msgspec_struct_field_extraction():

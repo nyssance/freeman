@@ -1,18 +1,18 @@
-"""App under test for Serializer validator error shape over real HTTP.
+"""App under test for the 422 shape of Pydantic validators over real HTTP.
 
-A ``@field_validator`` (plain and ``@classmethod`` form) on a body serializer
-must produce one 422 entry per failing field on create (POST), full update
-(PUT), partial update (PATCH) and list bodies, and nested serializers must keep
-the container path in ``loc``.
+A ``@field_validator`` on a body model must produce one 422 entry per failing
+field on create (POST), full update (PUT), partial update (PATCH) and list
+bodies, and nested models must keep the container path in ``loc``.
 """
 
 from __future__ import annotations
 
 from typing import Annotated
 
+from pydantic import BaseModel, field_validator
+
 from freeman import BoltAPI
 from freeman.params import Body
-from freeman.serializers import Serializer, field_validator
 
 api = BoltAPI()
 
@@ -22,11 +22,12 @@ async def health():
     return {"status": "ok"}
 
 
-class RegisterRequest(Serializer):
+class RegisterRequest(BaseModel):
     collage_code: str
     phone_number: str
 
     @field_validator("collage_code")
+    @classmethod
     def validate_collage(cls, v: str) -> str:
         if v != "ok":
             raise ValueError("collage Code is Not Valid")
@@ -40,11 +41,12 @@ class RegisterRequest(Serializer):
         return v
 
 
-class RegisterPatch(Serializer):
+class RegisterPatch(BaseModel):
     collage_code: str | None = None
     phone_number: str | None = None
 
     @field_validator("collage_code")
+    @classmethod
     def validate_collage(cls, v: str | None) -> str | None:
         if v is not None and v != "ok":
             raise ValueError("collage Code is Not Valid")
@@ -58,11 +60,11 @@ class RegisterPatch(Serializer):
         return v
 
 
-class Profile(Serializer):
-    register: RegisterRequest
+class Profile(BaseModel):
+    registration: RegisterRequest
 
 
-class Account(Serializer):
+class Account(BaseModel):
     profile: Profile
 
 

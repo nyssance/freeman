@@ -4,7 +4,7 @@ Failing tests for the schema/codegen gaps reported in #295 (DRF → Bolt migrati
 Each section pins the *expected* public contract for one sub-issue so the fix is
 test-driven (RED first):
 
-- #287: parametrized generic Serializers (``Page[UserRead]``) must render as a
+- #287: parametrized generic Structs (``Page[UserRead]``) must render as a
   named component (msgspec naming: ``Page_UserRead_``), not ``{"type": "object"}``.
 - #288: a pagination class can own its envelope via ``response_class`` +
   ``build_response()``; both the wire body and the schema follow it.
@@ -28,7 +28,6 @@ from freeman.openapi import OpenAPIConfig
 from freeman.openapi.schema_generator import OpenAPIStrictError, SchemaGenerator
 from freeman.pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, paginate
 from freeman.responses import HTML, EventSourceResponse, File, FileResponse, PlainText, Redirect, StreamingResponse
-from freeman.serializers import Serializer
 from freeman.testing import TestClient
 
 from .test_models import Article
@@ -36,12 +35,12 @@ from .test_models import Article
 T = TypeVar("T")
 
 
-class UserRead(Serializer):
+class UserRead(msgspec.Struct):
     id: int
     name: str
 
 
-class Page(Serializer, Generic[T]):  # noqa: UP046 — PEP 695 params break Serializer under PEP 563
+class Page(msgspec.Struct, Generic[T]):  # noqa: UP046
     """A page of results."""
 
     count: int
@@ -53,7 +52,7 @@ class StructPage(msgspec.Struct, Generic[T]):  # noqa: UP046
     results: list[T]
 
 
-# msgspec.Struct: the custom envelope ``DRFPage`` is a Serializer, which holds no Pydantic item.
+# msgspec.Struct: the custom envelope ``DRFPage`` is a Struct, which holds no Pydantic item.
 class ArticleListSchema(msgspec.Struct):
     id: int
     title: str
@@ -83,11 +82,11 @@ def _ok_response(schema: dict, path: str, method: str = "get", status: str = "20
 
 
 # ---------------------------------------------------------------------------
-# #287 — parametrized generic Serializers / Structs
+# #287 — parametrized generic Structs
 # ---------------------------------------------------------------------------
 
 
-def test_generic_serializer_response_renders_named_component():
+def test_generic_struct_response_renders_named_component():
     api = BoltAPI(openapi_config=_config())
 
     @api.get("/users")
@@ -137,7 +136,7 @@ def test_generic_struct_two_parametrizations_are_distinct_components():
     }
 
 
-def test_generic_serializer_round_trips_on_the_wire():
+def test_generic_struct_round_trips_on_the_wire():
     """The runtime already handles generics; pin it so the schema fix cannot regress it."""
     api = BoltAPI(openapi_config=_config())
 
@@ -178,7 +177,7 @@ def test_paginated_route_documents_the_envelope_not_a_bare_list():
 # ---------------------------------------------------------------------------
 
 
-class DRFPage(Serializer, Generic[T]):  # noqa: UP046
+class DRFPage(msgspec.Struct, Generic[T]):  # noqa: UP046
     count: int
     next: str | None
     previous: str | None

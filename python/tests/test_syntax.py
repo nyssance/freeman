@@ -7,13 +7,13 @@ from typing import Annotated
 import msgspec
 import pytest
 from django.test import override_settings
+from pydantic import BaseModel, field_validator
 
 from freeman import JSON, BoltAPI, Response, StreamingResponse
 from freeman.exceptions import HTTPException
 from freeman.param_functions import Cookie, Depends, Form, Header, Query
 from freeman.param_functions import File as FileParam
 from freeman.responses import HTML, File, FileResponse, PlainText, Redirect
-from freeman.serializers import Serializer, field_validator
 from freeman.testing import TestClient
 
 
@@ -262,7 +262,7 @@ def api():
     async def form_urlencoded(a: Annotated[str, Form()], b: Annotated[int, Form()]):
         return {"a": a, "b": b}
 
-    # Form data with Struct/Serializer
+    # Form data with Struct
     class FormDataStruct(msgspec.Struct):
         username: str
         age: int
@@ -304,19 +304,20 @@ def api():
         """
         return {"name": data.name, "tags": data.tags, "counts": data.counts}
 
-    # Form data with Serializer and field_validator
-    class FormDataSerializer(Serializer):
+    # Form data with a Pydantic model and field_validator
+    class FormDataModel(BaseModel):
         username: str
         email: str
 
         @field_validator("username")
+        @classmethod
         def validate_username(cls, value):
             if len(value) < 3:
                 raise ValueError("Username must be at least 3 characters")
             return value
 
-    @api.post("/form-serializer")
-    async def form_serializer(data: Annotated[FormDataSerializer, Form()]):
+    @api.post("/form-model")
+    async def form_model(data: Annotated[FormDataModel, Form()]):
         return {"username": data.username, "email": data.email}
 
     # Query parameters with Struct
@@ -1141,19 +1142,19 @@ def test_form_list_field_missing_uses_default(client):
     assert data["counts"] == []
 
 
-def test_form_serializer(client):
-    """Test Form() with Serializer parses and validates form data."""
-    response = client.post("/form-serializer", data={"username": "john", "email": "john@example.com"})
+def test_form_model(client):
+    """Test Form() with a Pydantic model parses and validates form data."""
+    response = client.post("/form-model", data={"username": "john", "email": "john@example.com"})
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "john"
     assert data["email"] == "john@example.com"
 
 
-def test_form_serializer_validation_error(client):
-    """Test Form() with Serializer runs field_validator and returns 422."""
+def test_form_model_validation_error(client):
+    """Test Form() with a Pydantic model runs field_validator and returns 422."""
     response = client.post(
-        "/form-serializer",
+        "/form-model",
         data={"username": "ab", "email": "ab@example.com"},  # username too short
     )
     assert response.status_code == 422

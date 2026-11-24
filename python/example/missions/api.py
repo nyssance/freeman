@@ -6,13 +6,12 @@ from typing import Annotated, Literal
 
 from django.conf import settings
 from django.urls import reverse
-from msgspec import Meta
+from pydantic import BaseModel, Field, field_validator
 
 from freeman import BoltAPI, Request
 from freeman.exceptions import HTTPException, NotFound
 from freeman.param_functions import Cookie, File, Form, Header, Query
 from freeman.responses import HTML, PlainText, Redirect
-from freeman.serializers import Serializer, field, field_validator
 from freeman.shortcuts import render
 from missions.models import Astronaut, Mission
 
@@ -24,25 +23,26 @@ api = BoltAPI(django_middleware=DEBUG_TOOLBAR_MIDDLEWARE)
 
 
 # Schemas
-class CreateMission(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)]
-    description: Annotated[str, Meta(max_length=500)] = ""
+class CreateMission(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    description: Annotated[str, Field(max_length=500)] = ""
     launch_date: datetime | None = None
 
     @field_validator("name")
+    @classmethod
     def validate_name(cls, value):
         if value.lower().startswith("test"):
             raise ValueError("Mission name cannot start with 'test'")
         return value
 
 
-class UpdateMission(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)] | None = None
+class UpdateMission(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     status: Literal["planned", "active", "completed", "aborted"] | None = None
-    description: Annotated[str, Meta(max_length=500)] | None = None
+    description: Annotated[str, Field(max_length=500)] | None = None
 
 
-class MissionResponse(Serializer):
+class MissionResponse(BaseModel):
     id: int
     name: str
     status: str
@@ -50,62 +50,62 @@ class MissionResponse(Serializer):
     description: str = ""
 
 
-class MissionListResponse(Serializer):
+class MissionListResponse(BaseModel):
     missions: list[MissionResponse]
     count: int
 
 
-class MissionCreatedResponse(Serializer):
+class MissionCreatedResponse(BaseModel):
     id: int
     name: str
     status: str
     message: str
 
 
-class AstronautResponse(Serializer):
+class AstronautResponse(BaseModel):
     id: int
     name: str
     role: str
     mission_id: int
 
 
-class AstronautCreatedResponse(Serializer):
+class AstronautCreatedResponse(BaseModel):
     id: int
     name: str
     role: str
-    mission: str = field(source="mission.name")
+    mission: str
 
 
-class AstronautListResponse(Serializer):
+class AstronautListResponse(BaseModel):
     mission: str
     astronauts: list[AstronautResponse]
 
 
-class UploadedDocumentResponse(Serializer):
+class UploadedDocumentResponse(BaseModel):
     filename: str | None = None
     content_type: str | None = None
     size: int | None = None
 
 
-class MissionDocumentsResponse(Serializer):
+class MissionDocumentsResponse(BaseModel):
     mission: str
     title: str
     documents: list[UploadedDocumentResponse]
     count: int
 
 
-class SecureMissionResponse(Serializer):
+class SecureMissionResponse(BaseModel):
     api_key: str
     request_id: str | None = None
     message: str
 
 
-class PreferencesResponse(Serializer):
+class PreferencesResponse(BaseModel):
     theme: str
     language: str
 
 
-class MissionReportResponse(Serializer):
+class MissionReportResponse(BaseModel):
     mission: str
     title: str
     summary: str
@@ -113,17 +113,18 @@ class MissionReportResponse(Serializer):
 
 
 # Query parameter model for filtering missions
-class MissionFilters(Serializer):
+class MissionFilters(BaseModel):
     status: Literal["planned", "active", "completed", "aborted"] | None = None
-    limit: Annotated[int, Meta(ge=1, le=100)] = 10
+    limit: Annotated[int, Field(ge=1, le=100)] = 10
 
 
 # Form model for creating astronauts
-class CreateAstronaut(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)]
-    role: Annotated[str, Meta(min_length=1, max_length=50)]
+class CreateAstronaut(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    role: Annotated[str, Field(min_length=1, max_length=50)]
 
     @field_validator("role")
+    @classmethod
     def validate_role(cls, value):
         valid_roles = ["Commander", "Pilot", "Mission Specialist", "Flight Engineer", "Payload Specialist"]
         if value not in valid_roles:
@@ -163,7 +164,7 @@ async def list_missions(filters: Annotated[MissionFilters, Query()]) -> MissionL
         queryset = queryset.filter(status=filters.status)
     missions: list[MissionResponse] = []
     async for mission in queryset[: filters.limit]:
-        missions.append(await MissionResponse.afrom_model(mission))
+        missions.append(MissionResponse.model_validate(mission, from_attributes=True))
     return MissionListResponse(missions=missions, count=len(missions))
 
 
@@ -172,7 +173,7 @@ async def get_mission(mission_id: int) -> MissionResponse:
     """Get a specific mission by ID."""
     try:
         mission = await Mission.objects.aget(id=mission_id)
-        return await MissionResponse.afrom_model(mission)
+        return MissionResponse.model_validate(mission, from_attributes=True)
     except Mission.DoesNotExist as exc:
         raise NotFound(detail=f"Mission {mission_id} not found") from exc
 
@@ -204,7 +205,7 @@ async def update_mission(mission_id: int, data: UpdateMission) -> MissionRespons
         mission.description = data.description
 
     await mission.asave()
-    return await MissionResponse.afrom_model(mission)
+    return MissionResponse.model_validate(mission, from_attributes=True)
 
 
 @api.delete("/missions/{mission_id}", status_code=204)
@@ -297,7 +298,7 @@ async def add_astronaut(mission_id: int, data: Annotated[CreateAstronaut, Form()
         raise NotFound(detail=f"Mission {mission_id} not found") from exc
 
     astronaut = await Astronaut.objects.acreate(name=data.name, role=data.role, mission=mission)
-    return await AstronautCreatedResponse.afrom_model(astronaut)
+    return AstronautCreatedResponse(id=astronaut.id, name=astronaut.name, role=astronaut.role, mission=mission.name)
 
 
 @api.get("/missions/{mission_id}/astronauts")
@@ -310,18 +311,18 @@ async def list_astronauts(mission_id: int) -> AstronautListResponse:
 
     astronauts: list[AstronautResponse] = []
     async for astronaut in Astronaut.objects.filter(mission=mission):
-        astronauts.append(await AstronautResponse.afrom_model(astronaut))
+        astronauts.append(AstronautResponse.model_validate(astronaut, from_attributes=True))
     return AstronautListResponse(mission=mission.name, astronauts=astronauts)
 
 
 # Header model for API metadata
-class APIHeaders(Serializer):
+class APIHeaders(BaseModel):
     x_api_key: str
     x_request_id: str | None = None
 
 
 # Cookie model for user preferences
-class UserPreferences(Serializer):
+class UserPreferences(BaseModel):
     theme: str = "light"
     language: str = "en"
 

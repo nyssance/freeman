@@ -17,13 +17,10 @@ import msgspec
 from django.db.models import QuerySet
 from pydantic import Field, ValidationError, create_model
 
-from .._field_marker import _FieldMarker
 from .._pydantic import adapter_for, is_pydantic_model, names_pydantic_model, param_fields
 from .._pydantic import body_errors as pydantic_body_errors
 from .._pydantic import build_body_extractor as build_pydantic_body_extractor
 from .._pydantic import request_errors as pydantic_errors
-from .._serializer_before import RAW_VALIDATED, before_plan, run_before_validators
-from .._serializer_input import ignore_read_only_input, read_only_input_extractor
 from ..concurrency import run_in_orm_executor
 from ..datastructures import UploadFile
 from ..exceptions import HTTPException, RequestValidationError, parse_msgspec_decode_error
@@ -86,22 +83,6 @@ def _refuse_many_item_default(loc: str, key: str, annotation: Any, default: Any)
             f"The {loc} parameter {key!r} gets at most one item, but its default {default!r} "
             f"has {len(default)} items. Use a default of at most one item, or use Query() for a list of values."
         )
-
-
-def _schema_default(field: msgspec.structs.FieldInfo) -> Any:
-    """Return the default of a model field that the OpenAPI schema shows.
-
-    The schema calls the ``default_factory`` of a serializer ``field()``. It
-    calls no other factory that can give two items. A field with
-    ``include_in_schema=False`` is not in the schema.
-    """
-    default = field.default
-    if isinstance(default, _FieldMarker):
-        config = default.config
-        if not config.include_in_schema or not config.has_default():
-            return msgspec.NODEFAULT
-        return config.get_default()
-    return default
 
 
 def _param_converter(annotation: Any, loc: str, key: str, *, one_item: bool = False) -> Callable | None:
@@ -332,14 +313,14 @@ def create_query_extractor(
 ) -> Callable:
     """Create a pre-compiled extractor for query parameters.
 
-    Supports both individual fields and Struct/Serializer types.
-    When annotation is a msgspec.Struct or Serializer, extracts all struct
+    Supports both individual fields and Struct types.
+    When annotation is a msgspec.Struct, extracts all struct
     fields from the query parameters and constructs the struct instance.
 
     Note: Rust pre-converts values to typed Python objects (int, float, bool,
     str, uuid.UUID, decimal.Decimal, datetime, date, time) for both HTTP and WebSocket.
     """
-    # Check if annotation is a Struct/Serializer type
+    # Check if annotation is a Struct type
     unwrapped = unwrap_optional(annotation)
     if is_pydantic_model(unwrapped):
         return _create_pydantic_param_extractor(unwrapped, default, "query", other_keys)
@@ -376,8 +357,8 @@ def create_query_extractor(
 def create_header_extractor(name: str, annotation: Any, default: Any, alias: str | None = None) -> Callable:
     """Create a pre-compiled extractor for HTTP headers.
 
-    Supports both individual fields and Struct/Serializer types.
-    When annotation is a msgspec.Struct or Serializer, extracts all struct
+    Supports both individual fields and Struct types.
+    When annotation is a msgspec.Struct, extracts all struct
     fields from the headers and constructs the struct instance.
 
     Note: The compiler puts the non-string header types into ``header_types``,
@@ -386,7 +367,7 @@ def create_header_extractor(name: str, annotation: Any, default: Any, alias: str
     The extractor thus reads typed objects (int, float, bool, uuid.UUID,
     decimal.Decimal, datetime, date, time) and does no conversion.
     """
-    # Check if annotation is a Struct/Serializer type
+    # Check if annotation is a Struct type
     unwrapped = unwrap_optional(annotation)
     if is_pydantic_model(unwrapped):
         return _create_pydantic_header_extractor(unwrapped, default)
@@ -427,8 +408,8 @@ def create_cookie_extractor(
 ) -> Callable:
     """Create a pre-compiled extractor for cookies.
 
-    Supports both individual fields and Struct/Serializer types.
-    When annotation is a msgspec.Struct or Serializer, extracts all struct
+    Supports both individual fields and Struct types.
+    When annotation is a msgspec.Struct, extracts all struct
     fields from the cookies and constructs the struct instance.
 
     Note: The compiler puts the non-string cookie types into ``cookie_types``,
@@ -437,7 +418,7 @@ def create_cookie_extractor(
     The extractor thus reads typed objects (int, float, bool, uuid.UUID,
     decimal.Decimal, datetime, date, time) and does no conversion.
     """
-    # Check if annotation is a Struct/Serializer type
+    # Check if annotation is a Struct type
     unwrapped = unwrap_optional(annotation)
     if is_pydantic_model(unwrapped):
         return _create_pydantic_param_extractor(unwrapped, default, "cookie", other_keys)
@@ -476,8 +457,8 @@ def create_form_extractor(
 ) -> Callable:
     """Create a pre-compiled extractor for form fields.
 
-    Supports both individual fields and Struct/Serializer types.
-    When annotation is a msgspec.Struct or Serializer, extracts all struct
+    Supports both individual fields and Struct types.
+    When annotation is a msgspec.Struct, extracts all struct
     fields from the form data and constructs the struct instance.
 
     Note: Rust pre-converts values to typed Python objects (int, float, bool, str).
@@ -485,7 +466,7 @@ def create_form_extractor(
     sequence keeps the last value, as a query parameter does. An ``Any`` field
     gets the list.
     """
-    # Check if annotation is a Struct/Serializer type
+    # Check if annotation is a Struct type
     unwrapped = unwrap_optional(annotation)
     if is_pydantic_model(unwrapped):
         return _create_pydantic_form_extractor(unwrapped, default, other_keys)
@@ -558,7 +539,7 @@ def _collect_struct_errors(
     Validate each field of `struct_type` against `data` and return a list of error objects describing either per-field validation failures or missing required fields/files. The `loc` of each error names the source as a scalar parameter does ("query", "cookie" or "body"). When `has_files` is True, the function decodes upload files for validation.
 
     Parameters:
-        struct_type (type): The msgspec struct/serializer type whose fields to validate.
+        struct_type (type): The msgspec struct type whose fields to validate.
         data (dict[str, Any]): The input mapping of encoded field names to values.
         param_type (str): The source name in a missing-field message ("query parameter", "cookie" or "form field").
         source (str): The source in `loc` ("query", "cookie" or "body").
@@ -689,12 +670,11 @@ def _unknown_field_errors(
     ]
 
 
-@read_only_input_extractor
 def _create_param_struct_extractor(
     struct_type: type, default: Any, param_type: str, other_keys: frozenset[str] = frozenset()
 ) -> Callable:
     """
-    Create an extractor that builds and validates a msgspec Struct/Serializer from parameter data.
+    Create an extractor that builds and validates a msgspec Struct from parameter data.
 
     The returned callable accepts parameter maps (and, when the struct has upload-file fields, an optional files map), converts the incoming values into an instance of `struct_type`, and performs validation. On validation failures the extractor raises RequestValidationError containing collected per-field errors. When the struct contains upload-file fields the extractor will also append created UploadFile instances to `files_map["_upload_files"]` for downstream cleanup.
 
@@ -703,7 +683,7 @@ def _create_param_struct_extractor(
     - The returned callable has an attribute `needs_files_map` set to True when upload-file fields are present (callable signature: (param_map, files_map | None) -> struct) and False otherwise (callable signature: (param_map) -> struct).
 
     Parameters:
-        struct_type (type): msgspec struct/serializer type to produce.
+        struct_type (type): msgspec struct type to produce.
         default (Any): The value of the parameter when the request has none of the keys of the struct. `inspect.Parameter.empty` makes the struct required.
         param_type (str): The source name in error messages ("query parameter", "form field" or "cookie"). It also selects the source in `loc`.
         other_keys (frozenset[str]): The keys that the other parameters of the handler read from the same source. A struct that forbids unknown fields does not get them. A key that no parameter declares gives a 422 with the type `unknown_field`.
@@ -871,9 +851,8 @@ def _collect_header_struct_errors(
     return errors
 
 
-@read_only_input_extractor
 def _create_header_struct_extractor(struct_type: type, default: Any) -> Callable:
-    """Create an extractor that builds a Struct/Serializer from HTTP headers.
+    """Create an extractor that builds a Struct from HTTP headers.
 
     Similar to _create_param_struct_extractor but converts field names from
     snake_case to kebab-case for HTTP header lookup. Supports msgspec field
@@ -889,7 +868,7 @@ def _create_header_struct_extractor(struct_type: type, default: Any) -> Callable
     field converts with ``strict=False``, as the cookie struct does.
 
     Args:
-        struct_type: The msgspec.Struct or Serializer class
+        struct_type: The msgspec.Struct class
         default: The value of the parameter when the request has none of the
             headers of the struct. ``inspect.Parameter.empty`` makes the struct required.
 
@@ -1395,35 +1374,10 @@ def _build_pydantic_embedded_body_extractor(annotation: Any, key: str, default: 
     return extract
 
 
-def _build_before_body_extractor(annotation: Any, plan: Callable) -> Callable:
-    """The body extractor of a type that holds a serializer with a mode="before" validator."""
-
-    def extract(body_bytes: bytes) -> Any:
-        try:
-            raw = msgspec.json.decode(body_bytes)
-        except msgspec.DecodeError as e:
-            raise RequestValidationError(errors=[parse_msgspec_decode_error(e, body_bytes)], body=body_bytes) from e
-        data = run_before_validators(plan, raw)
-        token = RAW_VALIDATED.set(True)
-        try:
-            # str_keys: the keys of a JSON object are strings.
-            return msgspec.convert(data, annotation, str_keys=True)
-        finally:
-            RAW_VALIDATED.reset(token)
-
-    return extract
-
-
 def _build_body_extractor(annotation: Any) -> Callable:
     # Pydantic owns a type that names one of its models.
     if names_pydantic_model(annotation):
         return build_pydantic_body_extractor(annotation)
-    # Only a type with a before validator leaves the direct msgspec decode.
-    plan = before_plan(annotation)
-    if plan is not None:
-        # The before path builds the same serializers, so it also ignores read_only input.
-        return ignore_read_only_input(annotation, _build_before_body_extractor(annotation, plan))
-
     if is_msgspec_struct(annotation):
         decoder = get_msgspec_decoder(annotation)
 
@@ -1453,8 +1407,7 @@ def _build_body_extractor(annotation: Any) -> Callable:
                 error_detail = parse_msgspec_decode_error(e, body_bytes)
                 raise RequestValidationError(errors=[error_detail], body=body_bytes) from e
 
-    # A body with no read_only serializer field keeps `extract` as it is.
-    return ignore_read_only_input(annotation, extract)
+    return extract
 
 
 def create_extractor_for_field(field: FieldDefinition, other_keys: frozenset[str] = frozenset()) -> Callable | None:
@@ -1498,9 +1451,7 @@ def create_extractor_for_field(field: FieldDefinition, other_keys: frozenset[str
                 _refuse_many_item_default(source, key, model_field.annotation, model_field.default)
         elif is_msgspec_struct(model):
             for model_field in msgspec.structs.fields(model):
-                _refuse_many_item_default(
-                    source, model_field.encode_name, model_field.type, _schema_default(model_field)
-                )
+                _refuse_many_item_default(source, model_field.encode_name, model_field.type, model_field.default)
         else:
             _refuse_many_item_default(source, alias or name, annotation, default)
         return extractor
@@ -1567,8 +1518,7 @@ def _compile_list_coercer(annotation: Any) -> tuple[Callable[[Any], Any], Callab
             )
         return msgspec.convert(value, annotation, from_attributes=True)
 
-    # A QuerySet loads only the fields of the Struct, with .values(). A list of
-    # Bolt Serializers does not get here: its own response handlers run.
+    # A QuerySet loads only the fields of the Struct, with .values().
     if not is_msgspec_struct(item_type):
 
         async def coerce_async(value: Any) -> Any:

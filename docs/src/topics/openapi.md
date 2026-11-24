@@ -169,7 +169,7 @@ async def create_user(user: CreateUser):
     return {"id": 1, "username": user.username}
 ```
 
-A `Serializer` has two schemas if its input and its output do not have the same fields. The request body schema has no `read_only` field and no computed field. The response schema has no `write_only` field. It marks each `read_only` field and each computed field `readOnly: true`. If the API uses the serializer for the two, the response uses the component `<Name>` and the request body uses the component `<Name>Input`. See [Read-only fields](serializers.md#read-only-fields).
+A Pydantic model has two schemas if its input and its output do not have the same fields, for example with a computed field. Pydantic names them: the request body uses the validation schema and the response uses the serialization schema.
 
 ### Status codes
 

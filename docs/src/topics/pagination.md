@@ -22,7 +22,7 @@ class ArticlePagination(PageNumberPagination):
 
 @api.get("/articles")
 @paginate(ArticlePagination)
-async def list_articles(request) -> list[ArticleSerializer]:
+async def list_articles(request) -> list[ArticleOut]:
     return Article.objects.all()
 ```
 
@@ -54,7 +54,7 @@ Flexible offset-based pagination:
 ```python
 from freeman import LimitOffsetPagination, paginate
 
-@api.get("/articles", response_model=list[ArticleSerializer])
+@api.get("/articles", response_model=list[ArticleOut])
 @paginate(LimitOffsetPagination)
 async def list_articles(request):
     return Article.objects.all()
@@ -77,7 +77,7 @@ class ArticlePagination(CursorPagination):
 
 @api.get("/articles")
 @paginate(ArticlePagination)
-async def list_articles(request) -> list[ArticleSerializer]:
+async def list_articles(request) -> list[ArticleOut]:
     return Article.objects.all()
 ```
 
@@ -97,29 +97,27 @@ The `ordering` field must not be null. A null value cannot make a cursor, and SQ
 
 The handler must return a QuerySet. The cursor is a filter on the database, and a list has no such filter. For a list, the paginator raises `TypeError`. Use `PageNumberPagination` or `LimitOffsetPagination` for a list.
 
-## Specifying the Serializer
+## Specifying the item type
 
-Two equivalent ways to specify which serializer to use:
+Two equivalent ways to specify the item type:
 
 ```python
 # Option 1: Return type annotation (recommended)
 @api.get("/articles")
 @paginate(ArticlePagination)
-async def list_articles(request) -> list[ArticleSerializer]:
+async def list_articles(request) -> list[ArticleOut]:
     return Article.objects.all()
 
 # Option 2: response_model parameter
-@api.get("/articles", response_model=list[ArticleSerializer])
+@api.get("/articles", response_model=list[ArticleOut])
 @paginate(ArticlePagination)
 async def list_articles(request):
     return Article.objects.all()
 ```
 
-Both approaches work identically. The serializer automatically filters fields - only declared fields are included in the response.
+Both approaches work identically. The item type filters the fields: only its declared fields are in the response. A Pydantic item type reads a dict by key and each other object by attribute. An item that does not fit gives a response validation error (status 500). See [Models](models.md).
 
 The item type can also be a plain `msgspec.Struct`. Freeman converts each page as it converts a `list[Struct]` response type with no `@paginate`. An item that does not fit the Struct gives a response validation error (status 500). `build_response()` then gets instances of the Struct as `items`.
-
-A page of a `Serializer` type sends each item as the same route with no `@paginate` sends it. Freeman validates a dict against the serializer, so a dict gets the defaults of the serializer. A serializer instance stays as it is. `from_model()` reads each other object. A page can mix these kinds. An item that does not fit the serializer gives a response validation error (status 500), not a `null`.
 
 ## Class-based view with Pagination
 
@@ -129,7 +127,7 @@ from freeman.views import APIView
 @api.view("/articles")
 class ArticleList(APIView):
     @paginate(ArticlePagination)
-    async def get(self) -> list[ArticleSerializer]:
+    async def get(self) -> list[ArticleOut]:
         return Article.objects.all()
 ```
 
@@ -138,16 +136,18 @@ class ArticleList(APIView):
 The default envelope is `PaginatedResponse[T]`. It has `items`, `total`,
 `has_next`, `has_previous` and the fields of the pagination scheme. You can use
 a different shape, for example the DRF shape `count/next/previous/results`. Set
-`response_class` to a generic `Serializer` or `msgspec.Struct`. Then override
+`response_class` to a generic `msgspec.Struct`. Then override
 `build_response()`. The response body and the OpenAPI schema
-(`DRFPage_ArticleSerializer_`) use the new shape:
+(`DRFPage_ArticleOut_`) use the new shape:
 
 ```python
 from typing import Generic, TypeVar
 
+import msgspec
+
 T = TypeVar("T")
 
-class DRFPage(Serializer, Generic[T]):
+class DRFPage(msgspec.Struct, Generic[T]):
     count: int
     next: str | None
     previous: str | None
@@ -179,20 +179,15 @@ as keyword arguments:
 
 ### Avoiding N+1 Queries
 
-If the item type is a Freeman `Serializer`, Freeman applies the loading plan of the
-serializer to the page QuerySet. The plan uses `select_related` for ForeignKey
-and OneToOne fields, `prefetch_related` for many-valued relations, and
-`Config.annotations`. Nested relations cost a small, fixed number of queries
-for each page. See
-[Loading a QuerySet with from_models()](serializers.md#loading-a-queryset-with-from_models).
-
-Freeman keeps the loads that you apply. Freeman does not apply them a second time.
-This code is correct:
+A Pydantic item type with only column fields reads the page with `values()`.
+A nested model reads a relation of each row. Load the relations in the QuerySet,
+with `select_related` for ForeignKey and OneToOne fields and `prefetch_related`
+for many-valued relations. Then a page costs a small, fixed number of queries:
 
 ```python
 @api.get("/articles")
 @paginate(ArticlePagination)
-async def list_articles(request) -> list[ArticleSerializer]:
+async def list_articles(request) -> list[ArticleOut]:
     return Article.objects.select_related("author").prefetch_related("tags")
 ```
 

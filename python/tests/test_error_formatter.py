@@ -30,14 +30,13 @@ from freeman.management.commands.runbolt import Command
 from freeman.middleware import rate_limit, skip_middleware
 from freeman.param_functions import Form
 from freeman.responses import HTML, JSON, FileResponse, PlainText, Response
-from freeman.serializers import Serializer
 from freeman.testing import TestClient
 
 from .test_exception_log_policy import _allow_file_paths
 from .test_models import Article
 
 
-class Body(Serializer):
+class Body(msgspec.Struct):
     n: Annotated[int, Meta(ge=1)]
 
 

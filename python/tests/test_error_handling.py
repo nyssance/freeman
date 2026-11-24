@@ -242,7 +242,7 @@ class TestExceptions:
         assert str(ValidationException([1])) == "Validation error"
 
     def test_request_validation_error_text_joins_the_errors(self):
-        """msgspec uses this text for the message of a Serializer validator error."""
+        """The text of the error joins its entries."""
         errors = [
             {"loc": ["body", "items", 1], "msg": "too small", "type": "value_error"},
             {"msg": "no location"},

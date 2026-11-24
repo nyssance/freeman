@@ -21,7 +21,6 @@ Example (Class-Based View):
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import inspect
 from abc import ABC, abstractmethod
@@ -41,7 +40,7 @@ from pydantic import ValidationError as PydanticValidationError
 from . import _json
 from ._pydantic import adapter_for, compile_queryset_reader, is_pydantic_model, response_failure
 from .concurrency import run_in_orm_executor
-from .exceptions import ResponseValidationError, UnloadedRelationError
+from .exceptions import ResponseValidationError
 from .middleware.middleware import note_config_decorator
 from .typing import REQUEST_PARAM_NAMES
 
@@ -206,15 +205,15 @@ def extract_pagination_item_type(response_type: Any) -> type | None:
     """
     Extract item type from list[T] or PaginatedResponse[T] for pagination.
 
-    This is used by the route decorator to determine the serializer class
+    This is used by the route decorator to determine the item type
     when a handler is decorated with @paginate and has a response_model
-    like list[UserSerializer] or PaginatedResponse[UserSerializer].
+    like list[UserOut] or PaginatedResponse[UserOut].
 
     Args:
-        response_type: Type annotation (e.g., list[UserSerializer])
+        response_type: Type annotation (e.g., list[UserOut])
 
     Returns:
-        The item type (e.g., UserSerializer), or None if not extractable
+        The item type (e.g., UserOut), or None if not extractable
     """
     if (item_type := _pydantic_item_type(response_type)) is not None:
         return item_type
@@ -261,10 +260,10 @@ class PaginationBase(ABC):
     # Name of the page size query parameter
     page_size_query_param: str | None = None
 
-    # Serializer class for item serialization (set at runtime by paginate wrapper)
-    serializer_class: type | None = None
+    # The item type of a page (set at runtime by the paginate wrapper)
+    item_type: type | None = None
 
-    # Envelope type: a generic msgspec.Struct/Serializer taking the item type
+    # Envelope type: a generic msgspec.Struct taking the item type
     # (``response_class[Item]``). Drives the OpenAPI schema and response
     # validation; override together with build_response() for a custom shape.
     response_class: type = PaginatedResponse
@@ -346,8 +345,8 @@ class PaginationBase(ABC):
         Serialize items using efficient batch serialization.
 
         Supports:
-        - Bolt Serializer: from_model() + dump_many() (fastest). A dict is
-          validated, as a ``list[Serializer]`` response type with no ``@paginate``
+        - Pydantic model: one validation of the page, as a ``list[Model]``
+          response type with no ``@paginate``
         - msgspec.Struct: one msgspec.convert() for the page, as a
           ``list[Struct]`` response type with no ``@paginate``
         - Fallback: _model_to_dict() for backwards compatibility
@@ -360,24 +359,20 @@ class PaginationBase(ABC):
             else a list of dictionaries. Both are ready for JSON serialization.
 
         Raises:
-            ResponseValidationError: An item does not fit the Struct or the
-                Serializer item type.
+            ResponseValidationError: An item does not fit the item type.
         """
         if not items:
             return []
 
-        if self.serializer_class is None:
+        if self.item_type is None:
             # Backwards compatibility: use _model_to_dict fallback
             return [self._model_to_dict(item) for item in items]
 
-        convert_page = _struct_page_converter(self.serializer_class) or _pydantic_page_converter(self.serializer_class)
+        convert_page = _struct_page_converter(self.item_type) or _pydantic_page_converter(self.item_type)
         if convert_page is not None:
             return convert_page(items)
 
-        if getattr(self.serializer_class, "__is_bolt_serializer__", False):
-            return await _dump_serializer_page(self.serializer_class, items)
-
-        # Fallback for unknown serializer types
+        # Fallback for other item types
         return [self._model_to_dict(item) for item in items]
 
     async def _evaluate_queryset_slice(self, queryset: Any, project: bool = True) -> list[Any]:
@@ -403,12 +398,7 @@ class PaginationBase(ABC):
         # sync_to_async(thread_sensitive=True) hop onto one shared thread —
         # both per-chunk overhead AND a cross-request serialization point.
         if hasattr(queryset, "_iterable_class") and hasattr(queryset, "model"):
-            serializer_class = self.serializer_class
-            if getattr(serializer_class, "__is_bolt_serializer__", False):
-                # Pre-load what the item serializer reads (select_related /
-                # prefetch_related / annotate) so a page never costs N+1.
-                queryset = serializer_class._prepare_queryset(queryset)
-            elif project and (readers := _pydantic_queryset_reader(serializer_class)) is not None:
+            if project and (readers := _pydantic_queryset_reader(self.item_type)) is not None:
                 return await readers[1](queryset)
             return await run_in_orm_executor(list, queryset)
         # Non-QuerySet async iterables (has __aiter__)
@@ -896,45 +886,6 @@ class CursorPagination(PaginationBase):
         )
 
 
-def _to_serializer(serializer_class: Any, item: Any) -> Any:
-    """Make the Serializer instance of one item of a page, from the kind of that item."""
-    if isinstance(item, dict):
-        return msgspec.convert(item, serializer_class)
-    if getattr(item.__class__, "__is_bolt_serializer__", False):
-        return item
-    return serializer_class.from_model(item)
-
-
-async def _to_serializer_async(serializer_class: Any, item: Any) -> Any:
-    try:
-        return _to_serializer(serializer_class, item)
-    except UnloadedRelationError:
-        pass
-    return await serializer_class.afrom_model(item)
-
-
-async def _dump_serializer_page(serializer_class: Any, items: list[Any]) -> list[dict]:
-    """Dump one page for a Bolt Serializer item type.
-
-    Each item goes through the Serializer as the same route with no
-    ``@paginate`` sends it: a dict is validated, an instance stays, and each
-    other object is read by ``from_model()``. Thus the page has the same
-    items, and an item that does not fit gives the same response validation
-    error.
-    """
-    serializer_class._ensure_from_model_ready()
-    try:
-        try:
-            instances = [_to_serializer(serializer_class, item) for item in items]
-        except UnloadedRelationError:
-            instances = list(await asyncio.gather(*(_to_serializer_async(serializer_class, item) for item in items)))
-        return serializer_class.dump_many(instances)
-    except msgspec.ValidationError as exc:
-        raise ResponseValidationError([exc]) from exc
-    except Exception as exc:
-        raise ResponseValidationError([{"loc": ["response"], "msg": str(exc), "type": "validation_error"}]) from exc
-
-
 @cache
 def _struct_page_converter(item_type: type) -> Callable[[list[Any]], list[Any]] | None:
     """The conversion of one page for a plain msgspec.Struct item type, else None. Built one time per type.
@@ -945,8 +896,6 @@ def _struct_page_converter(item_type: type) -> Callable[[list[Any]], list[Any]] 
     the Struct gives the same response validation error.
     """
     if not (isinstance(item_type, type) and issubclass(item_type, msgspec.Struct)):
-        return None
-    if getattr(item_type, "__is_bolt_serializer__", False):
         return None
     page_type = list[item_type]
 
@@ -1001,20 +950,20 @@ def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
     Django raises ``SynchronousOnlyOperation``. The pagination runs the queries of
     the QuerySet on the ORM executor.
 
-    When used with response_model or return type annotation like list[UserSerializer],
-    the serializer will be used for efficient batch serialization via dump_many().
+    With a response_model or return type annotation like list[UserOut], each
+    page is converted to that item type.
 
     Args:
         pagination_class: Pagination class to use (default: PageNumberPagination)
 
     Example:
-        from freeman.serializers import Serializer
+        from pydantic import BaseModel
 
-        class UserSerializer(Serializer):
+        class UserOut(BaseModel):
             id: int
             name: str
 
-        @api.get("/users", response_model=list[UserSerializer])
+        @api.get("/users", response_model=list[UserOut])
         @paginate(PageNumberPagination)
         async def list_users():
             return User.objects.all()
@@ -1043,8 +992,8 @@ def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
 
             if cached_paginator is None:
                 cached_paginator = pagination_class()
-                item_type = getattr(wrapper, "__serializer_class__", None)
-                cached_paginator.serializer_class = item_type
+                item_type = getattr(wrapper, "__bolt_item_type__", None)
+                cached_paginator.item_type = item_type
                 if pagination_class.response_class is PaginatedResponse and is_pydantic_model(item_type):
                     # The Pydantic envelope, as the route documents it.
                     cached_paginator.response_class = envelope_type(pagination_class, item_type)

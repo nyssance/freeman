@@ -7,9 +7,10 @@ verifying end-to-end behavior of dict-based response_model.
 
 from __future__ import annotations
 
+import msgspec
+
 from freeman import BoltAPI
 from freeman.responses import JSON
-from freeman.serializers import Serializer
 from freeman.testing import TestClient
 
 # ============================================================================
@@ -17,16 +18,16 @@ from freeman.testing import TestClient
 # ============================================================================
 
 
-class OkSchema(Serializer):
+class OkSchema(msgspec.Struct):
     id: int
     name: str
 
 
-class ErrorSchema(Serializer):
+class ErrorSchema(msgspec.Struct):
     detail: str
 
 
-class CreatedSchema(Serializer):
+class CreatedSchema(msgspec.Struct):
     id: int
     name: str
     created: bool

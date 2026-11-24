@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Annotated
 
-import msgspec
 from django.db import IntegrityError
 from pydantic import BaseModel
 
@@ -10,7 +9,6 @@ from freeman import BoltAPI
 from freeman.exceptions import HTTPException
 from freeman.pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, paginate
 from freeman.params import Depends
-from freeman.serializers import Serializer
 from freeman.views import APIView
 
 from .models import User
@@ -19,11 +17,11 @@ api = BoltAPI(prefix="/users")
 
 
 # ============================================================================
-# Schemas (msgspec.Struct - for backward compatibility)
+# Schemas (Pydantic models)
 # ============================================================================
 
 
-class UserFull(Serializer):
+class UserFull(BaseModel):
     id: int
     username: str
     email: str
@@ -32,27 +30,43 @@ class UserFull(Serializer):
     is_active: bool
 
 
-class UserMini(Serializer):
+class UserMini(BaseModel):
     id: int
     username: str
 
 
-# ============================================================================
-# Serializers (Bolt Serializer - recommended for pagination)
-# ============================================================================
-
-
-class UserListSerializer(msgspec.Struct):
-    """
-    Serializer for user list view - only includes fields needed for listing.
-
-    Using Bolt Serializer with @paginate enables efficient batch serialization
-    via dump_many(), which is faster than converting each item individually.
-    """
-
+class UserListOut(BaseModel):
     id: int
     username: str
     email: str
+
+
+class UserDetailOut(BaseModel):
+    id: int
+    username: str
+    email: str
+    first_name: str
+    last_name: str
+    is_active: bool
+
+
+class UserMiniOut(BaseModel):
+    id: int
+    username: str
+
+
+class UserCreateIn(BaseModel):
+    username: str
+    email: str
+    first_name: str = ""
+    last_name: str = ""
+
+
+class UserUpdateIn(BaseModel):
+    email: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    is_active: bool | None = None
 
 
 # ============================================================================
@@ -125,10 +139,8 @@ class SmallPagePagination(PageNumberPagination):
 
 
 # ----------------------------------------------------------------------------
-# 1. Pagination with Bolt Serializer (RECOMMENDED)
-#    - Uses response_model to specify serializer
-#    - Automatically uses dump_many() for efficient batch serialization
-#    - Only declared fields are included in response
+# 1. Pagination of model instances
+#    - Without an item type, each model field is in the response
 # ----------------------------------------------------------------------------
 
 
@@ -136,10 +148,7 @@ class SmallPagePagination(PageNumberPagination):
 @paginate(SmallPagePagination)
 async def list_users_paginated(request):
     """
-    List users with page number pagination and Bolt Serializer.
-
-    The serializer automatically filters fields - only id, username, email
-    are included in the response, even though the queryset fetches all fields.
+    List users with page number pagination.
 
     Query params:
         - page: Page number (default: 1)
@@ -170,7 +179,7 @@ async def list_users_paginated(request):
 
 @api.get("/paginated-typed")
 @paginate(SmallPagePagination)
-async def list_users_typed(request) -> list[UserListSerializer]:
+async def list_users_typed(request) -> list[UserListOut]:
     """
     Same as above but using return type annotation instead of response_model.
 
@@ -180,11 +189,11 @@ async def list_users_typed(request) -> list[UserListSerializer]:
 
 
 # ----------------------------------------------------------------------------
-# 3. LimitOffset Pagination with Serializer
+# 3. LimitOffset Pagination with an item type
 # ----------------------------------------------------------------------------
 
 
-@api.get("/paginated-offset", response_model=list[UserListSerializer])
+@api.get("/paginated-offset", response_model=list[UserListOut])
 @paginate(LimitOffsetPagination)
 async def list_users_offset(request):
     """
@@ -210,7 +219,7 @@ async def list_users_offset(request):
 
 
 # ----------------------------------------------------------------------------
-# 4. Cursor Pagination with Serializer
+# 4. Cursor Pagination with an item type
 # ----------------------------------------------------------------------------
 
 
@@ -221,7 +230,7 @@ class UserCursorPagination(CursorPagination):
     ordering = "-id"  # Most recent first
 
 
-@api.get("/paginated-cursor", response_model=list[UserListSerializer])
+@api.get("/paginated-cursor", response_model=list[UserListOut])
 @paginate(UserCursorPagination)
 async def list_users_cursor(request):
     """
@@ -250,9 +259,8 @@ async def list_users_cursor(request):
 
 
 # ----------------------------------------------------------------------------
-# 5. Pagination with msgspec.Struct (backward compatible)
-#    - Works with plain msgspec.Struct (not just Bolt Serializer)
-#    - Fields are extracted based on struct field declarations
+# 5. Pagination with a smaller item type
+#    - Fields are extracted based on the model field declarations
 # ----------------------------------------------------------------------------
 
 
@@ -260,7 +268,7 @@ async def list_users_cursor(request):
 @paginate(SmallPagePagination)
 async def list_users_msgspec(request):
     """
-    Pagination also works with plain msgspec.Struct.
+    The item type decides which fields go out.
 
     Only id and username are included (as declared in UserMini).
     """
@@ -268,7 +276,7 @@ async def list_users_msgspec(request):
 
 
 # ----------------------------------------------------------------------------
-# 6. Pagination without serializer (backward compatible fallback)
+# 6. Pagination without an item type (fallback)
 #    - When no response_model is specified, all model fields are dumped
 #    - Not recommended for production (may expose sensitive fields)
 # ----------------------------------------------------------------------------
@@ -278,9 +286,9 @@ async def list_users_msgspec(request):
 @paginate(SmallPagePagination)
 async def list_users_legacy(request):
     """
-    Pagination without serializer - all model fields are included.
+    Pagination without an item type - all model fields are included.
 
-    WARNING: This may expose sensitive fields. Always use a serializer
+    WARNING: This may expose sensitive fields. Always use an item type
     in production to control which fields are returned.
     """
     return User.objects.only("id", "username")
@@ -289,40 +297,6 @@ async def list_users_legacy(request):
 # ----------------------------------------------------------------------------
 # 7. Class-Based View (APIView) with Pagination
 # ----------------------------------------------------------------------------
-
-
-class UserListOut(BaseModel):
-    id: int
-    username: str
-    email: str
-
-
-class UserDetailOut(BaseModel):
-    id: int
-    username: str
-    email: str
-    first_name: str
-    last_name: str
-    is_active: bool
-
-
-class UserMiniOut(BaseModel):
-    id: int
-    username: str
-
-
-class UserCreateIn(BaseModel):
-    username: str
-    email: str
-    first_name: str = ""
-    last_name: str = ""
-
-
-class UserUpdateIn(BaseModel):
-    email: str | None = None
-    first_name: str | None = None
-    last_name: str | None = None
-    is_active: bool | None = None
 
 
 async def _get_user(pk: int) -> User:

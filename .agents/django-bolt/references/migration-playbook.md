@@ -14,9 +14,9 @@ Only use this when the user explicitly asks to port existing code to Django-Bolt
 
 - Keep Django models, admin, and business logic untouched
 - Map grouped endpoints to `APIView`
-- Map CRUD surfaces to `ViewSet` or `ModelViewSet`
+- Map CRUD surfaces to `APIView` (one view per path) or function routes with Pydantic models
 - Map DRF permissions to Bolt guards (`IsAuthenticated`, `HasPermission`, etc.)
-- Replace DRF serializers with `Serializer` (for validation) or `msgspec.Struct` (for simple DTOs)
+- Replace DRF serializers with Pydantic models
 - Replace `@api_view` with `@api.get` / `@api.post` etc.
 
 ## From Django Ninja
@@ -29,7 +29,7 @@ Only use this when the user explicitly asks to port existing code to Django-Bolt
 ## Migration priority
 
 1. Preserve URL, method, request fields, and response shape
-2. Move validation into typed inputs or `Serializer`
+2. Move validation into typed inputs or Pydantic models
 3. Recreate auth and permission behavior
 4. Recreate docs metadata
 5. Add tests with `TestClient`

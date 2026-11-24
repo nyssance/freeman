@@ -3,7 +3,7 @@
 This module provides optimized JSON encoding/decoding using msgspec with:
 - Thread-local cached encoder/decoder instances (thread-safe buffer reuse)
 - Support for standard types (see DEFAULT_TYPE_ENCODERS)
-- Automatic Serializer.dump() for write_only, computed_field support
+- Pydantic models, which encode themselves
 - Type-safe decoding with validation
 - Custom encoder/decoder hooks
 
@@ -97,9 +97,6 @@ def default_serializer(value: Any) -> Any:
 
     Walks the MRO (Method Resolution Order) to support subclasses.
     Raises TypeError if type is unsupported.
-
-    Note: Serializer instances are handled in serialization.py before reaching
-    this hook, since msgspec.Struct is natively supported by msgspec.
     """
     # A Pydantic model encodes itself. The encoder passes the bytes through.
     if isinstance(value, BaseModel):

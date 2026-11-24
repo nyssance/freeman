@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import copy
 import datetime
 import decimal
@@ -22,7 +21,6 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, Union, get_args, get_origin
 
 import msgspec
-from django.core.exceptions import FieldError
 from django.db.models import QuerySet
 from django.http import HttpResponse as DjangoHttpResponse
 from django.http import HttpResponseRedirect as DjangoHttpResponseRedirect
@@ -35,11 +33,10 @@ from ._pydantic import ResponseFailure, is_pydantic_model, names_pydantic_model
 from ._pydantic import compile_queryset_reader as compile_pydantic_queryset_reader
 from ._pydantic import compile_response_coercer as compile_pydantic_response_coercer
 from ._pydantic import compile_response_encoder as compile_pydantic_response_encoder
-from ._response_dump import compile_serializer_dumper
 from ._template_response import render_template_response
 from .concurrency import run_in_orm_executor, run_orm_blocking
 from .cookies import Cookie
-from .exceptions import ResponseValidationError, UnloadedRelationError
+from .exceptions import ResponseValidationError
 from .responses import (
     HTML,
     JSON,
@@ -154,34 +151,6 @@ _STREAM_ANNOTATION_ORIGINS = {
     IteratorABC,
     GeneratorABC,
 }
-
-
-def _convert_serializers(result: Any) -> Any:
-    """
-    Convert Serializer instances to dicts using dump().
-
-    This ensures write_only fields are excluded and computed_field values are included.
-    Uses a unique marker (__is_bolt_serializer__) to identify Serializers, avoiding
-    false positives from duck typing with random objects that happen to have dump().
-
-    Args:
-        result: The handler result to potentially convert
-
-    Returns:
-        Converted result (dict/list if Serializer, original otherwise)
-    """
-    # Check for Serializer instance using unique marker (not duck typing)
-    # __is_bolt_serializer__ is defined on the Serializer base class
-    if getattr(result.__class__, "__is_bolt_serializer__", None) and hasattr(result, "dump"):
-        return result.dump()
-
-    # Handle list of Serializers
-    if isinstance(result, list) and len(result) > 0:
-        first = result[0]
-        if getattr(first.__class__, "__is_bolt_serializer__", None) and hasattr(first, "dump"):
-            return [item.dump() for item in result]
-
-    return result
 
 
 _RESPONSE_INSTANCE_TYPES = (
@@ -436,221 +405,19 @@ def _names_one_of(annotation: Any, kinds: tuple[type, ...]) -> bool:
     return get_origin(annotation) in (Union, types.UnionType) and any(arg in kinds for arg in get_args(annotation))
 
 
-def _strip_optional(annotation: Any) -> Any:
-    origin = get_origin(annotation)
-    if origin in (Union, types.UnionType):
-        args = [a for a in get_args(annotation) if a is not type(None)]
-        if len(args) == 1:
-            return args[0]
-    return annotation
-
-
-def _response_serializer_info(response_type: Any) -> tuple[Any, bool]:
-    """Return (serializer_class, many) for Serializer or list[Serializer]."""
-    rt = _strip_optional(response_type)
-
-    if _is_bolt_serializer(rt):
-        return rt, False
-
-    if get_origin(rt) is list:
-        args = get_args(rt)
-        if args:
-            item = _strip_optional(args[0])
-            if _is_bolt_serializer(item):
-                return item, True
-
-    return None, False
-
-
-def _annotation_may_need_relation_load(annotation: Any) -> bool:
-    annotation = _strip_optional(annotation)
-    return get_origin(annotation) in {list, tuple, set, frozenset}
-
-
-def _dump_dict(serializer_cls: Any, value: dict, validate_dicts: bool) -> Any:
-    """Validate already-serialized dicts only when response validation is on."""
-    if not validate_dicts:
-        return value
-    return msgspec.convert(value, serializer_cls).dump()
-
-
-def _is_serializer_instance(value: Any) -> bool:
-    return getattr(value.__class__, "__is_bolt_serializer__", None)
-
-
-def _dump_one_sync(serializer_cls: Any, value: Any, validate_dicts: bool) -> Any:
-    if value is None:
-        return value
-    if _is_serializer_instance(value):
-        return value.dump()
-    if isinstance(value, dict):
-        return _dump_dict(serializer_cls, value, validate_dicts)
-    return serializer_cls.from_model(value).dump()
-
-
-async def _dump_one_async(serializer_cls: Any, value: Any, validate_dicts: bool) -> Any:
-    if value is None:
-        return value
-    if _is_serializer_instance(value):
-        return value.dump()
-    if isinstance(value, dict):
-        return _dump_dict(serializer_cls, value, validate_dicts)
-    # The fields cannot show every relation: a field with a column type can
-    # name one. Thus try from_model() first, and load on UnloadedRelationError.
-    try:
-        return serializer_cls.from_model(value).dump()
-    except UnloadedRelationError:
-        pass
-    return (await serializer_cls.afrom_model(value)).dump()
-
-
-def _dump_many_sync(serializer_cls: Any, items: list[Any] | tuple[Any, ...], validate_dicts: bool) -> list[Any]:
-    if not items:
-        return []
-    first = items[0]
-    if isinstance(first, dict):
-        return [_dump_dict(serializer_cls, item, validate_dicts) for item in items]
-    if _is_serializer_instance(first):
-        return [item.dump() for item in items]
-    instances = [serializer_cls.from_model(item) for item in items]
-    return serializer_cls.dump_many(instances)
-
-
-async def _dump_many_async(serializer_cls: Any, items: list[Any] | tuple[Any, ...], validate_dicts: bool) -> list[Any]:
-    if not items:
-        return []
-    first = items[0]
-    if isinstance(first, dict):
-        return [_dump_dict(serializer_cls, item, validate_dicts) for item in items]
-    if _is_serializer_instance(first):
-        return [item.dump() for item in items]
-    try:
-        instances = [serializer_cls.from_model(item) for item in items]
-    except UnloadedRelationError:
-        instances = list(await asyncio.gather(*(serializer_cls.afrom_model(item) for item in items)))
-    return serializer_cls.dump_many(instances)
-
-
-def _serializer_values_path_eligible(serializer_cls: Any) -> bool:
-    """True when a QuerySet response can be evaluated via .values(*fields).
-
-    The values() fast path skips model instantiation (`from_db`/`__init__`,
-    ~14% of ORM GIL time measured) AND per-instance `from_model` field
-    extraction (~13%) by feeding column dicts straight to the existing
-    dict-validation path. Requires a "plain" serializer: dump == plain field
-    dict (no computed/write_only/nested/excluded fields), no renames (dict
-    keys must match wire names for msgspec.convert), no source mappings, and
-    no relation-typed fields.
-    """
-    serializer_cls._ensure_from_model_ready()
-    if not serializer_cls.__dump_fast_path__:
-        return False
-    if serializer_cls.__has_rename__:
-        return False
-    type_hints = serializer_cls.__cached_type_hints__
-    return not any(
-        spec.nested is not None
-        or spec.source is not None
-        or _annotation_may_need_relation_load(type_hints.get(spec.field_name))
-        for spec in serializer_cls.__model_field_specs__
-    )
-
-
-def _compile_serializer_values_evaluators(serializer_cls: Any) -> tuple[Any, Any]:
-    """Compile QuerySet evaluators using .values(*fields) with a per-model
-    runtime fallback: a serializer field that is not a concrete column raises
-    FieldError on first evaluation — that model is then permanently routed to
-    the model-instance path (from_model) in this process."""
-    field_names = tuple(serializer_cls.__struct_fields__)
-    # The models that values() cannot read. Benign races under the GIL: both
-    # writers add the same model.
-    instance_models: set[type] = set()
-
-    def dump_instances(queryset: QuerySet) -> list[Any]:
-        # Project here, on the ORM thread, so model properties may still
-        # query (an N+1, never SynchronousOnlyOperation on the loop).
-        # The route validator checks the dumped dicts later.
-        return _dump_many_sync(
-            serializer_cls,
-            list(queryset),
-            False,  # pragma: no mutate (None is also false)
-        )
-
-    def evaluate_sync(queryset: QuerySet) -> list[Any]:
-        queryset = serializer_cls._prepare_queryset(queryset)  # Config.annotations & co.
-        if queryset.model in instance_models:
-            return dump_instances(queryset)
-        try:
-            return list(queryset.values(*field_names))
-        except FieldError:
-            # Serializer field isn't a concrete column on this model.
-            # The set only skips this values() call, which fails before it sends a query.
-            instance_models.add(queryset.model)  # pragma: no mutate
-            return dump_instances(queryset)
-
-    async def evaluate_async(queryset: QuerySet) -> list[Any]:
-        return await run_in_orm_executor(evaluate_sync, queryset)
-
-    return evaluate_sync, evaluate_async
-
-
-def _compile_serializer_response_handlers(serializer_cls: Any, many: bool, validate_dicts: bool) -> tuple[Any, Any]:
-    """Compile normalizers that render model/queryset output via the serializer."""
-    if many:
-        expected = f"list[{serializer_cls.__name__}]"
-
-        def not_a_list(value: Any) -> Any:
-            # A route with no validation sends the result as it is.
-            if not validate_dicts:
-                return value
-            # As for a list of Structs (see _compile_list_coercer).
-            if value is None:
-                return []
-            raise TypeError(
-                f"Response type mismatch: expected {expected}, "
-                f"but handler returned {type(value).__name__}. "
-                f"Make sure your handler returns a list."
-            )
-
-        def normalize_sync(value: Any) -> Any:
-            if not isinstance(value, (list, tuple)):
-                return not_a_list(value)
-            return _dump_many_sync(serializer_cls, value, validate_dicts)
-
-        async def normalize_async(value: Any) -> Any:
-            if not isinstance(value, (list, tuple)):
-                return not_a_list(value)
-            return await _dump_many_async(serializer_cls, value, validate_dicts)
-
-        return normalize_sync, normalize_async
-
-    def normalize_sync(value: Any) -> Any:
-        return _dump_one_sync(serializer_cls, value, validate_dicts)
-
-    async def normalize_async(value: Any) -> Any:
-        return await _dump_one_async(serializer_cls, value, validate_dicts)
-
-    return normalize_sync, normalize_async
-
-
 def _compile_response_validator(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, Any]:
     response_type = meta.get("response_type")
     if not _response_validation_is_required(response_type):
         return None, None
 
-    serializer_cls, many = _response_serializer_info(response_type)
-    if serializer_cls is not None:
-        return _compile_serializer_response_handlers(serializer_cls, many, validate_dicts=meta["validate_response"])
-
     return _compile_type_validators(response_type, meta["validate_response"])
 
 
 def _compile_type_validators(annotation: Any, validate: bool) -> tuple[Any, Any]:
-    """Return the validators of a declared type: the coercion if ``validate``, then the dump of each Serializer.
+    """Return the validators of a declared type: the coercion if ``validate``.
 
-    msgspec encodes a Serializer with all of its fields. Thus each Serializer
-    at a position of the type gives its dump(), also when the route does not
-    validate. Both validators are None when neither step applies.
+    Both validators are None when the route does not validate a type that
+    names no Pydantic model.
     """
     # Pydantic owns a type that names one of its models. It also runs when the
     # route does not validate: the model decides which fields go out.
@@ -658,27 +425,9 @@ def _compile_type_validators(annotation: Any, validate: bool) -> tuple[Any, Any]
     if names_pydantic_model(annotation) and not _extract_stream_item_type(annotation)[0]:
         return compile_pydantic_response_coercer(annotation)
 
-    dump = compile_serializer_dumper(annotation)
     if not validate:
-        if dump is None:
-            return None, None
-
-        async def dump_async(value: Any) -> Any:
-            return dump(value)
-
-        return dump, dump_async
-
-    coerce_sync, coerce_async = compile_response_coercer(annotation)
-    if dump is None:
-        return coerce_sync, coerce_async
-
-    def validate_sync(value: Any) -> Any:
-        return dump(coerce_sync(value))
-
-    async def validate_async(value: Any) -> Any:
-        return dump(await coerce_async(value))
-
-    return validate_sync, validate_async
+        return None, None
+    return compile_response_coercer(annotation)
 
 
 def _compile_stream_item_validators(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, Any]:
@@ -694,8 +443,7 @@ def _compile_stream_item_validators(meta: HandlerMetadata | dict[str, Any]) -> t
 def _compile_row_readers(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, Any] | None:
     """The row readers of a ``list[Struct]`` response type, or None.
 
-    ``response_field_names`` marks such a type, where the Struct is not a Bolt
-    Serializer. A paginated route has the envelope as its response type, and
+    ``response_field_names`` marks such a type. A paginated route has the envelope as its response type, and
     the paginator reads its QuerySet itself.
     """
     response_type = meta.get("response_type")
@@ -704,7 +452,7 @@ def _compile_row_readers(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, A
     return compile_struct_row_readers(get_args(response_type)[0])
 
 
-def _compile_queryset_serializers(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, Any]:
+def _compile_queryset_readers(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, Any]:
     readers = _compile_row_readers(meta)
     if readers is None:
         return None, None
@@ -774,7 +522,6 @@ def _serialize_stream_chunk_sync(chunk: Any, validator: Any | None) -> bytes | s
     if isinstance(chunk, _RAW_STREAM_CHUNK_TYPES):
         return chunk
 
-    chunk = _convert_serializers(chunk)
     if validator is not None:
         chunk = validator(chunk)
     return _json.encode(chunk) + b"\n"
@@ -785,7 +532,6 @@ async def _serialize_stream_chunk_async(chunk: Any, validator: Any | None) -> by
     if isinstance(chunk, _RAW_STREAM_CHUNK_TYPES):
         return chunk
 
-    chunk = _convert_serializers(chunk)
     if validator is not None:
         chunk = await validator(chunk)
     return _json.encode(chunk) + b"\n"
@@ -897,14 +643,9 @@ def _build_auto_streaming_response(
     return StreamingResponse(result, status_code=status_code)
 
 
-def _is_bolt_serializer(t: Any) -> bool:
-    """True if t opts into Bolt Serializer behaviour via __is_bolt_serializer__."""
-    return getattr(t, "__is_bolt_serializer__", None)
-
-
 def _is_plain_struct(t: Any) -> bool:
-    """msgspec.Struct subclass, but NOT a Bolt Serializer."""
-    return isinstance(t, type) and issubclass(t, msgspec.Struct) and not _is_bolt_serializer(t)
+    """A msgspec.Struct subclass."""
+    return isinstance(t, type) and issubclass(t, msgspec.Struct)
 
 
 def _union_of_plain_structs(t: Any) -> tuple[type, ...] | None:
@@ -931,11 +672,10 @@ def _compile_inline_response_validator(meta: HandlerMetadata | dict[str, Any]) -
       - ``None`` — no inline path; the dispatcher falls back to
         ``serialize_response[_sync]``.
 
-    The dispatcher encodes with ``meta["_inline_encode"]``. For a type that
-    holds a Serializer, it dumps each Serializer first.
+    The dispatcher encodes with ``meta["_inline_encode"]``.
 
     The dispatcher always delegates non-matching runtime values (Response
-    objects, QuerySets, generators, ``None``, dicts, Serializers, ...) to
+    objects, QuerySets, generators, ``None``, dicts, ...) to
     ``serialize_response`` so the slow path handles every edge case uniformly.
 
     Bails out at registration time for setups that need the slow path
@@ -1027,44 +767,22 @@ def _compile_pydantic_inline_encode(response_type: Any) -> Callable[[Any], bytes
 
 
 def _compile_inline_encode(response_type: Any) -> Callable[[Any], bytes]:
-    """Return the encoder of the inline path. It dumps each Serializer of ``response_type`` first."""
+    """Return the encoder of the inline path."""
     if names_pydantic_model(response_type):
         return _compile_pydantic_inline_encode(response_type)
-    encode = _json._ENCODER.encode
-    dump = compile_serializer_dumper(response_type)
-    if dump is None:
-        return encode
-
-    def encode_dumped(value: Any) -> bytes:
-        return encode(dump(value))
-
-    return encode_dumped
+    return _json._ENCODER.encode
 
 
 def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
     validator_sync, validator_async = _compile_response_validator(meta)
     stream_validator_sync, stream_validator_async = _compile_stream_item_validators(meta)
-    queryset_serializer_sync, queryset_serializer_async = _compile_queryset_serializers(meta)
+    queryset_reader_sync, queryset_reader_async = _compile_queryset_readers(meta)
 
-    # Bolt Serializer list responses: evaluate QuerySets via .values(*fields)
-    # when the serializer is plain — no model instantiation, no from_model
-    # walk. The resulting dicts flow through the existing dict-validation path
-    # so output is identical to the model-instance path.
-    if queryset_serializer_sync is None:
-        _values_serializer_cls, _values_many = _response_serializer_info(meta.get("response_type"))
-        if (
-            _values_serializer_cls is not None
-            and _values_many
-            and _serializer_values_path_eligible(_values_serializer_cls)
-        ):
-            queryset_serializer_sync, queryset_serializer_async = _compile_serializer_values_evaluators(
-                _values_serializer_cls
-            )
     # A list[PydanticModel] reads a QuerySet with values() when its fields are columns.
-    if queryset_serializer_sync is None and (
+    if queryset_reader_sync is None and (
         pydantic_readers := compile_pydantic_queryset_reader(meta.get("response_type"))
     ):
-        queryset_serializer_sync, queryset_serializer_async = pydantic_readers
+        queryset_reader_sync, queryset_reader_async = pydantic_readers
     model_projector = _compile_model_projector(meta)
     # Without the inline path, the slow path gives the same response.
     inline_validator = _compile_inline_response_validator(meta)  # pragma: no mutate
@@ -1099,26 +817,7 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
     refuse_text = refuses and plain_type is not str
     refuse_bytes = refuses and plain_type not in (bytes, bytearray)
 
-    _serializer_cls, _serializer_many = _response_serializer_info(meta.get("response_type"))
-    is_serializer_response = _serializer_cls is not None
-    # list[Serializer] routes returning a QuerySet: pre-load what the serializer
-    # reads (select_related/prefetch_related/annotate from its fields), then
-    # from_model + dump. Async routes iterate with the async ORM on the loop.
-    if _serializer_many:
-
-        def evaluate_serializer_queryset(queryset: QuerySet) -> list[Any]:
-            return _serializer_cls.dump_many(_serializer_cls.from_models(queryset))
-
-        async def evaluate_serializer_queryset_async(queryset: QuerySet) -> list[Any]:
-            return _serializer_cls.dump_many(await _serializer_cls.afrom_models(queryset))
-
-    else:
-        evaluate_serializer_queryset = evaluate_serializer_queryset_async = None
-
     def prepare_list(result: list[Any]) -> Any:
-        if is_serializer_response:
-            return result
-        result = _convert_serializers(result)
         # The validator reads model instances by attribute. Without one, the
         # projector gives the JSON encoder dicts of the declared fields.
         if (
@@ -1130,12 +829,6 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
             return model_projector(result)
         return result
 
-    def convert_serializer_result(result: Any) -> tuple[Any, bool]:
-        if is_serializer_response:
-            return result, False
-        converted = _convert_serializers(result)
-        return converted, converted is not result
-
     async def data_handler(result: Any, status_code: int | None = None) -> ResponseWireV1:
         current_status = default_status_code if status_code is None else status_code
 
@@ -1144,16 +837,13 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
 
         # The async validator awaits only for a QuerySet or a model instance. A
         # dict gets the same result from the sync validator, and so does a
-        # Struct on a route with no serializer.
+        # Struct.
         if isinstance(result, dict):
             return _serialize_json_payload_sync(result, current_status, validator_sync)
         if isinstance(result, list):
             return await _serialize_json_payload_async(prepare_list(result), current_status, validator_async)
         if struct_first and isinstance(result, msgspec.Struct):
-            if is_serializer_response:
-                # A plain Struct can hold a model with a relation to load.
-                return await _serialize_json_payload_async(result, current_status, validator_async)
-            return _serialize_json_payload_sync(_convert_serializers(result), current_status, validator_sync)
+            return _serialize_json_payload_sync(result, current_status, validator_sync)
         if isinstance(result, (bytes, bytearray)):
             if validate_bytes:
                 return _serialize_validated_raw(result, current_status, validator_sync)
@@ -1171,17 +861,9 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
         if auto_stream is not None:
             return _to_stream_wire(auto_stream)
 
-        result, was_converted = convert_serializer_result(result)
-        if was_converted:
-            return await _serialize_json_payload_async(result, current_status, validator_async)
-
         if isinstance(result, QuerySet):
-            if queryset_serializer_async is not None:
-                result = await queryset_serializer_async(result)
-            elif evaluate_serializer_queryset_async is not None:
-                # Already dumped dicts — nothing left for the validator to do.
-                result = await evaluate_serializer_queryset_async(result)
-                return await _serialize_json_payload_async(result, current_status, None)
+            if queryset_reader_async is not None:
+                result = await queryset_reader_async(result)
             else:
                 # Bounded ORM pool — parallel, but capped connection count.
                 result = await run_in_orm_executor(list, result)
@@ -1210,8 +892,6 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
         if isinstance(result, list):
             return _serialize_json_payload_sync(prepare_list(result), current_status, validator_sync)
         if struct_first and isinstance(result, msgspec.Struct):
-            if not is_serializer_response:
-                result = _convert_serializers(result)
             return _serialize_json_payload_sync(result, current_status, validator_sync)
         if isinstance(result, (bytes, bytearray)):
             if validate_bytes:
@@ -1230,17 +910,8 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
         if auto_stream is not None:
             return _to_stream_wire(auto_stream)
 
-        result, was_converted = convert_serializer_result(result)
-        if was_converted:
-            return _serialize_json_payload_sync(result, current_status, validator_sync)
-
         if isinstance(result, QuerySet):
-            if queryset_serializer_sync is not None:
-                result = queryset_serializer_sync(result)
-            elif evaluate_serializer_queryset is not None:
-                return _serialize_json_payload_sync(evaluate_serializer_queryset(result), current_status, None)
-            else:
-                result = list(result)
+            result = queryset_reader_sync(result) if queryset_reader_sync is not None else list(result)
             return _serialize_json_payload_sync(result, current_status, validator_sync)
 
         if isinstance(result, _ENCODED_MODEL_TYPES) or validator_sync is not None:

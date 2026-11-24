@@ -1,4 +1,4 @@
-"""Serializer validator 422 shape, in-process and over a real runbolt process (issue #280)."""
+"""Pydantic validator 422 shape, in-process and over a real runbolt process (issue #280)."""
 
 from __future__ import annotations
 
@@ -6,12 +6,16 @@ import pytest
 
 from freeman.testing import TestClient
 
-from .apps import app_module, serializer_validation
+from .apps import app_module, body_validation
 
 BAD = {"collage_code": "bad", "phone_number": "bad"}
 GOOD = {"collage_code": "ok", "phone_number": "ok"}
-COLLAGE_ERR = {"loc": ["body", "collage_code"], "msg": "collage Code is Not Valid", "type": "value_error"}
-PHONE_ERR = {"loc": ["body", "phone_number"], "msg": "The phone number entered is not valid.", "type": "value_error"}
+COLLAGE_ERR = {"loc": ["body", "collage_code"], "msg": "Value error, collage Code is Not Valid", "type": "value_error"}
+PHONE_ERR = {
+    "loc": ["body", "phone_number"],
+    "msg": "Value error, The phone number entered is not valid.",
+    "type": "value_error",
+}
 
 
 def _under(prefix, *errs):
@@ -29,11 +33,11 @@ def _exercise(post, put, patch):
         "patch_ok": patch("/register/7", {"collage_code": "ok"}),
         "bulk": post("/register/bulk", [GOOD, BAD]),
         "bulk_ok": post("/register/bulk", [GOOD, GOOD]),
-        "nested": post("/profile", {"register": BAD}),
-        "nested_type_error": post("/profile", {"register": {"collage_code": 1, "phone_number": "ok"}}),
-        "double_nested": post("/account", {"profile": {"register": BAD}}),
-        "double_nested_ok": post("/account", {"profile": {"register": GOOD}}),
-        "bulk_nested": post("/profile/bulk", [{"register": GOOD}, {"register": BAD}]),
+        "nested": post("/profile", {"registration": BAD}),
+        "nested_type_error": post("/profile", {"registration": {"collage_code": 1, "phone_number": "ok"}}),
+        "double_nested": post("/account", {"profile": {"registration": BAD}}),
+        "double_nested_ok": post("/account", {"profile": {"registration": GOOD}}),
+        "bulk_nested": post("/profile/bulk", [{"registration": GOOD}, {"registration": BAD}]),
     }
     return {k: (r.status_code, r.json().get("detail")) for k, r in responses.items()}
 
@@ -45,20 +49,26 @@ def _assert_shape(results):
     assert results["update_ok"] == (200, None)
     assert results["patch_one_bad"] == (422, [PHONE_ERR])
     assert results["patch_ok"] == (200, None)
-    assert results["bulk"] == (422, _under(["1"], COLLAGE_ERR, PHONE_ERR))
+    assert results["bulk"] == (422, _under([1], COLLAGE_ERR, PHONE_ERR))
     assert results["bulk_ok"] == (200, None)
-    assert results["nested"] == (422, _under(["register"], COLLAGE_ERR, PHONE_ERR))
-    assert results["double_nested"] == (422, _under(["profile", "register"], COLLAGE_ERR, PHONE_ERR))
+    assert results["nested"] == (422, _under(["registration"], COLLAGE_ERR, PHONE_ERR))
+    assert results["double_nested"] == (422, _under(["profile", "registration"], COLLAGE_ERR, PHONE_ERR))
     assert results["double_nested_ok"] == (200, None)
-    assert results["bulk_nested"] == (422, _under(["1", "register"], COLLAGE_ERR, PHONE_ERR))
+    assert results["bulk_nested"] == (422, _under([1, "registration"], COLLAGE_ERR, PHONE_ERR))
     assert results["nested_type_error"] == (
         422,
-        [{"loc": ["body", "register", "collage_code"], "msg": "Expected `str`, got `int`", "type": "validation_error"}],
+        [
+            {
+                "loc": ["body", "registration", "collage_code"],
+                "msg": "Input should be a valid string",
+                "type": "string_type",
+            }
+        ],
     )
 
 
 def test_validator_errors_in_process():
-    with TestClient(serializer_validation.api) as client:
+    with TestClient(body_validation.api) as client:
         results = _exercise(
             lambda p, b: client.post(p, json=b),
             lambda p, b: client.put(p, json=b),
@@ -69,7 +79,7 @@ def test_validator_errors_in_process():
 
 @pytest.mark.server_integration
 def test_validator_errors_over_real_server(make_server_project):
-    project = make_server_project(api_module=app_module("serializer_validation"))
+    project = make_server_project(api_module=app_module("body_validation"))
 
     with project.start() as server:
         c = server.client

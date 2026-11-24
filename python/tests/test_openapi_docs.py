@@ -11,6 +11,7 @@ from typing import Annotated
 from urllib.parse import urljoin
 
 import jwt
+import msgspec
 import pytest
 import yaml
 from django.contrib.auth import alogin
@@ -42,7 +43,6 @@ from freeman.openapi import (
 from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.openapi.spec import Components, Contact, ExternalDocumentation, License, SecurityScheme, Server, Tag
 from freeman.params import File, Form
-from freeman.serializers import Serializer, field
 from freeman.testing import TestClient
 from freeman.websocket.types import WebSocket
 
@@ -543,37 +543,6 @@ def test_docs_paths_with_no_leading_slash_serve_a_page_that_loads_its_schema(con
         schema = client.get(urljoin("http://testserver/docs/scalar", schema_url))
         assert schema.status_code == 200, schema_url
         assert "/test" in schema.json()["paths"]
-
-
-def test_openapi_renders_serializer_with_field_marker_default():
-    """Regression: serializer field() used as default must not leak the
-    internal _FieldMarker (which carries a bare object() sentinel for
-    unset defaults) into the OpenAPI schema's JSON output.
-    """
-
-    class AstronautCreated(Serializer):
-        id: int
-        name: str
-        mission: str = field(source="mission.name")
-
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
-
-    @api.post("/astronauts", response_model=AstronautCreated)
-    async def create(a: AstronautCreated) -> AstronautCreated:
-        return a
-
-    api._register_openapi_routes()
-
-    with TestClient(api) as client:
-        response = client.get("/docs")
-        assert response.status_code == 200, response.text
-
-        response = client.get("/docs/openapi.json")
-        assert response.status_code == 200, response.text
-
-        schema = response.json()["components"]["schemas"]["AstronautCreated"]
-        assert "default" not in schema["properties"]["mission"]
-        assert "mission" in schema["required"]
 
 
 def test_openapi_disabled_returns_404():
@@ -1337,15 +1306,15 @@ def test_openapi_security_scheme_follows_the_place_of_the_credential():
     }
 
 
-def test_openapi_form_serializer_flattens_struct_fields():
-    """Regression: when a Form() parameter is annotated with a Struct/Serializer,
+def test_openapi_form_struct_flattens_struct_fields():
+    """Regression: when a Form() parameter is annotated with a Struct,
     the runtime extractor reads each struct field as a top-level form key, so the
     multipart schema must mirror that — *not* nest the struct under the param name.
     Also covers UploadFile / list[UploadFile] schema shape inside and outside the
     struct.
     """
 
-    class RegisterForm(Serializer):
+    class RegisterForm(msgspec.Struct):
         username: str
         age: int
         email: str
@@ -1381,7 +1350,7 @@ def test_openapi_form_serializer_flattens_struct_fields():
 def test_openapi_request_body_lists_the_content_types_that_the_route_accepts():
     """A route with a file accepts multipart only. A route with only form fields accepts both form types."""
 
-    class Report(Serializer):
+    class Report(msgspec.Struct):
         title: str
         pages: list[UploadFile]
 

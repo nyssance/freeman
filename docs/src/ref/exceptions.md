@@ -109,16 +109,7 @@ RequestValidationError(
 )
 ```
 
-**Multi-error collection:** Freeman collects all `@field_validator` and `@model_validator` errors before raising, so users see all issues at once:
-
-```python
-# Access all errors
-try:
-    serializer = MySerializer(email="bad", password="short")
-except RequestValidationError as e:
-    all_errors = e.errors()  # Returns list of error dicts
-    print(str(e))  # "body.email: Invalid email; body.password: Too short"
-```
+**Multi-error collection:** a Pydantic body model reports every error of the body, also those of its `@field_validator` and `@model_validator` methods, in one 422. `e.errors()` returns the list of error dicts.
 
 **Response format:**
 
@@ -159,45 +150,6 @@ ResponseValidationError(
 |-----------|-------------|--------|-------------|
 | `ResponseFileNotFound` | `FileNotFoundError` | 404 | The path names no regular file: it does not exist, it is a directory, or it is not valid |
 | `ResponseFileNotAllowed` | `PermissionError` | 403 | The path is outside `BOLT_ALLOWED_FILE_PATHS`, also when it names no file or the server cannot read it |
-
-## Validation Layers
-
-Freeman's Serializer has two validation layers:
-
-| Layer | Source | Raw msgspec | With `model_validate()` |
-|-------|--------|-------------|-------------------------|
-| **Meta constraints** | `Meta(min_length, pattern, ge, le, ...)` | Fail-fast | **Collects all errors** |
-| **Custom validators** | `@field_validator`, `@model_validator` | N/A | **Collects all errors** |
-
-### Multi-error collection
-
-When using `model_validate()` or `model_validate_json()`, **all errors are collected** before raising `RequestValidationError`:
-
-```python
-# Both Meta constraints AND custom validators collect errors
-try:
-    UserSerializer.model_validate({
-        "name": "X",        # Meta: min_length=2 violated
-        "email": "bad",     # Meta: pattern violated
-        "age": 200          # Meta: le=150 violated
-    })
-except RequestValidationError as e:
-    print(len(e.errors()))  # 3 errors, not just 1
-```
-
-This approach is inspired by [Litestar](https://litestar.dev/) - when validation fails, each field is validated individually to collect all errors.
-
-### When to expect which exception
-
-| How you validate | Exception | Multi-error? |
-|------------------|-----------|--------------|
-| `Serializer.model_validate(dict)` | `RequestValidationError` | Yes |
-| `Serializer.model_validate_json(json)` | `RequestValidationError` | Yes |
-| `Serializer(field=value)` (direct) | `RequestValidationError` | Yes (custom only) |
-| `msgspec.convert(data, Serializer)` | `msgspec.ValidationError` | No (fail-fast) |
-| `msgspec.json.decode(json, type=Serializer)` | `msgspec.ValidationError` | No (fail-fast) |
-
-**Note**: Direct instantiation (`Serializer(field=value)`) runs custom validators but **bypasses Meta constraints** - this is msgspec's design for performance.
 
 ## Validation Error Types
 

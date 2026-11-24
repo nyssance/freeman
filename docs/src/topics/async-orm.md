@@ -181,9 +181,9 @@ async def list_articles():
     return Article.objects.select_related("author").prefetch_related("tags")[:20]
 ```
 
-## Working with serializers
+## Working with response schemas
 
-When using `msgspec.Struct` serializers, the same rules apply:
+When using `msgspec.Struct` schemas, the same rules apply:
 
 ```python
 import msgspec
@@ -415,6 +415,6 @@ Before deploying, verify:
 - [ ] All loops use `async for`
 - [ ] ForeignKey access uses `select_related`
 - [ ] ManyToMany access uses `prefetch_related`
-- [ ] Nested serializers have corresponding prefetch
+- [ ] Nested models have corresponding prefetch
 - [ ] Querysets of class-based views are optimized in one place
 - [ ] Pagination includes query optimization

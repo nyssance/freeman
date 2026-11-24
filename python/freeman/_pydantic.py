@@ -11,9 +11,8 @@ This module does only what needs the model:
 
 import functools
 import inspect
-import types
 from collections.abc import Callable
-from typing import Annotated, Any, NamedTuple, Union, get_args, get_origin
+from typing import Annotated, Any, NamedTuple, get_args, get_origin
 
 import msgspec
 from django.db.models import Model, QuerySet
@@ -44,7 +43,6 @@ __all__ = (
 )
 
 _ADAPTERS: dict[Any, TypeAdapter[Any]] = {}
-_UNION_ORIGINS = (Union, types.UnionType)
 
 
 def is_pydantic_model(annotation: Any) -> bool:

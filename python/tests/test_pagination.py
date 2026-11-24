@@ -17,7 +17,6 @@ import pytest
 from pydantic import BaseModel
 
 from freeman import APIView, BoltAPI, CursorPagination, LimitOffsetPagination, PageNumberPagination, Request, paginate
-from freeman.serializers import Serializer
 from freeman.testing import TestClient
 
 from .test_models import Article, Author, BlogPost, Comment, Release, User, UserProfile
@@ -1796,31 +1795,31 @@ class ArticleWithDefault(msgspec.Struct, rename="camel"):
     word_count: int = 0
 
 
-class ArticleRow(Serializer):
+class ArticleRow(BaseModel):
     id: int
     title: str
     word_count: int = 0
 
 
-PAGES_OF_SERIALIZER_ITEMS = {
-    # Dicts: the default of the Serializer, not null.
+PAGES_OF_MODEL_ITEMS = {
+    # Dicts: the default of the model, not null.
     "dicts": lambda: [{"id": 1, "title": "a"}, {"id": 2, "title": "b", "word_count": 3}],
     # Each item by its own kind: an object first or a dict first.
     "object-then-dict": lambda: [SimpleNamespace(id=1, title="a"), {"id": 2, "title": "b"}],
     "dict-then-object": lambda: [{"id": 1, "title": "a"}, SimpleNamespace(id=2, title="b", word_count=4)],
     "instance-then-dict": lambda: [ArticleRow(id=1, title="a"), {"id": 2, "title": "b"}],
-    # A value that does not fit the Serializer.
+    # A value that does not fit the model.
     "dict-missing-field": lambda: [{"id": 1, "title": "a"}, {"id": 2}],
     "dict-wrong-type": lambda: [{"id": 1, "title": "a"}, {"id": "x", "title": "b"}],
     "object-missing-field": lambda: [SimpleNamespace(id=1)],
 }
 
 
-@pytest.mark.parametrize("page", PAGES_OF_SERIALIZER_ITEMS)
-def test_paginated_serializer_items_validate_as_a_plain_list_response(page):
-    """A page of a Serializer type has the items or the error of each item with no @paginate."""
+@pytest.mark.parametrize("page", PAGES_OF_MODEL_ITEMS)
+def test_paginated_model_items_validate_as_a_plain_list_response(page):
+    """A page of a Pydantic model type has the items or the error of each item with no @paginate."""
     api = BoltAPI()
-    make_items = PAGES_OF_SERIALIZER_ITEMS[page]
+    make_items = PAGES_OF_MODEL_ITEMS[page]
 
     @api.get("/plain/{position}")
     async def plain(position: int) -> ArticleRow:

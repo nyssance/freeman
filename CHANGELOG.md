@@ -40,6 +40,15 @@ The changes of Freeman since the fork, up to 0.1.1 and after it.
 ### Removed
 
 - **`ViewSet`, `ModelViewSet`, `ReadOnlyModelViewSet`, the CRUD mixins, `@api.viewset()` and `@action`** - The engine keeps `APIView` and `@api.view()`. Use one `APIView` per path, or function routes, with Pydantic models for the body and the result. `freeman.decorators` is gone with `@action`.
+- **`Serializer` and the `freeman.serializers` package** - `Serializer`, `field()`, `computed_field`, `field_validator`, `model_validator`, `Nested`, the `Config` options (`read_only`, `write_only`, `field_sets`, `annotations`), `from_model()`, `from_models()`, `dump_many()` and `freeman.serializers.types` are gone. Freeman no longer checks `__is_bolt_serializer__`. Use a Pydantic model:
+  - A field constraint: `Annotated[int, Field(ge=1)]` in place of `Annotated[int, Meta(ge=1)]`.
+  - A validator: `@field_validator("name")` with `@classmethod`, or `@model_validator(mode="after")`.
+  - A read-only field: a separate input model without the field, such as `UserIn` and `UserOut`. A write-only field: leave it out of the output model, or use `Field(exclude=True)`.
+  - A computed field: `@computed_field` on a property.
+  - A nested model: a field whose type is another model, such as `author: AuthorOut`. Load the relation with `select_related()` or `prefetch_related()`.
+  - `from_model(obj)`: `Model.model_validate(obj, from_attributes=True)`, or return the object from a handler with `-> Model`.
+
+  A field set becomes one model for each shape. A `msgspec.Struct` still works as a body and a result for now. See [Models](docs/src/topics/models.md).
 
 ### Fixed
 

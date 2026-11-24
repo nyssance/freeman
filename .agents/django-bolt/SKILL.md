@@ -15,7 +15,7 @@ metadata:
 
 - Always use async handlers unless the user explicitly needs sync
 - Use async database access in async handlers (e.g., Django async ORM: `aget`, `acreate`, `afilter`)
-- Use `msgspec.Struct` for simple typed payloads; use `Serializer` for richer validation and reusable field sets
+- Use Pydantic models for bodies and results; use `field_validator` and `model_validator` for richer validation
 - Keep route signatures typed -- let Django-Bolt validate inputs instead of hand-parsing `request.body`
 - Use built-in HTTP exceptions (`HTTPException`) for expected API failures
 - Run with `python manage.py runbolt --dev` for development, not `uvicorn` or `gunicorn`
@@ -146,49 +146,43 @@ async def create_item(item: ItemIn):
     return {"id": 1, "name": item.name, "price": item.price}
 ```
 
-### Serializer with validation
+### Pydantic model with validation
 
 ```python
-from __future__ import annotations
-
 from typing import Annotated
 
-import msgspec
+from pydantic import BaseModel, Field, field_validator, model_validator
+
 from freeman import BoltAPI
-from freeman.serializers import Serializer, field_validator, model_validator
 
 api = BoltAPI()
 
 
-class UserCreate(Serializer):
+class UserCreate(BaseModel):
     username: str
     email: str
-    password: Annotated[str, msgspec.Meta(min_length=8)]
-
-    class Config:
-        write_only = {"password"}
+    password: Annotated[str, Field(min_length=8)]
 
     @field_validator("email")
+    @classmethod
     def validate_email(cls, value):
         if "@" not in value:
             raise ValueError("Invalid email")
         return value.lower()
 
-    @model_validator
+    @model_validator(mode="after")
     def validate_model(self):
         if self.username.lower() == "admin":
             raise ValueError("Username 'admin' is reserved")
         return self
 
 
-class UserOut(Serializer):
+# The output model has no password field, so the password never goes out.
+class UserOut(BaseModel):
     id: int
     username: str
     email: str
     is_active: bool
-
-    class Config:
-        read_only = {"id"}
 
 
 @api.post("/users", response_model=UserOut, status_code=201)
@@ -866,7 +860,7 @@ If the user already has a Django project, preserve their existing models, admin,
 | Need | Use |
 |------|-----|
 | Simple JSON body | `msgspec.Struct` |
-| Rich validation / reusable fields | `Serializer` with `field_validator` |
+| Rich validation | Pydantic model with `field_validator` |
 | Output shape + docs | `response_model` on the route |
 | Path/query/header/cookie/form/file params | Parameter markers from `freeman.param_functions` |
 | Auth | `JWTAuthentication()`, `APIKeyAuthentication()`, or session auth |
@@ -896,7 +890,7 @@ If the user already has a Django project, preserve their existing models, admin,
 ### Add validation
 
 - `msgspec.Struct` for simple JSON bodies -- fields are validated automatically
-- `Serializer` with `@field_validator` / `@model_validator` for richer checks
+- Pydantic models with `@field_validator` / `@model_validator` for richer checks
 - `Annotated[type, Meta(...)]` for field constraints (`min_length`, `max_length`, `ge`, `le`, `pattern`)
 - Parameter markers (`Query`, `Header`, `Cookie`, `Form`, `File`, `Depends`) accept validation kwargs directly
 - Never manually parse `request.body` -- use typed parameters

@@ -80,7 +80,7 @@ python manage.py runbolt --dev
 ```
 src/                     Rust extension entry crate (PyO3 module, Actix server, dispatch)
 crates/                  Rust workspace crates (bolt-loop, bolt-core, bolt-asgi, bolt-websocket, bolt-mcp)
-python/freeman/      Python framework (BoltAPI, serializers, responses, auth, views, ...)
+python/freeman/      Python framework (BoltAPI, responses, auth, views, ...)
 python/bolt-mcp/         Optional MCP add-on package
 python/tests/            Python test suite
 python/tests/integration/apps/   Real app modules used by server-integration tests

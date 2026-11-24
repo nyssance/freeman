@@ -1,7 +1,7 @@
 """
 Tests for OpenAPI schema generation with nested Pydantic models.
 
-Regression test for: nested serializers showing as empty objects {} in OpenAPI
+Regression test for: nested models showing as empty objects {} in OpenAPI
 schema instead of expanding their fields.
 """
 

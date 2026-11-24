@@ -8,6 +8,7 @@ from typing import Literal
 import msgspec
 import pytest
 from openapi_spec_validator import validate
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.exceptions import ResponseValidationError
@@ -15,7 +16,6 @@ from freeman.middleware import Middleware
 from freeman.openapi.config import OpenAPIConfig
 from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.responses import EventSourceResponse
-from freeman.serializers import Serializer
 from freeman.testing import TestClient
 
 
@@ -24,7 +24,7 @@ class Cat(msgspec.Struct, tag=True, tag_field="_type"):
     meows: bool = True
 
 
-class Dog(Serializer, tag=True, tag_field="_type"):
+class Dog(msgspec.Struct, tag=True, tag_field="_type"):
     name: str
     barks: bool = True
 
@@ -543,7 +543,7 @@ def test_inline_list_path_reports_each_error_as_the_slow_path_does(api_kwargs, s
             assert (resp.status_code, resp.json()) == (500, slow_checked_body), path
 
 
-class RowSerializer(Serializer):
+class RowModel(BaseModel):
     id: int
 
 
@@ -561,11 +561,11 @@ def test_response_validation_error_locates_the_error_in_the_response(settings):
     def row() -> Row:
         return {"id": "x"}
 
-    @api.get("/serializer")
-    async def serialized() -> RowSerializer:
+    @api.get("/pydantic")
+    async def pydantic_row() -> RowModel:
         return {"id": "x"}
 
-    expected = {"/list": ["response", "1", "id"], "/struct": ["response", "id"], "/serializer": ["response", "id"]}
+    expected = {"/list": ["response", "1", "id"], "/struct": ["response", "id"], "/pydantic": ["response", "id"]}
     with TestClient(api, raise_server_exceptions=False) as client:
         for path, loc in expected.items():
             resp = client.get(path)

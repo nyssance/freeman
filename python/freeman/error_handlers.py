@@ -120,19 +120,6 @@ def msgspec_validation_error_to_dict(error: msgspec.ValidationError, root: str =
     """
     error_msg = str(error)
 
-    # A Serializer's own validators raise RequestValidationError from
-    # __post_init__, one entry per failing field. msgspec catches that during
-    # decoding and re-raises a plain ValidationError whose message is str(exc)
-    # (every field joined with "; ") plus " - at `$.path`" when the struct is
-    # nested. The original survives on __cause__: keep its per-field entries
-    # and prefix each loc with the container path msgspec appended.
-    cause = error.__cause__
-    if isinstance(cause, RequestValidationError):
-        suffix = error_msg[len(str(cause)) :]
-        loc_match = _RE_AT_LOCATION.search(suffix)
-        prefix = _loc_segments(loc_match.group(1)) if loc_match else []
-        return [{**err, "loc": [root, *prefix, *err["loc"][1:]]} for err in cause.errors()]
-
     # msgspec appends " - at `$.path`" to the error of a nested value. The
     # path names the parent of a missing field, so the loc adds the field name.
     loc_match = _RE_AT_LOCATION.search(error_msg)

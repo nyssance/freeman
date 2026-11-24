@@ -28,7 +28,6 @@ from pydantic import BaseModel, Field
 from freeman import BoltAPI
 from freeman.openapi import OpenAPIConfig
 from freeman.param_functions import Cookie, Header, Path, Query
-from freeman.serializers import Serializer, field
 from freeman.testing import TestClient
 from freeman.websocket.types import WebSocket
 
@@ -343,20 +342,12 @@ class TaggedModel(BaseModel):
     tags: tuple[str, ...] = ("a", "b")
 
 
-class TaggedSerializer(Serializer):
-    tags: list[str] = field(default=["a", "b"])
-
-
-class TaggedFactorySerializer(Serializer):
-    tags: list[str] = field(default_factory=lambda: ["a", "b"])
+class TaggedStruct(msgspec.Struct):
+    tags: tuple[str, ...] = ("a", "b")
 
 
 @pytest.mark.parametrize("marker", [Header, Cookie])
-@pytest.mark.parametrize(
-    "model",
-    [TaggedModel, TaggedSerializer, TaggedFactorySerializer],
-    ids=["model", "serializer-default", "serializer-default-factory"],
-)
+@pytest.mark.parametrize("model", [TaggedModel, TaggedStruct], ids=["model", "struct"])
 def test_header_or_cookie_model_refuses_a_list_field_default_of_two_items(marker, model) -> None:
     """A list field of a header or cookie model gets at most one item, as a plain parameter does (#871)."""
     api = BoltAPI()
@@ -391,22 +382,6 @@ def test_header_or_cookie_model_with_a_default_factory_registers(marker) -> None
     validate(spec)
     (tags,) = spec["paths"]["/tagged"]["get"]["parameters"]
     assert "default" not in tags["schema"]
-
-
-class HiddenTagsSerializer(Serializer):
-    tags: list[str] = field(default=["a", "b"], include_in_schema=False)
-
-
-@pytest.mark.parametrize("marker", [Header, Cookie])
-def test_header_or_cookie_model_skips_a_field_that_the_schema_hides(marker) -> None:
-    """A field with ``include_in_schema=False`` has no array schema, so its default can have many items."""
-    api = BoltAPI()
-
-    async def handler(model):
-        return model.tags
-
-    handler.__annotations__ = {"model": Annotated[HiddenTagsSerializer, marker()]}
-    api.get("/model")(handler)
 
 
 def test_a_discriminated_union_response_names_its_discriminator(full_spec: dict) -> None:

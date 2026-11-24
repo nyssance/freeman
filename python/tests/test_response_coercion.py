@@ -18,7 +18,6 @@ import pytest
 
 from freeman import BoltAPI
 from freeman.responses import JSON, Response
-from freeman.serializers import Serializer, field
 from freeman.testing import TestClient
 
 from .test_models import Article
@@ -70,10 +69,9 @@ class ArticleWrongType(msgspec.Struct):
     title: int
 
 
-class PublicUser(Serializer):
+class PublicUser(msgspec.Struct):
     id: int
     username: str
-    password: str = field(write_only=True, default="")
 
 
 def _validation_message(response) -> str:
@@ -125,15 +123,6 @@ def client(settings):
 
     # The awaiting handlers run the async response handlers. The others run
     # the sync response handlers.
-    @api.get("/struct/serializer")
-    async def struct_serializer() -> Item:
-        await asyncio.sleep(0)
-        return PublicUser(id=1, username="a", password="p")
-
-    @api.get("/struct/serializer-sync", status_code=201)
-    def struct_serializer_sync() -> Item:
-        return PublicUser(id=1, username="a", password="p")
-
     @api.get("/json/bad")
     async def json_bad() -> Item:
         await asyncio.sleep(0)
@@ -308,14 +297,6 @@ def test_validation_error_entry_has_the_response_location_and_the_error_type(cli
             "type": "validation_error",
         }
     ]
-
-
-@pytest.mark.parametrize(("path", "status_code"), [("/struct/serializer", 200), ("/struct/serializer-sync", 201)])
-def test_serializer_for_a_struct_is_dumped_then_validated(client, path, status_code):
-    response = client.get(path)
-
-    assert response.status_code == status_code, response.text
-    assert response.json() == {"id": 1, "note": "default"}
 
 
 @pytest.mark.parametrize("path", ["/json/bad", "/json/bad-sync", "/response/bad", "/response/bad-sync"])
@@ -518,7 +499,7 @@ def test_str_that_converts_to_the_declared_type_is_sent_as_json(settings, is_asy
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 @pytest.mark.parametrize("value", [3, "abc", {"id": 1, "username": "a"}], ids=["int", "str", "dict"])
-def test_a_result_that_is_not_a_list_for_a_list_of_serializers_is_a_validation_error(settings, value, is_async):
+def test_a_result_that_is_not_a_list_for_a_list_of_structs_is_a_validation_error(settings, value, is_async):
     settings.DEBUG = True
     api = BoltAPI()
     _scalar_route(api, "/bad", value, is_async=is_async, **{"return": list[PublicUser]})

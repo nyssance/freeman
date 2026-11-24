@@ -141,20 +141,19 @@ Test it:
 
 ## Query parameters
 
-Function parameters that don't appear in the path become query parameters. You can group related query parameters into a `Serializer` for validation and reusability:
+Function parameters that don't appear in the path become query parameters. You can group related query parameters into a Pydantic model for validation and reusability:
 
 ```python
 from typing import Annotated, Literal
 
-from msgspec import Meta
+from pydantic import BaseModel, Field
 
 from freeman.param_functions import Query
-from freeman.serializers import Serializer
 
 
-class MissionFilters(Serializer):
+class MissionFilters(BaseModel):
     status: Literal["planned", "active", "completed", "aborted"] | None = None
-    limit: Annotated[int, Meta(ge=1, le=100)] = 10
+    limit: Annotated[int, Field(ge=1, le=100)] = 10
 
 
 @api.get("/missions")
@@ -175,7 +174,7 @@ async def list_missions(filters: Annotated[MissionFilters, Query()]):
     return {"missions": missions, "count": len(missions)}
 ```
 
-The `MissionFilters` serializer provides:
+The `MissionFilters` model provides:
 - **Type validation** — `status` must be one of the allowed values
 - **Range constraints** — `limit` must be between 1 and 100
 - **Default values** — Both fields are optional with sensible defaults
@@ -190,23 +189,22 @@ Try these URLs:
 
 ## Request body validation
 
-Use Freeman's `Serializer` class to define and validate request bodies with built-in constraints and custom validators:
+Use a Pydantic model to define and validate request bodies with built-in constraints and custom validators:
 
 ```python
 from datetime import datetime
 from typing import Annotated
 
-from msgspec import Meta
-
-from freeman.serializers import Serializer, field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
-class CreateMission(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)]
-    description: Annotated[str, Meta(max_length=500)] = ""
+class CreateMission(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    description: Annotated[str, Field(max_length=500)] = ""
     launch_date: datetime | None = None
 
     @field_validator("name")
+    @classmethod
     def validate_name(cls, value):
         if value.lower().startswith("test"):
             raise ValueError("Mission name cannot start with 'test'")
@@ -229,8 +227,8 @@ async def create_mission(mission: CreateMission):
     }
 ```
 
-The `Serializer` class provides:
-- **Type constraints** via `Annotated[type, Meta(...)]` — min/max length, numeric ranges, patterns
+The model provides:
+- **Type constraints** via `Annotated[type, Field(...)]` — min/max length, numeric ranges, patterns
 - **Custom validators** via `@field_validator` — run after type validation, can transform values
 
 Test with curl:
@@ -262,13 +260,13 @@ Returns 422 with all errors:
     "detail": [
         {
             "loc": ["body", "name"],
-            "msg": "Expected `str` of length >= 1",
-            "type": "validation_error"
+            "msg": "String should have at least 1 character",
+            "type": "string_too_short"
         },
         {
             "loc": ["body", "description"],
-            "msg": "Expected `str` of length <= 500",
-            "type": "validation_error"
+            "msg": "String should have at most 500 characters",
+            "type": "string_too_long"
         }
     ]
 }
@@ -284,10 +282,10 @@ Let's add update and delete operations for full CRUD:
 from typing import Literal
 
 
-class UpdateMission(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)] | None = None
+class UpdateMission(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     status: Literal["planned", "active", "completed", "aborted"] | None = None
-    description: Annotated[str, Meta(max_length=500)] | None = None
+    description: Annotated[str, Field(max_length=500)] | None = None
 
 
 @api.put("/missions/{mission_id}")
@@ -370,17 +368,18 @@ curl http://localhost:8000/missions/1/classified \
 
 ## Form data
 
-Handle form submissions using `Form`. You can group form fields into a `Serializer` with validation:
+Handle form submissions using `Form`. You can group form fields into a Pydantic model with validation:
 
 ```python
 from freeman.param_functions import Form
 
 
-class CreateAstronaut(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)]
-    role: Annotated[str, Meta(min_length=1, max_length=50)]
+class CreateAstronaut(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    role: Annotated[str, Field(min_length=1, max_length=50)]
 
     @field_validator("role")
+    @classmethod
     def validate_role(cls, value):
         valid_roles = ["Commander", "Pilot", "Mission Specialist", "Flight Engineer", "Payload Specialist"]
         if value not in valid_roles:
@@ -475,19 +474,14 @@ curl -X POST http://localhost:8000/missions/1/patch \
   -F "patch=@mission_patch.png"
 ```
 
-## Response serializers
+## Response models
 
 So far we've been building response dicts by hand. That's a great way to learn the basics and keeps the early examples easy to follow.
 
-Once the same response shapes start showing up in multiple endpoints, move them into `Serializer` classes too. That gives you reusable, typed response contracts and keeps the model-to-JSON mapping in one place.
+Once the same response shapes start showing up in multiple endpoints, move them into Pydantic models too. That gives you reusable, typed response contracts and keeps the model-to-JSON mapping in one place.
 
 ```python
-import asyncio
-
-from freeman.serializers import Serializer, field
-
-
-class MissionResponse(Serializer):
+class MissionResponse(BaseModel):
     id: int
     name: str
     status: str
@@ -495,28 +489,28 @@ class MissionResponse(Serializer):
     description: str = ""
 
 
-class MissionListResponse(Serializer):
+class MissionListResponse(BaseModel):
     missions: list[MissionResponse]
     count: int
 
 
-class AstronautResponse(Serializer):
+class AstronautResponse(BaseModel):
     id: int
     name: str
     role: str
     mission_id: int
 
 
-class AstronautListResponse(Serializer):
+class AstronautListResponse(BaseModel):
     mission: str
     astronauts: list[AstronautResponse]
 
 
-class AstronautCreatedResponse(Serializer):
+class AstronautCreatedResponse(BaseModel):
     id: int
     name: str
     role: str
-    mission: str = field(source="mission.name")
+    mission: str
 
 
 @api.get("/missions")
@@ -525,11 +519,10 @@ async def list_missions(filters: Annotated[MissionFilters, Query()]) -> MissionL
     if filters.status:
         queryset = queryset.filter(status=filters.status)
 
-    mission_tasks = [
-        MissionResponse.afrom_model(mission)
+    missions = [
+        MissionResponse.model_validate(mission, from_attributes=True)
         async for mission in queryset[:filters.limit]
     ]
-    missions = list(await asyncio.gather(*mission_tasks))
 
     return MissionListResponse(missions=missions, count=len(missions))
 
@@ -538,7 +531,7 @@ async def list_missions(filters: Annotated[MissionFilters, Query()]) -> MissionL
 async def get_mission(mission_id: int) -> MissionResponse:
     try:
         mission = await Mission.objects.aget(id=mission_id)
-        return await MissionResponse.afrom_model(mission)
+        return MissionResponse.model_validate(mission, from_attributes=True)
     except Mission.DoesNotExist as exc:
         raise NotFound(detail=f"Mission {mission_id} not found") from exc
 
@@ -558,13 +551,13 @@ async def add_astronaut(
         role=data.role,
         mission=mission,
     )
-    return await AstronautCreatedResponse.afrom_model(astronaut)
+    return AstronautCreatedResponse(id=astronaut.id, name=astronaut.name, role=astronaut.role, mission=mission.name)
 ```
 
 A few things to notice:
 
-- In async handlers, `await afrom_model()` is the safest default for response serializers. It keeps working if you later add related fields.
-- `from_model()` is still great when you're mapping already-loaded model data in sync code, or when you know your async response stays flat and fully loaded.
+- `model_validate(obj, from_attributes=True)` reads a Django model instance by attribute.
+- A related field, such as the mission name, comes from an object that is already loaded. In async code, load it in the query with `select_related()`, or pass the value yourself.
 - Plain `list[AstronautResponse]` is enough for nested response fields. The type hint is the only nesting API.
 
 ## Response types
@@ -736,19 +729,17 @@ Here's the complete `missions/api.py` file:
 ```python
 from __future__ import annotations
 
-import asyncio
 import os
 from datetime import datetime
 from typing import Annotated, Literal
 
-from msgspec import Meta
+from pydantic import BaseModel, Field, field_validator
 
 from freeman import BoltAPI, Request
 from freeman.exceptions import HTTPException, NotFound
 from freeman.openapi import OpenAPIConfig
 from freeman.param_functions import File, Form, Header, Query
 from freeman.responses import HTML, PlainText, Redirect
-from freeman.serializers import Serializer, field, field_validator
 from freeman.shortcuts import render
 
 from missions.models import Astronaut, Mission
@@ -763,25 +754,26 @@ api = BoltAPI(
 
 
 # Input and output schemas
-class CreateMission(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)]
-    description: Annotated[str, Meta(max_length=500)] = ""
+class CreateMission(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    description: Annotated[str, Field(max_length=500)] = ""
     launch_date: datetime | None = None
 
     @field_validator("name")
+    @classmethod
     def validate_name(cls, value):
         if value.lower().startswith("test"):
             raise ValueError("Mission name cannot start with 'test'")
         return value
 
 
-class UpdateMission(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)] | None = None
+class UpdateMission(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     status: Literal["planned", "active", "completed", "aborted"] | None = None
-    description: Annotated[str, Meta(max_length=500)] | None = None
+    description: Annotated[str, Field(max_length=500)] | None = None
 
 
-class MissionResponse(Serializer):
+class MissionResponse(BaseModel):
     id: int
     name: str
     status: str
@@ -789,12 +781,12 @@ class MissionResponse(Serializer):
     description: str = ""
 
 
-class MissionListResponse(Serializer):
+class MissionListResponse(BaseModel):
     missions: list[MissionResponse]
     count: int
 
 
-class MissionCreatedResponse(Serializer):
+class MissionCreatedResponse(BaseModel):
     id: int
     name: str
     status: str
@@ -802,17 +794,18 @@ class MissionCreatedResponse(Serializer):
 
 
 # Query parameter model for filtering missions
-class MissionFilters(Serializer):
+class MissionFilters(BaseModel):
     status: Literal["planned", "active", "completed", "aborted"] | None = None
-    limit: Annotated[int, Meta(ge=1, le=100)] = 10
+    limit: Annotated[int, Field(ge=1, le=100)] = 10
 
 
 # Form model for creating astronauts
-class CreateAstronaut(Serializer):
-    name: Annotated[str, Meta(min_length=1, max_length=100)]
-    role: Annotated[str, Meta(min_length=1, max_length=50)]
+class CreateAstronaut(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    role: Annotated[str, Field(min_length=1, max_length=50)]
 
     @field_validator("role")
+    @classmethod
     def validate_role(cls, value):
         valid_roles = ["Commander", "Pilot", "Mission Specialist", "Flight Engineer", "Payload Specialist"]
         if value not in valid_roles:
@@ -820,21 +813,21 @@ class CreateAstronaut(Serializer):
         return value
 
 
-class AstronautResponse(Serializer):
+class AstronautResponse(BaseModel):
     id: int
     name: str
     role: str
     mission_id: int
 
 
-class AstronautCreatedResponse(Serializer):
+class AstronautCreatedResponse(BaseModel):
     id: int
     name: str
     role: str
-    mission: str = field(source="mission.name")
+    mission: str
 
 
-class AstronautListResponse(Serializer):
+class AstronautListResponse(BaseModel):
     mission: str
     astronauts: list[AstronautResponse]
 
@@ -851,11 +844,10 @@ async def list_missions(filters: Annotated[MissionFilters, Query()]) -> MissionL
     if filters.status:
         queryset = queryset.filter(status=filters.status)
 
-    mission_tasks = [
-        MissionResponse.afrom_model(mission)
+    missions = [
+        MissionResponse.model_validate(mission, from_attributes=True)
         async for mission in queryset[:filters.limit]
     ]
-    missions = list(await asyncio.gather(*mission_tasks))
     return MissionListResponse(missions=missions, count=len(missions))
 
 
@@ -863,7 +855,7 @@ async def list_missions(filters: Annotated[MissionFilters, Query()]) -> MissionL
 async def get_mission(mission_id: int) -> MissionResponse:
     try:
         mission = await Mission.objects.aget(id=mission_id)
-        return await MissionResponse.afrom_model(mission)
+        return MissionResponse.model_validate(mission, from_attributes=True)
     except Mission.DoesNotExist as exc:
         raise NotFound(detail=f"Mission {mission_id} not found") from exc
 
@@ -899,7 +891,7 @@ async def update_mission(mission_id: int, data: UpdateMission) -> MissionRespons
         mission.description = data.description
 
     await mission.asave()
-    return await MissionResponse.afrom_model(mission)
+    return MissionResponse.model_validate(mission, from_attributes=True)
 
 
 @api.delete("/missions/{mission_id}", status_code=204, tags=["missions"])
@@ -985,7 +977,7 @@ async def add_astronaut(
         role=data.role,
         mission=mission,
     )
-    return await AstronautCreatedResponse.afrom_model(astronaut)
+    return AstronautCreatedResponse(id=astronaut.id, name=astronaut.name, role=astronaut.role, mission=mission.name)
 
 
 @api.get("/missions/{mission_id}/astronauts", tags=["astronauts"])
@@ -995,11 +987,10 @@ async def list_astronauts(mission_id: int) -> AstronautListResponse:
     except Mission.DoesNotExist as exc:
         raise NotFound(detail=f"Mission {mission_id} not found") from exc
 
-    astronaut_tasks = [
-        AstronautResponse.afrom_model(astronaut)
+    astronauts = [
+        AstronautResponse.model_validate(astronaut, from_attributes=True)
         async for astronaut in Astronaut.objects.filter(mission=mission)
     ]
-    astronauts = list(await asyncio.gather(*astronaut_tasks))
     return AstronautListResponse(mission=mission.name, astronauts=astronauts)
 
 

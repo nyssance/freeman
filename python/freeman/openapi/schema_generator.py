@@ -21,12 +21,9 @@ from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
 from pydantic_core import core_schema
 
 from .._pydantic import ParamField, adapter_for, is_pydantic_model, names_pydantic_model, param_fields
-from .._serializer_input import any_serializer
 from ..datastructures import UploadFile
 from ..pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, PaginationBase
 from ..responses import HTML, EventSourceResponse, File, FileResponse, PlainText, Redirect, StreamingResponse
-from ..serializers.base import Serializer
-from ..serializers.fields import FieldConfig, _FieldMarker
 from ..typing import is_msgspec_struct, is_optional, resolve_type_alias, unwrap_optional
 from ..views import _layer
 from .spec import (
@@ -113,29 +110,6 @@ def _type_display_name(annotation: Any) -> str:
         args = ", ".join(_type_display_name(a) for a in get_args(annotation))
         return f"{getattr(origin, '__name__', repr(origin))}[{args}]"
     return getattr(annotation, "__name__", None) or repr(annotation)
-
-
-class _InputComponent:
-    """The component key of the request body schema of a serializer.
-
-    A serializer has two schemas if its input and its output have other fields:
-    a ``read_only`` field, a field that ``dump()`` leaves out (``write_only``,
-    ``exclude``) or a computed field. The response
-    schema keeps the name of the class. The request body schema has the name
-    ``<class>Input``, or the name of the class if the document has no other
-    schema of that class. The attributes are those that the component names read.
-    """
-
-    def __init__(self, struct_type: Any) -> None:
-        self.struct_type = struct_type
-        self.__module__ = _struct_origin(struct_type).__module__
-        self.set_name(suffix="Input")
-
-    def set_name(self, *, suffix: str) -> None:
-        origin = _struct_origin(self.struct_type)
-        display = _type_display_name(self.struct_type)
-        self.__name__ = f"{display}{suffix}"
-        self.__qualname__ = f"{display.replace(origin.__name__, origin.__qualname__, 1)}{suffix}"
 
 
 @dataclass
@@ -623,11 +597,9 @@ class SchemaGenerator:
         # registration order the name map iterates.
         self._component_ref: dict[type, Reference] = {}
         self._component_schema: dict[type, Schema] = {}
-        # True while the schema of a JSON request body is built. That schema has
-        # no read_only field and no computed field of a serializer. Each other
-        # schema has no field that dump() leaves out.
+        # True while the schema of a JSON request body is built. A Pydantic
+        # model then gives its validation schema.
         self._input_schema = False
-        self._input_components: dict[type, _InputComponent] = {}
         # Each use of a Pydantic model: the object at the use site, the model,
         # and "validation" for a request body or "serialization" for a response.
         # Each use: the placeholder, the key and the mode of the schema, its
@@ -854,65 +826,16 @@ class SchemaGenerator:
                 setattr(schema, attr, value)
         return schema
 
-    def _with_field_options(self, schema: Schema | Reference, config: FieldConfig) -> Schema | Reference:
-        """Add ``description``, ``title``, ``examples`` and ``deprecated`` of ``field()`` to a property schema.
-
-        A component reference keeps the options next to it, in an ``allOf`` wrapper.
-        """
-        options = self._schema_kwargs(
-            description=config.description,
-            title=config.title,
-            examples=config.examples,
-            deprecated=config.deprecated or None,
-        )
-        if not options:
-            return schema
-        if isinstance(schema, Schema):
-            return replace(schema, **options)
-        return Schema(all_of=[schema], **options)
-
-    @staticmethod
-    def _field_configs(struct_type: Any) -> dict[str, FieldConfig]:
-        """Give the ``field()`` config of each field of a Serializer class, by field name.
-
-        The class keeps one config map for a field with a default and for a required field.
-        A struct that is not a Serializer has no config.
-        """
-        if not (isinstance(struct_type, type) and issubclass(struct_type, Serializer)):
-            return {}
-        struct_type._ensure_dump_ready()
-        return struct_type.__field_configs__
-
-    @staticmethod
-    def _field_in_schema(config: FieldConfig | None) -> bool:
-        """False for a Serializer field with ``field(include_in_schema=False)``."""
-        return config is None or config.include_in_schema
-
     def _msgspec_field_schema(
-        self, field: Any, config: FieldConfig | None = None, *, register_component: bool = False
+        self, field: Any, *, register_component: bool = False
     ) -> tuple[str, Schema | Reference, bool]:
-        """Build a schema and required flag for a msgspec-inspected field.
-
-        ``config`` is the ``field()`` config of a Serializer field, or None.
-        """
+        """Build a schema and required flag for a msgspec-inspected field."""
         field_name = field.encode_name
         field_schema = self._type_to_schema(field.type, register_component=register_component)
-        if config is not None:
-            field_schema = self._with_field_options(field_schema, config)
 
         default = field.default
         has_default = default is not msgspec.NODEFAULT
         field_required = field.required
-
-        # Unwrap Serializer field() markers: msgspec stores the _FieldMarker as
-        # the default, so field.required is False even when the marker carries
-        # only config and no real default.
-        if isinstance(default, _FieldMarker):
-            if default.config.has_default():
-                default = default.config.get_default()
-            else:
-                has_default = False
-                field_required = True
 
         if has_default:
             field_schema = self._with_default(field_schema, default)
@@ -927,9 +850,7 @@ class SchemaGenerator:
             # ``has_default`` branch above; arbitrary factories (``datetime.now``,
             # a ``lambda``, a class) deliberately get NO default — both because
             # msgspec emits none and because calling them here could embed a
-            # non-JSON-encodable object that crashes spec serialization. The
-            # _FieldMarker path above never reaches here (markers live on
-            # ``field.default``, leaving ``default_factory`` as NODEFAULT).
+            # non-JSON-encodable object that crashes spec serialization.
             field_schema = self._with_default(field_schema, field.default_factory())
             field_required = False
 
@@ -1359,12 +1280,8 @@ class SchemaGenerator:
                 continue
             if is_msgspec_struct(annotation):
                 struct_info = msgspec.inspect.type_info(annotation)
-                field_configs = self._field_configs(annotation)
                 for struct_field in struct_info.fields:
-                    field_config = field_configs.get(struct_field.name)
-                    if not self._field_in_schema(field_config):
-                        continue
-                    field_name, field_schema, field_required = self._msgspec_field_schema(struct_field, field_config)
+                    field_name, field_schema, field_required = self._msgspec_field_schema(struct_field)
                     # Remove the null arm first, so that the array rule below sees the array of `list | None`.
                     field_schema = self._model_field_schema(self._text_value_schema(field_schema))
                     if source == "header":
@@ -1483,7 +1400,7 @@ class SchemaGenerator:
                     annotation = field.annotation
                     default = field.default
 
-                    # Form fields annotated with a Struct/Serializer are flattened:
+                    # Form fields annotated with a Struct are flattened:
                     # the runtime form extractor reads each struct field as a
                     # top-level form key, so the schema must mirror that shape.
                     # Use msgspec.structs.fields (raw Python types) rather than
@@ -1499,13 +1416,9 @@ class SchemaGenerator:
                                 required.append(model_field.key)
                         continue
                     if is_msgspec_struct(unwrapped):
-                        field_configs = self._field_configs(unwrapped)
                         for struct_field in msgspec.structs.fields(unwrapped):
-                            field_config = field_configs.get(struct_field.name)
-                            if not self._field_in_schema(field_config):
-                                continue
                             sub_name, sub_schema, sub_required = self._msgspec_field_schema(
-                                struct_field, field_config, register_component=False
+                                struct_field, register_component=False
                             )
                             properties[sub_name] = self._model_field_schema(self._text_value_schema(sub_schema))
                             if sub_required:
@@ -2123,30 +2036,10 @@ class SchemaGenerator:
         properties = {}
         required = []
 
-        # Only a Serializer has fields that are in one of its two schemas.
-        serializer = self._serializer_class(struct_type)
-        read_only = serializer.__read_only_fields__ if serializer else frozenset()
-        write_only = serializer.__write_only_fields__ if serializer else frozenset()
-        not_in_output = self._fields_not_in_output(serializer) if serializer else frozenset()
-        field_configs = self._field_configs(struct_type)
-
         for field in struct_info.fields:
-            field_config = field_configs.get(field.name)
-            if not self._field_in_schema(field_config):
-                continue
-            is_read_only = field.name in read_only
-            if is_read_only and self._input_schema:
-                continue
-            # The schema of a response has the fields that dump() returns.
-            if field.name in not_in_output and not self._input_schema:
-                continue
             field_name, field_schema, field_required = self._msgspec_field_schema(
-                field, field_config, register_component=register_component
+                field, register_component=register_component
             )
-            if is_read_only:
-                field_schema = self._with_keywords(field_schema, read_only=True)
-            elif field.name in write_only:
-                field_schema = self._with_keywords(field_schema, write_only=True)
             properties[field_name] = field_schema
 
             # Check if required
@@ -2159,9 +2052,6 @@ class SchemaGenerator:
             properties[tag_field] = self._enum_values_schema([tag])
             required.append(tag_field)
 
-        if serializer is not None and not self._input_schema:
-            self._add_computed_fields(serializer, properties, required, register_component)
-
         # Pull `description` from the struct's *own* docstring only (see
         # _own_docstring — avoids inheriting msgspec.Struct's base docstring).
         # Matches `msgspec.json.schema_components` behavior.
@@ -2172,76 +2062,6 @@ class SchemaGenerator:
             properties=properties,
             required=required or None,
         )
-
-    @staticmethod
-    def _serializer_class(struct_type: Any) -> Any:
-        """The Serializer class of a struct type, with its field metadata collected. None for each other struct."""
-        cls = _struct_origin(struct_type)
-        if not getattr(cls, "__is_bolt_serializer__", False):
-            return None
-        cls._ensure_dump_ready()
-        return cls
-
-    @staticmethod
-    def _fields_not_in_output(serializer: Any) -> frozenset[str]:
-        """The struct fields that ``dump()`` leaves out: ``write_only`` and ``field(exclude=True)``."""
-        dumped = {spec.field_name for spec in serializer._dump_field_specs}
-        return frozenset(name for name in serializer.__struct_fields__ if name not in dumped)
-
-    @staticmethod
-    def _with_keywords(schema: Schema | Reference, **keywords: Any) -> Schema:
-        """Add keywords to an inline schema, or next to a component reference."""
-        if isinstance(schema, Schema):
-            return replace(schema, **keywords)
-        return Schema(all_of=[schema], **keywords)
-
-    def _add_computed_fields(
-        self, serializer: Any, properties: dict[str, Any], required: list[str], register_component: bool
-    ) -> None:
-        """Add the ``@computed_field`` methods of a serializer to its response schema.
-
-        Each one is required and read-only: ``dump()`` returns it, and input cannot set it.
-        """
-        for field_name, config in serializer.__computed_fields__.items():
-            if not config.include_in_schema:
-                continue
-            if config.return_type is Any:
-                # No return annotation: each value is valid.
-                schema: Schema | Reference = Schema()
-            else:
-                schema = self._type_to_schema(
-                    msgspec.inspect.type_info(config.return_type), register_component=register_component
-                )
-            description = config.description or inspect.getdoc(getattr(serializer, config.method_name))
-            properties[field_name] = self._with_keywords(
-                schema,
-                read_only=True,
-                **self._schema_kwargs(
-                    description=description,
-                    title=config.title,
-                    examples=config.examples,
-                    deprecated=config.deprecated or None,
-                ),
-            )
-            required.append(field_name)
-
-    def _has_two_schemas(self, serializer: Any) -> bool:
-        """Tell if the request body schema of a serializer class is not its response schema."""
-        serializer._ensure_dump_ready()
-        return bool(
-            serializer.__read_only_fields__
-            or self._fields_not_in_output(serializer)
-            or any(config.include_in_schema for config in serializer.__computed_fields__.values())
-        )
-
-    def _component_key(self, struct_type: Any) -> Any:
-        """The registry key of a struct: the type, or its input variant in a request body."""
-        if not (self._input_schema and any_serializer(struct_type, self._has_two_schemas)):
-            return struct_type
-        key = self._input_components.get(struct_type)
-        if key is None:
-            key = self._input_components[struct_type] = _InputComponent(struct_type)
-        return key
 
     def _pydantic_schema(self, model: type) -> _PydanticSchema:
         """Note one use of a Pydantic model. ``_finalize_pydantic_schemas`` gives it its schema."""
@@ -2357,7 +2177,7 @@ class SchemaGenerator:
     def _struct_to_component_schema(self, struct_type: type) -> Reference:
         """Convert msgspec.Struct to a component schema and return its reference."""
         return self._register_component(
-            self._component_key(struct_type), lambda: self._struct_to_schema(struct_type, register_component=True)
+            struct_type, lambda: self._struct_to_schema(struct_type, register_component=True)
         )
 
     def _enum_to_component_schema(self, enum_cls: type) -> Reference:
@@ -2390,11 +2210,6 @@ class SchemaGenerator:
         ``module.qualname`` so all of them coexist. Each type's shared Reference is
         stamped in place, updating all of its use sites at once.
         """
-
-        # An input variant keeps the name of its class if the class has no other schema.
-        for struct_type, variant in self._input_components.items():
-            if variant in self._component_ref and struct_type not in self._component_ref:
-                variant.set_name(suffix="")
 
         def normalize(name: str) -> str:
             return re.sub(r"[^a-zA-Z0-9.\-_]", "_", name)
@@ -2449,7 +2264,7 @@ def _node_metadata(gen: SchemaGenerator, node: Any, register: bool) -> Schema | 
     # ``Annotated[T, Meta(...)]`` with informational fields (title/description/
     # examples/extra_json_schema) arrives as a ``Metadata`` wrapper: ``.type`` is
     # the constrained ``*Type``; ``.extra_json_schema`` holds the docs. Every
-    # documented custom type in ``serializers.types`` takes this path. (#235)
+    # documented constrained type takes this path. (#235)
     base = gen._type_to_schema(node.type, register_component=register)
     extra = getattr(node, "extra_json_schema", None)
     # Constraints already live on ``base``; docs only merge onto an inline

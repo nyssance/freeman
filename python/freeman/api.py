@@ -100,7 +100,6 @@ from .serialization import (
     _RESPONSE_META_EMPTY,
     _RESPONSE_META_JSON,
     ResponseWireV1,
-    _convert_serializers,
     _extract_stream_item_type,
     _infer_wire_response_type,
     _wire_bytes,
@@ -1729,16 +1728,15 @@ class BoltAPI:
             # Pre-compute stream annotation analysis (registration time only)
             meta["_stream_info"] = _extract_stream_item_type(meta["response_type"])
 
-            # If handler is paginated, extract and store the item serializer
-            # This enables @paginate to use Serializer.dump_many() for efficient serialization
+            # A paginated handler gets its item type. The paginator converts each page to it.
             if getattr(fn, "__paginated__", False) and final_response_type is not None:
                 item_type = extract_pagination_item_type(final_response_type)
                 if item_type is not None:
-                    fn.__serializer_class__ = item_type
+                    fn.__bolt_item_type__ = item_type
                     # For APIView methods wrapped by as_view(), also set on the original handler
                     original = getattr(fn, "__original_handler__", None)
                     if original is not None:
-                        original.__serializer_class__ = item_type
+                        original.__bolt_item_type__ = item_type
                     # The wire shape is the pagination envelope, not the item
                     # list: validate and document ``response_class[item]``.
                     meta["response_type"] = envelope_type(fn.__pagination_class__, item_type)
@@ -1790,9 +1788,8 @@ class BoltAPI:
                 for entry in meta["_resolved_metas"].values():
                     compile_response_handlers(entry)
                     # The data types that a (status, data) tuple encodes with no
-                    # handler. A Serializer type converts its data even when the
-                    # entry does not validate. The handler of an entry with row
-                    # fields converts a list of model instances to them.
+                    # handler. The handler of an entry with row fields converts a
+                    # list of model instances to them.
                     if entry["_has_response_validation"]:
                         entry["_tuple_plain_types"] = ()
                     elif "response_field_names" in entry:
@@ -2030,8 +2027,6 @@ class BoltAPI:
                         if response_type is None or data is None:
                             return _wire_bytes(code, _RESPONSE_META_EMPTY, b"")
                         if isinstance(data, entry["_tuple_plain_types"]):
-                            if isinstance(data, list):
-                                data = _convert_serializers(data)
                             return await serialize_json_data(data, code)
                         # A response object goes to the client with the status of the tuple.
                         if is_response_class(data.__class__):
@@ -2055,8 +2050,6 @@ class BoltAPI:
                         if response_type is None or data is None:
                             return _wire_bytes(code, _RESPONSE_META_EMPTY, b"")
                         if isinstance(data, entry["_tuple_plain_types"]):
-                            if isinstance(data, list):
-                                data = _convert_serializers(data)
                             return serialize_json_data_sync(data, code)
                         # A response object goes to the client with the status of the tuple.
                         if is_response_class(data.__class__):
@@ -2147,160 +2140,80 @@ class BoltAPI:
                 _encode = _json._ENCODER.encode
                 _meta_json = _RESPONSE_META_JSON
 
-                # Pre-compute at registration time whether _convert_serializers can be
-                # skipped. When the return type is dict, list[Struct], list[dict], etc.
-                # (i.e. NOT a Bolt Serializer), the conversion is always a no-op.
-                # The variants without the conversion only skip a no-op call. A mutant
-                # that picks the other variant gives the same response.
+                # A list result goes to the encoder here, unless the response type
+                # is a dict or None: then the response handlers check it.
                 # pragma: no mutate start
                 _response_type = meta.get("response_type")
                 _resp_origin = get_origin(_response_type) if _response_type else None
-                # A -> None route sends no list, so it has no conversion to do.
-                _skip_convert = (
-                    _resp_origin is list
-                    or _response_type is dict
-                    or _resp_origin is dict
-                    or _response_type is type(None)
-                )
+                _list_to_handlers = _response_type is dict or _resp_origin is dict or _response_type is type(None)
                 # pragma: no mutate end
                 # Only a result of the declared container goes to the encoder here. Each
                 # other result, such as a str, gets the checks of the response handlers.
                 _fast_dict = _fast_dict_type(meta)
-                _fast_type = list if _resp_origin is list else _fast_dict
+                if _resp_origin is list:
+                    _fast_type = list
+                elif _list_to_handlers:
+                    _fast_type = _fast_dict
+                else:
+                    _fast_type = (_fast_dict, list)
 
                 if _trivially_async:
                     # Sync executor for trivially-async handlers: drive coroutine inline.
                     # coro.send(None) immediately raises StopIteration since there are
                     # no await points. This bypasses the entire async bridge (~6-12μs).
                     if _is_no_params:
-                        if _skip_convert:
-                            # Ultra-fast: no params, no validation, result goes directly to encoder.
-                            def execute_trivial_async_sync(
-                                handler: Callable, request: dict[str, Any]
-                            ) -> ResponseWireV1:
-                                coro = handler()
-                                try:
-                                    coro.send(None)
-                                except StopIteration as _e:
-                                    result = _e.value
-                                else:
-                                    coro.close()
-                                    raise RuntimeError(
-                                        "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
-                                    )
-                                if isinstance(result, _fast_type):
-                                    return _encode(result)
-                                return _finish(result)
-
-                        else:
-
-                            def execute_trivial_async_sync(
-                                handler: Callable, request: dict[str, Any]
-                            ) -> ResponseWireV1:
-                                coro = handler()
-                                try:
-                                    coro.send(None)
-                                except StopIteration as _e:
-                                    result = _e.value
-                                else:
-                                    coro.close()
-                                    raise RuntimeError(
-                                        "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
-                                    )
-                                if isinstance(result, _fast_dict):
-                                    return _encode(result)
-                                if isinstance(result, list):
-                                    result = _convert_serializers(result)
-                                    return _encode(result)
-                                return _finish(result)
+                        # Ultra-fast: no params, no validation, result goes directly to encoder.
+                        def execute_trivial_async_sync(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                            coro = handler()
+                            try:
+                                coro.send(None)
+                            except StopIteration as _e:
+                                result = _e.value
+                            else:
+                                coro.close()
+                                raise RuntimeError(
+                                    "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
+                                )
+                            if isinstance(result, _fast_type):
+                                return _encode(result)
+                            return _finish(result)
 
                     else:
-                        if _skip_convert:
 
-                            def execute_trivial_async_sync(
-                                handler: Callable, request: dict[str, Any]
-                            ) -> ResponseWireV1:
-                                args, kwargs = _get_args(request)
-                                coro = handler(*args, **kwargs)
-                                try:
-                                    coro.send(None)
-                                except StopIteration as _e:
-                                    result = _e.value
-                                else:
-                                    coro.close()
-                                    raise RuntimeError(
-                                        "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
-                                    )
-                                if isinstance(result, _fast_type):
-                                    return _encode(result)
-                                return _finish(result)
-
-                        else:
-
-                            def execute_trivial_async_sync(
-                                handler: Callable, request: dict[str, Any]
-                            ) -> ResponseWireV1:
-                                args, kwargs = _get_args(request)
-                                coro = handler(*args, **kwargs)
-                                try:
-                                    coro.send(None)
-                                except StopIteration as _e:
-                                    result = _e.value
-                                else:
-                                    coro.close()
-                                    raise RuntimeError(
-                                        "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
-                                    )
-                                if isinstance(result, _fast_dict):
-                                    return _encode(result)
-                                if isinstance(result, list):
-                                    result = _convert_serializers(result)
-                                    return _encode(result)
-                                return _finish(result)
+                        def execute_trivial_async_sync(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                            args, kwargs = _get_args(request)
+                            coro = handler(*args, **kwargs)
+                            try:
+                                coro.send(None)
+                            except StopIteration as _e:
+                                result = _e.value
+                            else:
+                                coro.close()
+                                raise RuntimeError(
+                                    "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
+                                )
+                            if isinstance(result, _fast_type):
+                                return _encode(result)
+                            return _finish(result)
 
                     meta["_sync_executor"] = execute_trivial_async_sync
 
                 if _is_no_params:
-                    if _skip_convert:
 
-                        async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            result = await handler()
-                            if isinstance(result, _fast_type):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            return await serialize_response(result, meta)
-
-                    else:
-
-                        async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            result = await handler()
-                            if isinstance(result, _fast_dict):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, list):
-                                result = _convert_serializers(result)
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            return await serialize_response(result, meta)
+                    async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                        result = await handler()
+                        if isinstance(result, _fast_type):
+                            return (default_status, _meta_json, _BODY_BYTES, _encode(result))
+                        return await serialize_response(result, meta)
 
                 else:
-                    if _skip_convert:
 
-                        async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = await handler(*args, **kwargs)
-                            if isinstance(result, _fast_type):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            return await serialize_response(result, meta)
-
-                    else:
-
-                        async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = await handler(*args, **kwargs)
-                            if isinstance(result, _fast_dict):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, list):
-                                result = _convert_serializers(result)
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            return await serialize_response(result, meta)
+                    async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                        args, kwargs = _get_args(request)
+                        result = await handler(*args, **kwargs)
+                        if isinstance(result, _fast_type):
+                            return (default_status, _meta_json, _BODY_BYTES, _encode(result))
+                        return await serialize_response(result, meta)
 
                 return execute_async_dict_fast
 
@@ -2311,12 +2224,11 @@ class BoltAPI:
             # encoder, skipping the serialize_response → data_handler →
             # validator chain. Anything else
             # (Response objects, QuerySets, generators, dicts, None,
-            # Serializers, response_class overrides, ...) is delegated to
+            # response_class overrides, ...) is delegated to
             # serialize_response so the slow path handles every edge case
             # uniformly.
             _inline_spec = meta.get("_inline_response_validator")
             if _inline_spec is not None:
-                # It dumps each Serializer of the declared type before it encodes.
                 _encode = meta["_inline_encode"]
                 _meta_json = _RESPONSE_META_JSON
                 _inline_kind, _inline_match = _inline_spec
@@ -2538,126 +2450,70 @@ class BoltAPI:
                 _encode = _json._ENCODER.encode
                 _meta_json = _RESPONSE_META_JSON
 
-                # The variants without the conversion only skip a no-op call. A mutant
-                # that picks the other variant gives the same response.
+                # A list result goes to the encoder here, unless the response type
+                # is a dict or None: then the response handlers check it.
                 # pragma: no mutate start
                 _response_type = meta.get("response_type")
                 _resp_origin = get_origin(_response_type) if _response_type else None
-                # A -> None route sends no list, so it has no conversion to do.
-                _skip_convert = (
-                    _resp_origin is list
-                    or _response_type is dict
-                    or _resp_origin is dict
-                    or _response_type is type(None)
-                )
+                _list_to_handlers = _response_type is dict or _resp_origin is dict or _response_type is type(None)
                 # pragma: no mutate end
                 # Only a result of the declared container goes to the encoder here. Each
                 # other result, such as a str, gets the checks of the response handlers.
                 _fast_dict = _fast_dict_type(meta)
-                _fast_type = list if _resp_origin is list else _fast_dict
+                if _resp_origin is list:
+                    _fast_type = list
+                elif _list_to_handlers:
+                    _fast_type = _fast_dict
+                else:
+                    _fast_type = (_fast_dict, list)
 
                 # Plain (non-async) sync executor for Rust sync dispatch bypass.
                 # Eliminates coroutine creation + into_future_with_locals overhead.
                 if _is_no_params_sync:
-                    if _skip_convert:
 
-                        def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            result = handler()
-                            if isinstance(result, _fast_type):
-                                return _encode(result)
-                            return _finish(result)
-
-                    else:
-
-                        def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            result = handler()
-                            if isinstance(result, _fast_dict):
-                                return _encode(result)
-                            if isinstance(result, list):
-                                result = _convert_serializers(result)
-                                return _encode(result)
-                            return _finish(result)
+                    def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                        result = handler()
+                        if isinstance(result, _fast_type):
+                            return _encode(result)
+                        return _finish(result)
 
                 else:
-                    if _skip_convert:
 
-                        def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = handler(*args, **kwargs)
-                            if isinstance(result, _fast_type):
-                                return _encode(result)
-                            return _finish(result)
-
-                    else:
-
-                        def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = handler(*args, **kwargs)
-                            if isinstance(result, _fast_dict):
-                                return _encode(result)
-                            if isinstance(result, list):
-                                result = _convert_serializers(result)
-                                return _encode(result)
-                            return _finish(result)
+                    def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                        args, kwargs = _get_args(request)
+                        result = handler(*args, **kwargs)
+                        if isinstance(result, _fast_type):
+                            return _encode(result)
+                        return _finish(result)
 
                 meta["_sync_executor"] = execute_sync_dict_fast_plain
 
                 if _is_no_params_sync:
-                    if _skip_convert:
 
-                        async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            result = handler()
-                            if isinstance(result, _fast_type):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, QuerySet):
-                                return await run_in_orm_executor(serialize_response_sync, result, meta)
-                            return serialize_response_sync(result, meta)
-
-                    else:
-
-                        async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            result = handler()
-                            if isinstance(result, _fast_dict):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, list):
-                                result = _convert_serializers(result)
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, QuerySet):
-                                return await run_in_orm_executor(serialize_response_sync, result, meta)
-                            return serialize_response_sync(result, meta)
+                    async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                        result = handler()
+                        if isinstance(result, _fast_type):
+                            return (default_status, _meta_json, _BODY_BYTES, _encode(result))
+                        if isinstance(result, QuerySet):
+                            return await run_in_orm_executor(serialize_response_sync, result, meta)
+                        return serialize_response_sync(result, meta)
 
                 else:
-                    if _skip_convert:
 
-                        async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = handler(*args, **kwargs)
-                            if isinstance(result, _fast_type):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, QuerySet):
-                                return await run_in_orm_executor(serialize_response_sync, result, meta)
-                            return serialize_response_sync(result, meta)
-
-                    else:
-
-                        async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = handler(*args, **kwargs)
-                            if isinstance(result, _fast_dict):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, list):
-                                result = _convert_serializers(result)
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, QuerySet):
-                                return await run_in_orm_executor(serialize_response_sync, result, meta)
-                            return serialize_response_sync(result, meta)
+                    async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                        args, kwargs = _get_args(request)
+                        result = handler(*args, **kwargs)
+                        if isinstance(result, _fast_type):
+                            return (default_status, _meta_json, _BODY_BYTES, _encode(result))
+                        if isinstance(result, QuerySet):
+                            return await run_in_orm_executor(serialize_response_sync, result, meta)
+                        return serialize_response_sync(result, meta)
 
                 return execute_sync_dict_fast
 
             # Sync-handler inline-encoding fast path (mirrors async branch above).
             _inline_spec = meta.get("_inline_response_validator")
             if _inline_spec is not None:
-                # It dumps each Serializer of the declared type before it encodes.
                 _encode = meta["_inline_encode"]
                 _meta_json = _RESPONSE_META_JSON
                 _inline_kind, _inline_match = _inline_spec

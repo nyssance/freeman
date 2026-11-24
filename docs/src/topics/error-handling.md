@@ -116,30 +116,34 @@ Response:
 
 ### RequestValidationError
 
-Raised when request validation fails. Freeman's Serializer **automatically collects all validation errors** from `@field_validator` and `@model_validator` before raising, so users see all issues at once:
+Raised when request validation fails. A Pydantic body model collects every error of the body, also those of its `@field_validator` and `@model_validator` methods, so the 422 shows all issues at once:
 
 ```python
-from freeman.serializers import Serializer, field_validator
+from pydantic import BaseModel, field_validator
 
-class UserSerializer(Serializer):
+class CreateUser(BaseModel):
     email: str
     age: int
 
     @field_validator("email")
+    @classmethod
     def validate_email(cls, value):
         if "@" not in value:
             raise ValueError("Invalid email format")
         return value
 
     @field_validator("age")
+    @classmethod
     def validate_age(cls, value):
         if value < 0:
             raise ValueError("Must be positive")
         return value
 
-# Both fields fail - ALL errors returned, not just the first
-UserSerializer(email="invalid", age=-5)
-# Raises RequestValidationError with both errors
+@api.post("/users")
+async def create_user(user: CreateUser):
+    return {"email": user.email}
+
+# {"email": "invalid", "age": -5} gives one 422 with both errors.
 ```
 
 You can also raise manually:

@@ -1,7 +1,7 @@
 """Render a TemplateResponse after the handler, as Django's handler does.
 
-The serializers and the Django middleware adapter share this module. The
-adapter imports the serializers, so this code cannot live in the adapter.
+``serialization.py`` and the Django middleware adapter share this module. The
+adapter imports ``serialization.py``, so this code cannot live in the adapter.
 """
 
 from __future__ import annotations

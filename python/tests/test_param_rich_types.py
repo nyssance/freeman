@@ -24,7 +24,6 @@ import pytest
 from freeman import BoltAPI, WebSocket
 from freeman.middleware import DjangoMiddlewareStack
 from freeman.param_functions import Cookie, File, Form, Header, Path, Query
-from freeman.serializers.types import PositiveInt
 from freeman.testing import TestClient, WebSocketTestClient
 
 UserId = NewType("UserId", int)
@@ -33,6 +32,8 @@ type MaybeUserId = UserId | None
 type Pair[T] = list[T]
 type Maybe[T] = T | None
 type Positive[T] = Annotated[T, msgspec.Meta(ge=1)]
+
+PositiveInt = Annotated[int, msgspec.Meta(gt=0, description="Positive integer (> 0)")]
 
 
 def _show(value):
