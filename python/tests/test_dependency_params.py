@@ -1301,3 +1301,32 @@ def test_a_dependency_used_twice_does_not_hide_the_dependencies_after_it():
     assert {("header", "x-tenant"), ("header", "X-Api-Token"), ("cookie", "theme"), ("query", "page")} <= {
         (p.param_in, p.name) for p in parameters
     }
+
+
+def _outer_with_empty_depends(value: Annotated[int, Depends()]) -> int:
+    return value
+
+
+def test_a_nested_depends_without_a_callable_fails_with_its_parameter_name():
+    """``Depends()`` with no callable names the parameter at registration.
+
+    Before, the check looked at the marker, which is always set. The error
+    was a TypeError from inspect: "None is not a callable object".
+    """
+    api = BoltAPI()
+
+    with pytest.raises(ValueError, match="Depends for parameter value requires a callable"):
+
+        @api.get("/items")
+        def items(value: int = Depends(_outer_with_empty_depends)):
+            return {"value": value}
+
+
+def test_a_depends_without_a_callable_on_a_handler_fails_with_its_parameter_name():
+    api = BoltAPI()
+
+    with pytest.raises(ValueError, match="Depends for parameter value requires a callable"):
+
+        @api.get("/items")
+        def items(value: Annotated[int, Depends()]):
+            return {"value": value}

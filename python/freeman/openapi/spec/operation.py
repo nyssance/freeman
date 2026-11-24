@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from .base import BaseSchemaObject
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from .callback import Callback
     from .external_documentation import ExternalDocumentation
     from .parameter import Parameter
@@ -48,7 +50,7 @@ class Operation(BaseSchemaObject):
     common programming naming conventions.
     """
 
-    parameters: list[Parameter | Reference] | None = None
+    parameters: Sequence[Parameter | Reference] | None = None
     """A list of parameters that are applicable for this operation.
 
     If a parameter is already defined at the `Path Item <https://spec.openapis.org/oas/v3.1.0#pathItemParameters>`_,

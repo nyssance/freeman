@@ -1017,7 +1017,7 @@ def _report_slow_loop_wait(waited: float) -> None:
     )
 
 
-async def run_in_orm_executor[**P, T](fn: Callable[P, T], *args: P.args) -> T:
+async def run_in_orm_executor[*Ts, T](fn: Callable[[*Ts], T], *args: *Ts) -> T:
     """Run a framework-initiated ORM evaluation in the bounded ORM pool.
 
     The caller's contextvars context is carried into the pool thread —

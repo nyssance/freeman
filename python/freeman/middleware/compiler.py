@@ -23,7 +23,7 @@ from .._pydantic import is_pydantic_model, param_fields
 from ..auth.backends import BaseAuthentication, get_default_authentication_classes, www_authenticate_challenge
 from ..auth.guards import GUARD_TYPES, get_default_permission_classes, guards_need_user
 from ..params import Param
-from ..typing import resolve_type_alias, unwrap_optional
+from ..typing import HandlerMetadata, resolve_type_alias, unwrap_optional
 
 # Type hint constants - MUST match src/type_coercion.rs
 TYPE_INT = 1
@@ -327,7 +327,7 @@ def _collect_model_file_constraints(field: Any, target: dict[str, dict[str, Any]
                 _add_file_constraints(extra, part_name, target)
 
 
-def _compile_rust_arg_bindings(handler_meta: dict[str, Any]) -> list[dict[str, Any]] | None:
+def _compile_rust_arg_bindings(handler_meta: HandlerMetadata) -> list[dict[str, Any]] | None:
     """Build a Rust-side argument binding plan for simple non-body handlers.
 
     The plan is used by Rust to pre-bind handler args/kwargs from request maps,
@@ -405,7 +405,9 @@ def _compile_rust_arg_bindings(handler_meta: dict[str, Any]) -> list[dict[str, A
     return bindings
 
 
-def add_optimization_flags_to_metadata(metadata: dict[str, Any] | None, handler_meta: dict[str, Any]) -> dict[str, Any]:
+def add_optimization_flags_to_metadata(
+    metadata: dict[str, Any] | None, handler_meta: HandlerMetadata
+) -> dict[str, Any]:
     """
     Add optimization flags to middleware metadata.
 

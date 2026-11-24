@@ -18,10 +18,10 @@ import contextlib
 import contextvars
 import io
 from asyncio.events import _get_running_loop
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from functools import partial
-from inspect import isawaitable
-from typing import TYPE_CHECKING, Any
+from inspect import isawaitable, iscoroutinefunction, markcoroutinefunction
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote_to_bytes
 
 import msgspec
@@ -42,16 +42,9 @@ from ..responses import StreamingResponse
 from ..serialization import _BOLT_RESPONSE_TYPES, django_cookie_tuples, serialize_bolt_response
 
 try:
-    from asgiref.sync import (
-        SyncToAsync,
-        ThreadSensitiveContext,
-        async_to_sync,
-        iscoroutinefunction,
-        markcoroutinefunction,
-        sync_to_async,
-    )
+    from asgiref.sync import SyncToAsync, ThreadSensitiveContext, async_to_sync, sync_to_async
     from django.core.exceptions import BadRequest, SuspiciousOperation
-    from django.http import HttpRequest, HttpResponse, QueryDict
+    from django.http import HttpRequest, HttpResponse, QueryDict, StreamingHttpResponse
     from django.http.multipartparser import MultiPartParserError
     from django.template.response import SimpleTemplateResponse
     from django.utils.deprecation import MiddlewareMixin
@@ -79,7 +72,7 @@ try:
         # Django maps these two errors to a 400 response. Bolt maps SuspiciousOperation to 400.
         def _set_content_type_params(self, meta):
             try:
-                super()._set_content_type_params(meta)
+                super()._set_content_type_params(meta)  # ty: ignore[missing-attribute] - private Django method, not in django-stubs
             except BadRequest as exc:
                 raise SuspiciousOperation(str(exc)) from exc
 
@@ -105,28 +98,29 @@ try:
         def _set_files(self, files):
             self._files = files
 
-        POST = property(_get_post, _set_post)
-        FILES = property(_get_files, _set_files)
+        # Lazy, as in WSGIRequest. django-stubs declare plain attributes.
+        POST = property(_get_post, _set_post)  # ty: ignore[invalid-assignment]
+        FILES = property(_get_files, _set_files)  # ty: ignore[invalid-assignment]
 
     DJANGO_AVAILABLE = True
 except ImportError:
     DJANGO_AVAILABLE = False
-    _BoltHttpRequest = None
-    async_to_sync = None
-    ThreadSensitiveContext = None
-    SyncToAsync = None
-    HttpRequest = None
-    repercent_broken_unicode = None
-    HttpResponse = None
-    SimpleTemplateResponse = None
-    QueryDict = None
-    import_string = None
-    MiddlewareMixin = None
-    sync_to_async = None
-    iscoroutinefunction = None
-    markcoroutinefunction = None
-    LazyObject = None
-    empty = None
+    # Django is a dependency: the checker reads the names above.
+    if not TYPE_CHECKING:
+        _BoltHttpRequest = None
+        async_to_sync = None
+        ThreadSensitiveContext = None
+        SyncToAsync = None
+        HttpRequest = None
+        repercent_broken_unicode = None
+        HttpResponse = None
+        SimpleTemplateResponse = None
+        QueryDict = None
+        import_string = None
+        MiddlewareMixin = None
+        sync_to_async = None
+        LazyObject = None
+        empty = None
 
 # Lazy singleton for empty QueryDict - avoids requiring Django settings at import time
 _EMPTY_QUERYDICT = None
@@ -143,6 +137,9 @@ def _get_empty_querydict():
 if TYPE_CHECKING:
     from ..request import Request
     from ..responses import Response
+
+    # The rest of the chain. It is an async function: a lane drives its coroutine.
+    type _ChainCall = Callable[[Request], Coroutine[Any, Any, Response | MiddlewareResponse]]
 
 
 # Context variable to hold per-request state for the get_response bridge
@@ -182,7 +179,7 @@ _STANDARD_REQUEST_ATTRS = frozenset((
 ))
 
 
-async def _run_request_affine(call: Callable, request: Request) -> Response:
+async def _run_request_affine(call: Callable, request: Request) -> Response | MiddlewareResponse:
     """Run ``call`` with one request-owned thread for its sync work."""
     # This is the boundary of Django's ASGI handler (ThreadSensitiveContext).
     # The request takes a Rust lane at its first sync call (see lane.rs).
@@ -191,7 +188,8 @@ async def _run_request_affine(call: Callable, request: Request) -> Response:
         return await call(request)
     context = ThreadSensitiveContext()
     lane = RequestLane()
-    SyncToAsync.context_to_thread_executor[context] = lane
+    # asgiref only calls submit() of the executor, which the lane has.
+    SyncToAsync.context_to_thread_executor[context] = lane  # ty: ignore[invalid-assignment]
     token = SyncToAsync.thread_sensitive_context.set(context)
     try:
         return await call(request)
@@ -254,6 +252,9 @@ class DjangoMiddleware:
         "_lane_hooks",  # The same for the lane instance
     )
 
+    # Set by _create_middleware_instance, before the first request.
+    get_response: _ChainCall
+
     def __init__(self, middleware_class_or_get_response: type | str | Callable, **init_kwargs: Any):
         """
         Initialize the Django middleware wrapper.
@@ -289,7 +290,7 @@ class DjangoMiddleware:
         _check_capabilities(self.middleware_class)
 
         self.init_kwargs = init_kwargs
-        self.get_response = None
+        self.get_response = None  # ty: ignore[invalid-assignment] - not built yet
         self._middleware_instance = None
         self._middleware_is_async = None
         self._sync_call_override = False
@@ -297,7 +298,7 @@ class DjangoMiddleware:
         self._hooks = None
         self._lane_hooks = None
 
-    def _create_middleware_instance(self, get_response: Callable) -> None:
+    def _create_middleware_instance(self, get_response: _ChainCall) -> None:
         """
         Create the wrapped Django middleware instance.
 
@@ -362,7 +363,7 @@ class DjangoMiddleware:
             # function, which calls this bridge on the loop and awaits the coroutine.
             get_response_async = get_response_bridge
 
-            def get_response_bridge(django_request: HttpRequest) -> HttpResponse:
+            def get_response_bridge(django_request: HttpRequest) -> HttpResponse | Awaitable[HttpResponse]:
                 if _get_running_loop() is None:
                     return async_to_sync(get_response_async)(django_request)
                 return get_response_async(django_request)
@@ -444,11 +445,11 @@ class DjangoMiddleware:
             and getattr(middleware_class, "__acall__", MiddlewareMixin.__acall__) is MiddlewareMixin.__acall__
         )
 
-    async def __call__(self, request: Request) -> Response:
+    async def __call__(self, request: Request) -> Response | MiddlewareResponse:
         """Run the Django middleware in one request-owned sync context."""
         return await _run_request_affine(self._call, request)
 
-    async def _call(self, request: Request) -> Response:
+    async def _call(self, request: Request) -> Response | MiddlewareResponse:
         """
         Process request through the Django middleware.
 
@@ -488,7 +489,8 @@ class DjangoMiddleware:
 
         try:
             if in_lane_mode():
-                django_response = self._lane_instance(django_request)
+                # Lane mode runs only a middleware that supports it, which built the lane instance.
+                django_response = self._lane_instance(django_request)  # ty: ignore[not-callable]
             elif self._sync_call_override:
                 # The bound method has no coroutine mark, where the instance has one.
                 django_response = await sync_to_async(self._middleware_instance.__call__, thread_sensitive=True)(
@@ -727,6 +729,9 @@ class DjangoMiddlewareStack:
         "_ordered_hook_middleware",  # Hook middleware in declared order
     )
 
+    # Set by _create_middleware_instance, before the first request.
+    get_response: _ChainCall
+
     def __init__(self, middleware_classes: list):
         """
         Initialize the Django middleware stack.
@@ -749,7 +754,7 @@ class DjangoMiddlewareStack:
         for middleware in middleware_classes:
             _check_capabilities(middleware)
         self.middleware_classes = middleware_classes
-        self.get_response = None
+        self.get_response = None  # ty: ignore[invalid-assignment] - not built yet
         self._django_hook_middleware = []  # Django built-in: direct calls
         self._thirdparty_hook_middleware = []  # Third-party: sync_to_async
         self._call_middleware_chain = None  # __call__-only: sync chain
@@ -804,9 +809,9 @@ class DjangoMiddlewareStack:
             return None
         if hook is raw or in_lane_mode():
             return raw(*args)
-        return await hook(*args)
+        return await hook(*args)  # ty: ignore[not-callable] - set whenever raw is set
 
-    def _create_middleware_instance(self, get_response: Callable) -> None:
+    def _create_middleware_instance(self, get_response: _ChainCall) -> None:
         """
         Create middleware instances, separating into three categories:
         1. Django built-in hook-based -> direct calls (fast, safe)
@@ -1057,7 +1062,7 @@ class DjangoMiddlewareStack:
 
                 async def call_layer(django_request, *, _call_layer=call_layer_async):
                     if in_lane_mode():
-                        return _call_layer.func(django_request)
+                        return _call_layer.func(django_request)  # ty: ignore[missing-union-attribute] - a SyncToAsync
                     return await _call_layer(django_request)
 
             chain = call_layer
@@ -1065,11 +1070,11 @@ class DjangoMiddlewareStack:
         self._hooks = _pack_hooks(tuple(exception_hooks), tuple(template_hooks))
         return chain
 
-    async def __call__(self, request: Request) -> Response:
+    async def __call__(self, request: Request) -> Response | MiddlewareResponse:
         """Run the complete Django stack in one request-owned sync context."""
         return await _run_request_affine(self._call, request)
 
-    async def _call(self, request: Request) -> Response:
+    async def _call(self, request: Request) -> Response | MiddlewareResponse:
         """
         Process request through the Django middleware stack.
 
@@ -1132,7 +1137,8 @@ class DjangoMiddlewareStack:
                 token = _request_context.set(ctx)
                 try:
                     if in_lane_mode():
-                        django_response = self._call_middleware_chain(django_request)
+                        # Built with _call_middleware_chain_async.
+                        django_response = self._call_middleware_chain(django_request)  # ty: ignore[not-callable]
                     else:
                         django_response = await self._call_middleware_chain_async(django_request)
                 finally:
@@ -1190,7 +1196,8 @@ def _to_django_request(request: Request) -> HttpRequest:
     # keeps all its values. Rust gives one value for a key that the handler does not declare as a list.
     query_string = django_request.META["QUERY_STRING"]
     if query_string:
-        django_request.GET = QueryDict(query_string, mutable=True)
+        # django-stubs type GET as immutable; Django's own handlers assign a QueryDict too.
+        django_request.GET = QueryDict(query_string, mutable=True)  # ty: ignore[invalid-assignment]
     else:
         django_request.GET = _get_empty_querydict()  # Reuse singleton (no allocation)
 
@@ -1351,7 +1358,7 @@ def _load_preserved_body(django_response: HttpResponse) -> tuple[int, Any] | Non
     return body_kind, body
 
 
-def _to_django_response(response: Response) -> HttpResponse:
+def _to_django_response(response: Any) -> HttpResponse:  # Any: the result of the inner chain
     """Convert Bolt Response/MiddlewareResponse to Django HttpResponse.
 
     Also handles Django HttpResponse pass-through (from decorators like @login_required).
@@ -1409,14 +1416,15 @@ def _to_django_response(response: Response) -> HttpResponse:
     return django_response
 
 
-async def _stream_django_response(django_response: HttpResponse):
+async def _stream_django_response(django_response: StreamingHttpResponse):
     """Yield the chunks of a Django streaming response, then close it."""
     try:
+        # is_async tells which kind of iterator streaming_content is.
         if django_response.is_async:
-            async for chunk in django_response.streaming_content:
+            async for chunk in django_response.streaming_content:  # ty: ignore[not-iterable]
                 yield chunk
         else:
-            for chunk in django_response.streaming_content:
+            for chunk in django_response.streaming_content:  # ty: ignore[not-iterable]
                 yield chunk
     finally:
         django_response.close()
@@ -1433,7 +1441,12 @@ def _to_bolt_response(django_response: HttpResponse) -> MiddlewareResponse:
 
     # A Django streaming response, such as FileResponse, has no ``content``.
     streaming = django_response.streaming
-    body = StreamingResponse(_stream_django_response(django_response)) if streaming else django_response.content
+    # A response with ``streaming`` set is a StreamingHttpResponse.
+    body = (
+        StreamingResponse(_stream_django_response(cast("StreamingHttpResponse", django_response)))
+        if streaming
+        else django_response.content
+    )
     # The headers hold the Content-Type. A response without one stays without one.
     response_type = "json" if django_response.has_header("Content-Type") else "empty"
     body_kind = _BODY_BYTES

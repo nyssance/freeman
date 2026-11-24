@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .reference import Reference
     from .response import OpenAPIResponse
 
-Responses = dict[str, Union["OpenAPIResponse", "Reference"]]
+Responses = Mapping[str, Union["OpenAPIResponse", "Reference"]]
 """A container for the expected responses of an operation. The container maps a
 HTTP response code to the expected response.
 

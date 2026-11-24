@@ -53,7 +53,7 @@ class OpenAPIHeader(BaseSchemaObject):
     deprecated: bool = False
     """Specifies that a parameter is deprecated and SHOULD be transitioned out of usage. Default value is ``False``."""
 
-    allow_empty_value: bool = None  # type: ignore[assignment]
+    allow_empty_value: bool | None = None
     """Sets the ability to pass empty-valued parameters. This is valid only for ``query`` parameters and allows sending
     a parameter with an empty value. Default value is ``False``. If
     `style <https://spec.openapis.org/oas/v3.1.0#parameterStyle>`__ is used, and if behavior is ``n/a`` (cannot be
@@ -85,7 +85,7 @@ class OpenAPIHeader(BaseSchemaObject):
     other styles, the default value is ``False``.
     """
 
-    allow_reserved: bool = None  # type: ignore[assignment]
+    allow_reserved: bool | None = None
     """Determines whether the parameter value SHOULD allow reserved characters, as defined by. :rfc:`3986`
     (``:/?#[]@!$&'()*+,;=``) to be included without percent-encoding.
 

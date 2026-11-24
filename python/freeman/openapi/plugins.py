@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 try:
     import yaml
 except ImportError:
-    yaml = None  # type: ignore
+    yaml = None
 
 __all__ = (
     "OpenAPIRenderPlugin",
@@ -137,7 +137,7 @@ class YamlRenderPlugin(OpenAPIRenderPlugin):
     """Render the OpenAPI schema as YAML."""
 
     def __init__(
-        self, *, path: str | list[str] = None, media_type: str = "text/yaml; charset=utf-8", **kwargs: Any
+        self, *, path: str | list[str] | None = None, media_type: str = "text/yaml; charset=utf-8", **kwargs: Any
     ) -> None:
         if path is None:
             path = ["/openapi.yaml", "/openapi.yml"]
@@ -285,7 +285,7 @@ class ScalarRenderPlugin(OpenAPIRenderPlugin):
         version: str = "latest",
         js_url: str | None = None,
         css_url: str | None = None,
-        path: str | list[str] = None,
+        path: str | list[str] | None = None,
         options: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:

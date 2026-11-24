@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .request import Request
+    from .typing import FieldDefinition, HandlerMetadata
 
 from .params import Depends as DependsMarker
 
@@ -47,8 +51,8 @@ def is_async_dependency(dep_fn: Callable) -> bool:
 
 
 def compile_dependency(
-    dep_fn: Callable, handler_meta: dict[Any, dict[str, Any]], compile_binder: Callable, http_method: str, path: str
-) -> dict[str, Any]:
+    dep_fn: Callable, handler_meta: dict[Any, HandlerMetadata], compile_binder: Callable, http_method: str, path: str
+) -> HandlerMetadata:
     """Compile the binding of ``dep_fn`` for one route, and of each dependency that it depends on.
 
     Call this at registration. The result goes to :func:`resolve_dependency`
@@ -61,7 +65,7 @@ def compile_dependency(
 
 
 def _compile_dep_arg_plan(
-    dep_fn: Callable, dep_meta: dict[str, Any], handler_meta: dict[Any, dict[str, Any]], compile_binder: Callable
+    dep_fn: Callable, dep_meta: HandlerMetadata, handler_meta: dict[Any, HandlerMetadata], compile_binder: Callable
 ) -> None:
     """Compile the per-field extraction plan for a dependency ONCE.
 
@@ -80,26 +84,27 @@ def _compile_dep_arg_plan(
         if src is None:
             raise TypeError(f"Dependency parameter {field.name!r} has an unsupported source {field.source!r}")
         if src == _SRC_DEPENDENCY:
-            if field.dependency is None:
+            if field.dependency is None or field.dependency.dependency is None:
                 raise ValueError(f"Depends for parameter {field.name} requires a callable")
             nested_markers.append((field.name, field.dependency, sync_form(field.dependency)))
         elif src == _SRC_FORM and getattr(field.extractor, "needs_files_map", False):
             src = _SRC_FORM_WITH_FILES
         plan.append((src, field.extractor, field.kind in _POSITIONAL_KINDS, field.name))
-    nested: list[tuple[str, DependsMarker, dict[str, Any]]] = []
-    nested_sync: list[tuple[str, DependsMarker, dict[str, Any]]] = []
+    nested: list[tuple[str, DependsMarker, HandlerMetadata]] = []
+    nested_sync: list[tuple[str, DependsMarker, HandlerMetadata]] = []
     http_method = dep_meta["http_method"]
     path = dep_meta["path"]
     for name, marker, sync_marker in nested_markers:
         nested.append((
             name,
             marker,
-            compile_dependency(marker.dependency, handler_meta, compile_binder, http_method, path),
+            # Checked above: each nested marker has a callable, and so has its sync form.
+            compile_dependency(marker.dependency, handler_meta, compile_binder, http_method, path),  # ty: ignore[invalid-argument-type]
         ))
         nested_sync.append((
             name,
             sync_marker,
-            compile_dependency(sync_marker.dependency, handler_meta, compile_binder, http_method, path),
+            compile_dependency(sync_marker.dependency, handler_meta, compile_binder, http_method, path),  # ty: ignore[invalid-argument-type]
         ))
     dep_meta["_is_async_dep"] = is_async_dependency(dep_fn)
     dep_meta["_is_request_only_dep"] = dep_meta.get("mode") == "request_only"
@@ -124,7 +129,7 @@ def sync_form(marker: DependsMarker) -> DependsMarker:
 
 def dependency_needs_event_loop(
     dep_fn: Callable,
-    handler_meta: dict[Callable, dict[str, Any]],
+    handler_meta: dict[Any, HandlerMetadata],
     compile_binder: Callable,
     http_method: str,
     path: str,
@@ -150,8 +155,8 @@ def dependency_needs_event_loop(
 
 
 def shared_dependencies(
-    entries: list[tuple[DependsMarker, dict[str, Any]]],
-) -> tuple[tuple[DependsMarker, dict[str, Any]], ...]:
+    entries: list[tuple[DependsMarker, HandlerMetadata]],
+) -> tuple[tuple[DependsMarker, HandlerMetadata], ...]:
     """The cached dependencies that two or more of ``entries`` need.
 
     Each entry is the (marker, binding) of a dependency that the injector
@@ -159,10 +164,10 @@ def shared_dependencies(
     them need must have its value in the cache before they start. If not, each
     one finds an empty cache and calls it. Call this at registration.
     """
-    owners: dict[Callable, int] = {}
-    shared: dict[Callable, tuple[DependsMarker, dict[str, Any]]] = {}
+    owners: dict[Callable | None, int] = {}
+    shared: dict[Callable | None, tuple[DependsMarker, HandlerMetadata]] = {}
 
-    def visit(owner: int, marker: DependsMarker, dep_meta: dict[str, Any]) -> None:
+    def visit(owner: int, marker: DependsMarker, dep_meta: HandlerMetadata) -> None:
         if marker.use_cache:
             first_owner = owners.setdefault(marker.dependency, owner)
             if first_owner != owner:
@@ -178,7 +183,9 @@ def shared_dependencies(
 _REQUEST_DATA_SOURCES = frozenset(("path", "query", "header", "cookie", "body", "form", "file"))
 
 
-def dependency_fields(meta: dict[str, Any], compile_dep_fn: Callable[[Callable], dict[str, Any]]) -> list[Any]:
+def dependency_fields(
+    meta: HandlerMetadata, compile_dep_fn: Callable[[Callable], HandlerMetadata]
+) -> list[FieldDefinition]:
     """The request data fields of each dependency in the tree of ``meta``.
 
     These are the path, query, header, cookie, body, form and file fields. The
@@ -232,12 +239,8 @@ def _refuse_generator(dep_fn: Callable) -> None:
 
 
 def _dep_meta(
-    dep_fn: Callable,
-    handler_meta: dict[Callable, dict[str, Any]],
-    compile_binder: Callable,
-    http_method: str,
-    path: str,
-) -> dict[str, Any]:
+    dep_fn: Callable, handler_meta: dict[Any, HandlerMetadata], compile_binder: Callable, http_method: str, path: str
+) -> HandlerMetadata:
     # The route sets the source of a field: a name in the path is a path
     # parameter on one route and a query parameter on another. The method
     # sets whether a body is allowed. So the binding is cached for each route.
@@ -252,8 +255,8 @@ def _dep_meta(
 async def resolve_dependency(
     dep_fn: Callable,
     depends_marker: DependsMarker,
-    dep_meta: dict[str, Any],
-    request: dict[str, Any],
+    dep_meta: HandlerMetadata,
+    request: Request,
     dep_cache: dict[Any, Any],
     params_map: dict[str, Any],
     query_map: dict[str, Any],
@@ -325,8 +328,8 @@ async def resolve_dependency(
 def resolve_dependency_sync(
     dep_fn: Callable,
     depends_marker: DependsMarker,
-    dep_meta: dict[str, Any],
-    request: dict[str, Any],
+    dep_meta: HandlerMetadata,
+    request: Request,
     dep_cache: dict[Any, Any],
     params_map: dict[str, Any],
     query_map: dict[str, Any],
@@ -378,7 +381,7 @@ def resolve_dependency_sync(
 
 def _bind_dependency_args(
     plan: list[tuple[int, Any, bool, str]],
-    request: dict[str, Any],
+    request: Request,
     dep_cache: dict[Any, Any],
     params_map: dict[str, Any],
     query_map: dict[str, Any],
@@ -406,7 +409,8 @@ def _bind_dependency_args(
         elif src == _SRC_COOKIE:
             dval = extractor(cookies_map)
         elif src == _SRC_DEPENDENCY:
-            dval = nested_values[name]
+            # A plan with a dependency comes with its values.
+            dval = nested_values[name]  # ty: ignore[not-subscriptable]
         elif src == _SRC_BODY:
             dval = decode_body_once(dep_cache, extractor, request["body"])
         elif src == _SRC_FORM:

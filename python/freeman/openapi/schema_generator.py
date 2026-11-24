@@ -11,13 +11,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, is_dataclass, replace
 from dataclasses import field as dataclass_field
 from types import UnionType
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Union, get_args, get_origin, is_typeddict
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict, Union, cast, get_args, get_origin, is_typeddict
 
 import msgspec
 from django.conf import settings as django_settings
 from pydantic import TypeAdapter
 from pydantic.fields import FieldInfo
-from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
+from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode, JsonSchemaValue
 from pydantic_core import core_schema
 
 from .._pydantic import ParamField, adapter_for, is_pydantic_model, param_fields
@@ -45,6 +45,7 @@ from .spec.schema import _DEFAULT_UNSET
 
 if TYPE_CHECKING:
     from ..api import BoltAPI
+    from ..typing import HandlerMetadata
     from .config import OpenAPIConfig
 
 __all__ = ("ComponentNameCollisionError", "OpenAPIStrictError", "SchemaGenerator")
@@ -215,7 +216,8 @@ class _BoltJsonSchema(GenerateJsonSchema):
         """
         factory = schema.get("default_factory")
         if factory in _COLLECTION_FACTORIES and not schema.get("default_factory_takes_data"):
-            return factory()
+            # A builtin collection type: it takes no argument.
+            return cast("Callable[[], Any]", factory)()
         return super().get_default_value(schema)
 
     def decimal_schema(self, schema: core_schema.DecimalSchema) -> JsonSchemaValue:
@@ -513,7 +515,7 @@ class SchemaGenerator:
         # and "validation" for a request body or "serialization" for a response.
         # Each use: the placeholder, the key and the mode of the schema, its
         # TypeAdapter, and a step that adjusts the schema of that use, or None.
-        self._pydantic_uses: list[tuple[_PydanticSchema, Any, str, TypeAdapter, Callable | None]] = []
+        self._pydantic_uses: list[tuple[_PydanticSchema, Any, JsonSchemaMode, TypeAdapter, Callable | None]] = []
         # strict mode bookkeeping (see OpenAPIStrictError)
         self._opaque_operations: list[str] = []
         self._qualified_components: list[str] = []
@@ -628,7 +630,7 @@ class SchemaGenerator:
             return None
         return inspect.cleandoc(own_doc)
 
-    def _enum_schema(self, enum_cls: type, *, register_component: bool) -> Schema | Reference:
+    def _enum_schema(self, enum_cls: type[enum.Enum], *, register_component: bool) -> Schema | Reference:
         """Promote a named enum to a component (``$ref``) or inline its values.
 
         Single source for the "promote in body/response contexts, inline in
@@ -789,6 +791,8 @@ class SchemaGenerator:
             )
 
             # Collect tags from operation
+            # _create_operation and _create_websocket_operation always set the operation id.
+            assert operation.operation_id is not None
             operation.operation_id = self._unique_operation_id(operation.operation_id)
             if operation.tags:
                 collected_tags.update(operation.tags)
@@ -819,6 +823,8 @@ class SchemaGenerator:
             )
 
             # Collect tags from operation
+            # _create_operation and _create_websocket_operation always set the operation id.
+            assert operation.operation_id is not None
             operation.operation_id = self._unique_operation_id(operation.operation_id)
             if operation.tags:
                 collected_tags.update(operation.tags)
@@ -828,9 +834,10 @@ class SchemaGenerator:
             paths[ws_path].get = operation
 
             # Add x-websocket extension to mark this as a WebSocket endpoint
-            if paths[ws_path].extensions is None:
-                paths[ws_path].extensions = {}
-            paths[ws_path].extensions["x-websocket"] = True
+            path_item = paths[ws_path]
+            if path_item.extensions is None:
+                path_item.extensions = {}
+            path_item.extensions["x-websocket"] = True
 
         openapi.paths = paths
 
@@ -886,7 +893,7 @@ class SchemaGenerator:
         return candidate
 
     def _create_operation(
-        self, handler: Any, method: str, path: str, meta: dict[str, Any], handler_id: int
+        self, handler: Any, method: str, path: str, meta: HandlerMetadata, handler_id: int
     ) -> Operation:
         """Create OpenAPI Operation for a route handler.
 
@@ -948,7 +955,7 @@ class SchemaGenerator:
 
         return operation
 
-    def _create_websocket_operation(self, handler: Any, path: str, meta: dict[str, Any], handler_id: int) -> Operation:
+    def _create_websocket_operation(self, handler: Any, path: str, meta: HandlerMetadata, handler_id: int) -> Operation:
         """Create OpenAPI Operation for a WebSocket handler.
 
         WebSocket connections start as HTTP GET requests with an Upgrade header.
@@ -1084,14 +1091,14 @@ class SchemaGenerator:
         return parameters
 
     @staticmethod
-    def _route_fields(meta: dict[str, Any]) -> list[Any]:
+    def _route_fields(meta: HandlerMetadata) -> list[Any]:
         """The fields of the handler, then the request data fields of its dependencies.
 
         The parameter extraction documents each location and name one time.
         """
         return [*meta.get("fields", []), *meta.get("dependency_fields", ())]
 
-    def _extract_parameters(self, meta: dict[str, Any], path: str) -> list[Parameter]:
+    def _extract_parameters(self, meta: HandlerMetadata, path: str) -> list[Parameter]:
         """Extract OpenAPI parameters from handler metadata.
 
         Args:
@@ -1194,7 +1201,7 @@ class SchemaGenerator:
 
         return parameters
 
-    def _extract_request_body(self, meta: dict[str, Any]) -> RequestBody | None:
+    def _extract_request_body(self, meta: HandlerMetadata) -> RequestBody | None:
         """Extract OpenAPI RequestBody from handler metadata.
 
         Args:
@@ -1351,7 +1358,7 @@ class SchemaGenerator:
         return content
 
     def _extract_responses(
-        self, meta: dict[str, Any], handler_id: int, *, method: str = "", path: str = ""
+        self, meta: HandlerMetadata, handler_id: int, *, method: str = "", path: str = ""
     ) -> dict[str, OpenAPIResponse]:
         """Extract OpenAPI responses from handler metadata.
 
@@ -1466,7 +1473,7 @@ class SchemaGenerator:
             existing = merged.get(media_type)
             if existing is None or existing.schema is None:
                 merged[media_type] = media
-            else:
+            elif media.schema is not None:
                 merged[media_type] = replace(existing, schema=Schema(any_of=[existing.schema, media.schema]))
         return merged or None
 
@@ -1485,6 +1492,8 @@ class SchemaGenerator:
         if formatter is None:
             schema = self._get_validation_error_schema()
             if text_detail:
+                # _get_validation_error_schema always sets the properties.
+                assert schema.properties is not None
                 errors = schema.properties["detail"]
                 text = Schema(type="string", description="Validation error message")
                 schema = replace(schema, properties={"detail": Schema(any_of=[errors, text])})
@@ -1823,7 +1832,7 @@ class SchemaGenerator:
     def _pydantic_schema(self, model: type) -> _PydanticSchema:
         """Note one use of a Pydantic model. ``_finalize_pydantic_schemas`` gives it its schema."""
         placeholder = _PydanticSchema()
-        mode = "validation" if self._input_schema else "serialization"
+        mode: JsonSchemaMode = "validation" if self._input_schema else "serialization"
         key = model
         try:
             hash(model)
@@ -1931,7 +1940,7 @@ class SchemaGenerator:
         self._component_schema[cls] = build_schema()
         return ref
 
-    def _enum_to_component_schema(self, enum_cls: type) -> Reference:
+    def _enum_to_component_schema(self, enum_cls: type[enum.Enum]) -> Reference:
         """Register a named enum class as a component schema and return its reference.
 
         Parallels ``_struct_to_component_schema``: named enums (``enum.Enum`` /
@@ -2185,10 +2194,17 @@ _TYPING_ORIGIN_HANDLERS: dict[Any, Callable[[SchemaGenerator, tuple[Any, ...], b
 # The type that msgspec reads for a bare collection: `set` is `set[Any]`, `tuple` is `tuple[Any, ...]`.
 _BARE_COLLECTIONS: dict[Any, Any] = {list: list[Any], set: set[Any], frozenset: frozenset[Any], tuple: tuple[Any, ...]}
 
+
+class _PrimitiveSchema(TypedDict, total=False):
+    type: str
+    format: str
+    content_encoding: str
+
+
 # Kwargs, not Schema instances: callers may mutate the returned Schema.
 # Parameters and form fields keep their raw Python type. Each entry matches the
 # schema of the msgspec.inspect node above, so a type documents the same everywhere.
-_PRIMITIVE_SCHEMAS: dict[Any, dict[str, str]] = {
+_PRIMITIVE_SCHEMAS: dict[Any, _PrimitiveSchema] = {
     str: {"type": "string"},
     int: {"type": "integer"},
     float: {"type": "number"},

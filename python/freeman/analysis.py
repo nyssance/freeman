@@ -19,7 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from .typing import REQUEST_PARAM_NAMES
+from .typing import REQUEST_PARAM_NAMES, HandlerMetadata
 
 __all__ = [
     "DependencyNeeds",
@@ -540,7 +540,7 @@ def _find_definition(tree: ast.AST, name: str) -> ast.FunctionDef | ast.AsyncFun
     )
 
 
-def _dep_request_param_names(dep_meta: dict[str, Any]) -> set[str]:
+def _dep_request_param_names(dep_meta: HandlerMetadata) -> set[str]:
     """Return the set of parameter names that receive the raw request object."""
     # compile_binder always sets mode, sig and fields.
     if dep_meta["mode"] == "request_only":
@@ -549,7 +549,7 @@ def _dep_request_param_names(dep_meta: dict[str, Any]) -> set[str]:
 
 
 def analyze_dependency_tree(
-    meta: dict[str, Any], compile_dep_fn: Callable[[Callable[..., Any]], dict[str, Any]]
+    meta: HandlerMetadata, compile_dep_fn: Callable[[Callable[..., Any]], HandlerMetadata]
 ) -> DependencyNeeds:
     """Recursively analyze a handler's Depends targets for request-component access.
 
@@ -577,8 +577,8 @@ def analyze_dependency_tree(
 
 
 def _walk_dep_tree(
-    meta: dict[str, Any],
-    compile_dep_fn: Callable[[Callable[..., Any]], dict[str, Any]],
+    meta: HandlerMetadata,
+    compile_dep_fn: Callable[[Callable[..., Any]], HandlerMetadata],
     acc: DependencyNeeds,
     visited: set[int],
 ) -> None:

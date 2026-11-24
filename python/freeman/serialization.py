@@ -18,7 +18,7 @@ from collections.abc import Generator as GeneratorABC
 from collections.abc import Iterable as IterableABC
 from collections.abc import Iterator as IteratorABC
 from functools import cache
-from typing import TYPE_CHECKING, Any, Literal, NoReturn, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Final, Literal, NoReturn, Union, get_args, get_origin
 
 import msgspec
 from django.db.models import QuerySet
@@ -71,9 +71,9 @@ ResponseMetaTuple = tuple[
 
 # Integer body-kind tags sent to Rust (avoids String alloc per response in parse_response_wire).
 # Must match the match arms in src/handler.rs parse_response_wire().
-_BODY_BYTES: int = 0
-_BODY_STREAM: int = 1
-_BODY_FILE: int = 2
+_BODY_BYTES: Final = 0
+_BODY_STREAM: Final = 1
+_BODY_FILE: Final = 2
 
 BodyKind = Literal[0, 1, 2]
 ResponseWireV1 = tuple[int, ResponseMetaTuple | int, BodyKind, bytes | StreamingResponse | str]
@@ -82,6 +82,8 @@ ResponseWireV1 = tuple[int, ResponseMetaTuple | int, BodyKind, bytes | Streaming
 # encoded JSON body (bytes) instead of a ResponseWireV1 tuple when the response
 # is (route default status, JSON meta). Rust's sync dispatch rebuilds the
 # envelope from RouteMetadata.default_status_code — see src/handler.rs.
+# A sync executor can also return a call that Rust runs on the ORM pool.
+type SyncResponseWire = ResponseWireV1 | bytes | Callable[..., Any]
 
 
 def _build_response_meta(
@@ -136,7 +138,7 @@ def _wire_file(status: int, meta: ResponseMetaTuple | int, path: str) -> Respons
 # Pre-computed response metadata for common cases.
 # Integer tags avoid per-response tuple parsing on the Rust side.
 # Must match STATIC_META_* constants in src/response_meta.rs.
-_RESPONSE_META_JSON: int = 0
+_RESPONSE_META_JSON: Final = 0
 _RESPONSE_META_PLAINTEXT: int = 1
 _RESPONSE_META_OCTETSTREAM: int = 2
 _RESPONSE_META_EMPTY: int = 3

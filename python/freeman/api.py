@@ -13,7 +13,7 @@ import re
 import threading
 from collections.abc import AsyncIterator, Callable, Collection, Sequence
 from contextlib import suppress
-from typing import Any, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Any, get_origin, get_type_hints
 
 # Django import - may fail if Django not configured
 try:
@@ -94,6 +94,7 @@ from .serialization import (
     _RESPONSE_META_EMPTY,
     _RESPONSE_META_JSON,
     ResponseWireV1,
+    SyncResponseWire,
     _extract_stream_item_type,
     _infer_wire_response_type,
     _wire_bytes,
@@ -110,6 +111,9 @@ from .views import APIView, _layer
 from .websocket import mark_websocket_handler
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .request import Request
 
 # The route takes its response type from the return annotation.
 _RESPONSE_MODEL_UNSET = object()
@@ -168,7 +172,7 @@ def _never_suspends(fn: Callable) -> bool:
     return not any(i.opname in _ASYNC_SUSPEND_OPNAMES for i in dis.get_instructions(code))
 
 
-def _sync_finisher(meta: dict[str, Any], defer: Callable) -> Callable[[Any], ResponseWireV1 | Callable]:
+def _sync_finisher(meta: HandlerMetadata, defer: Callable) -> Callable[[Any], SyncResponseWire]:
     """Serialize the result of a sync executor, or defer a QuerySet.
 
     A QuerySet must load on the ORM pool, and a sync executor cannot await.
@@ -184,7 +188,7 @@ def _sync_finisher(meta: dict[str, Any], defer: Callable) -> Callable[[Any], Res
     return finish
 
 
-def _fast_dict_type(meta: dict[str, Any]) -> type | tuple:
+def _fast_dict_type(meta: HandlerMetadata) -> type | tuple:
     """Return the type whose instances an executor encodes as a JSON object with no other check.
 
     This is ``dict``. A route with the bare response type ``list`` or ``None`` that
@@ -195,7 +199,7 @@ def _fast_dict_type(meta: dict[str, Any]) -> type | tuple:
     return () if meta.get("response_type") in (list, type(None)) and meta["validate_response"] else dict
 
 
-def _request_only_sync_executor(is_async: bool, meta: dict[str, Any], defer: Callable) -> Callable:
+def _request_only_sync_executor(is_async: bool, meta: HandlerMetadata, defer: Callable) -> Callable:
     """Build the sync executor of a handler whose only parameter is the request.
 
     The handler must not block, and an async handler must not suspend.
@@ -209,7 +213,7 @@ def _request_only_sync_executor(is_async: bool, meta: dict[str, Any], defer: Cal
     if meta["_has_response_validation"]:
         if is_async:
 
-            def execute(handler: Callable, request: dict[str, Any]) -> ResponseWireV1 | Callable:
+            def execute(handler: Callable, request: Request) -> SyncResponseWire:
                 coro = handler(request)
                 try:
                     coro.send(None)
@@ -221,14 +225,14 @@ def _request_only_sync_executor(is_async: bool, meta: dict[str, Any], defer: Cal
 
             return execute
 
-        def execute(handler: Callable, request: dict[str, Any]) -> ResponseWireV1 | Callable:
+        def execute(handler: Callable, request: Request) -> SyncResponseWire:
             return finish(handler(request))
 
         return execute
 
     if is_async:
 
-        def execute(handler: Callable, request: dict[str, Any]) -> ResponseWireV1 | Callable:
+        def execute(handler: Callable, request: Request) -> SyncResponseWire:
             coro = handler(request)
             try:
                 coro.send(None)
@@ -244,7 +248,7 @@ def _request_only_sync_executor(is_async: bool, meta: dict[str, Any], defer: Cal
 
         return execute
 
-    def execute(handler: Callable, request: dict[str, Any]) -> ResponseWireV1 | Callable:
+    def execute(handler: Callable, request: Request) -> SyncResponseWire:
         result = handler(request)
         if isinstance(result, fast_dict):
             return encode(result)
@@ -315,11 +319,11 @@ def _defer_async_websocket_injector(handler: Callable, injector: Callable) -> tu
     """
 
     @functools.wraps(handler)
-    async def handler_with_injector(websocket: Any, request: dict[str, Any]) -> Any:
+    async def handler_with_injector(websocket: Any, request: Request) -> Any:
         args, kwargs = await injector(request)
         return await handler(websocket, *args, **kwargs)
 
-    def pass_request(request: dict[str, Any]) -> tuple[tuple[Any, ...], dict[str, Any]]:
+    def pass_request(request: Request) -> tuple[tuple[Any, ...], dict[str, Any]]:
         return (request,), {}
 
     return handler_with_injector, pass_request
@@ -732,7 +736,8 @@ class BoltAPI:
         self._handlers: dict[int, Callable] = {}
         # OPTIMIZATION: Use handler_id (int) as key instead of callable
         # Integer hashing is O(1) with minimal overhead vs callable hashing
-        self._handler_meta: dict[int, HandlerMetadata] = {}
+        # Keyed by handler id, and a dependency binder by (callable, method, path).
+        self._handler_meta: dict[Any, HandlerMetadata] = {}
         self._handler_middleware: dict[int, dict[str, Any]] = {}  # Middleware metadata per handler
         self._next_handler_id = 0
         # Add the leading slash and remove the trailing slash.
@@ -1920,7 +1925,7 @@ class BoltAPI:
         argument injector of the route gets it one time, at registration.
         """
 
-        def _compile_dep(dep_fn: Callable) -> dict[str, Any]:
+        def _compile_dep(dep_fn: Callable) -> HandlerMetadata:
             key = (dep_fn, method, full_path)
             cached = self._handler_meta.get(key)
             if cached is not None:
@@ -1971,7 +1976,7 @@ class BoltAPI:
         # including the _sync_executor that enables Rust's sync-dispatch bypass.
         if has_rust_prebound:
 
-            def _get_args(request: dict[str, Any]) -> tuple[Any, Any]:
+            def _get_args(request: Request) -> tuple[Any, Any]:
                 st = request.state
                 pa = st.pop("_bolt_prebound_args", None)
                 if pa is not None:
@@ -2039,7 +2044,7 @@ class BoltAPI:
 
                 return serialize_response_sync(result, default_entry)
 
-            async def execute_multi(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+            async def execute_multi(handler: Callable, request: Request) -> ResponseWireV1:
                 # Rust sets both prebound keys or neither. It sets neither when it
                 # bails, and then the injector raises the proper error.
                 prebound_args = None
@@ -2113,7 +2118,7 @@ class BoltAPI:
             if not has_response_validation:
                 # Bind encoder method directly — skips the `if serializer is not None`
                 # check in _json.encode() on every call.
-                _encode = _json._ENCODER.encode
+                _encode: Callable[[Any], bytes] = _json._ENCODER.encode
                 _meta_json = _RESPONSE_META_JSON
 
                 # A list result goes to the encoder here, unless the response type
@@ -2139,7 +2144,7 @@ class BoltAPI:
                     # no await points. This bypasses the entire async bridge (~6-12μs).
                     if _is_no_params:
                         # Ultra-fast: no params, no validation, result goes directly to encoder.
-                        def execute_trivial_async_sync(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                        def execute_trivial_async_sync(handler: Callable, request: Request) -> SyncResponseWire:
                             coro = handler()
                             try:
                                 coro.send(None)
@@ -2156,7 +2161,7 @@ class BoltAPI:
 
                     else:
 
-                        def execute_trivial_async_sync(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                        def execute_trivial_async_sync(handler: Callable, request: Request) -> SyncResponseWire:
                             args, kwargs = _get_args(request)
                             coro = handler(*args, **kwargs)
                             try:
@@ -2176,7 +2181,7 @@ class BoltAPI:
 
                 if _is_no_params:
 
-                    async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                    async def execute_async_dict_fast(handler: Callable, request: Request) -> ResponseWireV1:
                         result = await handler()
                         if isinstance(result, _fast_type):
                             return (default_status, _meta_json, _BODY_BYTES, _encode(result))
@@ -2184,7 +2189,7 @@ class BoltAPI:
 
                 else:
 
-                    async def execute_async_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                    async def execute_async_dict_fast(handler: Callable, request: Request) -> ResponseWireV1:
                         args, kwargs = _get_args(request)
                         result = await handler(*args, **kwargs)
                         if isinstance(result, _fast_type):
@@ -2204,7 +2209,8 @@ class BoltAPI:
             # uniformly.
             _inline_spec = meta.get("_inline_response_validator")
             if _inline_spec is not None:
-                _encode = meta["_inline_encode"]
+                # compile_response_handlers sets the encoder with the inline validator.
+                _encode: Callable[[Any], bytes] = meta["_inline_encode"]  # ty: ignore[invalid-assignment]
                 _meta_json = _RESPONSE_META_JSON
                 _match_types = _inline_spec
 
@@ -2215,8 +2221,8 @@ class BoltAPI:
                     if _is_no_params:
 
                         def execute_trivial_async_sync_validated(
-                            handler: Callable, request: dict[str, Any]
-                        ) -> ResponseWireV1:
+                            handler: Callable, request: Request
+                        ) -> SyncResponseWire:
                             coro = handler()
                             try:
                                 coro.send(None)
@@ -2234,8 +2240,8 @@ class BoltAPI:
                     else:
 
                         def execute_trivial_async_sync_validated(
-                            handler: Callable, request: dict[str, Any]
-                        ) -> ResponseWireV1:
+                            handler: Callable, request: Request
+                        ) -> SyncResponseWire:
                             args, kwargs = _get_args(request)
                             coro = handler(*args, **kwargs)
                             try:
@@ -2255,9 +2261,7 @@ class BoltAPI:
 
                 if _is_no_params:
 
-                    async def execute_async_inline_validated(
-                        handler: Callable, request: dict[str, Any]
-                    ) -> ResponseWireV1:
+                    async def execute_async_inline_validated(handler: Callable, request: Request) -> ResponseWireV1:
                         result = await handler()
                         if isinstance(result, _match_types):
                             return (default_status, _meta_json, _BODY_BYTES, _encode(result))
@@ -2265,9 +2269,7 @@ class BoltAPI:
 
                 else:
 
-                    async def execute_async_inline_validated(
-                        handler: Callable, request: dict[str, Any]
-                    ) -> ResponseWireV1:
+                    async def execute_async_inline_validated(handler: Callable, request: Request) -> ResponseWireV1:
                         args, kwargs = _get_args(request)
                         result = await handler(*args, **kwargs)
                         if isinstance(result, _match_types):
@@ -2278,13 +2280,13 @@ class BoltAPI:
 
             if _is_no_params:
 
-                async def execute_async_no_prebound(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                async def execute_async_no_prebound(handler: Callable, request: Request) -> ResponseWireV1:
                     result = await handler()
                     return await serialize_response(result, meta)
 
             else:
 
-                async def execute_async_no_prebound(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                async def execute_async_no_prebound(handler: Callable, request: Request) -> ResponseWireV1:
                     args, kwargs = _get_args(request)
                     result = await handler(*args, **kwargs)
                     return await serialize_response(result, meta)
@@ -2300,7 +2302,7 @@ class BoltAPI:
             _is_no_params_sync = meta.get("handler_pattern") is HandlerPattern.NO_PARAMS  # pragma: no mutate
 
             if not has_response_validation:
-                _encode = _json._ENCODER.encode
+                _encode: Callable[[Any], bytes] = _json._ENCODER.encode
                 _meta_json = _RESPONSE_META_JSON
 
                 # A list result goes to the encoder here, unless the response type
@@ -2324,7 +2326,7 @@ class BoltAPI:
                 # Eliminates coroutine creation + into_future_with_locals overhead.
                 if _is_no_params_sync:
 
-                    def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                    def execute_sync_dict_fast_plain(handler: Callable, request: Request) -> SyncResponseWire:
                         result = handler()
                         if isinstance(result, _fast_type):
                             return _encode(result)
@@ -2332,7 +2334,7 @@ class BoltAPI:
 
                 else:
 
-                    def execute_sync_dict_fast_plain(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                    def execute_sync_dict_fast_plain(handler: Callable, request: Request) -> SyncResponseWire:
                         args, kwargs = _get_args(request)
                         result = handler(*args, **kwargs)
                         if isinstance(result, _fast_type):
@@ -2343,7 +2345,7 @@ class BoltAPI:
 
                 if _is_no_params_sync:
 
-                    async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                    async def execute_sync_dict_fast(handler: Callable, request: Request) -> ResponseWireV1:
                         result = handler()
                         if isinstance(result, _fast_type):
                             return (default_status, _meta_json, _BODY_BYTES, _encode(result))
@@ -2353,7 +2355,7 @@ class BoltAPI:
 
                 else:
 
-                    async def execute_sync_dict_fast(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+                    async def execute_sync_dict_fast(handler: Callable, request: Request) -> ResponseWireV1:
                         args, kwargs = _get_args(request)
                         result = handler(*args, **kwargs)
                         if isinstance(result, _fast_type):
@@ -2367,15 +2369,14 @@ class BoltAPI:
             # Sync-handler inline-encoding fast path (mirrors async branch above).
             _inline_spec = meta.get("_inline_response_validator")
             if _inline_spec is not None:
-                _encode = meta["_inline_encode"]
+                # compile_response_handlers sets the encoder with the inline validator.
+                _encode: Callable[[Any], bytes] = meta["_inline_encode"]  # ty: ignore[invalid-assignment]
                 _meta_json = _RESPONSE_META_JSON
                 _match_types = _inline_spec
 
                 if _is_no_params_sync:
 
-                    def execute_sync_inline_validated_plain(
-                        handler: Callable, request: dict[str, Any]
-                    ) -> ResponseWireV1:
+                    def execute_sync_inline_validated_plain(handler: Callable, request: Request) -> SyncResponseWire:
                         result = handler()
                         if isinstance(result, _match_types):
                             return _encode(result)
@@ -2383,9 +2384,7 @@ class BoltAPI:
 
                 else:
 
-                    def execute_sync_inline_validated_plain(
-                        handler: Callable, request: dict[str, Any]
-                    ) -> ResponseWireV1:
+                    def execute_sync_inline_validated_plain(handler: Callable, request: Request) -> SyncResponseWire:
                         args, kwargs = _get_args(request)
                         result = handler(*args, **kwargs)
                         if isinstance(result, _match_types):
@@ -2396,9 +2395,7 @@ class BoltAPI:
 
                 if _is_no_params_sync:
 
-                    async def execute_sync_inline_validated(
-                        handler: Callable, request: dict[str, Any]
-                    ) -> ResponseWireV1:
+                    async def execute_sync_inline_validated(handler: Callable, request: Request) -> ResponseWireV1:
                         result = handler()
                         if isinstance(result, _match_types):
                             return (default_status, _meta_json, _BODY_BYTES, _encode(result))
@@ -2408,9 +2405,7 @@ class BoltAPI:
 
                 else:
 
-                    async def execute_sync_inline_validated(
-                        handler: Callable, request: dict[str, Any]
-                    ) -> ResponseWireV1:
+                    async def execute_sync_inline_validated(handler: Callable, request: Request) -> ResponseWireV1:
                         args, kwargs = _get_args(request)
                         result = handler(*args, **kwargs)
                         if isinstance(result, _match_types):
@@ -2421,7 +2416,7 @@ class BoltAPI:
 
                 return execute_sync_inline_validated
 
-        async def execute(handler: Callable, request: dict[str, Any]) -> ResponseWireV1:
+        async def execute(handler: Callable, request: Request) -> ResponseWireV1:
             if is_request_only:
                 if is_async:
                     result = await handler(request)
@@ -2738,7 +2733,7 @@ class BoltAPI:
         return chain
 
     async def _execute_handler_as_middleware_response(
-        self, handler: Callable, request: dict[str, Any], meta: dict[str, Any]
+        self, handler: Callable, request: Request, meta: dict[str, Any]
     ) -> MiddlewareResponse:
         """Execute handler using middleware semantics and return MiddlewareResponse."""
         response_tuple = await meta["_handler_executor"](handler, request)
@@ -2839,7 +2834,7 @@ class BoltAPI:
         )
 
     async def _dispatch_with_middleware(
-        self, handler: Callable, request: dict[str, Any], api: BoltAPI, meta: dict[str, Any]
+        self, handler: Callable, request: Request, api: BoltAPI, meta: HandlerMetadata
     ) -> Response:
         """
         Execute global middleware + per-handler route executor.
@@ -2918,7 +2913,7 @@ class BoltAPI:
             return True
         return False
 
-    async def _dispatch(self, handler: Callable, request: dict[str, Any], handler_id: int = None) -> Response:
+    async def _dispatch(self, handler: Callable, request: Request, handler_id: int = None) -> Response:
         """
         Optimized async dispatch that calls the handler and returns response tuple.
 
@@ -2992,7 +2987,7 @@ class BoltAPI:
                     with suppress(Exception):  # pragma: no mutate
                         upload.close_sync()
 
-    def _dispatch_sync(self, handler: Callable, request: dict[str, Any], handler_id: int = None) -> Response:
+    def _dispatch_sync(self, handler: Callable, request: Request, handler_id: int = None) -> Response:
         """
         Synchronous dispatch for sync handlers without middleware/signals.
 
@@ -3057,7 +3052,7 @@ class BoltAPI:
                     with suppress(Exception):  # pragma: no mutate
                         upload.close_sync()
 
-    async def _serialize_on_orm_pool(self, result: QuerySet, meta: dict[str, Any], request: dict[str, Any]) -> Response:
+    async def _serialize_on_orm_pool(self, result: QuerySet, meta: dict[str, Any], request: Request) -> Response:
         """Load the rows of a QuerySet from a sync executor on the ORM pool, then serialize them.
 
         Rust calls this on the worker loop when a sync executor returns it. Errors

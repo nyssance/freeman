@@ -450,7 +450,7 @@ def _injector_no_params(request: Any) -> tuple[tuple[()], dict[str, Any]]:
 
 
 def compile_argument_injector(
-    meta: HandlerMetadata, handler_meta_dict: dict[int, HandlerMetadata], compile_binder_fn: Callable
+    meta: HandlerMetadata, handler_meta_dict: dict[Any, HandlerMetadata], compile_binder_fn: Callable
 ) -> Callable[[dict[str, Any]], tuple[list[Any], dict[str, Any]]]:
     """
     Compile a specialized argument injector function for a handler.

@@ -110,6 +110,58 @@ class Request(Protocol):
         """Support `request["args"]`"""
         ...
 
+    def get(self, key: str, /, default: Any = None) -> Any:
+        """Support `request.get("args")`"""
+        ...
+
+    @property
+    def raw_cookies(self) -> dict[str, str]:
+        """Request cookies as strings, before any typed conversion"""
+        ...
+
+    @property
+    def form(self) -> dict[str, Any]:
+        """Form fields"""
+        ...
+
+    @property
+    def files(self) -> dict[str, Any]:
+        """Uploaded files"""
+        ...
+
+    @property
+    def META(self) -> dict[str, Any]:
+        """The WSGI-style environ that Django reads"""
+        ...
+
+    @property
+    def route(self) -> str | None:
+        """Route pattern that matched the request"""
+        ...
+
+    @property
+    def trace_id(self) -> str | None:
+        """Trace id of the server span, when tracing is on"""
+        ...
+
+    @property
+    def span_id(self) -> str | None:
+        """Span id of the server span, when tracing is on"""
+        ...
+
+    @property
+    def _rust_answer(self) -> Any | None:
+        """The response that Rust gave before the handler, or None"""
+        ...
+
+    def get_full_path(self) -> str:
+        """Path with the query string"""
+        ...
+
+    def build_absolute_uri(self, location: str | None = None) -> str:
+        """Absolute URI of the request, or of ``location``"""
+        ...
+
 
 def is_request(request: Any):
     return isinstance(request, PyRequest)

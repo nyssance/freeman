@@ -37,7 +37,9 @@ from .params import Depends as DependsMarker
 from .params import Param
 
 if TYPE_CHECKING:
-    pass
+    from .api import BoltAPI
+    from .auth.session import SessionGuardCheck
+    from .auth.user_loader import UserLoaders
 
 __all__ = [
     "FieldDefinition",
@@ -110,14 +112,14 @@ class HandlerMetadata(TypedDict, total=False):
     """Whether schema-driven response validation/coercion runs at runtime"""
 
     # Multi-response (per-status-code) metadata
-    response_map: dict[int | type, Any]
+    response_map: dict[int | types.EllipsisType, Any]
     """Status code → response type mapping (when response_model is a dict).
     Keys are int status codes or ``...`` (Ellipsis) for catch-all."""
 
     is_multi_response: bool
     """Whether this handler uses per-status-code response schemas"""
 
-    _resolved_metas: dict[int | type, dict]
+    _resolved_metas: dict[int | types.EllipsisType, dict]
     """Pre-built per-status-code meta dicts for O(1) lookup at request time.
     Keys mirror ``response_map`` (int codes + optional ``...``)."""
 
@@ -222,6 +224,56 @@ class HandlerMetadata(TypedDict, total=False):
     response_class: type | None
     """Optional response class override for the route (e.g., EventSourceResponse)."""
 
+    # Route registration
+    path: str
+    """Route path pattern"""
+
+    is_websocket: bool
+    """Whether the route is a WebSocket route"""
+
+    view_func: Callable[..., Any] | None
+    """The handler that Django middleware gets as the view, or None for a route that is not routable"""
+
+    include_in_schema: bool | None
+    """OpenAPI visibility of the route; None defers to the API"""
+
+    openapi_deprecated: bool
+    """Whether OpenAPI marks the operation as deprecated"""
+
+    has_file_uploads: bool
+    """Whether the handler or one of its dependencies takes an uploaded file"""
+
+    dependency_fields: list[FieldDefinition]
+    """The request data fields of each dependency in the tree"""
+
+    can_lane_dispatch: bool
+    """Whether the request can run on a sync request lane"""
+
+    # Compiled at registration (private)
+    _original_fn: Callable[..., Any]
+    _handler_executor: Callable[..., Any]
+    _sync_executor: Callable[..., Any]
+    _stream_info: tuple[bool, Any | None]
+    _inline_response_validator: tuple[type, ...] | None
+    _inline_encode: Callable[[Any], bytes] | None
+    _global_middleware: tuple[Any, ...] | None
+    _router_middleware: list[Any]
+    _route_middleware: list[Any]
+    _has_route_python_middleware: bool
+    _middleware_api: BoltAPI | None
+    _session_guard_check: SessionGuardCheck | None
+    _user_loaders: tuple[UserLoaders | None, ...]
+    _has_auth_backends: bool
+    _revocation_handlers: tuple[tuple[Callable[..., Any], bool] | None, ...] | None
+    _takes_rust_answer: bool
+
+    # The binding of a dependency (see dependencies.py)
+    _is_async_dep: bool
+    _is_request_only_dep: bool
+    _dep_nested: list[tuple[str, Any, HandlerMetadata]]
+    _dep_nested_sync: list[tuple[str, Any, HandlerMetadata]]
+    _dep_arg_plan: list[tuple[int, Any, bool, str]]
+
 
 # Simple scalar types that map to query parameters
 SIMPLE_TYPES = (str, int, float, bool, bytes)
@@ -286,7 +338,7 @@ def unwrap_optional(annotation: Any) -> Any:
     # Handle both typing.Union (Optional[T]) and types.UnionType (T | None)
     if origin is Union or origin is types.UnionType:
         args = tuple(a for a in get_args(annotation) if a is not type(None))
-        return args[0] if len(args) == 1 else reduce(or_, args)  # type: ignore
+        return args[0] if len(args) == 1 else reduce(or_, args)
     return annotation
 
 
@@ -368,7 +420,8 @@ def split_param_annotation(annotation: Any, default: Any = None) -> tuple[Any, A
         or (isinstance(marker, Param) and marker.source == "file")
     ):
         return base, marker
-    constrained = Annotated[(inner, *constraints)]
+    # The metadata is known only at run time.
+    constrained = Annotated[(inner, *constraints)]  # ty: ignore[invalid-type-form]
     if is_optional(base):
         constrained = constrained | None
     # Check the constraints at registration. Else each request fails with a TypeError.
@@ -679,6 +732,8 @@ class FieldDefinition:
             embed = explicit_marker.embed
             param = explicit_marker  # Store for file constraints, etc.
         elif isinstance(explicit_marker, DependsMarker):
+            if explicit_marker.dependency is None:
+                raise ValueError(f"Depends for parameter {name} requires a callable")
             source = "dependency"
             dependency = explicit_marker
         else:

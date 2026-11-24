@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypeGuard, cast
 
 from .base import BaseSchemaObject
 
 
 # Simple inline utility function
-def is_non_string_sequence(value: Any) -> bool:
+def is_non_string_sequence(value: Any) -> TypeGuard[Sequence[Any]]:
     """Check if value is a sequence but not a string."""
     return isinstance(value, Sequence) and not isinstance(value, (str, bytes))
 
@@ -313,7 +313,8 @@ class Schema(BaseSchemaObject):
     specifications:
     """
 
-    type: OpenAPIType | Sequence[OpenAPIType] | None = None
+    # Plain strings are accepted too: an ``OpenAPIType`` member is a ``str``.
+    type: OpenAPIType | str | Sequence[OpenAPIType | str] | None = None
     """The value of this keyword MUST be either a string or an array.  If it is an array, elements of the array MUST be
     strings and MUST be unique.
 
@@ -489,7 +490,7 @@ class Schema(BaseSchemaObject):
     Omitting this keyword has the same behavior as an empty object.
     """
 
-    format: OpenAPIFormat | None = None
+    format: OpenAPIFormat | str | None = None
     """From OpenAPI:
 
     See `Data Type Formats <https://spec.openapis.org/oas/v3.1.0#dataTypeFormat>`_ for further details. While relying on

@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from .base import BaseSchemaObject
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from .header import OpenAPIHeader
     from .link import Link
     from .media_type import OpenAPIMediaType
@@ -26,7 +28,7 @@ class OpenAPIResponse(BaseSchemaObject):
     `CommonMark syntax <https://spec.commonmark.org/>`_ MAY be used for rich text representation.
     """
 
-    headers: dict[str, OpenAPIHeader | Reference] | None = None
+    headers: Mapping[str, OpenAPIHeader | Reference] | None = None
     """Maps a header name to its definition.
     `RFC7230 <https://tools.ietf.org/html/rfc7230#page-22>`_ states header names are case insensitive.
     If a response header is defined with the name ``Content-Type``, it SHALL be ignored.
