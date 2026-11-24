@@ -31,7 +31,7 @@ import msgspec
 
 # Import Param and Depends at top level for use in from_parameter method
 # These imports must be at module top to comply with PLC0415
-from ._pydantic import names_pydantic_model
+from ._pydantic import is_pydantic_model, names_pydantic_model
 from .datastructures import UploadFile
 from .params import Depends as DependsMarker
 from .params import Param
@@ -377,6 +377,7 @@ def split_param_annotation(annotation: Any, default: Any = None) -> tuple[Any, A
     if (
         not constraints
         or is_msgspec_struct(inner)
+        or is_pydantic_model(inner)
         or is_dataclass_type(inner)
         or is_upload_file_type(inner)
         or (isinstance(marker, Param) and marker.source == "file")

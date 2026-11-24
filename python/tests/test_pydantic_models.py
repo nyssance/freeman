@@ -2,15 +2,23 @@
 
 import datetime as dt
 import enum
+import re
+import typing
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 import pytest
+from asgiref.sync import sync_to_async
+from django.core.exceptions import EmptyResultSet
+from django.db import connection, models
+from django.db.models import Count
+from django.db.models.signals import post_init
 from openapi_spec_validator import validate
-from pydantic import BaseModel, Field, computed_field
+from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, computed_field, model_validator
 
 from freeman import BoltAPI
+from freeman._pydantic import compile_queryset_reader
 from freeman.exceptions import ResponseValidationError
 from freeman.openapi import OpenAPIConfig
 from freeman.openapi.schema_generator import SchemaGenerator
@@ -273,3 +281,255 @@ def test_plain_nullable_leaves_other_unions_alone():
     assert _plain_nullable(constrained) == {"type": ["string", "null"], "maxLength": 5, "title": "Name"}
     nested = {"properties": {"tags": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}}}
     assert _plain_nullable(nested)["properties"]["tags"] == {"type": ["array", "null"], "items": {"type": "string"}}
+
+
+class RecordingQuerySet(models.QuerySet):
+    """Record the iterable and the SQL of each load."""
+
+    loads: list[tuple[str, str]] = []
+
+    def _fetch_all(self):
+        if self._result_cache is None:
+            try:
+                sql = str(self.query)
+            except EmptyResultSet:
+                sql = ""
+            RecordingQuerySet.loads.append((self._iterable_class.__name__, sql))
+        super()._fetch_all()
+
+
+class Listing(models.Model):
+    title = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    created_at = models.DateTimeField()
+    note = models.TextField(default="")
+    attachment = models.FileField(upload_to="listings/", blank=True)
+    owner_id = models.BigIntegerField(null=True)
+
+    objects = RecordingQuerySet.as_manager()
+
+    class Meta:
+        app_label = "freeman"
+
+    @property
+    def shout(self) -> str:
+        return self.title.upper()
+
+
+class Item(BaseModel):
+    id: int
+    title: str
+    price: Decimal
+    created_at: dt.datetime
+    owner_id: int | None
+
+    @computed_field
+    @property
+    def slug(self) -> str:
+        return self.title.lower().replace(" ", "-")
+
+    @model_validator(mode="after")
+    def checked(self):
+        # An after validator sees the model, so it does not stop the projection.
+        return self
+
+
+class AliasedItem(BaseModel):
+    """``heading`` reads the ``title`` attribute."""
+
+    id: int
+    heading: str = Field(validation_alias="title")
+
+
+class NameOnlyItem(BaseModel):
+    """The config reads only the name, so the alias plays no part."""
+
+    model_config = ConfigDict(validate_by_alias=False, validate_by_name=True)
+
+    title: str = Field(alias="label")
+
+
+class PropertyItem(BaseModel):
+    id: int
+    shout: str
+
+
+class FileItem(BaseModel):
+    """The attribute is a ``FieldFile``, while values() gives the name."""
+
+    id: int
+    attachment: Annotated[str, BeforeValidator(str)]
+
+
+class DefaultItem(BaseModel):
+    id: int
+    nickname: str = "anon"
+
+
+class BeforeItem(BaseModel):
+    id: int
+    title: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def raw(cls, value):
+        return value
+
+
+class BothItem(BaseModel):
+    """The config reads the alias and the name, so the projection cannot tell which one."""
+
+    model_config = ConfigDict(validate_by_name=True)
+
+    id: int
+    heading: str = Field(alias="title")
+
+
+class ChoicesItem(BaseModel):
+    id: int
+    heading: str = Field(validation_alias=AliasChoices("title", "note"))
+
+
+def _all():
+    return Listing.objects.order_by("id")
+
+
+# name -> (model, QuerySet, projected columns or None)
+CASES = {
+    "plain": (Item, _all, {"id", "title", "price", "created_at", "owner_id"}),
+    "alias": (AliasedItem, _all, {"id", "title"}),
+    "name-only": (NameOnlyItem, _all, {"title"}),
+    "sliced": (Item, lambda: _all()[1:3], {"id", "title", "price", "created_at", "owner_id"}),
+    "empty": (Item, lambda: _all().filter(id__lt=0), {"id", "title", "price", "created_at", "owner_id"}),
+    "property": (PropertyItem, _all, None),
+    "file": (FileItem, _all, None),
+    "default": (DefaultItem, _all, None),
+    "before": (BeforeItem, _all, None),
+    "both": (BothItem, _all, None),
+    "choices": (ChoicesItem, _all, None),
+    "only": (Item, lambda: _all().only("id", "title", "price", "created_at", "owner_id"), None),
+    "defer": (Item, lambda: _all().defer("note"), None),
+    "annotated": (Item, lambda: _all().annotate(n=Count("id")), None),
+    "distinct": (Item, lambda: _all().distinct(), None),
+    "union": (Item, lambda: Listing.objects.filter(id__lte=2).union(Listing.objects.filter(id__gt=2)).order_by("id"), None),
+    "values": (Item, lambda: _all().values(), None),
+}  # fmt: skip
+
+
+def _register(api, name, model, queryset):
+    @api.get(f"/qs/{name}")
+    def from_queryset() -> list[model]:
+        return queryset()
+
+    @api.get(f"/list/{name}")
+    async def from_list() -> list[model]:
+        return await sync_to_async(lambda: list(queryset()))()
+
+    @api.get(f"/aqs/{name}")
+    async def from_queryset_async() -> list[model]:
+        return queryset()
+
+
+@pytest.fixture
+def listings(django_db_blocker):
+    if Listing._meta.db_table not in connection.introspection.table_names():
+        with connection.schema_editor() as editor:
+            editor.create_model(Listing)
+    for index, title in enumerate(["Red Chair", "Blue Desk", "Green Lamp", "Tall Shelf"]):
+        Listing.objects.create(
+            title=title,
+            price=Decimal(f"{index + 1}9.90"),
+            created_at=NOW + dt.timedelta(days=index),
+            owner_id=index if index % 2 else None,
+        )
+    api = BoltAPI()
+    for name, (model, queryset, _) in CASES.items():
+        _register(api, name, model, queryset)
+    RecordingQuerySet.loads.clear()
+    with TestClient(api) as client:
+        yield client
+
+
+def _selected_columns(sql: str) -> set[str]:
+    return set(re.findall(r'"freeman_listing"\."(\w+)"', sql.split(" FROM ")[0]))
+
+
+def _load(client, path):
+    RecordingQuerySet.loads.clear()
+    response = client.get(path)
+    assert response.status_code == 200, response.text
+    return response.content, list(RecordingQuerySet.loads)
+
+
+ALL_COLUMNS = {"id", "title", "price", "created_at", "note", "attachment", "owner_id"}
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("prefix", ["qs", "aqs"])
+@pytest.mark.parametrize("name", list(CASES))
+def test_a_queryset_result_reads_only_the_columns_of_the_model_when_it_can(listings, name, prefix):
+    _, _, columns = CASES[name]
+    body, loads = _load(listings, f"/{prefix}/{name}")
+    instances, _ = _load(listings, f"/list/{name}")
+
+    # The JSON is the same as from a list of the instances.
+    assert body == instances
+    iterable, sql = loads[-1]
+    if columns is None:
+        assert iterable != "ValuesIterable" or name == "values"
+        if name not in ("values", "annotated", "only", "defer", "union"):
+            assert _selected_columns(sql) >= ALL_COLUMNS
+    else:
+        assert iterable == "ValuesIterable"
+        if name != "empty":
+            assert _selected_columns(sql) == columns, sql
+
+
+@pytest.mark.django_db(transaction=True)
+def test_the_projection_reads_the_rows_of_the_list(listings):
+    assert len(listings.get("/qs/plain").json()) == 4
+    assert listings.get("/qs/empty").json() == []
+    sliced = listings.get("/aqs/sliced").json()
+    assert [item["title"] for item in sliced] == ["Blue Desk", "Green Lamp"]
+    assert sliced[0] == {
+        "id": sliced[0]["id"], "title": "Blue Desk", "price": "29.90", "created_at": "2026-11-23T08:30:15Z",
+        "owner_id": sliced[0]["owner_id"], "slug": "blue-desk",
+    }  # fmt: skip
+    first = listings.get("/qs/alias").json()[0]
+    assert first == {"id": first["id"], "heading": "Red Chair"}
+    assert listings.get("/aqs/name-only").json()[0] == {"title": "Red Chair"}
+
+
+@pytest.mark.django_db(transaction=True)
+def test_a_post_init_receiver_keeps_the_instances(listings):
+    def touch(sender, instance, **kwargs):
+        instance.title = instance.title.upper()
+
+    post_init.connect(touch, sender=Listing)
+    try:
+        body, loads = _load(listings, "/qs/plain")
+        instances, _ = _load(listings, "/list/plain")
+    finally:
+        post_init.disconnect(touch, sender=Listing)
+    assert body == instances
+    assert b"RED CHAIR" in body
+    assert loads[-1][0] == "ModelIterable"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_an_evaluated_queryset_is_not_loaded_again(listings):
+    read, _ = compile_queryset_reader(list[Item])
+    queryset = _all()
+    rows = list(queryset)
+    RecordingQuerySet.loads.clear()
+    assert read(queryset) == rows
+    assert RecordingQuerySet.loads == []
+    assert type(read(_all())[0]) is dict
+
+
+def test_only_a_list_of_a_model_gets_a_reader():
+    assert compile_queryset_reader(Item) is None
+    assert compile_queryset_reader(list[int]) is None
+    assert compile_queryset_reader(typing.List) is None  # noqa: UP006
+    assert compile_queryset_reader(list[Item] | None) is None
+    assert compile_queryset_reader(list[Item]) is not None

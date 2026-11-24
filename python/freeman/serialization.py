@@ -30,6 +30,7 @@ from django.template.response import SimpleTemplateResponse, TemplateResponse
 
 from . import _json
 from ._kwargs import compile_response_coercer, compile_struct_row_readers
+from ._pydantic import compile_queryset_reader as compile_pydantic_queryset_reader
 from ._pydantic import compile_response_coercer as compile_pydantic_response_coercer
 from ._pydantic import names_pydantic_model
 from ._response_dump import compile_serializer_dumper
@@ -1006,6 +1007,11 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
             queryset_serializer_sync, queryset_serializer_async = _compile_serializer_values_evaluators(
                 _values_serializer_cls
             )
+    # A list[PydanticModel] reads a QuerySet with values() when its fields are columns.
+    if queryset_serializer_sync is None and (
+        pydantic_readers := compile_pydantic_queryset_reader(meta.get("response_type"))
+    ):
+        queryset_serializer_sync, queryset_serializer_async = pydantic_readers
     model_projector = _compile_model_projector(meta)
     # Without the inline path, the slow path gives the same response.
     inline_validator = _compile_inline_response_validator(meta)  # pragma: no mutate

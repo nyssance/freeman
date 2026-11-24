@@ -17,7 +17,7 @@ import msgspec
 from django.conf import settings as django_settings
 from pydantic import TypeAdapter
 
-from .._pydantic import adapter_for, is_pydantic_model
+from .._pydantic import ParamField, adapter_for, is_pydantic_model, param_fields
 from .._serializer_input import any_serializer
 from ..datastructures import UploadFile
 from ..pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, PaginationBase
@@ -419,7 +419,9 @@ class SchemaGenerator:
         self._input_components: dict[type, _InputComponent] = {}
         # Each use of a Pydantic model: the object at the use site, the model,
         # and "validation" for a request body or "serialization" for a response.
-        self._pydantic_uses: list[tuple[_PydanticSchema, type, str]] = []
+        # Each use: the placeholder, the key and the mode of the schema, its
+        # TypeAdapter, and a step that adjusts the schema of that use, or None.
+        self._pydantic_uses: list[tuple[_PydanticSchema, Any, str, TypeAdapter, Callable | None]] = []
         # strict mode bookkeeping (see OpenAPIStrictError)
         self._opaque_operations: list[str] = []
         self._qualified_components: list[str] = []
@@ -1128,6 +1130,22 @@ class SchemaGenerator:
             )
 
             # A query, header or cookie model is one parameter for each field.
+            if is_pydantic_model(unwrap_optional(annotation)):
+                model = unwrap_optional(annotation)
+                for model_field in param_fields(model):
+                    field_name = model_field.key
+                    if source == "header":
+                        field_name = field_name.lower().replace("_", "-")
+                    parameters.append(
+                        Parameter(
+                            name=field_name,
+                            param_in=param_in,
+                            required=model_field.required,
+                            schema=self._pydantic_param_schema(model, model_field, source != "query"),
+                            description=model_field.description or f"Parameter {field_name}",
+                        )
+                    )
+                continue
             if is_msgspec_struct(annotation):
                 struct_info = msgspec.inspect.type_info(annotation)
                 field_configs = self._field_configs(annotation)
@@ -1990,14 +2008,40 @@ class SchemaGenerator:
     def _pydantic_schema(self, model: type) -> _PydanticSchema:
         """Note one use of a Pydantic model. ``_finalize_pydantic_schemas`` gives it its schema."""
         placeholder = _PydanticSchema()
-        self._pydantic_uses.append((placeholder, model, "validation" if self._input_schema else "serialization"))
+        mode = "validation" if self._input_schema else "serialization"
+        self._pydantic_uses.append((placeholder, model, mode, adapter_for(model), None))
+        return placeholder
+
+    def _pydantic_param_schema(self, model: type, field: ParamField, single_value: bool) -> _PydanticSchema:
+        """Note the schema of one field of a Pydantic query, header or cookie model.
+
+        The schema is the one of the field type, with its constraints and its
+        default. The parameter holds the description. A header or a cookie gives one value, so
+        its array holds exactly one item, as for a struct field.
+        """
+        placeholder = _PydanticSchema()
+        adapter = adapter_for(field.annotation)
+        default = field.default
+        has_default = default is not inspect.Parameter.empty
+
+        def adjust(schema: dict[str, Any]) -> dict[str, Any]:
+            schema = dict(schema)
+            if has_default:
+                schema["default"] = adapter.dump_python(default, mode="json")
+            if single_value and schema.get("type") == "array":
+                schema["maxItems"] = 1
+                if not (has_default and _is_empty_sequence(default)):
+                    schema["minItems"] = 1
+            return schema
+
+        self._pydantic_uses.append((placeholder, (model, field.name), "validation", adapter, adjust))
         return placeholder
 
     def _finalize_pydantic_schemas(self) -> None:
         """Let Pydantic build the schema of each model that a route names, and add its components."""
         if not self._pydantic_uses:
             return
-        inputs = {(model, mode): (model, mode, adapter_for(model)) for _, model, mode in self._pydantic_uses}
+        inputs = {(key, mode): (key, mode, adapter) for _, key, mode, adapter, _ in self._pydantic_uses}
         schemas, definitions = TypeAdapter.json_schemas(
             list(inputs.values()), ref_template="#/components/schemas/{model}"
         )
@@ -2009,8 +2053,9 @@ class SchemaGenerator:
                     "Rename one of them."
                 )
             self.schemas[name] = schema
-        for placeholder, model, mode in self._pydantic_uses:
-            placeholder.resolved = _plain_nullable(schemas[model, mode])
+        for placeholder, key, mode, _, adjust in self._pydantic_uses:
+            schema = schemas[key, mode]
+            placeholder.resolved = _plain_nullable(schema if adjust is None else adjust(schema))
 
     def _register_component(self, cls: type, build_schema: Callable[[], Schema]) -> Reference:
         """Register ``cls`` as a component (by type identity) and return its shared Reference.

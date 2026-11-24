@@ -20,6 +20,7 @@ try:
 except ImportError:  # Django 5.2 has no django.utils.csp
     build_policy = None
 
+from .._pydantic import is_pydantic_model, param_fields
 from ..auth.backends import BaseAuthentication, get_default_authentication_classes, www_authenticate_challenge
 from ..auth.guards import GUARD_TYPES, get_default_permission_classes, guards_need_user
 from ..params import Param
@@ -232,7 +233,13 @@ def _extract_type_hints_from_field(field: Any, claims: dict[str, tuple[str, int]
             Rust converts a wire value one time, so one of them would get the wrong type.
     """
     unwrapped = unwrap_optional(field.annotation)
-    if is_msgspec_struct(unwrapped):
+    if is_pydantic_model(unwrapped):
+        # Pydantic converts the text itself, so it can report every error in one 422.
+        # The key still claims the type str, so a typed parameter with that key fails.
+        entries = [
+            (f"{field.name}.{model_field.name}", model_field.key, str) for model_field in param_fields(unwrapped)
+        ]
+    elif is_msgspec_struct(unwrapped):
         entries = [
             (f"{field.name}.{struct_field.name}", struct_field.encode_name, struct_field.type)
             for struct_field in msgspec.structs.fields(unwrapped)
@@ -270,7 +277,11 @@ def _collect_seq_field_names(field: Any, target: set[str]) -> None:
     then gives each of its values, not only the last one.
     """
     unwrapped = unwrap_optional(field.annotation)
-    if is_msgspec_struct(unwrapped):
+    if is_pydantic_model(unwrapped):
+        for model_field in param_fields(unwrapped):
+            if _is_sequence_annotation(model_field.annotation):
+                target.add(model_field.key)
+    elif is_msgspec_struct(unwrapped):
         # The struct extractor reads each field by its msgspec encoded name.
         for struct_field in msgspec.structs.fields(unwrapped):
             if _is_sequence_annotation(struct_field.type):

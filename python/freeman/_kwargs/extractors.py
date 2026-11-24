@@ -15,10 +15,12 @@ from typing import Annotated, Any, Literal, get_args, get_origin
 
 import msgspec
 from django.db.models import QuerySet
+from pydantic import ValidationError
 
 from .._field_marker import _FieldMarker
+from .._pydantic import adapter_for, is_pydantic_model, names_pydantic_model, param_fields
 from .._pydantic import build_body_extractor as build_pydantic_body_extractor
-from .._pydantic import names_pydantic_model
+from .._pydantic import request_errors as pydantic_errors
 from .._serializer_before import RAW_VALIDATED, before_plan, run_before_validators
 from .._serializer_input import ignore_read_only_input, read_only_input_extractor
 from ..concurrency import run_in_orm_executor
@@ -338,6 +340,8 @@ def create_query_extractor(
     """
     # Check if annotation is a Struct/Serializer type
     unwrapped = unwrap_optional(annotation)
+    if is_pydantic_model(unwrapped):
+        return _create_pydantic_param_extractor(unwrapped, default, "query", other_keys)
     if is_msgspec_struct(unwrapped):
         return _create_param_struct_extractor(unwrapped, default, "query parameter", other_keys)
 
@@ -383,6 +387,8 @@ def create_header_extractor(name: str, annotation: Any, default: Any, alias: str
     """
     # Check if annotation is a Struct/Serializer type
     unwrapped = unwrap_optional(annotation)
+    if is_pydantic_model(unwrapped):
+        return _create_pydantic_header_extractor(unwrapped, default)
     if is_msgspec_struct(unwrapped):
         return _create_header_struct_extractor(unwrapped, default)
 
@@ -432,6 +438,8 @@ def create_cookie_extractor(
     """
     # Check if annotation is a Struct/Serializer type
     unwrapped = unwrap_optional(annotation)
+    if is_pydantic_model(unwrapped):
+        return _create_pydantic_param_extractor(unwrapped, default, "cookie", other_keys)
     if is_msgspec_struct(unwrapped):
         return _create_param_struct_extractor(unwrapped, default, "cookie", other_keys)
 
@@ -917,6 +925,89 @@ def _create_header_struct_extractor(struct_type: type, default: Any) -> Callable
     return _or_struct_default(extract, default, tuple(header_name for header_name, _, _, _ in error_fields))
 
 
+def _header_name(key: str) -> str:
+    """The header that a key reads, as for a header parameter: ``x_count`` reads ``x-count``."""
+    return key.lower().replace("_", "-")
+
+
+def _pydantic_validator(model: type, source: str, locs: dict[str, str] | None = None) -> Callable:
+    """Validate the collected values with the model, and raise one 422 with every error.
+
+    The values are text, or lists of text for a sequence field. Pydantic in lax
+    mode converts them (``validate_strings`` takes no lists). ``locs`` maps a
+    key of the model to the name in the ``loc`` of its error, when they differ.
+    """
+    validate = adapter_for(model).validate_python
+
+    def run(values: dict[str, Any]) -> Any:
+        try:
+            return validate(values, strict=False)
+        except ValidationError as e:
+            errors = pydantic_errors(e, source)
+            if locs:
+                for error in errors:
+                    loc = error["loc"]
+                    if len(loc) > 1 and loc[1] in locs:
+                        loc[1] = locs[loc[1]]
+            raise RequestValidationError(errors=errors) from e
+
+    return run
+
+
+def _create_pydantic_param_extractor(model: type, default: Any, source: str, other_keys: frozenset[str]) -> Callable:
+    """Create an extractor that validates a Pydantic model from the query or the cookies.
+
+    The model gets the map of its source. A model that does not ignore extra
+    keys (``extra="forbid"`` or ``"allow"``) does not get the keys of the
+    other parameters of the handler. A sequence field gets a list: Rust gives
+    one for a repeated query key, and a cookie or a WebSocket query gives one item.
+    """
+    fields = param_fields(model)
+    keys = tuple(field.key for field in fields)
+    sequence_keys = tuple(field.key for field in fields if _is_sequence_field(field.annotation))
+    takes_extra = model.model_config.get("extra") in ("forbid", "allow")
+    dropped = other_keys - set(keys) if takes_extra else frozenset()
+    run = _pydantic_validator(model, source)
+
+    def extract(param_map: dict[str, Any]) -> Any:
+        values = param_map
+        if dropped and not dropped.isdisjoint(values):
+            values = {k: v for k, v in values.items() if k not in dropped}
+        for key in sequence_keys:
+            value = values.get(key)
+            if value is not None and not isinstance(value, list):
+                if values is param_map:
+                    values = dict(param_map)
+                values[key] = [value]
+        return run(values)
+
+    extract.needs_files_map = False  # type: ignore[attr-defined]
+    return _or_struct_default(extract, default, keys, needs_files=False)
+
+
+def _create_pydantic_header_extractor(model: type, default: Any) -> Callable:
+    """Create an extractor that validates a Pydantic model from the headers.
+
+    Each field reads the header of its key, as a header parameter does. The
+    model gets only these headers, so ``extra="forbid"`` never sees the other
+    headers of the request. A sequence field gets one item.
+    """
+    plan = tuple(
+        (_header_name(field.key), field.key, _is_sequence_field(field.annotation)) for field in param_fields(model)
+    )
+    run = _pydantic_validator(model, "header", {key: header for header, key, _ in plan})
+
+    def extract(headers_map: dict[str, str]) -> Any:
+        values = {}
+        for header, key, wrap in plan:
+            value = headers_map.get(header)
+            if value is not None:
+                values[key] = [value] if wrap else value
+        return run(values)
+
+    return _or_struct_default(extract, default, tuple(header for header, _, _ in plan))
+
+
 def create_file_extractor(name: str, annotation: Any, default: Any, alias: str | None = None) -> Callable:
     """
     Create a pre-compiled extractor for file uploads with UploadFile support.
@@ -1239,7 +1330,11 @@ def create_extractor_for_field(field: FieldDefinition, other_keys: frozenset[str
             extractor = create_cookie_extractor(name, annotation, default, alias, other_keys)
         # After the extractor: a type that cannot hold one item gives its own error first.
         model = unwrap_optional(annotation)
-        if is_msgspec_struct(model):
+        if is_pydantic_model(model):
+            for model_field in param_fields(model):
+                key = _header_name(model_field.key) if source == "header" else model_field.key
+                _refuse_many_item_default(source, key, model_field.annotation, model_field.default)
+        elif is_msgspec_struct(model):
             for model_field in msgspec.structs.fields(model):
                 _refuse_many_item_default(
                     source, model_field.encode_name, model_field.type, _schema_default(model_field)

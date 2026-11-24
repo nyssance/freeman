@@ -14,6 +14,7 @@ from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 import msgspec
 
+from .._pydantic import is_pydantic_model, param_fields
 from ..analysis import annotation_globals, resolve_introspection_target
 from ..dependencies import (
     compile_dependency,
@@ -107,14 +108,22 @@ def _keys_of_other_fields(field: FieldDefinition, fields: list[FieldDefinition])
     """
     sources = _STRUCT_KEY_SOURCES.get(field.source)
     annotation = unwrap_optional(field.annotation)
-    if sources is None or not is_msgspec_struct(annotation) or not annotation.__struct_config__.forbid_unknown_fields:
+    if sources is None:
+        return frozenset()
+    if is_pydantic_model(annotation):
+        # A Pydantic model that does not ignore extra keys would see them.
+        if annotation.model_config.get("extra") not in ("forbid", "allow"):
+            return frozenset()
+    elif not is_msgspec_struct(annotation) or not annotation.__struct_config__.forbid_unknown_fields:
         return frozenset()
     keys: set[str] = set()
     for other in fields:
         if other is field or other.source not in sources:
             continue
         other_type = unwrap_optional(other.annotation)
-        if is_msgspec_struct(other_type):
+        if is_pydantic_model(other_type):
+            keys.update(model_field.key for model_field in param_fields(other_type))
+        elif is_msgspec_struct(other_type):
             keys.update(struct_field.encode_name for struct_field in msgspec.structs.fields(other_type))
         else:
             keys.add(other.alias or other.name)
@@ -199,6 +208,9 @@ def _check_field_type(fn: Callable, field: FieldDefinition) -> None:
     inner = unwrap_optional(annotation)
     if field.source in _TEXT_SOURCES:
         if is_msgspec_struct(inner) or reads_text_value(annotation):
+            return
+        # A Pydantic model reads a query, a header or a cookie map. A form is not one of them yet.
+        if is_pydantic_model(inner) and field.source != "form":
             return
         hint = (
             "Bolt converts text to str, int, float, bool, Decimal, UUID, date, datetime, time, timedelta, "
