@@ -166,7 +166,7 @@ def test_problem_details_documents_the_422_that_the_client_gets():
 
     assert invalid.status_code == 422
     assert invalid.headers["content-type"] == "application/problem+json"
-    body = msgspec.convert(invalid.json(), ProblemDetails)
+    body = ProblemDetails.model_validate(invalid.json())
     assert body.status == 422
     assert [error.loc for error in body.errors] == [["body", "name"]]
     assert taken.status_code == 409
@@ -289,7 +289,7 @@ def test_parameter_route_documents_the_422_of_the_formatter():
     for response in (missing, wrong_type):
         assert response.status_code == 422
         assert response.headers["content-type"] == "application/problem+json"
-        msgspec.convert(response.json(), ProblemDetails)
+        ProblemDetails.model_validate(response.json())
 
 
 def test_parameter_route_has_no_422_without_error_responses():
@@ -332,7 +332,7 @@ def test_declared_422_and_validation_422_reach_the_client():
     msgspec.convert(spam.json(), Rejected)
     assert invalid.status_code == 422
     assert invalid.headers["content-type"] == "application/problem+json"
-    msgspec.convert(invalid.json(), ProblemDetails)
+    ProblemDetails.model_validate(invalid.json())
 
 
 def test_problem_details_errors_stay_a_list_of_field_errors():
@@ -350,7 +350,7 @@ def test_problem_details_errors_stay_a_list_of_field_errors():
     body = response.json()
     assert "errors" not in body
     assert body["poll"] == 7
-    msgspec.convert(body, ProblemDetails)
+    ProblemDetails.model_validate(body)
 
 
 @pytest.mark.parametrize(
@@ -389,7 +389,7 @@ def test_problem_details_detail_is_a_string(detail, extra, members):
         "instance": "/order",
         **members,
     }
-    msgspec.convert(response.json(), ProblemDetails)
+    ProblemDetails.model_validate(response.json())
 
 
 def test_declared_error_schema_documents_the_422():

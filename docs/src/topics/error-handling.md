@@ -465,15 +465,17 @@ The OpenAPI schema shows a 422 response for each route with a parameter or a req
 
 Use `error_schema` to declare the body of your own formatter:
 
+The type is a Pydantic model. It only documents the body: the formatter builds the body, for example as a dict.
+
 ```python
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.error_handlers import BoltError, error_schema
 from freeman.responses import Response
 
 
-class ErrorBody(msgspec.Struct):
+class ErrorBody(BaseModel):
     code: str
     message: str
     fields: list[dict] = []

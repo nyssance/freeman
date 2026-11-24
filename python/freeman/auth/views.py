@@ -6,10 +6,11 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-import msgspec
 from django.contrib.auth import aauthenticate
 from django.core.exceptions import ImproperlyConfigured
+from pydantic import BaseModel
 
+from freeman._pydantic import NO_FIELD_TITLES
 from freeman.exceptions import HTTPException
 from freeman.responses import JSON
 
@@ -18,8 +19,10 @@ from .guards import IsAuthenticated
 from .tokens import DEFAULT_REFRESH_TTL, TokenRotationError, create_token_pair, rotate_refresh_token, set_token_cookies
 
 
-class LoginCredentials(msgspec.Struct):
+class LoginCredentials(BaseModel):
     """Default request body accepted by :class:`JWTAuthViews`."""
+
+    model_config = NO_FIELD_TITLES
 
     username: str
     password: str

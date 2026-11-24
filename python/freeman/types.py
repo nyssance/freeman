@@ -164,9 +164,9 @@ class Request(Protocol):
     Example:
         ```python
         from freeman import BoltAPI, Request
-        import msgspec
+        from pydantic import BaseModel
 
-        class UserCreate(msgspec.Struct):
+        class UserCreate(BaseModel):
             name: str
             email: str
 

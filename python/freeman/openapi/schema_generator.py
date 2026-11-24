@@ -1236,7 +1236,7 @@ class SchemaGenerator:
         marker = body_field.param if body_field is not None else None
 
         if body_field is not None and body_field.embed:
-            return self._embedded_request_body(body_field)
+            return self._embedded_request_body([f for f in fields if f.source == "body" and f.embed])
 
         if not body_param or not body_type:
             # A dependency can read the JSON body.
@@ -1337,26 +1337,37 @@ class SchemaGenerator:
             required=body_required,
         )
 
-    def _embedded_request_body(self, field: Any) -> RequestBody:
-        """The request body of a ``Body(embed=True)`` parameter: a JSON object with the value at one key."""
-        marker = field.param
-        key = field.alias or field.name
-        # The value is input: a Pydantic model gets its validation schema.
-        self._input_schema = True
-        try:
-            schema = self._type_to_schema(field.annotation, register_component=True)
-        finally:
-            self._input_schema = False
-        has_default = field.default is not inspect.Parameter.empty
-        if has_default and field.default is not None:
-            schema = self._with_default(schema, field.default)
-        required = not has_default and not is_optional(field.annotation)
-        wrapper = Schema(type="object", properties={key: schema}, required=[key] if required else None)
-        example = {key: marker.example} if marker.example is not None else None
+    def _embedded_request_body(self, fields: list[Any]) -> RequestBody:
+        """The request body of the ``Body(embed=True)`` parameters: a JSON object with each value at its key.
+
+        Each parameter reads its own key of the one object, so the object has
+        a property for each. The body is required when one of the keys is.
+        """
+        properties: dict[str, Schema | Reference] = {}
+        required: list[str] = []
+        example: dict[str, Any] = {}
+        for field in fields:
+            key = field.alias or field.name
+            # The value is input: a Pydantic model gets its validation schema.
+            self._input_schema = True
+            try:
+                schema = self._type_to_schema(field.annotation, register_component=True)
+            finally:
+                self._input_schema = False
+            has_default = field.default is not inspect.Parameter.empty
+            if has_default and field.default is not None:
+                schema = self._with_default(schema, field.default)
+            properties[key] = schema
+            if not has_default and not is_optional(field.annotation):
+                required.append(key)
+            if field.param.example is not None:
+                example[key] = field.param.example
+        wrapper = Schema(type="object", properties=properties, required=required or None)
+        description = next((field.param.description for field in fields if field.param.description), None)
         return RequestBody(
-            description=marker.description or f"Request body for {field.name}",
-            content={"application/json": OpenAPIMediaType(schema=wrapper, example=example)},
-            required=required,
+            description=description or f"Request body for {', '.join(field.name for field in fields)}",
+            content={"application/json": OpenAPIMediaType(schema=wrapper, example=example or None)},
+            required=bool(required),
         )
 
     def _response_type_content(self, response_type: Any) -> dict[str, OpenAPIMediaType]:

@@ -1200,7 +1200,7 @@ def test_openapi_auth_errors_show_the_body_of_the_error_formatter():
     assert no_key.headers["www-authenticate"] == "ApiKey"
     for response in (no_key, not_admin):
         assert response.headers["content-type"] == "application/problem+json"
-        msgspec.convert(response.json(), ProblemDetails)
+        ProblemDetails.model_validate(response.json())
 
 
 def test_openapi_auth_errors_follow_include_error_responses_and_a_declared_response():

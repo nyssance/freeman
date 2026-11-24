@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
+import msgspec
 import pytest
 from asgiref.sync import sync_to_async
 from django.core.exceptions import EmptyResultSet
@@ -591,11 +592,40 @@ def test_the_openapi_body_of_an_embedded_model_is_an_object_with_its_key(embedde
     document = SchemaGenerator(embedded_api, OpenAPIConfig(title="Embedded", version="1")).generate().to_schema()
     validate(document)
     body = document["paths"]["/embedded"]["post"]["requestBody"]
+    # Each embedded parameter has its key in the one object.
     assert body["content"]["application/json"]["schema"] == {
         "type": "object",
-        "properties": {"post": {"$ref": "#/components/schemas/CreatePost"}},
-        "required": ["post"],
+        "properties": {
+            "post": {"$ref": "#/components/schemas/CreatePost"},
+            "owner": {"$ref": "#/components/schemas/Owner"},
+        },
+        "required": ["post", "owner"],
     }
+    assert body["description"] == "Request body for post, owner"
     optional = document["paths"]["/embedded/optional"]["post"]["requestBody"]
     assert optional["required"] is False
     assert "user" in optional["content"]["application/json"]["schema"]["properties"]
+
+
+def test_the_openapi_body_lists_each_embedded_struct_and_model():
+    class Tag(msgspec.Struct):
+        name: str
+
+    api = BoltAPI()
+
+    @api.post("/mixed")
+    async def mixed(
+        tag: Annotated[Tag, Body(embed=True, description="The tag")],
+        owner: Annotated[Owner | None, Body(embed=True)] = None,
+        count: Annotated[int, Body(embed=True, example=3)] = 1,
+    ):
+        return {}
+
+    document = SchemaGenerator(api, OpenAPIConfig(title="Embedded", version="1")).generate().to_schema()
+    validate(document)
+    body = document["paths"]["/mixed"]["post"]["requestBody"]
+    schema = body["content"]["application/json"]["schema"]
+    assert list(schema["properties"]) == ["tag", "owner", "count"]
+    assert schema["required"] == ["tag"]
+    assert body["description"] == "The tag"
+    assert body["content"]["application/json"]["example"] == {"count": 3}

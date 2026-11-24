@@ -20,7 +20,7 @@ from django.db.models import Model, QuerySet
 from django.db.models.query import ModelIterable
 from django.db.models.query_utils import DeferredAttribute
 from django.db.models.signals import post_init
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from pydantic_core import PydanticUndefined
 
 from .concurrency import run_in_orm_executor
@@ -64,6 +64,16 @@ def names_pydantic_model(annotation: Any) -> bool:
     if origin is Annotated:
         return names_pydantic_model(args[0])
     return any(names_pydantic_model(arg) for arg in args)
+
+
+def _drop_field_titles(schema: dict[str, Any]) -> None:
+    for field_schema in schema.get("properties", {}).values():
+        field_schema.pop("title", None)
+
+
+# The config of the models of the engine: their OpenAPI schemas have no title for
+# each field, as the msgspec structs that they replace had none.
+NO_FIELD_TITLES = ConfigDict(json_schema_extra=_drop_field_titles)
 
 
 class ParamField(NamedTuple):

@@ -14,8 +14,10 @@ from http import HTTPStatus
 from typing import Any
 
 import msgspec
+from pydantic import BaseModel
 
 from . import _json
+from ._pydantic import NO_FIELD_TITLES
 from .exceptions import (
     HTTPException,
     RequestValidationError,
@@ -443,8 +445,9 @@ def error_schema[F: Callable[..., Any]](schema: Any, *, media_type: str = "appli
     """Declare the error body of a formatter for the OpenAPI schema.
 
     Use it as a decorator on the formatter. ``schema`` is the type of the body,
-    for example a ``msgspec.Struct``. The generated error responses then show
-    this type and ``media_type``. Without this decorator, they show no body.
+    a Pydantic model. The generated error responses then show this type and
+    ``media_type``. Without this decorator, they show no body. The schema only
+    documents the body: the formatter still builds it, for example as a dict.
     """
 
     def decorate(formatter: F) -> F:
@@ -454,22 +457,27 @@ def error_schema[F: Callable[..., Any]](schema: Any, *, media_type: str = "appli
     return decorate
 
 
-# The docstrings of these structs are the descriptions in the OpenAPI schema.
-class ProblemFieldError(msgspec.Struct, kw_only=True):
+# These models only document the bodies: the formatters build dicts, which cost less for each error.
+# Their docstrings are the descriptions in the OpenAPI schema.
+class ProblemFieldError(BaseModel):
     """A field error: the location of the value, a message and the error type."""
+
+    model_config = NO_FIELD_TITLES
 
     loc: list[str | int]
     msg: str
     type: str
 
 
-class ProblemDetails(msgspec.Struct, kw_only=True):
+class ProblemDetails(BaseModel):
     """An error body in the RFC 9457 Problem Details format.
 
     The body has "errors" when the error has field errors. The keys of the
     "extra" of the error are more members of the body. So are the keys of a
     dict detail, because "detail" is a string.
     """
+
+    model_config = NO_FIELD_TITLES
 
     type: str
     title: str
@@ -525,20 +533,24 @@ def problem_details(error: BoltError, request: Any) -> Response:
     return Response(body, status_code=error.status, media_type="application/problem+json")
 
 
-class FieldError(msgspec.Struct, kw_only=True):
+class FieldError(BaseModel):
     """A field error: the path to the value, a message and the error type.
 
     Each part of ``loc`` is a string, also the index of a list item, so a
     client has one type for it.
     """
 
+    model_config = NO_FIELD_TITLES
+
     loc: list[str]
     msg: str
     type: str
 
 
-class CodeDetail(msgspec.Struct, kw_only=True):
+class CodeDetail(BaseModel):
     """An error body with a stable code, a message, and the field errors when the error has them."""
+
+    model_config = NO_FIELD_TITLES
 
     code: str
     detail: str
