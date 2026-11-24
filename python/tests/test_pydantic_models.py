@@ -257,7 +257,7 @@ def test_the_openapi_document_holds_the_schemas_of_the_models(api):
     assert create["requestBody"]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/CreatePost"}
     assert create["responses"]["200"]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/Post"}
     assert components["CreatePost"]["properties"]["title"] == {
-        "maxLength": 100, "minLength": 1, "title": "Title", "type": "string",
+        "maxLength": 100, "minLength": 1, "type": "string",
     }  # fmt: skip
     assert components["CreatePost"]["required"] == ["title", "author_id", "price"]
 

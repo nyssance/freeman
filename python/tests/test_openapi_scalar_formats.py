@@ -1,7 +1,7 @@
 """The OpenAPI schema gives each typed scalar its string format in every place it occurs.
 
-A form body, a form struct and the parameters take the raw Python type. A
-JSON body struct takes the ``msgspec.inspect`` node. Both paths must give
+A form body, a form model and the parameters take the raw Python type. A
+JSON body model takes the schema that Pydantic gives. Both paths must give
 the same schema, or code generators see ``object`` (``dynamic`` in Dart). (#337)
 """
 
@@ -17,6 +17,7 @@ from typing import Annotated
 import msgspec
 import pytest
 from openapi_spec_validator import validate
+from pydantic import BaseModel, Field, create_model
 
 from freeman import BoltAPI
 from freeman.openapi import OpenAPIConfig
@@ -36,7 +37,9 @@ SCALAR_IDS = [scalar.__name__ for scalar, _ in SCALARS]
 
 
 def _spec(api: BoltAPI) -> dict:
-    return SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate().to_schema()
+    spec = SchemaGenerator(api, OpenAPIConfig(title="Test API", version="1.0.0")).generate().to_schema()
+    validate(spec)
+    return spec
 
 
 def _parameter_schemas(spec: dict, path: str) -> dict[str, dict]:
@@ -91,7 +94,7 @@ def test_a_form_field_has_the_format_of_its_type(scalar, expected):
 def test_a_json_body_struct_field_has_the_format_of_its_type(scalar, expected):
     api = BoltAPI()
 
-    Item = msgspec.defstruct("Item", [("value", scalar)])
+    Item = create_model("Item", value=(scalar, ...))
 
     @api.post("/items")
     async def create_item(item: Item):
@@ -100,6 +103,7 @@ def test_a_json_body_struct_field_has_the_format_of_its_type(scalar, expected):
     assert _spec(api)["components"]["schemas"]["Item"]["properties"]["value"] == expected
 
 
+# msgspec.Struct: a Pydantic model cannot hold a bytearray or a memoryview.
 class Attachment(msgspec.Struct):
     data: bytes
     preview: bytearray
@@ -142,7 +146,7 @@ def test_bytes_are_base64_text_in_json_and_binary_in_a_file_part():
     assert _form_schema(spec, "/upload")["properties"] == {"raw": binary, "parts": {"type": "array", "items": binary}}
 
 
-class TokenParams(msgspec.Struct):
+class TokenParams(BaseModel):
     token: bytes
     tags: list[bytes] = []
     hint: bytes | None = None
@@ -240,11 +244,11 @@ def test_bytes_in_a_parameter_are_plain_text():
     }
 
 
-class TraceParams(msgspec.Struct):
+class TraceParams(BaseModel):
     token: str
     x_request_id: str = "none"
-    retries: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    custom: str = msgspec.field(default="std", name="X_Custom")
+    retries: Annotated[int, Field(ge=0)] | None = None
+    custom: str = Field(default="std", alias="X_Custom")
 
 
 def test_a_header_or_cookie_model_is_one_parameter_for_each_field():
@@ -253,15 +257,15 @@ def test_a_header_or_cookie_model_is_one_parameter_for_each_field():
 
     @api.get("/query")
     async def query_model(params: Annotated[TraceParams, Query()]):
-        return msgspec.to_builtins(params)
+        return params.model_dump(by_alias=True)
 
     @api.get("/header")
     async def header_model(params: Annotated[TraceParams, Header()]):
-        return msgspec.to_builtins(params)
+        return params.model_dump(by_alias=True)
 
     @api.get("/cookie")
     async def cookie_model(params: Annotated[TraceParams, Cookie()]):
-        return msgspec.to_builtins(params)
+        return params.model_dump(by_alias=True)
 
     api._register_openapi_routes()
     with TestClient(api) as client:
@@ -305,9 +309,9 @@ def test_a_header_or_cookie_model_is_one_parameter_for_each_field():
     ]
 
 
-class OptionalParams(msgspec.Struct):
+class OptionalParams(BaseModel):
     hint: str | None = None
-    limit: Annotated[int, msgspec.Meta(ge=1)] | None = None
+    limit: Annotated[int, Field(ge=1)] | None = None
     tags: list[str] | None = None
     mode: str | None = "fast"
 
@@ -356,9 +360,9 @@ class UserGender(enum.StrEnum):
     FEMALE = "female"
 
 
-class CompleteUserData(msgspec.Struct, gc=False):
+class CompleteUserData(BaseModel):
     birth_day: datetime.datetime
-    height: Annotated[float, msgspec.Meta(ge=130)]
+    height: Annotated[float, Field(ge=130)]
     gender: UserGender = UserGender.MALE
 
 

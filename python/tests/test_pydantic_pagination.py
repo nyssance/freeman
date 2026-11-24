@@ -314,13 +314,9 @@ def test_the_openapi_envelope_names_the_item_component():
     validate(document)
     schema = document["paths"]["/rows"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
     envelope = document["components"]["schemas"][schema["$ref"].rsplit("/", 1)[-1]]
-    assert envelope["properties"]["items"] == {
-        "type": "array",
-        "items": {"$ref": "#/components/schemas/Described"},
-        "title": "Items",
-    }
+    assert envelope["properties"]["items"] == {"type": "array", "items": {"$ref": "#/components/schemas/Described"}}
     assert envelope["required"] == ["items", "total", "has_next", "has_previous"]
     # An optional field that is None is not in the JSON, so the output schema has no default.
-    assert envelope["properties"]["limit"] == {"type": ["integer", "null"], "title": "Limit"}
+    assert envelope["properties"]["limit"] == {"type": ["integer", "null"]}
     assert "limit" not in envelope["required"]
     assert document["components"]["schemas"]["Described"]["properties"]["title"]["description"] == "The title"

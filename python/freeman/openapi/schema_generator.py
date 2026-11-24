@@ -16,8 +16,11 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, Union, get_args, get_
 import msgspec
 from django.conf import settings as django_settings
 from pydantic import TypeAdapter
+from pydantic.fields import FieldInfo
+from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
+from pydantic_core import core_schema
 
-from .._pydantic import ParamField, adapter_for, is_pydantic_model, param_fields
+from .._pydantic import ParamField, adapter_for, is_pydantic_model, names_pydantic_model, param_fields
 from .._serializer_input import any_serializer
 from ..datastructures import UploadFile
 from ..pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, PaginationBase
@@ -176,6 +179,50 @@ def _plain_nullable(node: Any) -> Any:
             node.update(other)
             node["type"] = [other["type"], "null"]
     return node
+
+
+_DECIMAL_BOUNDS = ("gt", "ge", "lt", "le", "multiple_of")
+
+
+class _BoltJsonSchema(GenerateJsonSchema):
+    """The Pydantic schemas of bytes and of a decimal, as the JSON on the wire has them.
+
+    Pydantic writes a decimal as a string, and a bytes value as UTF-8 text, or
+    as base64 text with ``ser_json_bytes="base64"``. Its schemas say
+    ``format: binary`` for the text, and ``number`` or ``string`` for a
+    decimal. Client generators read ``binary`` as a file, and the ``anyOf`` as
+    an untyped value. These are the schemas of a struct field.
+    """
+
+    def bytes_schema(self, schema: core_schema.BytesSchema) -> JsonSchemaValue:
+        json_schema = super().bytes_schema(schema)
+        del json_schema["format"]
+        if self._config.ser_json_bytes == "base64":
+            json_schema["contentEncoding"] = "base64"
+        return json_schema
+
+    def decimal_schema(self, schema: core_schema.DecimalSchema) -> JsonSchemaValue:
+        if any(schema.get(bound) is not None for bound in _DECIMAL_BOUNDS):
+            # A string has no bounds. Pydantic keeps them on the number arm.
+            return super().decimal_schema(schema)
+        str_schema = core_schema.str_schema()
+        pattern = self.get_decimal_pattern(schema)
+        if pattern is not None:
+            str_schema["pattern"] = pattern
+        return {**self.str_schema(str_schema), "format": "decimal"}
+
+
+def _drop_default_titles(schema: dict[str, Any]) -> dict[str, Any]:
+    """Remove the title that Pydantic makes from the key of each property, in place.
+
+    Pydantic gives each property a title such as ``"First Name"``. A struct
+    field has none, and some client generators name a type after it. A title
+    that the model sets with ``Field(title=...)`` stays.
+    """
+    for key, prop in schema.get("properties", {}).items():
+        if isinstance(prop, dict) and prop.get("title") == key.title().replace("_", " ").strip():
+            del prop["title"]
+    return schema
 
 
 class ComponentNameCollisionError(ValueError):
@@ -1831,6 +1878,9 @@ class SchemaGenerator:
         # unwraps to ``T`` below. (#235)
         if get_origin(type_annotation) is Annotated:
             args = get_args(type_annotation)
+            if names_pydantic_model(args[0]) and any(isinstance(m, FieldInfo) for m in args[1:]):
+                # Pydantic reads its own metadata, such as the discriminator of a union of models.
+                return self._pydantic_schema(type_annotation)
             if any(isinstance(m, msgspec.Meta) for m in args[1:]):
                 return self._type_to_schema(
                     msgspec.inspect.type_info(type_annotation), register_component=register_component
@@ -2033,7 +2083,13 @@ class SchemaGenerator:
         """Note one use of a Pydantic model. ``_finalize_pydantic_schemas`` gives it its schema."""
         placeholder = _PydanticSchema()
         mode = "validation" if self._input_schema else "serialization"
-        self._pydantic_uses.append((placeholder, model, mode, adapter_for(model), None))
+        key = model
+        try:
+            hash(model)
+        except TypeError:
+            # An annotation with unhashable metadata is its own use.
+            key = ("unhashable", id(model))
+        self._pydantic_uses.append((placeholder, key, mode, adapter_for(model), None))
         return placeholder
 
     def _pydantic_param_schema(
@@ -2047,8 +2103,14 @@ class SchemaGenerator:
         its array holds exactly one item, as for a struct field.
         """
         placeholder = _PydanticSchema()
-        adapter = adapter_for(field.annotation)
+        annotation = field.annotation
         default = field.default
+        if not describe:
+            # A query, header or cookie value cannot be null. ``required: false`` says that it is optional.
+            annotation = unwrap_optional(annotation)
+            if default is None:
+                default = inspect.Parameter.empty
+        adapter = adapter_for(annotation)
         has_default = default is not inspect.Parameter.empty
 
         def adjust(schema: dict[str, Any]) -> dict[str, Any]:
@@ -2063,7 +2125,8 @@ class SchemaGenerator:
                     schema["minItems"] = 1
             return schema
 
-        self._pydantic_uses.append((placeholder, (model, field.name), "validation", adapter, adjust))
+        # A form field may be null, so its key differs from that of the same field as a parameter.
+        self._pydantic_uses.append((placeholder, (model, field.name, describe), "validation", adapter, adjust))
         return placeholder
 
     def _finalize_pydantic_schemas(self) -> None:
@@ -2072,16 +2135,21 @@ class SchemaGenerator:
             return
         inputs = {(key, mode): (key, mode, adapter) for _, key, mode, adapter, _ in self._pydantic_uses}
         schemas, definitions = TypeAdapter.json_schemas(
-            list(inputs.values()), ref_template="#/components/schemas/{model}"
+            list(inputs.values()), ref_template="#/components/schemas/{model}", schema_generator=_BoltJsonSchema
         )
         for name, schema in definitions.get("$defs", {}).items():
-            _plain_nullable(schema)
+            title = schema.get("title")
+            if isinstance(title, str) and name != title and name.endswith(f"__{title}"):
+                # Two models share the class name, so Pydantic names each one ``module__qualname``.
+                self._qualified_components.append(name.replace("__", "."))
+            _plain_nullable(_drop_default_titles(schema))
             if name in self.schemas:
                 raise ValueError(
                     f"The OpenAPI component name {name!r} is the name of a Pydantic model and of another type. "
                     "Rename one of them."
                 )
-            self.schemas[name] = schema
+            # As a schema object, the component keeps a ``"default": None``. A plain dict drops each None value.
+            self.schemas[name] = _PydanticSchema(resolved=schema)
         for placeholder, key, mode, _, adjust in self._pydantic_uses:
             schema = schemas[key, mode]
             placeholder.resolved = _plain_nullable(schema if adjust is None else adjust(schema))

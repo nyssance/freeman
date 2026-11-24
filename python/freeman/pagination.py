@@ -158,8 +158,13 @@ def _unset(value: Any) -> bool:
     return value is None
 
 
-# An optional field of the envelope is not in the JSON when it is None.
-_Optional = PydanticField(None, exclude_if=_unset)
+def _no_default(schema: dict[str, Any]) -> None:
+    schema.pop("default", None)
+
+
+# An optional field of the envelope is not in the JSON when it is None. So the
+# JSON never holds the default, and the schema has none.
+_Optional = PydanticField(None, exclude_if=_unset, json_schema_extra=_no_default)
 
 
 class Page(BaseModel, Generic[T]):  # noqa: UP046 — PEP 695 params are unresolvable under PEP 563

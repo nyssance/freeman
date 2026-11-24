@@ -546,8 +546,9 @@ def test_each_field_of_a_model_is_one_openapi_parameter():
     assert page["required"] is False
     assert page["schema"] == {"type": "integer", "minimum": 1, "default": 1}
     assert parameters["query", "tags"]["schema"] == {"type": "array", "items": {"type": "string"}, "default": []}
-    # The null arm becomes a type list, as in the other Pydantic schemas.
-    assert parameters["query", "size"]["schema"] == {"type": ["integer", "null"], "default": None}
+    # A query value cannot be null. The parameter is not required, and its schema is that of the type.
+    assert parameters["query", "size"]["schema"] == {"type": "integer"}
+    assert parameters["query", "size"]["required"] is False
     assert parameters["query", "q"]["required"] is True
     # A header gives one value, so its array holds one item at most.
     assert parameters["header", "x-tags"]["schema"] == {

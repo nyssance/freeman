@@ -16,11 +16,12 @@ test-driven (RED first):
 
 from __future__ import annotations
 
-import types
 from typing import Generic, TypeVar
 
 import msgspec
 import pytest
+from openapi_spec_validator import validate
+from pydantic import BaseModel, create_model
 
 from freeman import BoltAPI, ModelViewSet
 from freeman.openapi import OpenAPIConfig
@@ -52,7 +53,13 @@ class StructPage(msgspec.Struct, Generic[T]):  # noqa: UP046
     results: list[T]
 
 
+# msgspec.Struct: the custom envelope ``DRFPage`` is a Serializer, which holds no Pydantic item.
 class ArticleListSchema(msgspec.Struct):
+    id: int
+    title: str
+
+
+class ArticleListModel(BaseModel):
     id: int
     title: str
 
@@ -62,7 +69,9 @@ def _get_schema(api: BoltAPI) -> dict:
     with TestClient(api) as client:
         response = client.get("/docs/openapi.json")
         assert response.status_code == 200
-        return response.json()
+        document = response.json()
+    validate(document)
+    return document
 
 
 def _config(**kwargs) -> OpenAPIConfig:
@@ -283,7 +292,7 @@ def test_paginated_route_documents_its_query_parameters(pagination_class, expect
 
     @api.get("/articles")
     @paginate(pagination_class)
-    async def list_articles(request, title: str | None = None) -> list[ArticleListSchema]:
+    async def list_articles(request, title: str | None = None) -> list[ArticleListModel]:
         return Article.objects.order_by("id")
 
     parameters = _get_schema(api)["paths"]["/articles"]["get"]["parameters"]
@@ -302,7 +311,7 @@ def test_paginated_route_keeps_a_query_parameter_of_the_handler():
 
     @api.get("/articles")
     @paginate(PageNumberPagination)
-    async def list_articles(request, page: int = 1) -> list[ArticleListSchema]:
+    async def list_articles(request, page: int = 1) -> list[ArticleListModel]:
         return Article.objects.order_by("id")
 
     parameters = _get_schema(api)["paths"]["/articles"]["get"]["parameters"]
@@ -316,7 +325,7 @@ def test_paginated_viewset_list_documents_its_query_parameters():
     @api.viewset("/articles")
     class ArticleViewSet(ModelViewSet):
         queryset = Article.objects.all()
-        serializer_class = ArticleListSchema
+        serializer_class = ArticleListModel
         pagination_class = LimitOffsetPagination
 
     schema = _get_schema(api)
@@ -441,7 +450,7 @@ def test_str_or_bytes_return_type_documents_the_media_type_that_the_route_sends(
     assert content[media_type]["schema"] == expected_schema
 
 
-class _Problem(msgspec.Struct):
+class _Problem(BaseModel):
     message: str
 
 
@@ -458,7 +467,7 @@ _PROBLEM_JSON = {"application/json": {"$ref": "#/components/schemas/_Problem"}}
         ({}, str | None, None, "200", "application/json", _TEXT | _NULL_JSON),
         ({}, bytes | None, b"\x00", "200", "application/octet-stream", _BINARY | _NULL_JSON),
         ({}, str | _Problem, "hello", "200", "text/plain", _TEXT | _PROBLEM_JSON),
-        ({}, str | _Problem, _Problem("m"), "200", "application/json", _TEXT | _PROBLEM_JSON),
+        ({}, str | _Problem, _Problem(message="m"), "200", "application/json", _TEXT | _PROBLEM_JSON),
         (
             {},
             str | _Problem | None,
@@ -469,7 +478,14 @@ _PROBLEM_JSON = {"application/json": {"$ref": "#/components/schemas/_Problem"}}
         ),
         ({"response_model": str | None}, None, "hello", "200", "text/plain", _TEXT | _NULL_JSON),
         ({"response_model": {200: str, 404: _Problem}}, None, "hello", "200", "text/plain", _TEXT),
-        ({"response_model": {200: str, 404: _Problem}}, None, (404, _Problem("m")), "404", "application/json", None),
+        (
+            {"response_model": {200: str, 404: _Problem}},
+            None,
+            (404, _Problem(message="m")),
+            "404",
+            "application/json",
+            None,
+        ),
         ({"response_model": {200: _Problem, 202: str}}, None, (202, "accepted"), "202", "text/plain", _TEXT),
         ({"response_model": {200: bytes, 404: _Problem}}, None, b"\x00", "200", "application/octet-stream", _BINARY),
         ({"response_model": {404: _Problem, ...: str}}, None, (201, "made"), "default", "text/plain", _TEXT),
@@ -571,10 +587,8 @@ def test_strict_mode_ignores_routes_excluded_from_schema():
 
 
 def test_strict_mode_fails_on_qualified_component_name_fallback():
-    first = types.new_class("Item", (msgspec.Struct,), {}, lambda ns: ns.update({"__annotations__": {"id": int}}))
-    first.__module__ = "app_one.schemas"
-    second = types.new_class("Item", (msgspec.Struct,), {}, lambda ns: ns.update({"__annotations__": {"name": str}}))
-    second.__module__ = "app_two.schemas"
+    first = create_model("Item", id=(int, ...), __module__="app_one.schemas")
+    second = create_model("Item", name=(str, ...), __module__="app_two.schemas")
 
     api = BoltAPI(openapi_config=_config(strict=True))
 

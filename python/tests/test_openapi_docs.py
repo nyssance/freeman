@@ -11,7 +11,6 @@ from typing import Annotated
 from urllib.parse import urljoin
 
 import jwt
-import msgspec
 import pytest
 import yaml
 from django.contrib.auth import alogin
@@ -19,6 +18,7 @@ from django.contrib.auth.models import User
 from django.test import override_settings
 from jsonschema import Draft202012Validator
 from openapi_spec_validator import validate
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Request
 from freeman.auth import (
@@ -47,7 +47,7 @@ from freeman.testing import TestClient
 from freeman.websocket.types import WebSocket
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     """Model for OpenAPI schema generation."""
 
     id: int
@@ -1204,7 +1204,7 @@ def test_openapi_auth_errors_show_the_body_of_the_error_formatter():
 
 
 def test_openapi_auth_errors_follow_include_error_responses_and_a_declared_response():
-    class Locked(msgspec.Struct):
+    class Locked(BaseModel):
         reason: str
 
     api_key = APIKeyAuthentication(api_keys={"test-key"})

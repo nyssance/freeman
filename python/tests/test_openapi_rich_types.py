@@ -14,6 +14,7 @@ from typing import Annotated, Any, NamedTuple, NewType, TypedDict
 
 import msgspec
 from openapi_spec_validator import validate
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.openapi import OpenAPIConfig
@@ -205,6 +206,7 @@ class Shipment(msgspec.Struct):
 
 
 def test_the_remaining_msgspec_types_of_a_json_body():
+    # The struct holds msgspec.Raw, which a Pydantic model cannot hold. It goes with the struct path.
     api = BoltAPI()
 
     @api.post("/shipments")
@@ -277,7 +279,7 @@ def test_a_dataclass_with_no_docstring_has_no_generated_description():
     class Plain:
         value: int
 
-    class Holder(msgspec.Struct):
+    class Holder(BaseModel):
         plain: Plain
 
     api = BoltAPI()

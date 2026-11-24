@@ -23,6 +23,7 @@ from typing import Annotated, Literal
 import msgspec
 import pytest
 from openapi_spec_validator import validate
+from pydantic import BaseModel, Field
 
 from freeman import BoltAPI
 from freeman.openapi import OpenAPIConfig
@@ -34,7 +35,7 @@ from freeman.websocket.types import WebSocket
 # --- Fixture types covering the surface area the generator handles ---
 
 
-class ItemBase(msgspec.Struct):
+class ItemBase(BaseModel):
     """Required field, optional+nullable field, defaulted field."""
 
     name: str
@@ -42,17 +43,17 @@ class ItemBase(msgspec.Struct):
     price_cents: int = 0
 
 
-class ItemMutationIn(msgspec.Struct):
+class ItemMutationIn(BaseModel):
     name: str
     description: str | None = None
 
 
-class Tag(msgspec.Struct):
+class Tag(BaseModel):
     label: str
 
 
-class ItemDetail(msgspec.Struct):
-    """Nested struct + list-of-struct + null self-ref + Literal."""
+class ItemDetail(BaseModel):
+    """Nested model + list-of-model + null self-ref + Literal."""
 
     base: ItemBase
     tags: list[Tag]
@@ -65,20 +66,22 @@ class Status(enum.StrEnum):
     INACTIVE = "inactive"
 
 
-class Filters(msgspec.Struct):
-    """Query-param struct with Annotated constraints + nullable optionals."""
+class Filters(BaseModel):
+    """Query-param model with Annotated constraints + nullable optionals."""
 
-    page: Annotated[int, msgspec.Meta(ge=1)] = 1
-    size: Annotated[int, msgspec.Meta(ge=1, le=100)] = 20
+    page: Annotated[int, Field(ge=1)] = 1
+    size: Annotated[int, Field(ge=1, le=100)] = 20
     status: Status | None = None
 
 
-class Cat(msgspec.Struct, tag=True, tag_field="_type"):
+class Cat(BaseModel):
+    type_: Literal["Cat"] = Field(alias="_type")
     name: str
     meows: bool = True
 
 
-class Dog(msgspec.Struct, tag=True, tag_field="_type"):
+class Dog(BaseModel):
+    type_: Literal["Dog"] = Field(alias="_type")
     name: str
     barks: bool = True
 
@@ -118,7 +121,7 @@ def _build_full_api() -> BoltAPI:
         await websocket.close()
 
     @api.get("/items/cat_or_dog")
-    async def union_items(request) -> Cat | Dog:
+    async def union_items(request) -> Annotated[Cat | Dog, Field(discriminator="type_")]:
         pass
 
     return api
@@ -201,7 +204,7 @@ def test_list_parameter_with_an_empty_default_validates(marker, param_in, empty)
     assert names["schema"].get("minItems") == (None if param_in == "query" else 1)
 
 
-class EmptyTagsModel(msgspec.Struct):
+class EmptyTagsModel(BaseModel):
     tags: tuple[str, ...] = ()
     flags: frozenset[str] = frozenset()
 
@@ -336,7 +339,7 @@ def test_one_value_list_parameter_accepts_a_default_of_one_item(marker, annotati
         assert client.get("/tagged").json() == ["a"]
 
 
-class TaggedModel(msgspec.Struct):
+class TaggedModel(BaseModel):
     tags: tuple[str, ...] = ("a", "b")
 
 
@@ -352,7 +355,7 @@ class TaggedFactorySerializer(Serializer):
 @pytest.mark.parametrize(
     "model",
     [TaggedModel, TaggedSerializer, TaggedFactorySerializer],
-    ids=["struct", "serializer-default", "serializer-default-factory"],
+    ids=["model", "serializer-default", "serializer-default-factory"],
 )
 def test_header_or_cookie_model_refuses_a_list_field_default_of_two_items(marker, model) -> None:
     """A list field of a header or cookie model gets at most one item, as a plain parameter does (#871)."""
@@ -366,8 +369,8 @@ def test_header_or_cookie_model_refuses_a_list_field_default_of_two_items(marker
         api.get("/tagged")(tagged)
 
 
-class TaggedFactoryModel(msgspec.Struct):
-    tags: list[str] = msgspec.field(default_factory=lambda: ["a", "b"])
+class TaggedFactoryModel(BaseModel):
+    tags: list[str] = Field(default_factory=lambda: ["a", "b"])
 
 
 @pytest.mark.parametrize("marker", [Header, Cookie])
@@ -404,6 +407,19 @@ def test_header_or_cookie_model_skips_a_field_that_the_schema_hides(marker) -> N
 
     handler.__annotations__ = {"model": Annotated[HiddenTagsSerializer, marker()]}
     api.get("/model")(handler)
+
+
+def test_a_discriminated_union_response_names_its_discriminator(full_spec: dict) -> None:
+    schema = full_spec["paths"]["/items/cat_or_dog"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert schema == {
+        "oneOf": [{"$ref": "#/components/schemas/Cat"}, {"$ref": "#/components/schemas/Dog"}],
+        "discriminator": {
+            "propertyName": "_type",
+            "mapping": {"Cat": "#/components/schemas/Cat", "Dog": "#/components/schemas/Dog"},
+        },
+    }
+    assert full_spec["components"]["schemas"]["Cat"]["properties"]["_type"] == {"type": "string", "const": "Cat"}
+    assert full_spec["components"]["schemas"]["Cat"]["required"] == ["_type", "name"]
 
 
 def test_query_free_spec_keeps_openapi_3_1(full_spec: dict) -> None:

@@ -1,5 +1,5 @@
 """
-Tests for OpenAPI schema generation with nested msgspec Structs.
+Tests for OpenAPI schema generation with nested Pydantic models.
 
 Regression test for: nested serializers showing as empty objects {} in OpenAPI
 schema instead of expanding their fields.
@@ -7,9 +7,10 @@ schema instead of expanding their fields.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-import msgspec
+from openapi_spec_validator import validate
+from pydantic import BaseModel, Field
 
 from freeman import BoltAPI
 from freeman.openapi import OpenAPIConfig
@@ -17,61 +18,63 @@ from freeman.params import Body
 from freeman.testing import TestClient
 
 
-class Address(msgspec.Struct):
+class Address(BaseModel):
     street: str
     city: str
 
 
-class Child(msgspec.Struct):
+class Child(BaseModel):
     id: str
     name: str
 
 
-class ChildWithAddress(msgspec.Struct):
+class ChildWithAddress(BaseModel):
     id: str
     name: str
     address: Address
 
 
-class Parent(msgspec.Struct):
+class Parent(BaseModel):
     id: str
     child: Child
 
 
-class ParentWithList(msgspec.Struct):
+class ParentWithList(BaseModel):
     id: str
     children: list[Child]
 
 
-class ParentWithOptional(msgspec.Struct):
+class ParentWithOptional(BaseModel):
     id: str
     maybe_child: Child | None = None
 
 
-class ParentDeepNested(msgspec.Struct):
+class ParentDeepNested(BaseModel):
     id: str
     child: ChildWithAddress
 
 
-class TreeNode(msgspec.Struct):
+class TreeNode(BaseModel):
     value: str
     parent: TreeNode | None = None
 
 
-class Cat(msgspec.Struct, tag="cat"):
+class Cat(BaseModel):
+    type: Literal["cat"]
     meow: str
 
 
-class Dog(msgspec.Struct, tag="dog"):
+class Dog(BaseModel):
+    type: Literal["dog"]
     bark: str
 
 
-class PetOwner(msgspec.Struct):
+class PetOwner(BaseModel):
     name: str
-    pet: Cat | Dog
+    pet: Annotated[Cat | Dog, Field(discriminator="type")]
 
 
-class SharedParent(msgspec.Struct):
+class SharedParent(BaseModel):
     first: Child
     second: Child
     others: list[Child]
@@ -83,7 +86,9 @@ def _get_schema(api: BoltAPI) -> dict:
     with TestClient(api) as client:
         response = client.get("/docs/openapi.json")
         assert response.status_code == 200
-        return response.json()
+        document = response.json()
+    validate(document)
+    return document
 
 
 def test_nested_struct_has_properties():
@@ -275,12 +280,12 @@ def test_multi_type_union_produces_one_of():
     assert "Dog" in schemas
     assert "bark" in schemas["Dog"]["properties"]
 
-    # Tag field is surfaced as enum=[<tag>] on each struct so generated
+    # The tag field is a required const on each model, so generated
     # clients can use it as a discriminator and Swagger UI renders it
     # in the example value.
-    assert schemas["Cat"]["properties"]["type"] == {"type": "string", "enum": ["cat"]}
+    assert schemas["Cat"]["properties"]["type"] == {"type": "string", "const": "cat"}
     assert "type" in schemas["Cat"]["required"]
-    assert schemas["Dog"]["properties"]["type"] == {"type": "string", "enum": ["dog"]}
+    assert schemas["Dog"]["properties"]["type"] == {"type": "string", "const": "dog"}
     assert "type" in schemas["Dog"]["required"]
 
     # Top-level component `title` lets Swagger UI render oneOf arms as
@@ -292,6 +297,10 @@ def test_multi_type_union_produces_one_of():
     assert "oneOf" in pet_field, f"Expected oneOf for tagged union, got: {pet_field}"
     refs = {item["$ref"] for item in pet_field["oneOf"]}
     assert refs == {"#/components/schemas/Cat", "#/components/schemas/Dog"}
+    assert pet_field["discriminator"] == {
+        "propertyName": "type",
+        "mapping": {"cat": "#/components/schemas/Cat", "dog": "#/components/schemas/Dog"},
+    }
 
 
 def test_shared_nested_struct_registered_once():
@@ -320,30 +329,23 @@ def test_shared_nested_struct_registered_once():
 
 # --- Union nullability ----------------------------------------------------
 # Regression: `_type_to_schema` used to strip `None` from msgspec UnionType
-# annotations, so `str | None` became `{"type": "string"}` instead of
-# `{"anyOf": [{"type": "string"}, {"type": "null"}]}`. That violated OpenAPI
+# annotations, so `str | None` became `{"type": "string"}`. That violated OpenAPI
 # 3.1 (the version the generator declares) and caused downstream tooling
 # like `openapi-typescript` to drop the `| null` arm of generated TS types.
+# A Pydantic model writes it as `{"type": ["string", "null"]}`.
 
 
-class HasNullableScalar(msgspec.Struct):
+class HasNullableScalar(BaseModel):
     required_nullable: str | None
     optional_nullable: str | None = None
 
 
-class HasMixedUnion(msgspec.Struct):
+class HasMixedUnion(BaseModel):
     value: int | str | None
 
 
-class IntOrStr(msgspec.Struct):
+class IntOrStr(BaseModel):
     value: int | str
-
-
-def _null_in(schema: dict) -> bool:
-    """True if the schema is a `null` type or has `null` in its anyOf."""
-    if schema.get("type") == "null":
-        return True
-    return any(s.get("type") == "null" for s in schema.get("anyOf", []))
 
 
 def test_nullable_scalar_emits_null_in_union():
@@ -358,8 +360,10 @@ def test_nullable_scalar_emits_null_in_union():
     schema = _get_schema(api)
     props = schema["components"]["schemas"]["HasNullableScalar"]["properties"]
 
-    assert _null_in(props["required_nullable"]), f"Expected null in type union, got: {props['required_nullable']}"
-    assert _null_in(props["optional_nullable"]), f"Expected null in type union, got: {props['optional_nullable']}"
+    # A plain nullable type is a type list, which client generators read.
+    assert props["required_nullable"] == {"type": ["string", "null"]}
+    assert props["optional_nullable"] == {"type": ["string", "null"], "default": None}
+    assert schema["components"]["schemas"]["HasNullableScalar"]["required"] == ["required_nullable"]
 
 
 def test_multi_type_union_with_none_keeps_all_arms():
@@ -373,11 +377,7 @@ def test_multi_type_union_with_none_keeps_all_arms():
     schema = _get_schema(api)
     field = schema["components"]["schemas"]["HasMixedUnion"]["properties"]["value"]
 
-    assert "anyOf" in field, f"Expected anyOf for multi-type union, got: {field}"
-    types_in_anyof = {s.get("type") for s in field["anyOf"] if "type" in s}
-    assert "null" in types_in_anyof
-    assert "integer" in types_in_anyof
-    assert "string" in types_in_anyof
+    assert field == {"anyOf": [{"type": "integer"}, {"type": "string"}, {"type": "null"}]}
 
 
 def test_union_without_none_is_unchanged():
@@ -392,7 +392,4 @@ def test_union_without_none_is_unchanged():
     schema = _get_schema(api)
     field = schema["components"]["schemas"]["IntOrStr"]["properties"]["value"]
 
-    assert "anyOf" in field
-    types_in_anyof = {s.get("type") for s in field["anyOf"] if "type" in s}
-    assert "null" not in types_in_anyof
-    assert types_in_anyof == {"integer", "string"}
+    assert field == {"anyOf": [{"type": "integer"}, {"type": "string"}]}
