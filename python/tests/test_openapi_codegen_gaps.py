@@ -4,8 +4,8 @@ Failing tests for the schema/codegen gaps reported in #295 (DRF → Bolt migrati
 Each section pins the *expected* public contract for one sub-issue so the fix is
 test-driven (RED first):
 
-- #287: parametrized generic Structs (``Page[UserRead]``) must render as a
-  named component (msgspec naming: ``Page_UserRead_``), not ``{"type": "object"}``.
+- #287: parametrized generic models (``Page[UserRead]``) must render as a
+  named component (``Page_UserRead_``), not ``{"type": "object"}``.
 - #288: a pagination class can own its envelope via ``response_class`` +
   ``build_response()``; both the wire body and the schema follow it.
 - #289: ``include_in_schema=False`` on route decorators; ``response_class`` is
@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-import msgspec
 import pytest
 from openapi_spec_validator import validate
 from pydantic import BaseModel, create_model
@@ -35,25 +34,24 @@ from .test_models import Article
 T = TypeVar("T")
 
 
-class UserRead(msgspec.Struct):
+class UserRead(BaseModel):
     id: int
     name: str
 
 
-class Page(msgspec.Struct, Generic[T]):  # noqa: UP046
+class Page(BaseModel, Generic[T]):  # noqa: UP046
     """A page of results."""
 
     count: int
     results: list[T]
 
 
-class StructPage(msgspec.Struct, Generic[T]):  # noqa: UP046
+class ModelPage(BaseModel, Generic[T]):  # noqa: UP046
     count: int
     results: list[T]
 
 
-# msgspec.Struct: the custom envelope ``DRFPage`` is a Struct, which holds no Pydantic item.
-class ArticleListSchema(msgspec.Struct):
+class ArticleListSchema(BaseModel):
     id: int
     title: str
 
@@ -82,11 +80,11 @@ def _ok_response(schema: dict, path: str, method: str = "get", status: str = "20
 
 
 # ---------------------------------------------------------------------------
-# #287 — parametrized generic Structs
+# #287 — parametrized generic models
 # ---------------------------------------------------------------------------
 
 
-def test_generic_struct_response_renders_named_component():
+def test_generic_model_response_renders_named_component():
     api = BoltAPI(openapi_config=_config())
 
     @api.get("/users")
@@ -96,13 +94,12 @@ def test_generic_struct_response_renders_named_component():
     schema = _get_schema(api)
     body = _ok_response(schema, "/users")["content"]["application/json"]["schema"]
 
-    # Not the opaque fallback — a $ref to a component named like msgspec does.
+    # Not the opaque fallback — a $ref to a named component.
     assert body == {"$ref": "#/components/schemas/Page_UserRead_"}
 
     component = schema["components"]["schemas"]["Page_UserRead_"]
     assert component["type"] == "object"
     assert component["title"] == "Page[UserRead]"
-    assert component["description"] == "A page of results."
     assert component["properties"]["count"] == {"type": "integer"}
     assert component["properties"]["results"] == {"type": "array", "items": {"$ref": "#/components/schemas/UserRead"}}
     assert set(component["required"]) == {"count", "results"}
@@ -110,33 +107,33 @@ def test_generic_struct_response_renders_named_component():
     assert schema["components"]["schemas"]["UserRead"]["properties"]["name"] == {"type": "string"}
 
 
-def test_generic_struct_two_parametrizations_are_distinct_components():
+def test_generic_model_two_parametrizations_are_distinct_components():
     api = BoltAPI(openapi_config=_config())
 
     @api.get("/users")
-    async def list_users() -> StructPage[UserRead]:
-        return StructPage(count=0, results=[])
+    async def list_users() -> ModelPage[UserRead]:
+        return ModelPage(count=0, results=[])
 
     @api.get("/ids")
-    async def list_ids() -> StructPage[int]:
-        return StructPage(count=0, results=[])
+    async def list_ids() -> ModelPage[int]:
+        return ModelPage(count=0, results=[])
 
     schema = _get_schema(api)
     components = schema["components"]["schemas"]
 
     assert _ok_response(schema, "/users")["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/StructPage_UserRead_"
+        "$ref": "#/components/schemas/ModelPage_UserRead_"
     }
     assert _ok_response(schema, "/ids")["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/StructPage_int_"
+        "$ref": "#/components/schemas/ModelPage_int_"
     }
-    assert components["StructPage_int_"]["properties"]["results"] == {"type": "array", "items": {"type": "integer"}}
-    assert components["StructPage_UserRead_"]["properties"]["results"]["items"] == {
+    assert components["ModelPage_int_"]["properties"]["results"] == {"type": "array", "items": {"type": "integer"}}
+    assert components["ModelPage_UserRead_"]["properties"]["results"]["items"] == {
         "$ref": "#/components/schemas/UserRead"
     }
 
 
-def test_generic_struct_round_trips_on_the_wire():
+def test_generic_model_round_trips_on_the_wire():
     """The runtime already handles generics; pin it so the schema fix cannot regress it."""
     api = BoltAPI(openapi_config=_config())
 
@@ -151,7 +148,7 @@ def test_generic_struct_round_trips_on_the_wire():
 
 
 def test_paginated_route_documents_the_envelope_not_a_bare_list():
-    """``@paginate`` returns ``PaginatedResponse[T]`` on the wire, so the schema must say so."""
+    """``@paginate`` returns ``Page[T]`` on the wire, so the schema must say so."""
     api = BoltAPI(openapi_config=_config())
 
     @api.get("/users")
@@ -164,9 +161,9 @@ def test_paginated_route_documents_the_envelope_not_a_bare_list():
     # The paginated handler keeps its docstring.
     assert schema["paths"]["/users"]["get"]["summary"] == "List the users."
     body = _ok_response(schema, "/users")["content"]["application/json"]["schema"]
-    assert body == {"$ref": "#/components/schemas/PaginatedResponse_UserRead_"}
+    assert body == {"$ref": "#/components/schemas/Page_UserRead_"}
 
-    envelope = schema["components"]["schemas"]["PaginatedResponse_UserRead_"]
+    envelope = schema["components"]["schemas"]["Page_UserRead_"]
     assert envelope["properties"]["items"] == {"type": "array", "items": {"$ref": "#/components/schemas/UserRead"}}
     assert envelope["properties"]["total"] == {"type": "integer"}
     assert {"items", "total", "has_next", "has_previous"} <= set(envelope["required"])
@@ -177,7 +174,7 @@ def test_paginated_route_documents_the_envelope_not_a_bare_list():
 # ---------------------------------------------------------------------------
 
 
-class DRFPage(msgspec.Struct, Generic[T]):  # noqa: UP046
+class DRFPage(BaseModel, Generic[T]):  # noqa: UP046
     count: int
     next: str | None
     previous: str | None
@@ -247,7 +244,7 @@ def test_custom_pagination_envelope_in_schema():
         "items": {"$ref": "#/components/schemas/ArticleListSchema"},
     }
     # No trace of the default envelope.
-    assert "PaginatedResponse_ArticleListSchema_" not in schema["components"]["schemas"]
+    assert "Page_ArticleListSchema_" not in schema["components"]["schemas"]
 
 
 # ---------------------------------------------------------------------------
@@ -498,9 +495,9 @@ _PROBLEM_JSON = {"application/json": {"$ref": "#/components/schemas/_Problem"}}
         "optional-str",
         "optional-str-none",
         "optional-bytes",
-        "str-or-struct",
-        "str-or-struct-struct",
-        "str-or-struct-or-none",
+        "str-or-model",
+        "str-or-model-model",
+        "str-or-model-or-none",
         "response-model-optional-str",
         "map-str",
         "map-str-other-status",

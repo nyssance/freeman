@@ -1,6 +1,6 @@
 from typing import Annotated
 
-import msgspec
+from pydantic import BaseModel
 
 from core.models import Blog, Document
 from freeman import BoltAPI, FileSize, UploadFile
@@ -9,7 +9,7 @@ from freeman.params import File, Form
 api = BoltAPI(prefix="/blogs")
 
 
-class BlogSerializer(msgspec.Struct):
+class BlogSerializer(BaseModel):
     name: str
     description: str
     status: str
@@ -30,7 +30,7 @@ async def create_blog(blog: BlogSerializer):
 files_api = BoltAPI()
 
 
-class DocumentResponse(msgspec.Struct):
+class DocumentResponse(BaseModel):
     id: int
     title: str
     url: str
@@ -54,7 +54,7 @@ async def upload_document(
     return DocumentResponse(id=doc.id, title=doc.title, url=doc.file.url)
 
 
-class MultiUploadResponse(msgspec.Struct):
+class MultiUploadResponse(BaseModel):
     count: int
     filenames: list[str]
     total_size: int

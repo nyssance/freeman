@@ -20,11 +20,11 @@ from pydantic.fields import FieldInfo
 from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
 from pydantic_core import core_schema
 
-from .._pydantic import ParamField, adapter_for, is_pydantic_model, names_pydantic_model, param_fields
+from .._pydantic import ParamField, adapter_for, is_pydantic_model, param_fields
 from ..datastructures import UploadFile
 from ..pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, PaginationBase
 from ..responses import HTML, EventSourceResponse, File, FileResponse, PlainText, Redirect, StreamingResponse
-from ..typing import is_msgspec_struct, is_optional, resolve_type_alias, unwrap_optional
+from ..typing import is_optional, resolve_type_alias, unwrap_optional
 from ..views import _layer
 from .spec import (
     Example,
@@ -95,16 +95,8 @@ def _is_response_class(annotation: Any) -> bool:
     )
 
 
-def _struct_origin(annotation: Any) -> type | None:
-    """The msgspec.Struct class behind ``annotation`` — itself, or the origin of ``Struct[T]``."""
-    if is_msgspec_struct(annotation):
-        return annotation
-    origin = get_origin(annotation)
-    return origin if is_msgspec_struct(origin) else None
-
-
 def _type_display_name(annotation: Any) -> str:
-    """``Page[UserRead]`` for a parametrized struct, ``__name__`` otherwise (msgspec's title)."""
+    """``Page[UserRead]`` for a parametrized generic, ``__name__`` otherwise."""
     origin = get_origin(annotation)
     if origin is not None and get_args(annotation):
         args = ", ".join(_type_display_name(a) for a in get_args(annotation))
@@ -330,33 +322,10 @@ def _extract_path_param_names(path: str) -> list[str]:
     return _PATH_PARAM_RE.findall(path)
 
 
-def _is_tagged_struct_union(arms: list[Any]) -> bool:
-    """True when every union arm is a tagged ``msgspec.Struct`` subclass.
-
-    Accepts both raw classes (``typing.Union`` / PEP 604) and
-    ``msgspec.inspect.StructType`` wrappers (the inspect-path branch).
-    A "tagged" Struct is one whose ``__struct_config__.tag`` is set
-    (msgspec resolves ``tag=True`` to the class name at class creation),
-    which is the only case where Swagger UI's ``oneOf`` discriminator
-    rendering buys us anything over ``anyOf``.
-    """
-    if not arms:
-        return False
-    for arm in arms:
-        # msgspec.inspect.StructType wraps the actual struct class on .cls
-        cls = getattr(arm, "cls", arm)
-        if not isinstance(cls, type) or not issubclass(cls, msgspec.Struct):
-            return False
-        struct_config = getattr(cls, "__struct_config__", None)
-        if struct_config is None or getattr(struct_config, "tag", None) is None:
-            return False
-    return True
-
-
-# Placeholder values used when synthesising response examples per Struct field.
+# Placeholder values used when synthesising response examples per model field.
 # Picked to match what Swagger UI would render itself for unspecified examples,
 # so users see consistent ``"string"``/``0`` placeholders across all arms.
-_PLACEHOLDER_BY_MSGSPEC_TYPE: dict[str, Any] = {
+_PLACEHOLDER_BY_KIND: dict[str, Any] = {
     "IntType": 0,
     "FloatType": 0.0,
     "StrType": "string",
@@ -371,59 +340,8 @@ _PLACEHOLDER_BY_MSGSPEC_TYPE: dict[str, Any] = {
 }
 
 
-def _synthesize_example(field_type: Any, depth: int = 0) -> Any:
-    """Build a Swagger-style placeholder value for a ``msgspec.inspect.*Type``.
-
-    Used only for OpenAPI ``examples:`` rendering. Bounded recursion depth
-    prevents infinite loops on self-referential Structs.
-    """
-    if depth > 5:
-        return None
-    type_name = type(field_type).__name__
-    placeholder = _PLACEHOLDER_BY_MSGSPEC_TYPE.get(type_name)
-    if placeholder is not None or type_name == "NoneType":
-        return placeholder
-    if type_name == "StructType":
-        return _synthesize_struct_example(field_type.cls, depth + 1)
-    if type_name == "ListType":
-        item_type = getattr(field_type, "item_type", None)
-        return [_synthesize_example(item_type, depth + 1)] if item_type is not None else []
-    if type_name == "DictType":
-        return {}
-    if type_name == "UnionType":
-        for arm in field_type.types:
-            if type(arm).__name__ != "NoneType":
-                return _synthesize_example(arm, depth + 1)
-        return None
-    if type_name == "LiteralType":
-        values = getattr(field_type, "values", None)
-        return values[0] if values else None
-    if type_name == "EnumType":
-        cls = getattr(field_type, "cls", None)
-        members = list(cls) if cls is not None else []
-        return members[0].value if members else None
-    return None
-
-
-def _synthesize_struct_example(struct_cls: type, depth: int = 0) -> dict[str, Any]:
-    """Build a placeholder dict for a tagged ``msgspec.Struct`` subclass.
-
-    Includes the resolved tag field so each example clearly identifies its
-    variant — that's the whole point of emitting per-arm examples.
-    """
-    struct_info = msgspec.inspect.type_info(struct_cls)
-    value: dict[str, Any] = {}
-    for field in struct_info.fields:
-        value[field.encode_name] = _synthesize_example(field.type, depth + 1)
-    tag_field = getattr(struct_info, "tag_field", None)
-    tag = getattr(struct_info, "tag", None)
-    if tag_field and tag is not None:
-        value[tag_field] = tag
-    return value
-
-
 def _build_union_examples(response_type: Any) -> dict[str, Example] | None:
-    """Emit per-arm examples for a tagged Struct union *single-object* response.
+    """Emit per-arm examples for a union of Pydantic models as a *single-object* response.
 
     Returns a mapping ``{tag → Example}`` that Swagger UI renders as an
     example-picker dropdown — one example per branch of the tagged union.
@@ -450,33 +368,24 @@ def _build_union_examples(response_type: Any) -> dict[str, Example] | None:
     arms = [a for a in get_args(response_type) if a is not type(None)]
     if arms and all(is_pydantic_model(arm) for arm in arms):
         return _build_model_union_examples(arms)
-    if not _is_tagged_struct_union(arms):
-        return None
-    examples: dict[str, Example] = {}
-    for arm in arms:
-        struct_info = msgspec.inspect.type_info(arm)
-        tag = getattr(struct_info, "tag", None)
-        if tag is None:
-            continue
-        examples[str(tag)] = Example(summary=f"{arm.__name__} variant", value=_synthesize_struct_example(arm))
-    return examples or None
+    return None
 
 
 # The placeholder of a JSON schema string with each format, as for a struct field.
 _PLACEHOLDER_BY_FORMAT: dict[str, Any] = {
-    "date-time": _PLACEHOLDER_BY_MSGSPEC_TYPE["DateTimeType"],
-    "date": _PLACEHOLDER_BY_MSGSPEC_TYPE["DateType"],
-    "time": _PLACEHOLDER_BY_MSGSPEC_TYPE["TimeType"],
-    "uuid": _PLACEHOLDER_BY_MSGSPEC_TYPE["UUIDType"],
-    "decimal": _PLACEHOLDER_BY_MSGSPEC_TYPE["DecimalType"],
-    "binary": _PLACEHOLDER_BY_MSGSPEC_TYPE["BytesType"],
-    "base64url": _PLACEHOLDER_BY_MSGSPEC_TYPE["BytesType"],
+    "date-time": _PLACEHOLDER_BY_KIND["DateTimeType"],
+    "date": _PLACEHOLDER_BY_KIND["DateType"],
+    "time": _PLACEHOLDER_BY_KIND["TimeType"],
+    "uuid": _PLACEHOLDER_BY_KIND["UUIDType"],
+    "decimal": _PLACEHOLDER_BY_KIND["DecimalType"],
+    "binary": _PLACEHOLDER_BY_KIND["BytesType"],
+    "base64url": _PLACEHOLDER_BY_KIND["BytesType"],
 }
 _PLACEHOLDER_BY_JSON_TYPE: dict[str, Any] = {
-    "integer": _PLACEHOLDER_BY_MSGSPEC_TYPE["IntType"],
-    "number": _PLACEHOLDER_BY_MSGSPEC_TYPE["FloatType"],
-    "string": _PLACEHOLDER_BY_MSGSPEC_TYPE["StrType"],
-    "boolean": _PLACEHOLDER_BY_MSGSPEC_TYPE["BoolType"],
+    "integer": _PLACEHOLDER_BY_KIND["IntType"],
+    "number": _PLACEHOLDER_BY_KIND["FloatType"],
+    "string": _PLACEHOLDER_BY_KIND["StrType"],
+    "boolean": _PLACEHOLDER_BY_KIND["BoolType"],
     "null": None,
 }
 
@@ -704,10 +613,9 @@ class SchemaGenerator:
 
         Reads ``__dict__`` directly rather than ``inspect.getdoc`` so a class
         that defines no docstring doesn't inherit its base's (e.g. an
-        undocumented Struct would otherwise pick up ``msgspec.Struct``'s
-        multi-page base docstring). ``cleandoc`` strips uniform indentation so
-        multi-line docstrings render correctly as JSDoc. Matches what
-        ``msgspec.json.schema_components`` carries through.
+        undocumented subclass would otherwise pick up the docstring of its
+        base). ``cleandoc`` strips uniform indentation so multi-line
+        docstrings render correctly as JSDoc.
         """
         own_doc = cls.__dict__.get("__doc__")
         # Python 3.15 stores the generated signature of a dataclass as a lazy
@@ -732,9 +640,7 @@ class SchemaGenerator:
             return self._enum_to_component_schema(enum_cls)
         return self._enum_values_schema([e.value for e in enum_cls])
 
-    def _union_schema(
-        self, inner_schemas: list[Schema | Reference], *, has_none: bool, tagged: bool
-    ) -> Schema | Reference:
+    def _union_schema(self, inner_schemas: list[Schema | Reference], *, has_none: bool) -> Schema | Reference:
         """Assemble an OpenAPI 3.1 union schema from already-built arm schemas.
 
         Centralizes the null-encoding + collapse policy shared by the two union
@@ -746,16 +652,12 @@ class SchemaGenerator:
           through tooling like openapi-typescript (which would otherwise drop
           the ``| null`` arm).
         - A single remaining arm collapses to itself (no needless wrapper).
-        - ``tagged`` selects ``one_of`` (tagged Struct unions → Swagger UI
-          per-variant dropdown + 3.1 discriminator semantics) over ``any_of``.
         """
         arms = list(inner_schemas)
         if has_none:
             arms.append(Schema(type="null"))
         if len(arms) == 1:
             return arms[0]
-        if tagged:
-            return Schema(one_of=arms)
         return Schema(any_of=arms)
 
     @staticmethod
@@ -825,36 +727,6 @@ class SchemaGenerator:
             if hasattr(schema, attr):
                 setattr(schema, attr, value)
         return schema
-
-    def _msgspec_field_schema(
-        self, field: Any, *, register_component: bool = False
-    ) -> tuple[str, Schema | Reference, bool]:
-        """Build a schema and required flag for a msgspec-inspected field."""
-        field_name = field.encode_name
-        field_schema = self._type_to_schema(field.type, register_component=register_component)
-
-        default = field.default
-        has_default = default is not msgspec.NODEFAULT
-        field_required = field.required
-
-        if has_default:
-            field_schema = self._with_default(field_schema, default)
-            field_required = False
-        elif field.default_factory in (list, dict, set, bytearray):
-            # Mutable-default fields carry their default on ``field.default_factory``
-            # instead of ``field.default`` — materialize it so the schema gains
-            # ``default: []``/``{}``. The whitelist mirrors ``msgspec.json.schema``
-            # exactly (``_json_schema.py``): only these four builtin factories are
-            # materialized. Immutable factories (``tuple``/``frozenset``) are stored
-            # by msgspec as a plain ``field.default`` and so are handled by the
-            # ``has_default`` branch above; arbitrary factories (``datetime.now``,
-            # a ``lambda``, a class) deliberately get NO default — both because
-            # msgspec emits none and because calling them here could embed a
-            # non-JSON-encodable object that crashes spec serialization.
-            field_schema = self._with_default(field_schema, field.default_factory())
-            field_required = False
-
-        return field_name, field_schema, field_required
 
     def _is_excluded(self, path: str) -> bool:
         """True for a route below the docs path or below an ``exclude_paths`` entry.
@@ -1278,31 +1150,6 @@ class SchemaGenerator:
                         )
                     )
                 continue
-            if is_msgspec_struct(annotation):
-                struct_info = msgspec.inspect.type_info(annotation)
-                for struct_field in struct_info.fields:
-                    field_name, field_schema, field_required = self._msgspec_field_schema(struct_field)
-                    # Remove the null arm first, so that the array rule below sees the array of `list | None`.
-                    field_schema = self._model_field_schema(self._text_value_schema(field_schema))
-                    if source == "header":
-                        # Bolt reads the x_request_id field from the x-request-id header.
-                        field_name = field_name.lower().replace("_", "-")
-                    if source != "query" and isinstance(field_schema, Schema) and field_schema.type == "array":
-                        # A header or a cookie gives one value, so its array holds exactly one item.
-                        # An empty default must stay valid for the schema, so it sets no minimum.
-                        min_items = None if _is_empty_sequence(field_schema.default) else 1
-                        field_schema = replace(field_schema, min_items=min_items, max_items=1)
-                    parameters.append(
-                        Parameter(
-                            name=field_name,
-                            param_in=param_in,
-                            required=field_required,
-                            schema=field_schema,
-                            description=f"Parameter {field_name}",
-                        )
-                    )
-                continue
-
             # Get schema for parameter type
             schema = self._text_value_schema(self._type_to_schema(annotation, null_arm=False))
             # A path, a header or a cookie gives one value, so its array holds exactly one item.
@@ -1356,8 +1203,6 @@ class SchemaGenerator:
         Returns:
             RequestBody object or None.
         """
-        body_param = meta.get("body_struct_param")
-        body_type = meta.get("body_struct_type")
         fields = self._route_fields(meta)
         # The Body() marker of the handler gives the description and the example.
         body_field = next((f for f in fields if f.source == "body"), None)
@@ -1366,26 +1211,15 @@ class SchemaGenerator:
         if body_field is not None and body_field.embed:
             return self._embedded_request_body([f for f in fields if f.source == "body" and f.embed])
 
-        if not body_param or not body_type:
+        body_param = body_type = None
+        body_required = True
+        if body_field is not None:
+            body_param, body_type, body_required = body_field.name, body_field.annotation, body_field.is_required
+        else:
             # A dependency can read the JSON body.
-            dependency_body = next(
-                (f for f in meta.get("dependency_fields", ()) if f.source == "body" and f.is_msgspec_struct), None
-            )
+            dependency_body = next((f for f in meta.get("dependency_fields", ()) if f.source == "body"), None)
             if dependency_body is not None:
                 body_param, body_type = dependency_body.name, dependency_body.annotation
-
-        body_required = True
-        if not body_param or not body_type:
-            # A JSON body that is not a struct, such as a list of structs with Body().
-            body_field = next((f for f in fields if f.source == "body"), None)
-            if body_field is not None:
-                body_param, body_type, body_required = body_field.name, body_field.annotation, body_field.is_required
-
-        if not body_param or not body_type:
-            # A JSON body of another type, such as a dict.
-            plain_body = next((f for f in fields if f.source == "body"), None)
-            if plain_body is not None:
-                body_param, body_type = plain_body.name, plain_body.annotation
 
         if not body_param or not body_type:
             # Check for form/file fields
@@ -1400,12 +1234,9 @@ class SchemaGenerator:
                     annotation = field.annotation
                     default = field.default
 
-                    # Form fields annotated with a Struct are flattened:
-                    # the runtime form extractor reads each struct field as a
+                    # Form fields annotated with a model are flattened:
+                    # the runtime form extractor reads each model field as a
                     # top-level form key, so the schema must mirror that shape.
-                    # Use msgspec.structs.fields (raw Python types) rather than
-                    # msgspec.inspect.type_info (CustomType-wrapped) so the
-                    # UploadFile branch in _type_to_schema fires for file fields.
                     unwrapped = unwrap_optional(annotation)
                     if is_pydantic_model(unwrapped):
                         for model_field in param_fields(unwrapped):
@@ -1415,16 +1246,6 @@ class SchemaGenerator:
                             if model_field.required:
                                 required.append(model_field.key)
                         continue
-                    if is_msgspec_struct(unwrapped):
-                        for struct_field in msgspec.structs.fields(unwrapped):
-                            sub_name, sub_schema, sub_required = self._msgspec_field_schema(
-                                struct_field, register_component=False
-                            )
-                            properties[sub_name] = self._model_field_schema(self._text_value_schema(sub_schema))
-                            if sub_required:
-                                required.append(sub_name)
-                        continue
-
                     field_schema = self._form_field_schema(annotation, field.param, default)
                     if field.source == "file":
                         field_schema = self._file_part_schema(field_schema)
@@ -1523,7 +1344,7 @@ class SchemaGenerator:
             # A None result is the JSON null, so T | None keeps its null arm.
             value_type = json_arms[0] if json_arms[1] is type(None) else json_arms[1]
             value_schema = self._type_to_schema(value_type, register_component=True)
-            schema = self._union_schema([value_schema], has_none=True, tagged=False)
+            schema = self._union_schema([value_schema], has_none=True)
         else:
             schema = self._type_to_schema(json_type, register_component=True)
         content["application/json"] = OpenAPIMediaType(schema=schema, examples=_build_union_examples(json_type))
@@ -1615,7 +1436,7 @@ class SchemaGenerator:
             sources = {f.source for f in self._route_fields(meta)}
             has_parameters = not sources.isdisjoint(_PARAMETER_SOURCES)
             has_form = not sources.isdisjoint(_FORM_SOURCES)
-            has_request_body = bool(meta.get("body_struct_param")) or has_form or "body" in sources
+            has_request_body = has_form or "body" in sources
 
             if has_request_body or has_parameters:
                 # 422 Unprocessable Entity - validation errors
@@ -1955,8 +1776,9 @@ class SchemaGenerator:
         # unwraps to ``T`` below. (#235)
         if get_origin(type_annotation) is Annotated:
             args = get_args(type_annotation)
-            if names_pydantic_model(args[0]) and any(isinstance(m, FieldInfo) for m in args[1:]):
-                # Pydantic reads its own metadata, such as the discriminator of a union of models.
+            if any(isinstance(m, FieldInfo) for m in args[1:]):
+                # Pydantic reads its own metadata: the constraints of a value,
+                # or the discriminator of a union of models.
                 return self._pydantic_schema(type_annotation)
             if any(isinstance(m, msgspec.Meta) for m in args[1:]):
                 return self._type_to_schema(
@@ -1984,84 +1806,19 @@ class SchemaGenerator:
             return Schema(type="string", format="binary")
         if is_pydantic_model(type_annotation):
             return self._pydantic_schema(type_annotation)
-        # Bare or parametrized Struct (``Page[UserRead]`` is keyed per parametrization).
-        if _struct_origin(type_annotation) is not None:
-            if register_component:
-                return self._struct_to_component_schema(type_annotation)
-            return self._struct_to_schema(type_annotation)
         # Bare enum classes (``-> GateReason``): same promote-or-inline policy
         # as the msgspec EnumType path. (#246)
         if isinstance(type_annotation, type) and issubclass(type_annotation, enum.Enum):
             return self._enum_schema(type_annotation, register_component=register_component)
-        # A dataclass, a TypedDict or a NamedTuple: the same component as a struct field of that type.
+        # A dataclass, a TypedDict or a NamedTuple: Pydantic validates it, so Pydantic gives its schema.
         if isinstance(type_annotation, type) and (
             is_dataclass(type_annotation)
             or is_typeddict(type_annotation)
             or (issubclass(type_annotation, tuple) and hasattr(type_annotation, "_fields"))
         ):
-            return self._type_to_schema(msgspec.inspect.type_info(type_annotation), register_component)
+            return self._pydantic_schema(type_annotation)
         primitive = _PRIMITIVE_SCHEMAS.get(type_annotation)
         return Schema(**primitive) if primitive is not None else Schema(type="object")
-
-    def _struct_to_schema(self, struct_type: type, *, register_component: bool = False) -> Schema:
-        """Convert msgspec.Struct to inline OpenAPI Schema.
-
-        For tagged unions (``msgspec.Struct, tag=...``), msgspec injects the
-        tag/tag_field on the wire but they're not in ``struct_info.fields``.
-        We surface them here as an ``enum=[tag]`` property so the schema
-        round-trips correctly through Swagger UI examples and generated
-        clients can use the field as a discriminator. Matches Litestar's
-        ``StructSchemaPlugin`` behaviour.
-
-        ``title`` is set to the struct class name so Swagger UI labels
-        ``oneOf`` arms with the variant name (e.g. ``PostActivity``)
-        instead of the positional fallback (``#0``, ``#1``, ``#2``).
-
-        ``description`` is carried from the struct's (cleaned) ``__doc__``,
-        matching the shape ``msgspec.json.schema_components`` produces. This
-        is what ``openapi-typescript`` and similar codegen tools surface as
-        JSDoc on generated types — without it every consumer-side type loses
-        its hover-documentation.
-
-        Args:
-            struct_type: msgspec.Struct type.
-            register_component: Whether nested complex types (enums, structs)
-                should be registered as named components + ``$ref`` rather than
-                inlined. True for body/response schemas, False for inline use.
-
-        Returns:
-            Schema object.
-        """
-        struct_info = msgspec.inspect.type_info(struct_type)
-        properties = {}
-        required = []
-
-        for field in struct_info.fields:
-            field_name, field_schema, field_required = self._msgspec_field_schema(
-                field, register_component=register_component
-            )
-            properties[field_name] = field_schema
-
-            # Check if required
-            if field_required:
-                required.append(field_name)
-
-        tag_field = getattr(struct_info, "tag_field", None)
-        tag = getattr(struct_info, "tag", None)
-        if tag_field and tag is not None:
-            properties[tag_field] = self._enum_values_schema([tag])
-            required.append(tag_field)
-
-        # Pull `description` from the struct's *own* docstring only (see
-        # _own_docstring — avoids inheriting msgspec.Struct's base docstring).
-        # Matches `msgspec.json.schema_components` behavior.
-        return Schema(
-            title=_type_display_name(struct_type),
-            type="object",
-            description=self._own_docstring(_struct_origin(struct_type) or struct_type),
-            properties=properties,
-            required=required or None,
-        )
 
     def _pydantic_schema(self, model: type) -> _PydanticSchema:
         """Note one use of a Pydantic model. ``_finalize_pydantic_schemas`` gives it its schema."""
@@ -2174,12 +1931,6 @@ class SchemaGenerator:
         self._component_schema[cls] = build_schema()
         return ref
 
-    def _struct_to_component_schema(self, struct_type: type) -> Reference:
-        """Convert msgspec.Struct to a component schema and return its reference."""
-        return self._register_component(
-            struct_type, lambda: self._struct_to_schema(struct_type, register_component=True)
-        )
-
     def _enum_to_component_schema(self, enum_cls: type) -> Reference:
         """Register a named enum class as a component schema and return its reference.
 
@@ -2282,35 +2033,9 @@ def _node_str(gen: SchemaGenerator, node: Any, register: bool) -> Schema:
     )
 
 
-def _node_named_tuple(gen: SchemaGenerator, node: Any, register: bool) -> Reference:
-    """A NamedTuple: msgspec encodes it as an array, with one schema for each position."""
-    cls = node.cls
-
-    def build() -> Schema:
-        items: list[Schema | Reference] = []
-        required = 0
-        for field in node.fields:
-            _name, field_schema, field_required = gen._msgspec_field_schema(field, register_component=True)
-            items.append(field_schema)
-            required += field_required
-        return Schema(
-            **gen._schema_kwargs(
-                title=_type_display_name(cls),
-                description=gen._own_docstring(cls),
-                type="array",
-                prefix_items=items or None,
-                min_items=required,
-                max_items=len(items),
-            )
-        )
-
-    return gen._register_component(cls, build)
-
-
-def _node_struct(gen: SchemaGenerator, node: Any, register: bool) -> Schema | Reference:
-    # Always a component so self-referential types emit a $ref instead of
-    # recursing forever; _struct_to_component_schema guards re-entry.
-    return gen._struct_to_component_schema(node.cls)
+def _node_class(gen: SchemaGenerator, node: Any, register: bool) -> Schema | Reference:
+    # A dataclass, a TypedDict or a NamedTuple inside a constrained type: Pydantic gives its schema.
+    return gen._pydantic_schema(node.cls)
 
 
 def _node_union(gen: SchemaGenerator, node: Any, register: bool) -> Schema | Reference:
@@ -2321,7 +2046,7 @@ def _node_union(gen: SchemaGenerator, node: Any, register: bool) -> Schema | Ref
     if not non_none:
         return Schema(type="null") if has_none else Schema(type="object")
     inner = [gen._type_to_schema(t, register_component=register) for t in non_none]
-    return gen._union_schema(inner, has_none=has_none, tagged=_is_tagged_struct_union(non_none))
+    return gen._union_schema(inner, has_none=has_none)
 
 
 def _node_list(gen: SchemaGenerator, node: Any, register: bool) -> Schema:
@@ -2392,11 +2117,11 @@ _MSGSPEC_NODE_HANDLERS: dict[str, Callable[[SchemaGenerator, Any, bool], Schema 
     "UUIDType": lambda _g, _n, _r: Schema(type="string", format="uuid"),
     "TimeDeltaType": lambda _g, _n, _r: Schema(type="string", format="duration"),
     "DecimalType": lambda _g, _n, _r: Schema(type="string", format="decimal"),
-    "StructType": _node_struct,
+    "StructType": _node_class,
     # A dataclass and a TypedDict are JSON objects, as a struct is.
-    "DataclassType": _node_struct,
-    "TypedDictType": _node_struct,
-    "NamedTupleType": _node_named_tuple,
+    "DataclassType": _node_class,
+    "TypedDictType": _node_class,
+    "NamedTupleType": _node_class,
     "UnionType": _node_union,
     "ListType": _node_list,
     "SetType": _node_list,
@@ -2413,7 +2138,7 @@ _MSGSPEC_NODE_HANDLERS: dict[str, Callable[[SchemaGenerator, Any, bool], Schema 
 def _origin_union(gen: SchemaGenerator, args: tuple[Any, ...], register: bool) -> Schema | Reference:
     non_none = [arg for arg in args if arg is not type(None)]
     inner = [gen._type_to_schema(arg, register_component=register) for arg in non_none]
-    return gen._union_schema(inner, has_none=len(non_none) != len(args), tagged=_is_tagged_struct_union(non_none))
+    return gen._union_schema(inner, has_none=len(non_none) != len(args))
 
 
 def _origin_list(gen: SchemaGenerator, args: tuple[Any, ...], register: bool) -> Schema:

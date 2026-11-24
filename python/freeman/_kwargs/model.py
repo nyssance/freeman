@@ -12,9 +12,7 @@ import inspect
 from collections.abc import Callable
 from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
-import msgspec
-
-from .._pydantic import is_pydantic_model, param_fields
+from .._pydantic import is_pydantic_model, param_fields, refuse_msgspec_model
 from ..analysis import annotation_globals, resolve_introspection_target
 from ..dependencies import (
     compile_dependency,
@@ -30,7 +28,6 @@ from ..typing import (
     FieldDefinition,
     HandlerMetadata,
     HandlerPattern,
-    is_msgspec_struct,
     is_upload_file_type,
     reads_text_value,
     split_param_annotation,
@@ -47,40 +44,6 @@ _POSITIONAL_KINDS = (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITI
 _VARIABLE_KINDS = (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
 
 
-def extract_response_metadata(response_type: Any) -> dict[str, Any]:
-    """
-    Extract serialization metadata from response type annotation.
-
-    Pre-computes field names for QuerySet.values() optimization.
-    This method is called once at route registration time, not per-request.
-
-    Args:
-        response_type: Type annotation (e.g., list[UserMini], User, dict, etc.)
-
-    Returns:
-        Metadata dictionary with optional 'response_field_names' key
-
-    Example:
-        meta = extract_response_metadata(list[UserMini])
-        # Returns: {"response_field_names": ["id", "username"]}
-    """
-    metadata = {}
-
-    # Check if response type is list[Struct] for QuerySet optimization
-    origin = get_origin(response_type)
-    if origin is list:
-        args = get_args(response_type)
-        if args:
-            elem_type = args[0]
-            if is_msgspec_struct(elem_type):
-                # __struct_fields__ includes inherited msgspec fields.
-                struct_fields = getattr(elem_type, "__struct_fields__", None)
-                if struct_fields:
-                    metadata["response_field_names"] = list(struct_fields)
-
-    return metadata
-
-
 def field_has_upload_file(field: FieldDefinition) -> bool:
     """Check if a field contains UploadFile types (for auto-cleanup detection)."""
     if field.source != "form":
@@ -90,10 +53,6 @@ def field_has_upload_file(field: FieldDefinition) -> bool:
     annotation = unwrap_optional(field.annotation)
     if is_pydantic_model(annotation):
         return any(is_upload_file_type(model_field.annotation) for model_field in param_fields(annotation))
-    if is_msgspec_struct(annotation):
-        for struct_field in msgspec.structs.fields(annotation):
-            if is_upload_file_type(struct_field.type):
-                return True
     return False
 
 
@@ -112,11 +71,8 @@ def _keys_of_other_fields(field: FieldDefinition, fields: list[FieldDefinition])
     annotation = unwrap_optional(field.annotation)
     if sources is None:
         return frozenset()
-    if is_pydantic_model(annotation):
-        # A Pydantic model that does not ignore extra keys would see them.
-        if annotation.model_config.get("extra") not in ("forbid", "allow"):
-            return frozenset()
-    elif not is_msgspec_struct(annotation) or not annotation.__struct_config__.forbid_unknown_fields:
+    # A Pydantic model that does not ignore extra keys would see them.
+    if not is_pydantic_model(annotation) or annotation.model_config.get("extra") not in ("forbid", "allow"):
         return frozenset()
     keys: set[str] = set()
     for other in fields:
@@ -125,8 +81,6 @@ def _keys_of_other_fields(field: FieldDefinition, fields: list[FieldDefinition])
         other_type = unwrap_optional(other.annotation)
         if is_pydantic_model(other_type):
             keys.update(model_field.key for model_field in param_fields(other_type))
-        elif is_msgspec_struct(other_type):
-            keys.update(struct_field.encode_name for struct_field in msgspec.structs.fields(other_type))
         else:
             keys.add(other.alias or other.name)
     return frozenset(keys)
@@ -198,18 +152,24 @@ def classify_handler_pattern(
 _TEXT_SOURCES = frozenset({"path", "query", "header", "cookie", "form"})
 # A File() parameter gets an UploadFile, the content, or the file dict from Rust.
 _FILE_ITEM_TYPES = (bytes, dict, list, Any, inspect.Parameter.empty)
+# These sources take a model: a body, a parameter model or a form model.
+_MODEL_SOURCES = frozenset({"body", "path", "query", "header", "cookie", "form", "file"})
 
 
 def _check_field_type(fn: Callable, field: FieldDefinition) -> None:
     """Raise TypeError for a parameter type that Bolt cannot build from its source.
 
     Without this check the handler gets the text of the request, or the file
-    dict, in place of the declared type. A Struct parameter has its own extractor.
+    dict, in place of the declared type. A model parameter has its own extractor.
+    A ``msgspec.Struct`` model raises TypeError: models are Pydantic models.
     """
     annotation = field.annotation
     inner = unwrap_optional(annotation)
+    owner = getattr(fn, "__qualname__", None) or type(fn).__qualname__
+    if field.source in _MODEL_SOURCES:
+        refuse_msgspec_model(annotation, f"{field.source} parameter {field.name!r}", owner)
     if field.source in _TEXT_SOURCES:
-        if is_msgspec_struct(inner) or reads_text_value(annotation):
+        if reads_text_value(annotation):
             return
         if is_pydantic_model(inner):
             return
@@ -227,7 +187,6 @@ def _check_field_type(fn: Callable, field: FieldDefinition) -> None:
     else:
         return
     # A dependency takes its parameters from the request too.
-    owner = getattr(fn, "__qualname__", None) or type(fn).__qualname__
     raise TypeError(
         f"The {field.source} parameter {field.name!r} of {owner} "
         f"has the type {annotation!r}. Bolt cannot convert a value of the request to this type. {hint}"
@@ -331,13 +290,6 @@ def compile_binder(fn: Callable, http_method: str, path: str) -> HandlerMetadata
 
     # Store FieldDefinition objects directly (Phase 4: completed migration)
     meta["fields"] = field_definitions
-
-    # Detect single body parameter for fast path
-    if len(body_fields) == 1:
-        body_field = body_fields[0]
-        if body_field.is_msgspec_struct:
-            meta["body_struct_param"] = body_field.name
-            meta["body_struct_type"] = body_field.annotation
 
     # Response type handling is done in _route_decorator() after priority resolution
     # This keeps compile_binder() focused on parameter binding only

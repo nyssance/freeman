@@ -11,7 +11,6 @@ import uuid
 from collections.abc import Callable, Mapping
 from typing import Annotated, Any, get_args, get_origin
 
-import msgspec
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
@@ -24,7 +23,7 @@ from .._pydantic import is_pydantic_model, param_fields
 from ..auth.backends import BaseAuthentication, get_default_authentication_classes, www_authenticate_challenge
 from ..auth.guards import GUARD_TYPES, get_default_permission_classes, guards_need_user
 from ..params import Param
-from ..typing import is_msgspec_struct, resolve_type_alias, unwrap_optional
+from ..typing import resolve_type_alias, unwrap_optional
 
 # Type hint constants - MUST match src/type_coercion.rs
 TYPE_INT = 1
@@ -79,7 +78,7 @@ def get_type_hint_id(annotation: Any) -> int:
     elif unwrapped is decimal.Decimal:
         return TYPE_DECIMAL
     else:
-        # Complex types (structs, dicts, etc.) - keep as string
+        # Complex types (models, dicts, etc.) - keep as string
         return TYPE_STRING
 
 
@@ -224,8 +223,8 @@ def _extract_type_hints_from_field(field: Any, claims: dict[str, tuple[str, int]
     """Record the type hint of each wire key that a field reads.
 
     Rust converts a value by the key that arrives on the wire. Thus the key is
-    the name that the extractor reads: the alias or the name, the msgspec
-    encoded name for struct fields, and the lowercase hyphen form for headers.
+    the name that the extractor reads: the alias or the name, the key
+    of a model field, and the lowercase hyphen form for headers.
     ``claims`` maps each wire key to the parameter that declared it and its type hint.
 
     Raises:
@@ -238,11 +237,6 @@ def _extract_type_hints_from_field(field: Any, claims: dict[str, tuple[str, int]
         # The key still claims the type str, so a typed parameter with that key fails.
         entries = [
             (f"{field.name}.{model_field.name}", model_field.key, str) for model_field in param_fields(unwrapped)
-        ]
-    elif is_msgspec_struct(unwrapped):
-        entries = [
-            (f"{field.name}.{struct_field.name}", struct_field.encode_name, struct_field.type)
-            for struct_field in msgspec.structs.fields(unwrapped)
         ]
     else:
         entries = [(field.name, field.alias or field.name, field.annotation)]
@@ -281,11 +275,6 @@ def _collect_seq_field_names(field: Any, target: set[str]) -> None:
         for model_field in param_fields(unwrapped):
             if _is_sequence_annotation(model_field.annotation):
                 target.add(model_field.key)
-    elif is_msgspec_struct(unwrapped):
-        # The struct extractor reads each field by its msgspec encoded name.
-        for struct_field in msgspec.structs.fields(unwrapped):
-            if _is_sequence_annotation(struct_field.type):
-                target.add(struct_field.encode_name)
     elif _is_sequence_annotation(field.annotation):
         target.add(field.alias or field.name)
 
@@ -317,19 +306,16 @@ def _add_file_constraints(param: Param, part_name: str, target: dict[str, dict[s
     target[part_name] = constraints
 
 
-def _collect_struct_file_constraints(field: Any, target: dict[str, dict[str, Any]]) -> None:
-    """Record the File() constraints of the upload fields of a form struct.
+def _collect_model_file_constraints(field: Any, target: dict[str, dict[str, Any]]) -> None:
+    """Record the File() constraints of the upload fields of a form model.
 
-    The part name of a struct field is its msgspec encoded name, and of a
-    Pydantic field its key. The File() marker is in the Annotated type of the
-    field, also behind Optional.
+    The part name of a field is its key. The File() marker is in the Annotated
+    type of the field, also behind Optional.
     """
     unwrapped = unwrap_optional(field.annotation)
     if is_pydantic_model(unwrapped):
         # The part name is the key of the field. Pydantic keeps File() in the metadata of the field.
         parts = [(model_field.key, model_field.annotation) for model_field in param_fields(unwrapped)]
-    elif is_msgspec_struct(unwrapped):
-        parts = [(struct_field.encode_name, struct_field.type) for struct_field in msgspec.structs.fields(unwrapped)]
     else:
         return
     for part_name, part_type in parts:
@@ -494,7 +480,7 @@ def add_optimization_flags_to_metadata(metadata: dict[str, Any] | None, handler_
         elif field.source == "form":
             _extract_type_hints_from_field(field, form_claims)
             _collect_seq_field_names(field, form_seq_fields)
-            _collect_struct_file_constraints(field, file_constraints)
+            _collect_model_file_constraints(field, file_constraints)
 
         # File fields - extract constraints for Rust-side validation
         elif field.source == "file":
@@ -529,15 +515,13 @@ def add_optimization_flags_to_metadata(metadata: dict[str, Any] | None, handler_
     # Rust reads each file part up to max_upload_size, then it stops. A
     # File(max_size=...) sets the limit of its own part only. Thus the largest
     # max_size is the limit only when each file part has a max_size. A part in
-    # a form struct, or a File() with no max_size, gets BOLT_MAX_UPLOAD_SIZE.
+    # a form model, or a File() with no max_size, gets BOLT_MAX_UPLOAD_SIZE.
     request_fields = (*handler_meta["fields"], *handler_meta["dependency_fields"])
     file_max_sizes = [field.param.max_size for field in request_fields if field.source == "file"]
-    has_form_struct = any(
-        field.source == "form"
-        and (is_msgspec_struct(model := unwrap_optional(field.annotation)) or is_pydantic_model(model))
-        for field in request_fields
+    has_form_model = any(
+        field.source == "form" and is_pydantic_model(unwrap_optional(field.annotation)) for field in request_fields
     )
-    if file_max_sizes and None not in file_max_sizes and not has_form_struct:
+    if file_max_sizes and None not in file_max_sizes and not has_form_model:
         metadata["max_upload_size"] = max(file_max_sizes)
     else:
         metadata["max_upload_size"] = read_size_setting("BOLT_MAX_UPLOAD_SIZE", 1024 * 1024)

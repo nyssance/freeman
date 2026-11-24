@@ -6,8 +6,8 @@ This test suite verifies that the decorator pattern works correctly.
 
 import functools
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Router
 from freeman.auth import APIKeyAuthentication, IsAuthenticated
@@ -18,7 +18,7 @@ from freeman.testing import TestClient
 from freeman.views import APIView
 
 
-class _Thing(msgspec.Struct):
+class _Thing(BaseModel):
     id: int
 
 
@@ -129,7 +129,7 @@ def test_a_config_decorator_above_a_router_decorator_applies(api):
 def test_view_decorator_with_multiple_methods(api):
     """Test @api.view() with multiple HTTP methods."""
 
-    class ItemData(msgspec.Struct):
+    class ItemData(BaseModel):
         name: str
 
     @api.view("/items")
@@ -227,7 +227,8 @@ def test_method_decorator_passes_auth_and_response_arguments(api, method):
         return {"id": "not a number"}
 
     @route("/open", validate_response=False, include_in_schema=False)
-    async def open_things() -> _Thing:
+    async def open_things() -> int:
+        # A Pydantic model always checks the fields that go out, so this route names a type that is not a model.
         return {"id": "not a number"}
 
     @route("/text", response_class=PlainText)

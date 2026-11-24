@@ -342,7 +342,7 @@ class TaggedModel(BaseModel):
     tags: tuple[str, ...] = ("a", "b")
 
 
-class TaggedStruct(msgspec.Struct):
+class TaggedStruct(BaseModel):
     tags: tuple[str, ...] = ("a", "b")
 
 

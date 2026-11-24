@@ -118,9 +118,9 @@ Tags appear as sections in the Swagger UI.
 Document response schemas:
 
 ```python
-import msgspec
+from pydantic import BaseModel
 
-class User(msgspec.Struct):
+class User(BaseModel):
     id: int
     username: str
     email: str
@@ -130,7 +130,7 @@ async def get_user(user_id: int):
     return {"id": user_id, "username": "john", "email": "john@example.com"}
 ```
 
-The schema is automatically generated from the `msgspec.Struct`.
+The schema is automatically generated from the Pydantic model.
 
 ### Per-status-code response schemas
 
@@ -159,7 +159,7 @@ Using `{204: None}` generates a response entry with no content body, appropriate
 Request bodies are documented automatically:
 
 ```python
-class CreateUser(msgspec.Struct):
+class CreateUser(BaseModel):
     username: str
     email: str
     password: str
@@ -501,7 +501,7 @@ schema of `Item`. An entry of a `response_model` dict follows the same rules:
 `{200: str, 404: Error}` shows `text/plain` for the status 200.
 
 Each parametrization of a generic response model gets its own component name.
-This is the same as msgspec. `Page[UserRead]` becomes the component
+Pydantic names it. `Page[UserRead]` becomes the component
 `Page_UserRead_`. Its title is `Page[UserRead]`.
 
 ## OpenAPI extensions
@@ -510,7 +510,7 @@ The generated OpenAPI spec follows the OpenAPI 3.1.0 specification and includes:
 
 - Path parameters with types
 - Query parameters with defaults
-- Request body schemas from `msgspec.Struct`
+- Request body schemas from Pydantic models
 - Response schemas from `response_model`
 - Authentication requirements from `auth=` and `guards=`
 - Tag grouping

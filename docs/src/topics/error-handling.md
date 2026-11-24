@@ -285,27 +285,24 @@ status, headers, body = handle_exception(exc, debug=False)
 
 The debug parameter defaults to Django's `DEBUG` setting.
 
-## msgspec validation errors
+## Errors of scalar parameters
 
-Freeman converts `msgspec.ValidationError` to the standard error format:
+Pydantic validates each model, so a model error has the type of Pydantic, such as
+`missing` or `int_parsing`. msgspec converts a scalar path, query, header, cookie
+or form parameter. Freeman gives its errors the type that Pydantic gives the same
+error, for example:
 
-```python
-from freeman.error_handlers import msgspec_validation_error_to_dict
+| msgspec message | `type` |
+| --- | --- |
+| ``Expected `int`, got `str` `` | `int_parsing` |
+| ``Expected `int` >= 1`` | `greater_than_equal` |
+| ``Expected `str` of length <= 5`` | `string_too_long` |
+| ``Expected `str` matching regex ...`` | `string_pattern_mismatch` |
+| ``Invalid UUID`` | `uuid_parsing` |
+| ``Invalid enum value ...`` | `enum` |
+| ``Object missing required field ...`` | `missing` |
 
-try:
-    msgspec.json.decode(b'{"age": "invalid"}', type=MyStruct)
-except msgspec.ValidationError as e:
-    errors = msgspec_validation_error_to_dict(e)
-    # [{"loc": [...], "msg": "...", "type": "..."}]
-```
-
-A missing field has the type `missing_field` at any depth. Its `loc` ends with the field name. For a missing `zip` in the `address` struct, the error is:
-
-```python
-{"loc": ["body", "address", "zip"], "msg": "Object missing required field `zip`", "type": "missing_field"}
-```
-
-For an array item, `loc` has the index as a string, for example `["body", "items", "0", "zip"]`.
+Another message has the type `validation_error`.
 
 ## Error response format
 

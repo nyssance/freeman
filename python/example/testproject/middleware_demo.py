@@ -1,11 +1,11 @@
 from typing import Annotated
 
-import msgspec
 from django.conf import settings
 from django.contrib import messages  # noqa: PLC0415
 from django.contrib.auth import alogin, alogout
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Request, Router
 from freeman.middleware import BaseMiddleware, Middleware, TimingMiddleware, middleware
@@ -245,7 +245,7 @@ async def middleware_demo_post(request: Request, test: Annotated[str, Form()]):
 # 3. APIView.as_view() wrapper hiding ORM detection from AST analyzer
 
 
-class RequestSerializer(msgspec.Struct):
+class RequestSerializer(BaseModel):
     """Simple request body for testing."""
 
     username: str

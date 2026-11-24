@@ -331,14 +331,14 @@ Returns binary with `application/octet-stream`.
 return b"\x00\x01\x02\x03"
 ```
 
-### msgspec.Struct
+### Pydantic model
 
 Returns JSON with automatic serialization.
 
 ```python
-import msgspec
+from pydantic import BaseModel
 
-class User(msgspec.Struct):
+class User(BaseModel):
     id: int
     name: str
 

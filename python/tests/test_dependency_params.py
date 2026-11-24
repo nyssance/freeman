@@ -12,8 +12,8 @@ import itertools
 from types import SimpleNamespace
 from typing import Annotated
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import APIView, BoltAPI, Depends, UploadFile
 from freeman._kwargs.model import compile_binder
@@ -159,7 +159,7 @@ def test_a_query_value_of_the_wrong_type_is_a_client_error(client, mode):
     assert client.get(f"/{mode}/values?page=abc").status_code == 422
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     name: str
     count: int
 
@@ -304,7 +304,7 @@ def test_the_schema_names_a_header_as_bolt_reads_it():
     assert {(p.param_in, p.name) for p in parameters} == {("header", "x-request-id"), ("header", "X-Token")}
 
 
-class ItemName(msgspec.Struct):
+class ItemName(BaseModel):
     name: str
 
 
@@ -979,7 +979,7 @@ async def async_positional_only(
     return {"page": page, "has_ticket": ticket > 0, "theme": theme}
 
 
-class UploadForm(msgspec.Struct):
+class UploadForm(BaseModel):
     title: str
     upload: UploadFile
 

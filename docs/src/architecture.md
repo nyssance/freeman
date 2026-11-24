@@ -36,7 +36,7 @@ Dispatch decision
 Your Python handler
    │  typed params (path/query/header/cookie/form/body) · Depends(...) · Django ORM
    ▼
-msgspec or Pydantic serialization → zero-copy bytes → Actix response
+Pydantic validation · msgspec JSON encoding → zero-copy bytes → Actix response
 ```
 
 Only the last two boxes touch Python. Everything above them runs in Rust, so a request that fails auth or a guard, hits a rate limit, or is a CORS preflight never acquires the GIL at all.
@@ -48,7 +48,7 @@ Only the last two boxes touch Python. Everything above them runs in Rust, so a r
 | HTTP server | [Actix Web](https://actix.rs/) on [Tokio](https://tokio.rs/) | Connection handling, HTTP parsing, response writing |
 | Routing | [matchit](https://github.com/ibraheemdev/matchit) | Radix-tree router, no allocation per match |
 | Python bridge | [PyO3](https://pyo3.rs/) | Calls handlers, converts arguments, receives the response tuple |
-| Serialization | [msgspec](https://jcristharif.com/msgspec/) and [Pydantic](https://docs.pydantic.dev/) | Request validation and response encoding. A Pydantic model validates with `validate_json` and writes with `dump_json` |
+| Serialization | [msgspec](https://jcristharif.com/msgspec/) and [Pydantic](https://docs.pydantic.dev/) | Pydantic validates bodies, results and parameter models (`validate_json`, `dump_json`). msgspec is the JSON codec and converts scalar parameters |
 | Process model | `SO_REUSEPORT` | N independent processes, kernel load-balanced on Linux; each has its own interpreter and Django |
 | Supervisor | `runbolt` | Spawns processes, recycles by RSS/lifetime, respawns on crash, drains WebSockets on shutdown |
 
@@ -68,7 +68,7 @@ Your Django project is loaded once per process at startup (`django.setup()`), th
 3. **Sync dispatch bypass.** Handlers that don't actually suspend (detected at registration by bytecode analysis) skip the async machinery entirely — one GIL acquisition, response built in the same block.
 4. **Persistent worker loop.** Truly async handlers run on a process-lived loop owned by their Actix worker thread and serviced by Tokio on that thread; there is no per-request task/thread creation, and worker threads never share a loop.
 5. **Zero-copy responses.** Serialized bodies cross to Rust without a memcpy; common response shapes use static metadata with zero allocation.
-6. **msgspec.** Validation and encoding are C-accelerated and schema-compiled.
+6. **msgspec and pydantic-core.** JSON encoding and validation run in compiled code.
 
 Measured effect: [Benchmarks](benchmarks.md).
 

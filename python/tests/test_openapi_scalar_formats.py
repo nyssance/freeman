@@ -14,7 +14,6 @@ import json
 import uuid
 from typing import Annotated
 
-import msgspec
 import pytest
 from openapi_spec_validator import validate
 from pydantic import BaseModel, Field, create_model
@@ -103,22 +102,11 @@ def test_a_json_body_struct_field_has_the_format_of_its_type(scalar, expected):
     assert _spec(api)["components"]["schemas"]["Item"]["properties"]["value"] == expected
 
 
-# msgspec.Struct: a Pydantic model cannot hold a bytearray or a memoryview.
-class Attachment(msgspec.Struct):
-    data: bytes
-    preview: bytearray
-    view: memoryview
-
-
 def test_bytes_are_base64_text_in_json_and_binary_in_a_file_part():
     """msgspec writes bytes in JSON as base64 text. A file part of a multipart body holds the raw bytes."""
     api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
     base64_text = {"type": "string", "contentEncoding": "base64"}
     binary = {"type": "string", "format": "binary"}
-
-    @api.get("/attachment")
-    async def get_attachment() -> Attachment:
-        return Attachment(data=b"\x00\x01hi", preview=bytearray(b"hi"), view=memoryview(b"hi"))
 
     @api.get("/chunks")
     async def get_chunks() -> list[bytes]:
@@ -131,19 +119,17 @@ def test_bytes_are_base64_text_in_json_and_binary_in_a_file_part():
     api._register_openapi_routes()
     with TestClient(api) as client:
         spec = client.get("/docs/openapi.json").json()
-        assert client.get("/attachment").json() == {"data": "AAFoaQ==", "preview": "aGk=", "view": "aGk="}
         assert client.get("/chunks").json() == ["AAFoaQ=="]
 
     validate(spec)
     assert spec["openapi"] == "3.1.0"
-    assert spec["components"]["schemas"]["Attachment"]["properties"] == {
-        "data": base64_text,
-        "preview": base64_text,
-        "view": base64_text,
-    }
     chunks = spec["paths"]["/chunks"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
     assert chunks == {"type": "array", "items": base64_text}
     assert _form_schema(spec, "/upload")["properties"] == {"raw": binary, "parts": {"type": "array", "items": binary}}
+
+
+class Attachment(BaseModel):
+    data: bytes
 
 
 class TokenParams(BaseModel):
@@ -237,11 +223,8 @@ def test_bytes_in_a_parameter_are_plain_text():
     assert form_model_fields["token"] == text
     assert form_model_fields["tags"] == {"type": "array", "items": text, "default": []}
     assert "contentEncoding" not in json.dumps(form_model_fields)
-    # A bytes field of a JSON body is base64 text.
-    assert spec["components"]["schemas"]["Attachment"]["properties"]["data"] == {
-        "type": "string",
-        "contentEncoding": "base64",
-    }
+    # Pydantic reads the text of a bytes field of a JSON body as UTF-8.
+    assert spec["components"]["schemas"]["Attachment"]["properties"]["data"] == {"type": "string"}
 
 
 class TraceParams(BaseModel):

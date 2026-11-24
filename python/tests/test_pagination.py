@@ -12,9 +12,9 @@ from types import SimpleNamespace
 from typing import Generic, TypeVar
 from urllib.parse import quote
 
-import msgspec
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
 
 from freeman import APIView, BoltAPI, CursorPagination, LimitOffsetPagination, PageNumberPagination, Request, paginate
 from freeman.testing import TestClient
@@ -26,7 +26,7 @@ from .test_models import Article, Author, BlogPost, Comment, Release, User, User
 # ============================================================================
 
 
-class ArticleSchema(msgspec.Struct):
+class ArticleSchema(BaseModel):
     id: int
     title: str
     content: str
@@ -34,7 +34,7 @@ class ArticleSchema(msgspec.Struct):
     is_published: bool
 
 
-class ArticleListSchema(msgspec.Struct):
+class ArticleListSchema(BaseModel):
     id: int
     title: str
     author: str
@@ -43,7 +43,7 @@ class ArticleListSchema(msgspec.Struct):
 T = TypeVar("T")
 
 
-class PathPage(msgspec.Struct, Generic[T]):  # noqa: UP046 — PEP 695 params are unresolvable under PEP 563
+class PathPage(BaseModel, Generic[T]):  # noqa: UP046 — PEP 695 params are unresolvable under PEP 563
     """Envelope that shows the request path. Only build_response() can fill it."""
 
     path: str
@@ -1783,13 +1783,14 @@ def test_pagination_with_values(sample_articles):
         assert "title" in data["items"][0]
 
 
-class ArticleWithExtra(msgspec.Struct):
+class ArticleWithExtra(BaseModel):
     id: int
     title: str
     not_on_the_model: str
 
 
-class ArticleWithDefault(msgspec.Struct, rename="camel"):
+class ArticleWithDefault(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True, serialize_by_alias=True)
     id: int
     is_published: bool
     word_count: int = 0

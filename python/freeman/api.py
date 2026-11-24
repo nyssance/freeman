@@ -23,7 +23,6 @@ except ImportError:
 
 
 # Import local modules
-import msgspec
 from django.conf import settings as django_settings
 from django.core.asgi import get_asgi_application
 from django.core.handlers.asgi import ASGIHandler
@@ -32,13 +31,8 @@ from django.db.models import QuerySet
 
 from . import _core, _json
 from ._bridge import make_bound_dispatch
-from ._kwargs import (
-    compile_argument_injector,
-    compile_binder,
-    compile_websocket_binder,
-    extract_response_metadata,
-    field_has_upload_file,
-)
+from ._kwargs import compile_argument_injector, compile_binder, compile_websocket_binder, field_has_upload_file
+from ._pydantic import refuse_msgspec_model
 from .admin.routes import AdminRouteRegistrar
 from .analysis import analyze_dependency_tree, analyze_handler, annotation_globals
 from .auth import register_auth_backend
@@ -1677,16 +1671,8 @@ class BoltAPI:
                     meta["is_multi_response"] = True
                     meta["response_map"] = response_model
 
-                    # Pre-compute field names for each code's type, and for
-                    # the ... entry, which serves each unlisted status.
-                    field_names_map = {}
                     for code, resp_type in response_model.items():
-                        if resp_type is not None:
-                            resp_meta = extract_response_metadata(resp_type)
-                            if "response_field_names" in resp_meta:
-                                field_names_map[code] = resp_meta["response_field_names"]
-                    if field_names_map:
-                        meta["response_field_names_map"] = field_names_map
+                        refuse_msgspec_model(resp_type, f"response_model[{code!r}]", fn.__qualname__)
 
                     # Determine effective default status code
                     effective_status = status_code
@@ -1716,10 +1702,8 @@ class BoltAPI:
 
             # Extract metadata from final type (after priority resolution)
             if final_response_type is not None:
+                refuse_msgspec_model(final_response_type, "response", fn.__qualname__)
                 meta["response_type"] = final_response_type
-                # Pre-compute field names for QuerySet optimization (registration time only)
-                response_meta = extract_response_metadata(final_response_type)
-                meta.update(response_meta)
             else:
                 meta["response_type"] = None
             meta["validate_response"] = route_validate_response
@@ -1760,14 +1744,12 @@ class BoltAPI:
             # Pre-compute per-status-code mini-metas at registration time.
             # Only store the 3-4 keys actually read by the serialization hot path,
             # avoiding a full dict(meta) copy (~25 keys) per status code entry.
-            # Keys needed: response_type, default_status_code, is_multi_response,
-            # and optionally response_field_names (for QuerySet .values() optimisation).
+            # Keys needed: response_type, default_status_code, is_multi_response.
             if meta["is_multi_response"]:
                 resolved_metas: dict[int | type(...), dict] = {}
-                field_names_map = meta.get("response_field_names_map", {})
                 handler_default_status = meta["default_status_code"]
-                # Per-status bodies are encoded as-is, never validated.
-                # The dict documents the schema only.
+                # Per-status bodies are not validated. A Pydantic model of a
+                # status still decides which fields go out, so it checks them.
                 response_map = meta["response_map"]
                 if ... not in response_map:
                     response_map = {**response_map, ...: Any}
@@ -1778,8 +1760,6 @@ class BoltAPI:
                         "validate_response": False,
                         "_stream_info": _extract_stream_item_type(resp_type),
                     }
-                    if code in field_names_map:
-                        entry["response_field_names"] = field_names_map[code]
                     resolved_metas[code] = entry
                 meta["_resolved_metas"] = resolved_metas
 
@@ -1787,13 +1767,9 @@ class BoltAPI:
             if meta["is_multi_response"]:
                 for entry in meta["_resolved_metas"].values():
                     compile_response_handlers(entry)
-                    # The data types that a (status, data) tuple encodes with no
-                    # handler. The handler of an entry with row fields converts a
-                    # list of model instances to them.
+                    # The data types that a (status, data) tuple encodes with no handler.
                     if entry["_has_response_validation"]:
                         entry["_tuple_plain_types"] = ()
-                    elif "response_field_names" in entry:
-                        entry["_tuple_plain_types"] = (dict,)
                     else:
                         entry["_tuple_plain_types"] = (dict, list)
 
@@ -2217,11 +2193,10 @@ class BoltAPI:
 
                 return execute_async_dict_fast
 
-            # Inline-encoding fast path: response_type is a plain msgspec.Struct,
-            # Union of plain Structs, or list[Struct]/list[Union[Struct,...]].
-            # When the handler returns an instance that already matches the
-            # declared type we encode it directly via the module msgspec
-            # encoder, skipping the serialize_response → data_handler →
+            # Inline-encoding fast path: response_type is a Pydantic model,
+            # a union of models, or list[Model]. When the handler returns a
+            # value of the matching types we encode it directly with the
+            # model encoder, skipping the serialize_response → data_handler →
             # validator chain. Anything else
             # (Response objects, QuerySets, generators, dicts, None,
             # response_class overrides, ...) is delegated to
@@ -2231,90 +2206,12 @@ class BoltAPI:
             if _inline_spec is not None:
                 _encode = meta["_inline_encode"]
                 _meta_json = _RESPONSE_META_JSON
-                _inline_kind, _inline_match = _inline_spec
-                # A mutant of a marked line in the inline fast path only sends the
-                # result to serialize_response, which gives the same response.
-                _convert = msgspec.convert  # pragma: no mutate
-
-                if _inline_kind == "struct":  # pragma: no mutate
-                    _match_types = _inline_match
-
-                    if _trivially_async:
-                        # Sync executor for trivially-async handlers — drives
-                        # the coroutine inline so Rust can use its sync
-                        # dispatch bypass.
-                        if _is_no_params:
-
-                            def execute_trivial_async_sync_validated(
-                                handler: Callable, request: dict[str, Any]
-                            ) -> ResponseWireV1:
-                                coro = handler()
-                                try:
-                                    coro.send(None)
-                                except StopIteration as _e:
-                                    result = _e.value
-                                else:
-                                    coro.close()
-                                    raise RuntimeError(
-                                        "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
-                                    )
-                                if isinstance(result, _match_types):
-                                    return _encode(result)
-                                return _finish(result)
-
-                        else:
-
-                            def execute_trivial_async_sync_validated(
-                                handler: Callable, request: dict[str, Any]
-                            ) -> ResponseWireV1:
-                                args, kwargs = _get_args(request)
-                                coro = handler(*args, **kwargs)
-                                try:
-                                    coro.send(None)
-                                except StopIteration as _e:
-                                    result = _e.value
-                                else:
-                                    coro.close()
-                                    raise RuntimeError(
-                                        "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
-                                    )
-                                if isinstance(result, _match_types):
-                                    return _encode(result)
-                                return _finish(result)
-
-                        meta["_sync_executor"] = execute_trivial_async_sync_validated
-
-                    if _is_no_params:
-
-                        async def execute_async_inline_validated(
-                            handler: Callable, request: dict[str, Any]
-                        ) -> ResponseWireV1:
-                            result = await handler()
-                            if isinstance(result, _match_types):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            return await serialize_response(result, meta)
-
-                    else:
-
-                        async def execute_async_inline_validated(
-                            handler: Callable, request: dict[str, Any]
-                        ) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = await handler(*args, **kwargs)
-                            if isinstance(result, _match_types):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            return await serialize_response(result, meta)
-
-                    return execute_async_inline_validated
-
-                # _inline_kind == "list" — bare `list` (exact type) is the only
-                # shape we encode inline; QuerySets, generators, custom
-                # list-like containers all fall through to serialize_response
-                # so the slow path applies projection, async DB I/O wrapping,
-                # auto-streaming, etc.
-                _list_ann = _inline_match  # pragma: no mutate
+                _match_types = _inline_spec
 
                 if _trivially_async:
+                    # Sync executor for trivially-async handlers — drives
+                    # the coroutine inline so Rust can use its sync
+                    # dispatch bypass.
                     if _is_no_params:
 
                         def execute_trivial_async_sync_validated(
@@ -2327,21 +2224,11 @@ class BoltAPI:
                                 result = _e.value
                             else:
                                 coro.close()
-                                raise RuntimeError("Handler awaited unexpectedly in sync dispatch")  # pragma: no mutate
-                            if type(result) is list:  # pragma: no mutate
-                                # Attr-bag elements (e.g. Django models) need
-                                # the slow path's response_field_names
-                                # projection; msgspec.convert can't bridge them.
-                                if result and not isinstance(result[0], (dict, msgspec.Struct)):  # pragma: no mutate
-                                    return serialize_response_sync(result, meta)
-                                try:
-                                    validated = _convert(result, _list_ann)  # pragma: no mutate
-                                except Exception:
-                                    # A later element can need conversion by attribute. The
-                                    # slow path converts it, or reports the error as a
-                                    # response validation error.
-                                    return serialize_response_sync(result, meta)
-                                return _encode(validated)
+                                raise RuntimeError(
+                                    "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
+                                )
+                            if isinstance(result, _match_types):
+                                return _encode(result)
                             return _finish(result)
 
                     else:
@@ -2357,21 +2244,11 @@ class BoltAPI:
                                 result = _e.value
                             else:
                                 coro.close()
-                                raise RuntimeError("Handler awaited unexpectedly in sync dispatch")  # pragma: no mutate
-                            if type(result) is list:  # pragma: no mutate
-                                # Attr-bag elements (e.g. Django models) need
-                                # the slow path's response_field_names
-                                # projection; msgspec.convert can't bridge them.
-                                if result and not isinstance(result[0], (dict, msgspec.Struct)):  # pragma: no mutate
-                                    return serialize_response_sync(result, meta)
-                                try:
-                                    validated = _convert(result, _list_ann)  # pragma: no mutate
-                                except Exception:
-                                    # A later element can need conversion by attribute. The
-                                    # slow path converts it, or reports the error as a
-                                    # response validation error.
-                                    return serialize_response_sync(result, meta)
-                                return _encode(validated)
+                                raise RuntimeError(
+                                    "Handler awaited unexpectedly in sync dispatch"  # pragma: no mutate (cannot suspend)
+                                )
+                            if isinstance(result, _match_types):
+                                return _encode(result)
                             return _finish(result)
 
                     meta["_sync_executor"] = execute_trivial_async_sync_validated
@@ -2382,20 +2259,8 @@ class BoltAPI:
                         handler: Callable, request: dict[str, Any]
                     ) -> ResponseWireV1:
                         result = await handler()
-                        if type(result) is list:  # pragma: no mutate
-                            # Attr-bag elements (e.g. Django models) need the
-                            # slow path, which converts them by attribute;
-                            # msgspec.convert can't bridge them.
-                            if result and not isinstance(result[0], (dict, msgspec.Struct)):  # pragma: no mutate
-                                return await serialize_response(result, meta)
-                            try:
-                                validated = _convert(result, _list_ann)  # pragma: no mutate
-                            except Exception:
-                                # A later element can need conversion by attribute. The
-                                # slow path converts it, or reports the error as a
-                                # response validation error.
-                                return await serialize_response(result, meta)
-                            return (default_status, _meta_json, _BODY_BYTES, _encode(validated))
+                        if isinstance(result, _match_types):
+                            return (default_status, _meta_json, _BODY_BYTES, _encode(result))
                         return await serialize_response(result, meta)
 
                 else:
@@ -2405,20 +2270,8 @@ class BoltAPI:
                     ) -> ResponseWireV1:
                         args, kwargs = _get_args(request)
                         result = await handler(*args, **kwargs)
-                        if type(result) is list:  # pragma: no mutate
-                            # Attr-bag elements (e.g. Django models) need the
-                            # slow path, which converts them by attribute;
-                            # msgspec.convert can't bridge them.
-                            if result and not isinstance(result[0], (dict, msgspec.Struct)):  # pragma: no mutate
-                                return await serialize_response(result, meta)
-                            try:
-                                validated = _convert(result, _list_ann)  # pragma: no mutate
-                            except Exception:
-                                # A later element can need conversion by attribute. The
-                                # slow path converts it, or reports the error as a
-                                # response validation error.
-                                return await serialize_response(result, meta)
-                            return (default_status, _meta_json, _BODY_BYTES, _encode(validated))
+                        if isinstance(result, _match_types):
+                            return (default_status, _meta_json, _BODY_BYTES, _encode(result))
                         return await serialize_response(result, meta)
 
                 return execute_async_inline_validated
@@ -2516,66 +2369,7 @@ class BoltAPI:
             if _inline_spec is not None:
                 _encode = meta["_inline_encode"]
                 _meta_json = _RESPONSE_META_JSON
-                _inline_kind, _inline_match = _inline_spec
-                # A mutant of a marked line in the inline fast path only sends the
-                # result to the slow path, which gives the same response.
-                _convert = msgspec.convert  # pragma: no mutate
-
-                if _inline_kind == "struct":  # pragma: no mutate
-                    _match_types = _inline_match
-
-                    if _is_no_params_sync:
-
-                        def execute_sync_inline_validated_plain(
-                            handler: Callable, request: dict[str, Any]
-                        ) -> ResponseWireV1:
-                            result = handler()
-                            if isinstance(result, _match_types):
-                                return _encode(result)
-                            return _finish(result)
-
-                    else:
-
-                        def execute_sync_inline_validated_plain(
-                            handler: Callable, request: dict[str, Any]
-                        ) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = handler(*args, **kwargs)
-                            if isinstance(result, _match_types):
-                                return _encode(result)
-                            return _finish(result)
-
-                    meta["_sync_executor"] = execute_sync_inline_validated_plain
-
-                    if _is_no_params_sync:
-
-                        async def execute_sync_inline_validated(
-                            handler: Callable, request: dict[str, Any]
-                        ) -> ResponseWireV1:
-                            result = handler()
-                            if isinstance(result, _match_types):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, QuerySet):
-                                return await run_in_orm_executor(serialize_response_sync, result, meta)
-                            return serialize_response_sync(result, meta)
-
-                    else:
-
-                        async def execute_sync_inline_validated(
-                            handler: Callable, request: dict[str, Any]
-                        ) -> ResponseWireV1:
-                            args, kwargs = _get_args(request)
-                            result = handler(*args, **kwargs)
-                            if isinstance(result, _match_types):
-                                return (default_status, _meta_json, _BODY_BYTES, _encode(result))
-                            if isinstance(result, QuerySet):
-                                return await run_in_orm_executor(serialize_response_sync, result, meta)
-                            return serialize_response_sync(result, meta)
-
-                    return execute_sync_inline_validated
-
-                # _inline_kind == "list"
-                _list_ann = _inline_match  # pragma: no mutate
+                _match_types = _inline_spec
 
                 if _is_no_params_sync:
 
@@ -2583,20 +2377,8 @@ class BoltAPI:
                         handler: Callable, request: dict[str, Any]
                     ) -> ResponseWireV1:
                         result = handler()
-                        if type(result) is list:  # pragma: no mutate
-                            # Attr-bag elements (e.g. Django models) need the
-                            # slow path, which converts them by attribute;
-                            # msgspec.convert can't bridge them.
-                            if result and not isinstance(result[0], (dict, msgspec.Struct)):  # pragma: no mutate
-                                return serialize_response_sync(result, meta)
-                            try:
-                                validated = _convert(result, _list_ann)  # pragma: no mutate
-                            except Exception:
-                                # A later element can need conversion by attribute. The
-                                # slow path converts it, or reports the error as a
-                                # response validation error.
-                                return serialize_response_sync(result, meta)
-                            return _encode(validated)
+                        if isinstance(result, _match_types):
+                            return _encode(result)
                         return _finish(result)
 
                 else:
@@ -2606,20 +2388,8 @@ class BoltAPI:
                     ) -> ResponseWireV1:
                         args, kwargs = _get_args(request)
                         result = handler(*args, **kwargs)
-                        if type(result) is list:  # pragma: no mutate
-                            # Attr-bag elements (e.g. Django models) need the
-                            # slow path, which converts them by attribute;
-                            # msgspec.convert can't bridge them.
-                            if result and not isinstance(result[0], (dict, msgspec.Struct)):  # pragma: no mutate
-                                return serialize_response_sync(result, meta)
-                            try:
-                                validated = _convert(result, _list_ann)  # pragma: no mutate
-                            except Exception:
-                                # A later element can need conversion by attribute. The
-                                # slow path converts it, or reports the error as a
-                                # response validation error.
-                                return serialize_response_sync(result, meta)
-                            return _encode(validated)
+                        if isinstance(result, _match_types):
+                            return _encode(result)
                         return _finish(result)
 
                 meta["_sync_executor"] = execute_sync_inline_validated_plain
@@ -2630,20 +2400,8 @@ class BoltAPI:
                         handler: Callable, request: dict[str, Any]
                     ) -> ResponseWireV1:
                         result = handler()
-                        if type(result) is list:  # pragma: no mutate
-                            # Attr-bag elements (e.g. Django models) need the
-                            # slow path, which converts them by attribute;
-                            # msgspec.convert can't bridge them.
-                            if result and not isinstance(result[0], (dict, msgspec.Struct)):  # pragma: no mutate
-                                return serialize_response_sync(result, meta)
-                            try:
-                                validated = _convert(result, _list_ann)  # pragma: no mutate
-                            except Exception:
-                                # A later element can need conversion by attribute. The
-                                # slow path converts it, or reports the error as a
-                                # response validation error.
-                                return serialize_response_sync(result, meta)
-                            return (default_status, _meta_json, _BODY_BYTES, _encode(validated))
+                        if isinstance(result, _match_types):
+                            return (default_status, _meta_json, _BODY_BYTES, _encode(result))
                         if isinstance(result, QuerySet):
                             return await run_in_orm_executor(serialize_response_sync, result, meta)
                         return serialize_response_sync(result, meta)
@@ -2655,20 +2413,8 @@ class BoltAPI:
                     ) -> ResponseWireV1:
                         args, kwargs = _get_args(request)
                         result = handler(*args, **kwargs)
-                        if type(result) is list:  # pragma: no mutate
-                            # Attr-bag elements (e.g. Django models) need the
-                            # slow path, which converts them by attribute;
-                            # msgspec.convert can't bridge them.
-                            if result and not isinstance(result[0], (dict, msgspec.Struct)):  # pragma: no mutate
-                                return serialize_response_sync(result, meta)
-                            try:
-                                validated = _convert(result, _list_ann)  # pragma: no mutate
-                            except Exception:
-                                # A later element can need conversion by attribute. The
-                                # slow path converts it, or reports the error as a
-                                # response validation error.
-                                return serialize_response_sync(result, meta)
-                            return (default_status, _meta_json, _BODY_BYTES, _encode(validated))
+                        if isinstance(result, _match_types):
+                            return (default_status, _meta_json, _BODY_BYTES, _encode(result))
                         if isinstance(result, QuerySet):
                             return await run_in_orm_executor(serialize_response_sync, result, meta)
                         return serialize_response_sync(result, meta)

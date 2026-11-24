@@ -71,7 +71,7 @@ Actix Web and Tokio serve every request. Auth, guards, CORS, rate limiting and c
 
 <div class="bolt-card" markdown>
 ### :lucide-shield-check: Typed validation
-Parameters and bodies are validated from type hints. One Pydantic model or `msgspec.Struct` gives you validation, serialization and OpenAPI.
+Parameters and bodies are validated from type hints. One Pydantic model gives you validation, serialization and OpenAPI.
 </div>
 
 <div class="bolt-card" markdown>

@@ -183,16 +183,16 @@ async def list_articles():
 
 ## Working with response schemas
 
-When using `msgspec.Struct` schemas, the same rules apply:
+When using Pydantic schemas, the same rules apply:
 
 ```python
-import msgspec
+from pydantic import BaseModel
 
-class AuthorSchema(msgspec.Struct):
+class AuthorSchema(BaseModel):
     id: int
     username: str
 
-class ArticleSchema(msgspec.Struct):
+class ArticleSchema(BaseModel):
     id: int
     title: str
     author: AuthorSchema  # Nested!

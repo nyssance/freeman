@@ -153,14 +153,16 @@ ResponseValidationError(
 
 ## Validation Error Types
 
-When validation fails, Freeman returns structured errors with these types:
+When validation fails, Freeman returns structured errors. Pydantic validates each model, so an error of a body or a parameter model has the type of Pydantic. A scalar parameter gets the same type, see [Errors of scalar parameters](../topics/error-handling.md#errors-of-scalar-parameters).
 
 | Type | Description | Example Message |
 |------|-------------|-----------------|
-| `missing_field` | Required field not provided, at any depth | `Object missing required field 'price'` |
-| `validation_error` | Type mismatch or Meta constraint violation | `Expected 'int', got 'str'` |
+| `missing` | Required field not provided, at any depth | `Field required` |
+| `int_parsing`, `string_type`, ... | Type mismatch | `Input should be a valid integer, unable to parse string as an integer` |
+| `greater_than_equal`, `string_too_long`, ... | Constraint violation | `Input should be greater than or equal to 1` |
 | `json_invalid` | Malformed JSON | `Invalid JSON at line 2, column 5` |
 | `value_error` | Custom `@field_validator` or `@model_validator` failure | `Invalid email format` |
+| `validation_error` | Another error of a scalar parameter | ``Expected `object`, got `array` `` |
 
 ### Error Location (`loc`)
 
@@ -170,12 +172,12 @@ The `loc` field indicates where the error occurred:
 |----------|--------|---------|
 | Request body | `["body", "field"]` | `["body", "email"]` |
 | Nested field | `["body", "user", "name"]` | `["body", "address", "city"]` |
-| Array item | `["body", "0", "field"]` | `["body", "0", "id"]` |
+| Array item | `["body", 0, "field"]` | `["body", 0, "id"]` |
 | Query param | `["query", "param"]` | `["query", "page"]` |
 | Path param | `["path", "param"]` | `["path", "user_id"]` |
 | Header | `["header", "name"]` | `["header", "authorization"]` |
 
-The `loc` of a `missing_field` error ends with the name of the missing field, also in a nested struct or in an array item. The `msg` names the field and has no path. The index of an array item in `loc` is a string, such as `"0"`.
+The `loc` of a `missing` error ends with the name of the missing field, also in a nested model or in an array item. The index of an array item in `loc` is an integer.
 
 ### Example Validation Errors
 
@@ -186,14 +188,14 @@ The `loc` of a `missing_field` error ends with the name of the missing field, al
     "detail": [
         {
             "loc": ["body", "price"],
-            "msg": "Object missing required field `price`",
-            "type": "missing_field"
+            "msg": "Field required",
+            "type": "missing"
         }
     ]
 }
 ```
 
-**Missing field in a nested struct:**
+**Missing field in a nested model:**
 
 For `User(name: str, address: Address)` and `Address(city: str, zip: str)`, the body `{"name": "Ada", "address": {"city": "Paris"}}` gives:
 
@@ -202,14 +204,14 @@ For `User(name: str, address: Address)` and `Address(city: str, zip: str)`, the 
     "detail": [
         {
             "loc": ["body", "address", "zip"],
-            "msg": "Object missing required field `zip`",
-            "type": "missing_field"
+            "msg": "Field required",
+            "type": "missing"
         }
     ]
 }
 ```
 
-For a list of `Address` items, `{"items": [{"city": "Paris"}]}` gives `"loc": ["body", "items", "0", "zip"]`.
+For a list of `Address` items, `{"items": [{"city": "Paris"}]}` gives `"loc": ["body", "items", 0, "zip"]`.
 
 **Type mismatch:**
 
@@ -218,8 +220,8 @@ For a list of `Address` items, `{"items": [{"city": "Paris"}]}` gives `"loc": ["
     "detail": [
         {
             "loc": ["body", "age"],
-            "msg": "Expected `int`, got `str`",
-            "type": "validation_error"
+            "msg": "Input should be a valid integer, unable to parse string as an integer",
+            "type": "int_parsing"
         }
     ]
 }
@@ -246,13 +248,13 @@ For a list of `Address` items, `{"items": [{"city": "Paris"}]}` gives `"loc": ["
     "detail": [
         {
             "loc": ["body", "email"],
-            "msg": "Expected `str`, got `int`",
-            "type": "validation_error"
+            "msg": "Input should be a valid string",
+            "type": "string_type"
         },
         {
             "loc": ["body", "age"],
-            "msg": "Object missing required field `age`",
-            "type": "missing_field"
+            "msg": "Field required",
+            "type": "missing"
         }
     ]
 }

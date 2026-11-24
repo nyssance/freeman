@@ -20,7 +20,7 @@ from django.core.exceptions import DisallowedHost, PermissionDenied
 from django.core.management.base import CommandError
 from django.db.models import QuerySet
 from django.utils.safestring import SafeString
-from msgspec import Meta
+from pydantic import BaseModel, Field
 
 from freeman import BoltAPI
 from freeman.auth import AllowAny, IsAuthenticated, JWTAuthentication
@@ -36,11 +36,11 @@ from .test_exception_log_policy import _allow_file_paths
 from .test_models import Article
 
 
-class Body(msgspec.Struct):
-    n: Annotated[int, Meta(ge=1)]
+class Body(BaseModel):
+    n: Annotated[int, Field(ge=1)]
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     id: int
 
 
@@ -318,7 +318,7 @@ def test_response_validation_500_reaches_the_formatter(recorded, caplog, setting
     assert data["exception"] == "ResponseValidationError"
     [error] = data["errors"]
     assert error["loc"] == ["response", "id"]
-    assert error["type"] == "validation_error"
+    assert error["type"] == "int_parsing"
     records = [record for record in caplog.records if record.name == "freeman.error_handlers"]
     assert len(records) == 1
     # The record is the one that Bolt writes without a formatter: the errors, and the exception.
@@ -800,7 +800,7 @@ def test_skip_cors_route_keeps_its_skip_after_the_formatter(tmp_path):
     assert "access-control-allow-origin" not in response.headers
 
 
-class Conflict(msgspec.Struct):
+class Conflict(BaseModel):
     code: str
 
 

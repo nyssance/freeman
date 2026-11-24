@@ -10,7 +10,7 @@
 
 # No ``from __future__ import annotations``: the handlers use local types.
 import dataclasses
-from typing import Annotated, Any, NamedTuple, NewType, TypedDict
+from typing import Annotated, NamedTuple, NewType, TypedDict
 
 import msgspec
 from openapi_spec_validator import validate
@@ -192,58 +192,6 @@ class Point(NamedTuple):
 
     x: int
     y: int = 0
-
-
-class Shipment(msgspec.Struct):
-    address: Address
-    size: Dimensions
-    origin: Point
-    ids: list[UserId]
-    note: Any
-    raw: msgspec.Raw
-    nothing: None
-    blob: bytearray
-
-
-def test_the_remaining_msgspec_types_of_a_json_body():
-    # The struct holds msgspec.Raw, which a Pydantic model cannot hold. It goes with the struct path.
-    api = BoltAPI()
-
-    @api.post("/shipments")
-    async def ship(shipment: Shipment):
-        return {}
-
-    components = _spec(api)["components"]["schemas"]
-
-    assert components["Shipment"]["properties"] == {
-        "address": {"$ref": "#/components/schemas/Address"},
-        "size": {"$ref": "#/components/schemas/Dimensions"},
-        "origin": {"$ref": "#/components/schemas/Point"},
-        "ids": {"type": "array", "items": INTEGER},
-        "note": {},
-        "raw": {},
-        "nothing": {"type": "null"},
-        "blob": {"type": "string", "contentEncoding": "base64"},
-    }
-    assert components["Address"] == {
-        "title": "Address",
-        "description": "A postal address.",
-        "type": "object",
-        "properties": {"city": STRING, "zip_code": {"type": "string", "default": "00000"}},
-        "required": ["city"],
-    }
-    dimensions = components["Dimensions"]
-    # msgspec gives the keys of a TypedDict in its own order.
-    assert sorted(dimensions.pop("required")) == ["height", "width"]
-    assert dimensions == {"title": "Dimensions", "type": "object", "properties": {"width": INTEGER, "height": INTEGER}}
-    assert components["Point"] == {
-        "title": "Point",
-        "description": "A point on a grid.",
-        "type": "array",
-        "prefixItems": [INTEGER, {"type": "integer", "default": 0}],
-        "minItems": 1,
-        "maxItems": 2,
-    }
 
 
 def test_a_raw_or_none_return_type_documents_as_its_field_does():

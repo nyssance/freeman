@@ -274,7 +274,7 @@ class Request(Protocol):
 
         Note:
             For JSON requests, the framework automatically decodes this
-            when you use msgspec.Struct parameter types. You typically
+            when you use a Pydantic model as the body. You typically
             don't need to access this directly.
 
         Example:

@@ -23,7 +23,7 @@ The changes of Freeman since the fork, up to 0.1.1 and after it.
 ### Added
 
 - **Pydantic models as the body and the result of a handler** - A parameter whose type is a Pydantic model is the body. Pydantic validates it from the raw bytes with `validate_json`. A 422 holds every error of the body, with the same `loc`, `msg` and `type` keys as the other 422 responses. A return type that is a Pydantic model is the response, written with `dump_json`. A dict, an object with attributes or a QuerySet goes through the model first, so only the fields of the model reach the client. In the OpenAPI document, a request body has the validation schema and a response has the serialization schema. Rust still does the routing, the parameters and the guards. `pydantic>=2.11` is a dependency.
-- **The models of the engine are Pydantic models** - `LoginCredentials` of `JWTAuthViews`, and the documented error bodies `ProblemDetails`, `ProblemFieldError`, `CodeDetail` and `FieldError`. The error bodies on the wire and their OpenAPI components are the same. A login body that does not validate gets the Pydantic errors, all in one 422. The type of `error_schema()` is a Pydantic model. A msgspec Struct still works there for now.
+- **The models of the engine are Pydantic models** - `LoginCredentials` of `JWTAuthViews`, and the documented error bodies `ProblemDetails`, `ProblemFieldError`, `CodeDetail` and `FieldError`. The error bodies on the wire and their OpenAPI components are the same. A login body that does not validate gets the Pydantic errors, all in one 422. The type of `error_schema()` is a Pydantic model.
 - **The OpenAPI body of several `Body(embed=True)` parameters has each key** - It had only the key of the first parameter. The body is required when one of the keys is. Each example goes under its key.
 - **`Body(embed=True)` takes a Pydantic model** - The body is an object with the model at the key of the parameter. Each error has the `loc` `["body", <key>, ...]`, and one 422 holds every error of the model. It raised `TypeError` before.
 - **Pagination of a Pydantic item type** - `@paginate` with `-> list[Model]` gave a 500: Pydantic could not build a schema over the `PaginatedResponse` Struct. Such a page now has the Pydantic envelope `Page[Model]`, with the wire shape of `PaginatedResponse`. Pydantic validates and encodes it, and the OpenAPI document has it as a component. A page-number or limit-offset page of a QuerySet reads only the columns of the model (`values()` after the slice) when it can. A cursor page keeps the instances for its cursor.
@@ -48,7 +48,26 @@ The changes of Freeman since the fork, up to 0.1.1 and after it.
   - A nested model: a field whose type is another model, such as `author: AuthorOut`. Load the relation with `select_related()` or `prefetch_related()`.
   - `from_model(obj)`: `Model.model_validate(obj, from_attributes=True)`, or return the object from a handler with `-> Model`.
 
-  A field set becomes one model for each shape. A `msgspec.Struct` still works as a body and a result for now. See [Models](docs/src/topics/models.md).
+  A field set becomes one model for each shape. See [Models](docs/src/topics/models.md).
+- **`msgspec.Struct` as a model** - Pydantic alone validates a body, a result, a `response_model` (also an entry of a dict), a query, header, cookie or form model, a pagination envelope and an `error_schema`. A Struct in one of these places, also inside a type such as `list[Item]`, raises `TypeError` at registration with one message: use a Pydantic model. A handler with no response type can still return a Struct: msgspec encodes it, and the OpenAPI document shows no schema for it. msgspec stays the JSON codec, decodes an `Any` or unannotated body, and converts scalar parameters, so `Annotated[int, msgspec.Meta(ge=1)]` on a parameter still works. Port a Struct as follows:
+  - `class Item(msgspec.Struct)` → `class Item(BaseModel)`.
+  - `Annotated[int, msgspec.Meta(ge=1)]` on a field → `Annotated[int, Field(ge=1)]`. A `msgspec.Meta` on a model field or a response type has no effect.
+  - `msgspec.field(default_factory=list)` → `Field(default_factory=list)`; `msgspec.field(name="x")` → `Field(alias="x")`.
+  - `rename="camel"` → `model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True, serialize_by_alias=True)`.
+  - `frozen=True` → `ConfigDict(frozen=True)`; `forbid_unknown_fields=True` → `ConfigDict(extra="forbid")`, with the type `extra_forbidden` in place of `unknown_field`.
+  - A tagged union (`tag=True`) → a `Literal` field of each model and `Annotated[A | B, Field(discriminator="type")]`.
+  - `PaginatedResponse[T]` → `freeman.Page[T]`, the only envelope. A custom envelope is a generic Pydantic model, such as `class DRFPage[T](BaseModel)`. `PaginatedResponse` is gone from `freeman`.
+  - A `bytes` field of a JSON body is UTF-8 text in Pydantic, where msgspec read base64. Set `val_json_bytes="base64"` and `ser_json_bytes="base64"` to keep base64.
+  - A Pydantic response type converts in lax mode, so `-> bool` takes `1` and `-> UUID` takes a UUID string. A model always checks the fields that go out, also with `validate_response=False`.
+- **msgspec error types of a scalar parameter** - A 422 of a scalar parameter has the error type that Pydantic gives the same error, in place of `validation_error`. The 422 of a body or a parameter model already had the Pydantic types, so each 422 now uses one vocabulary. `msgspec_validation_error_to_dict` is for scalar parameters only. The map, by the start of the msgspec message:
+  - ``Expected `int`, got `str` `` → `int_parsing`; ``got `float` `` → `int_from_float`; another `int` mismatch → `int_type`.
+  - ``Expected `float`, got `str` `` → `float_parsing`; another → `float_type`. ``Expected `bool`, got `str` `` → `bool_parsing`; another → `bool_type`. ``Expected `str`, got`` → `string_type`.
+  - ``Expected `str` of length >=``/`<=` → `string_too_short`/`string_too_long`; ``matching regex`` → `string_pattern_mismatch`; an array or object of length `>=`/`<=` → `too_short`/`too_long`.
+  - `>=` → `greater_than_equal`, `>` → `greater_than`, `<=` → `less_than_equal`, `<` → `less_than` (msgspec writes `gt=0` of an int as `>= 1`); ``that's a multiple of`` → `multiple_of`.
+  - ``with a timezone component`` → `timezone_aware`; ``with no timezone component`` → `timezone_naive`.
+  - `Invalid decimal` → `decimal_parsing`, `Invalid UUID` → `uuid_parsing`, `Invalid RFC3339 encoded datetime`/`date`/`time` → `datetime_parsing`/`date_parsing`/`time_parsing`, `Invalid ISO8601 duration` → `time_delta_parsing`, `Invalid enum value` → `enum`.
+  - `Object missing required field` → `missing`, where it was `missing_field`.
+  - Each other message keeps `validation_error`. The errors that Rust writes, such as `missing` of a required parameter, do not change.
 
 ### Fixed
 

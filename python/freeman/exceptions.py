@@ -101,7 +101,7 @@ class HTTPException(BoltException):
             headers: HTTP headers to include in response. A number value
                 becomes a str. A value of another type raises TypeError.
             extra: Additional data to include in response
-            body: Typed body (for example a msgspec Struct). Encoded as-is,
+            body: Typed body (for example a Pydantic model). Encoded as-is,
                 not validated. Declare its schema with ``response_model={code: Type}``.
         """
         # A str in the first position is the detail, as for BoltException: NotFound("User not found").
@@ -335,6 +335,54 @@ class ResponseFileNotAllowed(PermissionError):
 
 
 # Helper functions for better error messages
+
+# The Pydantic error type of a msgspec error message, so a 422 has one
+# vocabulary for a scalar parameter and for a model. msgspec writes ``gt`` as
+# ``>=`` and ``lt`` as ``<=`` for an int, so those give the ``_equal`` types.
+_MSGSPEC_ERROR_TYPES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(pattern), error_type)
+    for pattern, error_type in (
+        (r"^Expected `int`, got `str`", "int_parsing"),
+        (r"^Expected `int`, got `float`", "int_from_float"),
+        (r"^Expected `int`, got ", "int_type"),
+        (r"^Expected `float`, got `str`", "float_parsing"),
+        (r"^Expected `float`, got ", "float_type"),
+        (r"^Expected `bool`, got `str`", "bool_parsing"),
+        (r"^Expected `bool`, got ", "bool_type"),
+        (r"^Expected `str`, got ", "string_type"),
+        (r"^Expected `str` of length >= ", "string_too_short"),
+        (r"^Expected `str` of length <= ", "string_too_long"),
+        (r"^Expected `str` matching regex ", "string_pattern_mismatch"),
+        (r"^Expected `(array|object)` of length >= ", "too_short"),
+        (r"^Expected `(array|object)` of length <= ", "too_long"),
+        (r"^Expected `\w+` >= ", "greater_than_equal"),
+        (r"^Expected `\w+` > ", "greater_than"),
+        (r"^Expected `\w+` <= ", "less_than_equal"),
+        (r"^Expected `\w+` < ", "less_than"),
+        (r"^Expected `\w+` that's a multiple of ", "multiple_of"),
+        (r"^Expected `\w+` with a timezone component", "timezone_aware"),
+        (r"^Expected `\w+` with no timezone component", "timezone_naive"),
+        (r"^Invalid decimal", "decimal_parsing"),
+        (r"^Invalid UUID", "uuid_parsing"),
+        (r"^Invalid RFC3339 encoded datetime", "datetime_parsing"),
+        (r"^Invalid RFC3339 encoded date", "date_parsing"),
+        (r"^Invalid RFC3339 encoded time", "time_parsing"),
+        (r"^Invalid ISO8601 duration", "time_delta_parsing"),
+        (r"^Invalid enum value ", "enum"),
+        (r"^Object missing required field", "missing"),
+    )
+)
+
+
+def msgspec_error_type(message: str) -> str:
+    """The Pydantic error type of the message of a ``msgspec.ValidationError``.
+
+    A message with no Pydantic equivalent gives ``validation_error``.
+    """
+    for pattern, error_type in _MSGSPEC_ERROR_TYPES:
+        if pattern.match(message):
+            return error_type
+    return "validation_error"
 
 
 def parse_msgspec_decode_error(error: Exception, body_bytes: bytes) -> dict[str, Any]:

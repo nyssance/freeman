@@ -26,10 +26,10 @@ from django.http import HttpResponse as DjangoHttpResponse
 from django.http import HttpResponseRedirect as DjangoHttpResponseRedirect
 from django.template.response import SimpleTemplateResponse, TemplateResponse
 from pydantic import BaseModel
+from pydantic.errors import PydanticSchemaGenerationError
 
 from . import _json
-from ._kwargs import compile_response_coercer, compile_struct_row_readers
-from ._pydantic import ResponseFailure, is_pydantic_model, names_pydantic_model
+from ._pydantic import ResponseFailure, compile_value_coercer, is_pydantic_model, names_pydantic_model
 from ._pydantic import compile_queryset_reader as compile_pydantic_queryset_reader
 from ._pydantic import compile_response_coercer as compile_pydantic_response_coercer
 from ._pydantic import compile_response_encoder as compile_pydantic_response_encoder
@@ -170,8 +170,9 @@ _STATIC_RESPONSE_META = {
     "octetstream": _RESPONSE_META_OCTETSTREAM,
     "html": _RESPONSE_META_HTML,
 }
-# The JSON encoder encodes a Struct and a Pydantic model with no response type.
-_ENCODED_MODEL_TYPES = (msgspec.Struct, BaseModel)
+# The JSON encoder encodes a Pydantic model with no response type. msgspec
+# encodes its own Struct type too, so an unannotated handler can return one.
+_ENCODED_MODEL_TYPES = (BaseModel, msgspec.Struct)
 _VALIDATION_NOOP_TYPES = {dict, list, str, bytes, bytearray, type(None)}
 # The scalar results that Bolt sends as JSON. A bool is an int. A str is
 # text/plain and bytes are application/octet-stream. None is JSON only when
@@ -231,7 +232,6 @@ def _compile_none_handlers(
 def _compile_plain_container_handlers(
     container: type,
     default_status_code: int,
-    prepare_list: Callable[[list[Any]], Any],
     queryset_handler: Callable[..., Any],
     queryset_handler_sync: Callable[..., Any],
 ) -> tuple[Callable[..., Any], Callable[..., Any]]:
@@ -264,9 +264,9 @@ def _compile_plain_container_handlers(
     def list_handler_sync(result: Any, status_code: int | None = None) -> ResponseWireV1:
         current_status = default_status_code if status_code is None else status_code
         if isinstance(result, list):
-            return _wire_bytes(current_status, _RESPONSE_META_JSON, _json.encode(prepare_list(result)))
+            return _wire_bytes(current_status, _RESPONSE_META_JSON, _json.encode(result))
         if isinstance(result, tuple):
-            return _wire_bytes(current_status, _RESPONSE_META_JSON, _json.encode(prepare_list(list(result))))
+            return _wire_bytes(current_status, _RESPONSE_META_JSON, _json.encode(list(result)))
         if isinstance(result, QuerySet):
             return queryset_handler_sync(result, status_code)
         return refuse(result, current_status)
@@ -287,8 +287,6 @@ def _raise_response_validation_error(exc: Exception) -> NoReturn:
     (`error_handlers.response_validation_error_handler`) emit a structured 500
     JSON response, log the bug, and apply debug/prod policy uniformly.
     """
-    if isinstance(exc, msgspec.ValidationError):
-        raise ResponseValidationError([exc]) from exc
     if isinstance(exc, ResponseFailure):
         raise ResponseValidationError(exc.errors) from exc
     raise ResponseValidationError([{"loc": ["response"], "msg": str(exc), "type": "validation_error"}]) from exc
@@ -413,21 +411,39 @@ def _compile_response_validator(meta: HandlerMetadata | dict[str, Any]) -> tuple
     return _compile_type_validators(response_type, meta["validate_response"])
 
 
+def _names_response_class(annotation: Any) -> bool:
+    """Whether the response type is a response class, such as ``HTML``, or a union with one.
+
+    A response object has its own body, so the route validates no data for it.
+    """
+    if isinstance(annotation, type):
+        return issubclass(annotation, _RESPONSE_INSTANCE_TYPES)
+    if get_origin(annotation) in (Union, types.UnionType):
+        return any(_names_response_class(arg) for arg in get_args(annotation))
+    return False
+
+
 def _compile_type_validators(annotation: Any, validate: bool) -> tuple[Any, Any]:
     """Return the validators of a declared type: the coercion if ``validate``.
 
-    Both validators are None when the route does not validate a type that
-    names no Pydantic model.
+    Pydantic validates each declared type. Both validators are None when the
+    route does not validate a type that names no Pydantic model.
     """
     # Pydantic owns a type that names one of its models. It also runs when the
     # route does not validate: the model decides which fields go out.
     # A stream type has no adapter: each item gets the validator of the item type.
-    if names_pydantic_model(annotation) and not _extract_stream_item_type(annotation)[0]:
+    if _extract_stream_item_type(annotation)[0] or _names_response_class(annotation):
+        return None, None
+    if names_pydantic_model(annotation):
         return compile_pydantic_response_coercer(annotation)
-
     if not validate:
         return None, None
-    return compile_response_coercer(annotation)
+    try:
+        return compile_value_coercer(annotation)
+    except PydanticSchemaGenerationError:
+        # A type that Pydantic does not know, such as msgspec.Raw or
+        # ServerSentEvent: the JSON encoder sends the result as it is.
+        return None, None
 
 
 def _compile_stream_item_validators(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, Any]:
@@ -438,46 +454,6 @@ def _compile_stream_item_validators(meta: HandlerMetadata | dict[str, Any]) -> t
     if not _response_validation_is_required(item_type):
         return None, None
     return _compile_type_validators(item_type, meta["validate_response"])
-
-
-def _compile_row_readers(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, Any] | None:
-    """The row readers of a ``list[Struct]`` response type, or None.
-
-    ``response_field_names`` marks such a type. A paginated route has the envelope as its response type, and
-    the paginator reads its QuerySet itself.
-    """
-    response_type = meta.get("response_type")
-    if not meta.get("response_field_names") or get_origin(response_type) is not list:
-        return None
-    return compile_struct_row_readers(get_args(response_type)[0])
-
-
-def _compile_queryset_readers(meta: HandlerMetadata | dict[str, Any]) -> tuple[Any, Any]:
-    readers = _compile_row_readers(meta)
-    if readers is None:
-        return None, None
-    load_rows, _ = readers
-
-    async def serialize_async(queryset: QuerySet) -> list[Any]:
-        # Bounded ORM pool: parallel (unlike sync_to_async's thread_sensitive
-        # single thread) but capped so DB connection count stays small.
-        return await run_in_orm_executor(load_rows, queryset)
-
-    return load_rows, serialize_async
-
-
-def _compile_model_projector(meta: HandlerMetadata | dict[str, Any]) -> Any:
-    """Compile a function that projects model instances to dicts of the declared fields.
-
-    When validate_response=False and the handler returns a list of Django model
-    instances (not dicts/Structs), the JSON encoder still needs dicts of the
-    declared fields, keyed by their wire names. This is compiled once at
-    registration time.
-
-    Returns None when the response type is not ``list[Struct]``.
-    """
-    readers = _compile_row_readers(meta)
-    return None if readers is None else readers[1]
 
 
 def _extract_stream_item_type(annotation: Any) -> tuple[bool, Any | None]:
@@ -573,7 +549,7 @@ def _serialize_sse_chunk(chunk: Any) -> bytes | bytearray | memoryview:
             retry=chunk.retry,
             comment=chunk.comment,
         )
-    # Plain objects (dict, list, msgspec.Struct, etc.)
+    # Plain objects (dict, list, a model, etc.)
     return format_sse_event(data_bytes=_json.encode(chunk))
 
 
@@ -643,36 +619,12 @@ def _build_auto_streaming_response(
     return StreamingResponse(result, status_code=status_code)
 
 
-def _is_plain_struct(t: Any) -> bool:
-    """A msgspec.Struct subclass."""
-    return isinstance(t, type) and issubclass(t, msgspec.Struct)
-
-
-def _union_of_plain_structs(t: Any) -> tuple[type, ...] | None:
-    """If t is a Union of plain msgspec.Structs (optional None allowed), return the struct tuple."""
-    # Only the inline path uses this check. A mutant on a marked line makes it
-    # return None, so the route takes the slow path, which gives the same response.
-    origin = get_origin(t)  # pragma: no mutate
-    if origin not in (Union, types.UnionType):
-        return None
-    args = [a for a in get_args(t) if a is not type(None)]  # pragma: no mutate
-    if not args or not all(_is_plain_struct(a) for a in args):  # pragma: no mutate
-        return None
-    return tuple(args)
-
-
-def _compile_inline_response_validator(meta: HandlerMetadata | dict[str, Any]) -> tuple[str, Any] | None:
+def _compile_inline_response_validator(meta: HandlerMetadata | dict[str, Any]) -> tuple[type, ...] | None:
     """Pre-classify the response annotation for the inline-encoding fast path.
 
-    Returns a descriptor consumed by the dispatcher in ``api.py``:
-      - ``("struct", types_tuple)`` — runtime ``isinstance`` against ``types_tuple``;
-        on match, encode directly via ``msgspec.json.Encoder``.
-      - ``("list", annotation)`` — when the handler returns a Python list,
-        ``msgspec.convert(result, annotation)`` then encode.
-      - ``None`` — no inline path; the dispatcher falls back to
-        ``serialize_response[_sync]``.
-
-    The dispatcher encodes with ``meta["_inline_encode"]``.
+    Returns the types that the dispatcher in ``api.py`` checks with
+    ``isinstance``. On a match, it encodes with ``meta["_inline_encode"]``,
+    the encoder of the Pydantic response type. None is no inline path.
 
     The dispatcher always delegates non-matching runtime values (Response
     objects, QuerySets, generators, ``None``, dicts, ...) to
@@ -685,7 +637,7 @@ def _compile_inline_response_validator(meta: HandlerMetadata | dict[str, Any]) -
       - ``default_status_code == 204`` (None-body shortcut lives in the slow path)
       - ``is_multi_response`` (multi-status routes have their own dispatcher)
     """
-    # A mutant in a region below turns the inline path off, or turns it on for
+    # A mutant in this function turns the inline path off, or turns it on for
     # a route that gives the same response on both paths. No test can catch it:
     # - A route with validate_response=False or a multi-response route never reads the result.
     # - A response_class route or a 204 route encodes the same body on both paths.
@@ -701,29 +653,9 @@ def _compile_inline_response_validator(meta: HandlerMetadata | dict[str, Any]) -
     response_type = meta.get("response_type")
     if response_type is None or response_type in _VALIDATION_NOOP_TYPES:
         return None
-
-    if _is_plain_struct(response_type):
-        return ("struct", (response_type,))
     # A Pydantic result goes to its own encoder, which validates each other value.
-    pydantic_match = _pydantic_inline_match(response_type)
-    if pydantic_match is not None:
-        return ("struct", pydantic_match)
-
-    union_structs = _union_of_plain_structs(response_type)
+    return _pydantic_inline_match(response_type)
     # pragma: no mutate end
-    if union_structs is not None:
-        return ("struct", union_structs)  # pragma: no mutate
-
-    # pragma: no mutate start
-    if get_origin(response_type) is list:
-        args = get_args(response_type)
-        if args:
-            item_type = args[0]
-            if _is_plain_struct(item_type) or _union_of_plain_structs(item_type) is not None:
-                return ("list", response_type)
-
-    # pragma: no mutate end
-    return None
 
 
 def _pydantic_inline_match(response_type: Any) -> tuple[type, ...] | None:
@@ -768,22 +700,16 @@ def _compile_pydantic_inline_encode(response_type: Any) -> Callable[[Any], bytes
 
 def _compile_inline_encode(response_type: Any) -> Callable[[Any], bytes]:
     """Return the encoder of the inline path."""
-    if names_pydantic_model(response_type):
-        return _compile_pydantic_inline_encode(response_type)
-    return _json._ENCODER.encode
+    return _compile_pydantic_inline_encode(response_type)
 
 
 def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
     validator_sync, validator_async = _compile_response_validator(meta)
     stream_validator_sync, stream_validator_async = _compile_stream_item_validators(meta)
-    queryset_reader_sync, queryset_reader_async = _compile_queryset_readers(meta)
-
+    queryset_reader_sync = queryset_reader_async = None
     # A list[PydanticModel] reads a QuerySet with values() when its fields are columns.
-    if queryset_reader_sync is None and (
-        pydantic_readers := compile_pydantic_queryset_reader(meta.get("response_type"))
-    ):
+    if pydantic_readers := compile_pydantic_queryset_reader(meta.get("response_type")):
         queryset_reader_sync, queryset_reader_async = pydantic_readers
-    model_projector = _compile_model_projector(meta)
     # Without the inline path, the slow path gives the same response.
     inline_validator = _compile_inline_response_validator(meta)  # pragma: no mutate
 
@@ -796,10 +722,6 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
 
     default_status_code = meta["default_status_code"]
     stream_info = meta["_stream_info"]
-    # A Struct result goes to the JSON payload before the stream checks. Only a
-    # route with a stream annotation can stream a Struct, so it keeps the full order.
-    # Without this shortcut, the full order gives the same response.
-    struct_first = not stream_info[0]  # pragma: no mutate
     response_class = meta.get("response_class")
     # A None result with no such response type is an error: the handler has no return.
     none_is_json = _allows_none(meta.get("response_type"))
@@ -817,18 +739,6 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
     refuse_text = refuses and plain_type is not str
     refuse_bytes = refuses and plain_type not in (bytes, bytearray)
 
-    def prepare_list(result: list[Any]) -> Any:
-        # The validator reads model instances by attribute. Without one, the
-        # projector gives the JSON encoder dicts of the declared fields.
-        if (
-            model_projector is not None
-            and validator_sync is None
-            and result
-            and not isinstance(result[0], (dict, msgspec.Struct))
-        ):
-            return model_projector(result)
-        return result
-
     async def data_handler(result: Any, status_code: int | None = None) -> ResponseWireV1:
         current_status = default_status_code if status_code is None else status_code
 
@@ -836,14 +746,11 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
             return _wire_bytes(204, _RESPONSE_META_EMPTY, b"")
 
         # The async validator awaits only for a QuerySet or a model instance. A
-        # dict gets the same result from the sync validator, and so does a
-        # Struct.
+        # dict gets the same result from the sync validator.
         if isinstance(result, dict):
             return _serialize_json_payload_sync(result, current_status, validator_sync)
         if isinstance(result, list):
-            return await _serialize_json_payload_async(prepare_list(result), current_status, validator_async)
-        if struct_first and isinstance(result, msgspec.Struct):
-            return _serialize_json_payload_sync(result, current_status, validator_sync)
+            return await _serialize_json_payload_async(result, current_status, validator_async)
         if isinstance(result, (bytes, bytearray)):
             if validate_bytes:
                 return _serialize_validated_raw(result, current_status, validator_sync)
@@ -872,7 +779,7 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
         if isinstance(result, _ENCODED_MODEL_TYPES) or validator_async is not None:
             return await _serialize_json_payload_async(result, current_status, validator_async)
 
-        # The last check, so a dict, a list or a Struct does not pay for it.
+        # The last check, so a dict, a list or a model does not pay for it.
         if isinstance(result, _JSON_SCALAR_TYPES) or (result is None and none_is_json):
             return _wire_bytes(current_status, _RESPONSE_META_JSON, _json.encode(result))
 
@@ -890,8 +797,6 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
         if isinstance(result, dict):
             return _serialize_json_payload_sync(result, current_status, validator_sync)
         if isinstance(result, list):
-            return _serialize_json_payload_sync(prepare_list(result), current_status, validator_sync)
-        if struct_first and isinstance(result, msgspec.Struct):
             return _serialize_json_payload_sync(result, current_status, validator_sync)
         if isinstance(result, (bytes, bytearray)):
             if validate_bytes:
@@ -917,7 +822,7 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
         if isinstance(result, _ENCODED_MODEL_TYPES) or validator_sync is not None:
             return _serialize_json_payload_sync(result, current_status, validator_sync)
 
-        # The last check, so a dict, a list or a Struct does not pay for it.
+        # The last check, so a dict, a list or a model does not pay for it.
         if isinstance(result, _JSON_SCALAR_TYPES) or (result is None and none_is_json):
             return _wire_bytes(current_status, _RESPONSE_META_JSON, _json.encode(result))
 
@@ -1010,7 +915,7 @@ def compile_response_handlers(meta: HandlerMetadata | dict[str, Any]) -> None:
 
     if refuses and plain_type in (dict, list):
         data_handler, data_handler_sync = _compile_plain_container_handlers(
-            plain_type, default_status_code, prepare_list, data_handler, data_handler_sync
+            plain_type, default_status_code, data_handler, data_handler_sync
         )
     elif meta["validate_response"] and plain_type is type(None):
         data_handler, data_handler_sync = _compile_none_handlers(data_handler, data_handler_sync)

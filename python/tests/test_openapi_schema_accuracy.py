@@ -37,26 +37,26 @@ from freeman.param_functions import File, Form, Query
 from freeman.testing import TestClient
 from freeman.websocket import WebSocket
 
-# Documented constrained types: a msgspec Meta with a description.
+# Documented constrained types: a Pydantic Field with a description.
 Email = Annotated[
     str,
-    msgspec.Meta(
+    Field(
         max_length=254,
-        pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$(?!\n)",
+        pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
         description="Valid email address",
         examples=["user@example.com"],
     ),
 ]
 HttpsURL = Annotated[
     str,
-    msgspec.Meta(
+    Field(
         max_length=200,
-        pattern=r"^https://[^\s/$.?#].[^\s]*$(?!\n)",
+        pattern=r"^https://[^\s/$.?#].[^\s]*$",
         description="HTTPS-only URL",
         examples=["https://example.com"],
     ),
 ]
-PositiveInt = Annotated[int, msgspec.Meta(gt=0, description="Positive integer (> 0)")]
+PositiveInt = Annotated[int, Field(gt=0, description="Positive integer (> 0)")]
 
 
 # Fixtures
@@ -819,24 +819,6 @@ def test_extra_json_schema_keys_in_camel_case_reach_the_schema():
     }
 
 
-def test_documented_constrained_field_matches_msgspec_schema():
-    """Bolt's component schema for documented custom types matches msgspec's own.
-
-    This is the contract codegen tools rely on: the spec Bolt emits must be the
-    same one `msgspec.json.schema` would produce for the equivalent struct.
-    """
-
-    class Account(msgspec.Struct):
-        email: Email
-        age: PositiveInt
-        site: HttpsURL
-
-    bolt_props = _get_response_component_schema(Account)["properties"]
-    msgspec_props = msgspec.json.schema(Account)["$defs"]["Account"]["properties"]
-    for field_name in ("email", "age", "site"):
-        assert bolt_props[field_name]["type"] == msgspec_props[field_name]["type"]
-
-
 def test_documented_query_struct_field_renders_concrete_type():
     """A documented constrained field on a query struct types the parameter.
 
@@ -875,18 +857,16 @@ def test_nullable_documented_custom_type_unwraps_inside_union():
     """`HttpsURL | None` — the Metadata node nested in the union must unwrap.
 
     Nullable custom types are the common shape (`website: HttpsURL | None = None`);
-    under OpenAPI 3.1 the type sits in the first `anyOf` arm beside `{"type": "null"}`.
+    under OpenAPI 3.1 the type is a list with "null" in it.
     """
 
-    class Profile(msgspec.Struct):
+    class Profile(BaseModel):
         website: HttpsURL | None = None
 
-    props = _get_response_component_schema(Profile)["properties"]
-    arms = props["website"]["anyOf"]
-    typed = next(arm for arm in arms if arm.get("type") != "null")
-    assert typed["type"] == "string"
-    assert typed["maxLength"] == 200
-    assert {"type": "null"} in arms
+    website = _get_response_component_schema(Profile)["properties"]["website"]
+    # Pydantic writes a nullable scalar as a list of types.
+    assert website["type"] == ["string", "null"]
+    assert website["maxLength"] == 200
 
 
 def test_constraints_only_meta_still_omits_description():

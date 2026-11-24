@@ -38,7 +38,7 @@ from pydantic import Field as PydanticField
 from pydantic import ValidationError as PydanticValidationError
 
 from . import _json
-from ._pydantic import adapter_for, compile_queryset_reader, is_pydantic_model, response_failure
+from ._pydantic import adapter_for, compile_queryset_reader, is_pydantic_model, refuse_msgspec_model, response_failure
 from .concurrency import run_in_orm_executor
 from .exceptions import ResponseValidationError
 from .middleware.middleware import note_config_decorator
@@ -49,7 +49,6 @@ __all__ = [
     "PageNumberPagination",
     "LimitOffsetPagination",
     "CursorPagination",
-    "PaginatedResponse",
     "Page",
     "paginate",
     "extract_pagination_item_type",
@@ -104,55 +103,6 @@ def _field_accepts(field: Any, value: Any, queryset: Any) -> bool:
     return True
 
 
-class PaginatedResponse(msgspec.Struct, Generic[T], omit_defaults=True):  # noqa: UP046 — PEP 695 params are unresolvable under PEP 563
-    """
-    Standard paginated response structure.
-
-    Uses omit_defaults=True so only relevant fields are included in response:
-    - PageNumberPagination: page, page_size, total_pages, next_page, previous_page
-    - LimitOffsetPagination: limit, offset
-    - CursorPagination: page_size, next_cursor
-
-    Attributes:
-        items: List of paginated items
-        total: Total number of items across all pages
-        has_next: Whether there is a next page (always included)
-        has_previous: Whether there is a previous page (always included).
-            For CursorPagination, it is True when the request has a valid cursor.
-            A cursor page gives no cursor to go back.
-        page: Current page number (for PageNumber pagination)
-        page_size: Number of items per page
-        total_pages: Total number of pages
-        next_page: Next page number (None if no next page)
-        previous_page: Previous page number (None if no previous page)
-        limit: Number of items requested (for LimitOffset pagination)
-        offset: Position of the first item (for LimitOffset pagination)
-        next_cursor: Cursor of the next page (for Cursor pagination, None if no next page)
-        previous_cursor: Not set by the built-in schemes. A custom scheme can set it.
-    """
-
-    # Required fields (always included in response)
-    items: list[T]
-    total: int
-    has_next: bool  # No default = always included
-    has_previous: bool  # No default = always included
-
-    # PageNumber pagination fields (included when set)
-    page: int | None = None
-    page_size: int | None = None
-    total_pages: int | None = None
-    next_page: int | None = None
-    previous_page: int | None = None
-
-    # LimitOffset pagination fields (included when set)
-    limit: int | None = None
-    offset: int | None = None
-
-    # Cursor pagination fields (included when set)
-    next_cursor: str | None = None
-    previous_cursor: str | None = None
-
-
 def _unset(value: Any) -> bool:
     return value is None
 
@@ -167,11 +117,19 @@ _Optional = PydanticField(None, exclude_if=_unset, json_schema_extra=_no_default
 
 
 class Page(BaseModel, Generic[T]):  # noqa: UP046 — PEP 695 params are unresolvable under PEP 563
-    """The pagination envelope of a Pydantic item type: ``Page[Item]``.
+    """The pagination envelope: ``Page[Item]``.
 
-    It has the fields of ``PaginatedResponse`` and the same wire shape: an
-    optional field that is None is not in the JSON. ``@paginate`` uses it for
-    a Pydantic item type when the paginator keeps the default ``response_class``.
+    An optional field that is None is not in the JSON, so each scheme sends
+    only its own fields:
+
+    - PageNumberPagination: page, page_size, total_pages, next_page, previous_page
+    - LimitOffsetPagination: limit, offset
+    - CursorPagination: page_size, next_cursor
+
+    ``items``, ``total``, ``has_next`` and ``has_previous`` are always in the
+    JSON. For CursorPagination, ``has_previous`` is True when the request has a
+    valid cursor, and ``total`` is 0. ``previous_cursor`` is not set by the
+    built-in schemes. A custom scheme can set it.
     """
 
     items: list[T]
@@ -192,22 +150,21 @@ class Page(BaseModel, Generic[T]):  # noqa: UP046 — PEP 695 params are unresol
 def envelope_type(pagination_class: type[PaginationBase], item_type: Any) -> Any:
     """The envelope of one page of ``item_type``: ``response_class[item_type]``.
 
-    A Pydantic item type gets ``Page[item_type]`` when the paginator has the
-    default ``PaginatedResponse``, so Pydantic validates and encodes the page.
+    The envelope is a generic Pydantic model, ``Page`` by default, so Pydantic
+    validates and encodes the page.
     """
     response_class = pagination_class.response_class
-    if response_class is PaginatedResponse and is_pydantic_model(item_type):
-        return Page[item_type]
+    refuse_msgspec_model(response_class, "pagination response_class", pagination_class.__qualname__)
     return response_class[item_type]
 
 
 def extract_pagination_item_type(response_type: Any) -> type | None:
     """
-    Extract item type from list[T] or PaginatedResponse[T] for pagination.
+    Extract item type from list[T] or Page[T] for pagination.
 
     This is used by the route decorator to determine the item type
     when a handler is decorated with @paginate and has a response_model
-    like list[UserOut] or PaginatedResponse[UserOut].
+    like list[UserOut] or Page[UserOut].
 
     Args:
         response_type: Type annotation (e.g., list[UserOut])
@@ -225,10 +182,6 @@ def extract_pagination_item_type(response_type: Any) -> type | None:
 
     # Handle list[T]
     if origin is list:
-        return args[0]
-
-    # Handle PaginatedResponse[T]
-    if origin is PaginatedResponse:
         return args[0]
 
     return None
@@ -263,10 +216,10 @@ class PaginationBase(ABC):
     # The item type of a page (set at runtime by the paginate wrapper)
     item_type: type | None = None
 
-    # Envelope type: a generic msgspec.Struct taking the item type
+    # Envelope type: a generic Pydantic model taking the item type
     # (``response_class[Item]``). Drives the OpenAPI schema and response
     # validation; override together with build_response() for a custom shape.
-    response_class: type = PaginatedResponse
+    response_class: type = Page
 
     def build_response(
         self, items: list[Any], *, total: int, request: Any, has_next: bool, has_previous: bool, **info: Any
@@ -303,7 +256,7 @@ class PaginationBase(ABC):
             **params: Additional parameters
 
         Returns:
-            PaginatedResponse with items and metadata
+            Page with items and metadata
         """
         raise NotImplementedError
 
@@ -347,16 +300,14 @@ class PaginationBase(ABC):
         Supports:
         - Pydantic model: one validation of the page, as a ``list[Model]``
           response type with no ``@paginate``
-        - msgspec.Struct: one msgspec.convert() for the page, as a
-          ``list[Struct]`` response type with no ``@paginate``
         - Fallback: _model_to_dict() for backwards compatibility
 
         Args:
-            items: List of raw items (Django models, dicts or Structs)
+            items: List of raw items (Django models or dicts)
 
         Returns:
-            List of Struct instances for a plain msgspec.Struct item type,
-            else a list of dictionaries. Both are ready for JSON serialization.
+            List of model instances for a Pydantic item type, else a list of
+            dictionaries. Both are ready for JSON serialization.
 
         Raises:
             ResponseValidationError: An item does not fit the item type.
@@ -368,7 +319,7 @@ class PaginationBase(ABC):
             # Backwards compatibility: use _model_to_dict fallback
             return [self._model_to_dict(item) for item in items]
 
-        convert_page = _struct_page_converter(self.item_type) or _pydantic_page_converter(self.item_type)
+        convert_page = _pydantic_page_converter(self.item_type)
         if convert_page is not None:
             return convert_page(items)
 
@@ -512,7 +463,7 @@ class PageNumberPagination(PaginationBase):
             **params: Additional parameters (unused)
 
         Returns:
-            PaginatedResponse with pagination metadata
+            Page with pagination metadata
         """
         page_params = await self.get_page_params(request)
         page_number = page_params["page"]
@@ -612,7 +563,7 @@ class LimitOffsetPagination(PaginationBase):
             **params: Additional parameters (unused)
 
         Returns:
-            PaginatedResponse with pagination metadata
+            Page with pagination metadata
         """
         page_params = await self.get_page_params(request)
         limit = page_params["limit"]
@@ -769,7 +720,7 @@ class CursorPagination(PaginationBase):
             **params: Additional parameters (unused)
 
         Returns:
-            PaginatedResponse with cursor metadata
+            Page with cursor metadata
         """
         page_params = await self.get_page_params(request)
         cursor_value = page_params["cursor"]
@@ -887,28 +838,6 @@ class CursorPagination(PaginationBase):
 
 
 @cache
-def _struct_page_converter(item_type: type) -> Callable[[list[Any]], list[Any]] | None:
-    """The conversion of one page for a plain msgspec.Struct item type, else None. Built one time per type.
-
-    The conversion is that of a ``list[Struct]`` response type with no
-    ``@paginate``: msgspec reads a dict by key and each other object by
-    attribute. Thus the page has the same items, and a value that does not fit
-    the Struct gives the same response validation error.
-    """
-    if not (isinstance(item_type, type) and issubclass(item_type, msgspec.Struct)):
-        return None
-    page_type = list[item_type]
-
-    def convert_page(items: list[Any]) -> list[Any]:
-        try:
-            return msgspec.convert(items, page_type, from_attributes=True)
-        except msgspec.ValidationError as exc:
-            raise ResponseValidationError([exc]) from exc
-
-    return convert_page
-
-
-@cache
 def _pydantic_page_converter(item_type: Any) -> Callable[[list[Any]], list[Any]] | None:
     """The validation of one page for a Pydantic item type, else None. Built one time per type.
 
@@ -943,7 +872,7 @@ def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
 
     The decorated handler should return a Django QuerySet. For PageNumberPagination
     and LimitOffsetPagination, it can also return a list. CursorPagination raises TypeError for a list.
-    The decorator will automatically apply pagination and return a PaginatedResponse.
+    The decorator will automatically apply pagination and return a ``Page``.
 
     The handler can be async or sync. Bolt calls a sync handler on the event loop.
     Thus a sync handler must return a lazy QuerySet or a list. If it runs a query,
@@ -994,8 +923,8 @@ def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
                 cached_paginator = pagination_class()
                 item_type = getattr(wrapper, "__bolt_item_type__", None)
                 cached_paginator.item_type = item_type
-                if pagination_class.response_class is PaginatedResponse and is_pydantic_model(item_type):
-                    # The Pydantic envelope, as the route documents it.
+                if item_type is not None and pagination_class.response_class is Page:
+                    # The envelope of the item type, as the route documents it.
                     cached_paginator.response_class = envelope_type(pagination_class, item_type)
 
             request = request_getter(args, kwargs)
@@ -1025,7 +954,7 @@ def paginate(pagination_class: type[PaginationBase] = PageNumberPagination):
         wrapper.__doc__ = original_handler.__doc__
         wrapper.__module__ = original_handler.__module__
 
-        # Mark that this handler returns PaginatedResponse for serialization
+        # Mark that this handler returns a page envelope for serialization
         wrapper.__paginated__ = True
         wrapper.__pagination_class__ = pagination_class
 

@@ -11,7 +11,6 @@ from typing import Annotated
 from urllib.parse import urljoin
 
 import jwt
-import msgspec
 import pytest
 import yaml
 from django.contrib.auth import alogin
@@ -1314,7 +1313,7 @@ def test_openapi_form_struct_flattens_struct_fields():
     struct.
     """
 
-    class RegisterForm(msgspec.Struct):
+    class RegisterForm(BaseModel):
         username: str
         age: int
         email: str
@@ -1350,7 +1349,7 @@ def test_openapi_form_struct_flattens_struct_fields():
 def test_openapi_request_body_lists_the_content_types_that_the_route_accepts():
     """A route with a file accepts multipart only. A route with only form fields accepts both form types."""
 
-    class Report(msgspec.Struct):
+    class Report(BaseModel):
         title: str
         pages: list[UploadFile]
 

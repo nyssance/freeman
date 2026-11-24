@@ -12,7 +12,7 @@ This module does only what needs the model:
 import functools
 import inspect
 from collections.abc import Callable
-from typing import Annotated, Any, NamedTuple, get_args, get_origin
+from typing import Annotated, Any, NamedTuple, NoReturn, get_args, get_origin
 
 import msgspec
 from django.db.models import Model, QuerySet
@@ -32,10 +32,12 @@ __all__ = (
     "compile_queryset_reader",
     "compile_response_coercer",
     "compile_response_encoder",
+    "compile_value_coercer",
     "encode_model",
     "is_pydantic_model",
     "names_pydantic_model",
     "param_fields",
+    "refuse_msgspec_model",
     "request_errors",
     "response_failure",
     "ParamField",
@@ -65,6 +67,41 @@ def names_pydantic_model(annotation: Any) -> bool:
     if origin is Annotated:
         return names_pydantic_model(args[0])
     return any(names_pydantic_model(arg) for arg in args)
+
+
+def _user_struct_in(annotation: Any) -> type | None:
+    """The first ``msgspec.Struct`` class of the user at any position of ``annotation``, else None.
+
+    The structs of Freeman itself, such as ``ServerSentEvent``, do not count.
+    """
+    if isinstance(annotation, type):
+        if issubclass(annotation, msgspec.Struct) and not annotation.__module__.startswith("freeman."):
+            return annotation
+        return None
+    origin = get_origin(annotation)
+    if origin is None:
+        return None
+    if isinstance(origin, type) and issubclass(origin, msgspec.Struct):
+        return _user_struct_in(origin)
+    for arg in get_args(annotation):
+        found = _user_struct_in(arg)
+        if found is not None:
+            return found
+    return None
+
+
+def refuse_msgspec_model(annotation: Any, role: str, owner: str) -> None:
+    """Raise TypeError when ``annotation`` uses a ``msgspec.Struct`` as a model.
+
+    A body, a result, a parameter model and a form model are Pydantic models.
+    The route registration calls this for each of them.
+    """
+    struct = _user_struct_in(annotation)
+    if struct is not None:
+        raise TypeError(
+            f"{owner}: the {role} type {annotation!r} uses the msgspec.Struct {struct.__qualname__}. "
+            "Freeman validates models with Pydantic only. Use a pydantic.BaseModel in its place."
+        )
 
 
 def _drop_field_titles(schema: dict[str, Any]) -> None:
@@ -323,10 +360,15 @@ def compile_response_encoder(annotation: Any) -> Callable[[Any], bytes]:
     dump = adapter.dump_json
     model = annotation if is_pydantic_model(annotation) else None
     list_hint = _list_hint(annotation)
+    not_a_list = _not_a_list(annotation)
 
     def encode(value: Any) -> bytes:
         if model is not None and type(value) is model:
             return model.__pydantic_serializer__.to_json(value)
+        if not_a_list is not None and not isinstance(value, (list, tuple)):
+            if value is None:
+                return b"[]"
+            not_a_list(value)
         try:
             return dump(validate(value, from_attributes=True))
         except ValidationError as e:
@@ -339,6 +381,24 @@ def compile_response_encoder(annotation: Any) -> Callable[[Any], bytes]:
     return encode
 
 
+def _not_a_list(annotation: Any) -> Callable[[Any], NoReturn] | None:
+    """For a ``list[T]`` type, the error of a value that is not a list, which names the list type. Else None."""
+    if get_origin(annotation) is not list and annotation is not list:
+        return None
+    args = get_args(annotation)
+    item = args[0] if args else Any
+    item_name = item.__name__ if isinstance(item, type) else repr(item)
+
+    def refuse(value: Any) -> NoReturn:
+        message = (
+            f"Response type mismatch: expected list[{item_name}], "
+            f"but handler returned {type(value).__name__}. Make sure your handler returns a list."
+        )
+        raise ResponseFailure(message, [{"loc": ["response"], "msg": message, "type": "list_type"}])
+
+    return refuse
+
+
 def _list_hint(annotation: Any) -> str | None:
     """The error of a list for a single model, which names the list type, or None for another type."""
     if not is_pydantic_model(annotation):
@@ -348,6 +408,34 @@ def _list_hint(annotation: Any) -> str | None:
         f"Response type mismatch: expected a single {name}, "
         f"but handler returned a list. Did you mean to annotate with list[{name}]?"
     )
+
+
+def compile_value_coercer(annotation: Any) -> tuple[Callable[[Any], Any], Callable[[Any], Any]]:
+    """Build the response validation of a return type that names no Pydantic model, once per route.
+
+    Pydantic validates the value and gives the Python value, not JSON. Thus a
+    str that stays a str is still text/plain, and a str that becomes a
+    ``UUID`` is JSON. An object is read by attribute. For a ``list[T]``
+    response type, None is the empty list, and a value that is not a list
+    names the list type in its error.
+    """
+    validate = adapter_for(annotation).validate_python
+    not_a_list = _not_a_list(annotation)
+
+    def coerce(value: Any) -> Any:
+        if not_a_list is not None and not isinstance(value, (list, tuple)):
+            if value is None:
+                return []
+            not_a_list(value)
+        try:
+            return validate(value, from_attributes=True)
+        except ValidationError as e:
+            raise response_failure(e) from e
+
+    async def coerce_async(value: Any) -> Any:
+        return coerce(value)
+
+    return coerce, coerce_async
 
 
 def compile_response_coercer(annotation: Any) -> tuple[Callable[[Any], Any], Callable[[Any], Any]]:

@@ -269,7 +269,7 @@ A `msgspec.Meta` constraint such as `max_length` counts the bytes.
 
 A `bytes` field of a [parameter model](#parameter-models) follows the same rule. The model can be a `Query()`, `Form()`, `Header()` or `Cookie()` model.
 
-A JSON body is different. JSON has no bytes type, so msgspec reads the text of a `bytes` field in a JSON body as base64. The OpenAPI document shows this difference. A `bytes` parameter, form field or field of a parameter model is `{"type": "string"}`. A `bytes` field of a JSON body is `{"type": "string", "contentEncoding": "base64"}`.
+A JSON body follows the rules of Pydantic. JSON has no bytes type, and Pydantic reads the text of a `bytes` field as UTF-8 by default. Set `ser_json_bytes` and `val_json_bytes` in the `model_config` to use base64.
 
 ### Types that Freeman cannot convert
 
@@ -286,12 +286,12 @@ A `File()` parameter takes `UploadFile`, `bytes`, `dict`, or a list of one of th
 
 ### JSON body
 
-Use a `msgspec.Struct` or a Pydantic model for validated JSON bodies. Pydantic validates a model from the raw bytes with `validate_json`. A return type that is a Pydantic model is the response. This example uses a struct:
+Use a Pydantic model for a validated JSON body. Pydantic validates the model from the raw bytes with `validate_json`. A return type that is a Pydantic model is the response:
 
 ```python
-import msgspec
+from pydantic import BaseModel
 
-class CreateUser(msgspec.Struct):
+class CreateUser(BaseModel):
     username: str
     email: str
     age: int | None = None
@@ -301,7 +301,7 @@ async def create_user(user: CreateUser):
     return {"username": user.username}
 ```
 
-A list of structs reads a JSON array:
+A list of models reads a JSON array:
 
 ```python
 @api.post("/users/bulk")
@@ -583,18 +583,18 @@ async def update_profile(
 
 ## Parameter models
 
-You can use a Pydantic model or a `msgspec.Struct` to group related parameters into a single validated object. See [Models](models.md#parameter-models). This works with `Form()`, `Query()`, `Header()`, and `Cookie()`.
+You can use a Pydantic model to group related parameters into a single validated object. See [Models](models.md#parameter-models). This works with `Form()`, `Query()`, `Header()`, and `Cookie()`.
 
 ### Form models
 
-Group form fields into a struct:
+Group form fields into a model:
 
 ```python
-import msgspec
 from typing import Annotated
+from pydantic import BaseModel
 from freeman.param_functions import Form
 
-class LoginForm(msgspec.Struct):
+class LoginForm(BaseModel):
     username: str
     password: str
     remember_me: bool = False
@@ -604,10 +604,10 @@ async def login(form: Annotated[LoginForm, Form()]):
     return {"username": form.username, "remember": form.remember_me}
 ```
 
-With a Pydantic model for custom validation:
+With a validator for custom validation:
 
 ```python
-from pydantic import BaseModel, field_validator
+from pydantic import field_validator
 
 class RegisterForm(BaseModel):
     username: str
@@ -631,7 +631,7 @@ async def register(form: Annotated[RegisterForm, Form()]):
 Group query parameters:
 
 ```python
-class FilterParams(msgspec.Struct):
+class FilterParams(BaseModel):
     limit: int = 10
     offset: int = 0
     search: str | None = None
@@ -650,10 +650,10 @@ Request: `GET /items?limit=20&search=test`
 
 ### Header models
 
-Group headers into a struct. Field names are converted from `snake_case` to `kebab-case` for HTTP header lookup:
+Group headers into a model. Field names are converted from `snake_case` to `kebab-case` for HTTP header lookup:
 
 ```python
-class AuthHeaders(msgspec.Struct):
+class AuthHeaders(BaseModel):
     x_api_key: str           # maps to X-Api-Key header
     x_request_id: str | None = None  # maps to X-Request-Id header
 
@@ -671,7 +671,7 @@ A `list`, `set`, `frozenset` or `tuple` field gets a sequence of one item, the v
 Group cookies:
 
 ```python
-class SessionCookies(msgspec.Struct):
+class SessionCookies(BaseModel):
     session_id: str
     theme: str = "light"
     language: str = "en"
@@ -699,10 +699,14 @@ This applies to `Query()`, `Header()`, `Cookie()` and `Form()` models.
 
 ### Unknown keys
 
-A parameter model ignores a key that it does not declare. To reject such a key, set `forbid_unknown_fields=True`:
+A parameter model ignores a key that it does not declare. To reject such a key, set `extra="forbid"`:
 
 ```python
-class StrictFilters(msgspec.Struct, forbid_unknown_fields=True):
+from pydantic import ConfigDict
+
+class StrictFilters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     page: int = 1
 
 @api.get("/strict")
@@ -711,7 +715,7 @@ async def strict(filters: Annotated[StrictFilters, Query()], limit: int = 10):
 ```
 
 `/strict?page=2&limit=5` passes, because `limit` is a parameter of the handler.
-`/strict?page=2&other=1` gives a 422 with the type `unknown_field` and the `loc` `["query", "other"]`.
+`/strict?page=2&other=1` gives a 422 with the type `extra_forbidden` and the `loc` `["query", "other"]`.
 The keys of a dependency are not parameters of the handler, so the model rejects them.
 
 ### Benefits of parameter models
@@ -720,9 +724,9 @@ The keys of a dependency are not parameters of the handler, so the model rejects
 |---------|-------------------|------------------|
 | Reusability | Copy-paste params | Define once, use everywhere |
 | Validation | Per-field only | Custom `@field_validator` |
-| Defaults | Per-field | Centralized in struct |
+| Defaults | Per-field | Centralized in the model |
 | IDE support | Basic | Full autocomplete |
-| Documentation | Manual | Auto-generated from struct |
+| Documentation | Manual | Auto-generated from the model |
 
 ## File uploads
 
@@ -933,17 +937,17 @@ async def submit(
     }
 ```
 
-### Form struct with files
+### Form model with files
 
-Combine form fields and file uploads in a struct:
+Combine form fields and file uploads in a model:
 
 ```python
-import msgspec
+from pydantic import BaseModel
 
-class ProfileForm(msgspec.Struct):
+class ProfileForm(BaseModel):
     name: str
-    bio: str = ""
     avatar: UploadFile
+    bio: str = ""
 
 @api.post("/profile")
 async def update_profile(data: Annotated[ProfileForm, Form()]):
@@ -1047,4 +1051,4 @@ Common validation scenarios that return 422:
 | Type conversion failure | `Invalid integer value: 'abc'` |
 | Header type conversion failure | `Header 'x-count': Invalid integer 'abc': ...` |
 | Cookie type conversion failure | `Cookie 'page': Invalid integer 'abc': ...` |
-| Struct field validation | `name: Name must be at least 3 characters` |
+| Model field validation | `name: Name must be at least 3 characters` |

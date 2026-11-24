@@ -17,10 +17,10 @@ class-based views (APIView):
 
 from typing import Annotated
 
-import msgspec
 import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
@@ -45,7 +45,7 @@ def api():
 # --- Schemas ---
 
 
-class UserSchema(msgspec.Struct):
+class UserSchema(BaseModel):
     """User response schema."""
 
     id: int
@@ -53,7 +53,7 @@ class UserSchema(msgspec.Struct):
     email: str
 
 
-class UserCreateSchema(msgspec.Struct):
+class UserCreateSchema(BaseModel):
     """User creation schema."""
 
     username: str
@@ -61,7 +61,7 @@ class UserCreateSchema(msgspec.Struct):
     password: str
 
 
-class ErrorResponse(msgspec.Struct):
+class ErrorResponse(BaseModel):
     """Error response schema."""
 
     detail: str
@@ -347,13 +347,14 @@ def test_arguments_of_view_apply_to_the_routes(api):
 
     @api.view("/items", **arguments)
     class ItemView(APIView):
-        async def get(self, request) -> UserSchema:
+        # A Pydantic model always checks the fields that go out, so this type is not a model.
+        async def get(self, request) -> dict[str, int]:
             return {"not": "a user"}
 
     with TestClient(api) as client:
         assert client.get("/items").status_code == 401
 
-        # With validation on, this body gives 500, because it is not a UserSchema.
+        # With validation on, this body gives 500, because its value is not an int.
         response = client.get("/items", headers={"X-API-Key": "secret-key-123"})
         assert response.status_code == 202
         assert response.json() == {"not": "a user"}

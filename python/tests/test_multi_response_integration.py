@@ -7,7 +7,7 @@ verifying end-to-end behavior of dict-based response_model.
 
 from __future__ import annotations
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.responses import JSON
@@ -18,16 +18,16 @@ from freeman.testing import TestClient
 # ============================================================================
 
 
-class OkSchema(msgspec.Struct):
+class OkSchema(BaseModel):
     id: int
     name: str
 
 
-class ErrorSchema(msgspec.Struct):
+class ErrorSchema(BaseModel):
     detail: str
 
 
-class CreatedSchema(msgspec.Struct):
+class CreatedSchema(BaseModel):
     id: int
     name: str
     created: bool
@@ -219,7 +219,7 @@ def test_mismatched_body_is_not_validated():
     """Data that doesn't match the declared schema is still sent as-is."""
     api = BoltAPI()
 
-    @api.get("/items/{item_id}", response_model={200: OkSchema, 400: ErrorSchema})
+    @api.get("/items/{item_id}", response_model={200: dict[str, int], 400: ErrorSchema})
     async def get_item(item_id: int):
         return 200, {"wrong_field": "no id or name"}
 

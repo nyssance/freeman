@@ -22,8 +22,7 @@ import pytest
 from pydantic import BaseModel
 
 from freeman import BoltAPI
-from freeman._kwargs import create_body_extractor, get_msgspec_decoder
-from freeman._kwargs.extractors import _DECODER_CACHE
+from freeman._kwargs import create_body_extractor
 from freeman.error_handlers import handle_exception, msgspec_validation_error_to_dict
 from freeman.exceptions import RequestValidationError, parse_msgspec_decode_error
 from freeman.params import Body, Cookie, Depends, File, Form, Header, Query
@@ -366,7 +365,7 @@ class TestBodyMarkerOptions:
 
 
 class TestBodyOfNonStructType:
-    """A body with a type that is not a Struct is decoded as the type, with the same errors."""
+    """A body with a type that is not a model: Pydantic validates it, with the same errors as a model."""
 
     def test_valid_json_is_decoded_as_the_type(self):
         extractor = create_body_extractor("ids", list[int])
@@ -397,18 +396,26 @@ class TestBodyOfNonStructType:
         assert error["ctx"]["line"] == 2
         assert error["ctx"]["column"] == 5
 
-    def test_a_value_of_the_wrong_type_raises_the_msgspec_error(self):
+    def test_a_value_of_the_wrong_type_gives_the_pydantic_error(self):
         extractor = create_body_extractor("ids", list[int])
 
-        with pytest.raises(msgspec.ValidationError):
+        with pytest.raises(RequestValidationError) as exc_info:
             extractor(b'["a"]')
+
+        assert exc_info.value.errors() == [
+            {
+                "loc": ["body", 0],
+                "msg": "Input should be a valid integer, unable to parse string as an integer",
+                "type": "int_parsing",
+            }
+        ]
 
     def test_an_annotation_that_cannot_be_hashed_still_checks_the_type(self):
         """Metadata such as a dict makes the annotation unhashable. The extractor still validates the body."""
         extractor = create_body_extractor("ids", Annotated[list[int], {"note": "unhashable"}])
 
         assert extractor(b"[1, 2]") == [1, 2]
-        with pytest.raises(msgspec.ValidationError):
+        with pytest.raises(RequestValidationError):
             extractor(b'["a"]')
 
     def test_invalid_json_for_a_struct_keeps_the_body_in_the_error(self):
@@ -438,7 +445,8 @@ class TestBodyOfNonStructType:
 
             wrong = client.post("/ids", content=b'["a"]', headers={"content-type": "application/json"})
             assert wrong.status_code == 422
-            assert wrong.json()["detail"][0]["loc"] == ["body", "0"]
+            assert wrong.json()["detail"][0]["loc"] == ["body", 0]
+            assert wrong.json()["detail"][0]["type"] == "int_parsing"
 
     def test_two_body_parameters_each_decode_the_body_as_their_own_type(self):
         api = BoltAPI()
@@ -1070,24 +1078,6 @@ class TestTypeCoercionEdgeCases:
 
 class TestJSONParsingPerformance:
     """Test JSON parsing performance characteristics."""
-
-    def test_decoder_caching(self):
-        """Test that msgspec decoders are cached for performance."""
-
-        # The msgspec decoder takes a msgspec type, so this test keeps a Struct.
-        class StructUser(msgspec.Struct):
-            name: str
-
-        # Clear cache
-        _DECODER_CACHE.clear()
-
-        # First call should create decoder
-        decoder1 = get_msgspec_decoder(StructUser)
-        assert StructUser in _DECODER_CACHE
-
-        # Second call should return cached decoder
-        decoder2 = get_msgspec_decoder(StructUser)
-        assert decoder1 is decoder2, "Decoder should be cached"
 
     def test_large_json_parsing(self):
         """Test parsing of large JSON payloads."""

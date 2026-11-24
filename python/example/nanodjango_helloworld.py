@@ -23,8 +23,8 @@ from collections.abc import AsyncIterable
 from html import escape
 from pathlib import Path
 
-import msgspec
 from nanodjango import Django
+from pydantic import BaseModel
 
 from freeman import WebSocket, WebSocketDisconnect
 from freeman.nanodjango import BoltAPI
@@ -49,7 +49,7 @@ def home(request):
   <ul>
     <li><a href="/api/hello">/api/hello</a> - say hello</li>
     <li><a href="/api/greet?name=World">/api/greet?name=World</a> - return greeting with name=World</li>
-    <li><a href="/api/greeting?name=ada">/api/greeting?name=ada</a> - msgspec.Struct response model</li>
+    <li><a href="/api/greeting?name=ada">/api/greeting?name=ada</a> - Pydantic response model</li>
     <li><a href="/api/stream">/api/stream</a> - SSE stream, 5 messages over 5 seconds</li>
     <li><code>ws://&lt;host&gt;/ws/echo</code> - WebSocket echo (try it below)</li>
   </ul>
@@ -95,7 +95,7 @@ async def greet(name: str):
     return {"message": f"hello, {name}!"}
 
 
-class Greeting(msgspec.Struct):
+class Greeting(BaseModel):
     """Typed response schema. The ``-> Greeting`` annotation below tells
     Freeman to serialize via msgspec (much faster than json.dumps)
     and to publish the schema in the auto-generated OpenAPI docs."""

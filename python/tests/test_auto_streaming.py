@@ -15,8 +15,8 @@ import json
 import typing
 from collections.abc import AsyncIterable, AsyncIterator, Iterable, Iterator
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.error_handlers import BoltError
@@ -31,7 +31,7 @@ UNSUPPORTED_OBJECT = (
 )
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     id: int
     note: str = "default"
 
@@ -134,7 +134,7 @@ def test_plain_iterator_is_not_streamed_without_a_stream_annotation():
 
 
 def test_tuple_is_not_streamed_under_a_stream_annotation(settings):
-    # The 500 shows the validation errors only when DEBUG is on. This test reads them.
+    # The 500 page shows the error only when DEBUG is on. This test reads it.
     settings.DEBUG = True
     api = BoltAPI()
 
@@ -145,10 +145,9 @@ def test_tuple_is_not_streamed_under_a_stream_annotation(settings):
     with TestClient(api, raise_server_exceptions=False) as client:
         response = client.get("/tuple")
 
+    # A tuple is not a stream, and it is no JSON value that the route sends.
     assert response.status_code == 500, response.text
-    body = response.json()
-    assert body["detail"] == "Response validation error"
-    assert "Expected `Iterator`, got `tuple`" in body["extra"]["validation_errors"][0]["msg"]
+    assert "unsupported type" in response.text
 
 
 # --- Raw streams ----------------------------------------------------------
@@ -259,8 +258,9 @@ def test_typed_async_iterator_that_is_not_a_generator_streams_validated_ndjson()
 def test_typed_stream_items_pass_unvalidated_when_response_validation_is_off():
     api = BoltAPI()
 
+    # A Pydantic model always checks the fields that go out, so the items are not models here.
     @api.get("/raw", validate_response=False)
-    def raw() -> Iterator[Item]:
+    def raw() -> Iterator[dict[str, int]]:
         yield {"id": 1, "secret": "x"}
 
     with TestClient(api) as client:

@@ -8,7 +8,7 @@ This guide covers all the response types available in Freeman and how to use the
 
 ## JSON responses
 
-Returning a dict, list, or `msgspec.Struct` automatically creates a JSON response:
+Returning a dict, a list or a Pydantic model automatically creates a JSON response:
 
 ```python
 @api.get("/data")
@@ -32,7 +32,7 @@ async def count() -> int:
 
 ### Values in a JSON response
 
-A dict, a list or a `msgspec.Struct` can contain these values. The table gives the JSON form of each value.
+A dict, a list or a Pydantic model can contain these values. The table gives the JSON form of each value.
 
 | Value | JSON |
 | --- | --- |
@@ -513,9 +513,9 @@ header_value = cookie.to_header_value()
 Validate response data against a schema using `response_model`:
 
 ```python
-import msgspec
+from pydantic import BaseModel
 
-class User(msgspec.Struct):
+class User(BaseModel):
     id: int
     username: str
     email: str
@@ -547,16 +547,16 @@ async def create_user(body: UserCreate) -> User:
 
 ### Per-status-code response schemas
 
-`response_model` also accepts a dict mapping status codes to types. Each code gets its own OpenAPI response entry. Freeman encodes the body as-is and does not validate it.
+`response_model` also accepts a dict mapping status codes to types. Each code gets its own OpenAPI response entry. Freeman does not validate a body of another type. A Pydantic model of a code decides which fields go out, so a body that does not fit the model is a 500.
 
 ```python
-import msgspec
+from pydantic import BaseModel
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     id: int
     name: str
 
-class Error(msgspec.Struct):
+class Error(BaseModel):
     detail: str
 
 @api.get("/items/{item_id}", response_model={200: Item, 404: Error})
@@ -680,7 +680,7 @@ async def count() -> int:
 
 A `str` that the response type converts is JSON. For example, `-> UUID` with a `str` result sends the UUID in quotes as `application/json`.
 
-This applies to `-> dict` and `-> list` too. A `-> dict` route takes a `dict`. A `-> list` route takes a `list`, a `tuple` or a QuerySet. Each other result is a response validation error, for each kind of handler. Examples are a `str`, a number, a list for `-> dict`, a dict for `-> list`, and a `Struct` or a generator. A response object, such as `JSON(...)`, has no such check.
+This applies to `-> dict` and `-> list` too. A `-> dict` route takes a `dict`. A `-> list` route takes a `list`, a `tuple` or a QuerySet. Each other result is a response validation error, for each kind of handler. Examples are a `str`, a number, a list for `-> dict`, a dict for `-> list`, and a generator. A response object, such as `JSON(...)`, has no such check.
 A `-> list[UserOut]` route validates that the result is a list. A result such as `3` or a `dict` is a response validation error, and `None` is the empty list.
 A route with `validate_response=False` does no such check. It sends a `str` as `text/plain` and `bytes` as `application/octet-stream`.
 

@@ -8,7 +8,6 @@ from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-import msgspec
 import pytest
 from asgiref.sync import sync_to_async
 from django.core.exceptions import EmptyResultSet
@@ -618,7 +617,7 @@ def test_the_openapi_body_of_an_embedded_model_is_an_object_with_its_key(embedde
 
 
 def test_the_openapi_body_lists_each_embedded_struct_and_model():
-    class Tag(msgspec.Struct):
+    class Tag(BaseModel):
         name: str
 
     api = BoltAPI()

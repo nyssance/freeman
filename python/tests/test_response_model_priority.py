@@ -13,16 +13,14 @@ from __future__ import annotations
 import inspect
 import sys
 
-import msgspec
 import pytest
 from pydantic import BaseModel
 
-import freeman.api as api_module
 from freeman import BoltAPI
 from freeman.testing import TestClient
 
 
-# Test schemas: Pydantic models, which get no row field names
+# Test schemas
 class UserMini(BaseModel):
     """Minimal user schema for testing."""
 
@@ -38,13 +36,6 @@ class UserFull(BaseModel):
     email: str
     first_name: str
     last_name: str
-
-
-class PlainStruct(msgspec.Struct):
-    """Plain msgspec.Struct for comparison."""
-
-    id: int
-    name: str
 
 
 # ============================================================================
@@ -68,8 +59,6 @@ def test_response_model_overrides_annotation():
     # Verify response_type is UserMini (from response_model), not UserFull (from annotation)
     assert meta["response_type"] == list[UserMini]
 
-    assert "response_field_names" not in meta
-
 
 def test_response_model_overrides_annotation_async():
     """Test response_model precedence with async handler."""
@@ -84,7 +73,6 @@ def test_response_model_overrides_annotation_async():
     meta = api._handler_meta[handler_id]
 
     assert meta["response_type"] == list[UserMini]
-    assert "response_field_names" not in meta
 
 
 # ============================================================================
@@ -107,8 +95,6 @@ def test_return_annotation_fallback():
     # Verify response_type is UserMini (from return annotation)
     assert meta["response_type"] == list[UserMini]
 
-    assert "response_field_names" not in meta
-
 
 def test_return_annotation_fallback_async():
     """Test return annotation fallback with async handler."""
@@ -123,7 +109,6 @@ def test_return_annotation_fallback_async():
     meta = api._handler_meta[handler_id]
 
     assert meta["response_type"] == list[UserMini]
-    assert "response_field_names" not in meta
 
 
 # ============================================================================
@@ -134,10 +119,10 @@ def test_return_annotation_fallback_async():
 _HANDLER_SOURCE = """
 from __future__ import annotations
 
-import msgspec
+from pydantic import BaseModel
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     id: int
 
 
@@ -157,7 +142,7 @@ def _handler_with_a_changed_module():
     namespace = {"__name__": __name__}
     exec(_HANDLER_SOURCE, namespace)
     # The new module is in sys.modules, but it does not have the names of the annotations.
-    namespace["handler"].__module__ = "msgspec"
+    namespace["handler"].__module__ = "pydantic"
     return namespace["handler"]
 
 
@@ -198,7 +183,6 @@ def test_both_syntaxes_produce_same_metadata():
     # Both should have same response_type
     assert meta1["response_type"] == meta2["response_type"]
 
-    assert "response_field_names" not in meta1
     assert "response_field_names" not in meta2
 
 
@@ -221,29 +205,11 @@ def test_both_syntaxes_produce_same_metadata_async():
     meta2 = api2._handler_meta[handler_id2]
 
     assert meta1["response_type"] == meta2["response_type"]
-    assert "response_field_names" not in meta1
     assert "response_field_names" not in meta2
 
 
 # ============================================================================
 # ============================================================================
-
-
-def test_plain_msgspec_struct_field_extraction():
-    """Test field extraction from plain msgspec.Struct."""
-    api = BoltAPI()
-
-    @api.get("/items", response_model=list[PlainStruct])
-    def get_items():
-        pass
-
-    # Get handler function name from previous decorator
-    _method, _path, handler_id, _handler = api._routes[0]
-    meta = api._handler_meta[handler_id]
-
-    # Verify PlainStruct fields extracted
-    assert "response_field_names" in meta
-    assert set(meta["response_field_names"]) == {"id", "name"}
 
 
 # ============================================================================
@@ -265,7 +231,6 @@ def test_no_response_type_specified():
 
     # response_type should be None (always present for direct access optimization)
     assert meta["response_type"] is None
-    assert "response_field_names" not in meta
 
 
 def test_non_list_response_type():
@@ -282,7 +247,6 @@ def test_non_list_response_type():
 
     # Should have response_type but NOT field names (optimization only for list[Struct])
     assert meta["response_type"] == UserMini
-    assert "response_field_names" not in meta
 
 
 def test_non_struct_response_type():
@@ -304,55 +268,13 @@ def test_non_struct_response_type():
 
     # Should have response_type but NOT field names
     assert meta1["response_type"] is dict
-    assert "response_field_names" not in meta1
 
     assert meta2["response_type"] == list[int]
-    assert "response_field_names" not in meta2
 
 
 # ============================================================================
 # Test 6: Metadata extraction happens at registration time
 # ============================================================================
-
-
-def test_metadata_extraction_at_registration():
-    """Test that field extraction happens once at route registration, not per-request."""
-    api = BoltAPI()
-    call_count = 0
-
-    # Monkey-patch where the function is USED (api module), not where it's defined
-    # When api.py does 'from .api_compilation import extract_response_metadata',
-    # it creates a reference in the api module namespace
-    original_extract = api_module.extract_response_metadata
-
-    def tracked_extract(response_type):
-        nonlocal call_count
-        call_count += 1
-        return original_extract(response_type)
-
-    api_module.extract_response_metadata = tracked_extract
-
-    try:
-
-        @api.get("/users", response_model=list[UserMini])
-        def get_users():
-            pass
-
-        # Should be called exactly once during registration
-        assert call_count == 1
-
-        # Get metadata - should not trigger another call
-        # Get handler function name from previous decorator
-        _method, _path, handler_id, _handler = api._routes[0]
-        meta = api._handler_meta[handler_id]
-
-        assert "response_field_names" not in meta
-
-        # Still should be 1 (no additional calls)
-        assert call_count == 1
-    finally:
-        # Restore original function
-        api_module.extract_response_metadata = original_extract
 
 
 # ============================================================================
@@ -451,8 +373,6 @@ def test_compile_binder_focused_on_parameters():
     # Verify response_type set correctly (response_model, not annotation)
     assert meta["response_type"] == list[UserMini]
 
-    assert "response_field_names" not in meta
-
 
 # ============================================================================
 # Test 9: Complex nested scenarios
@@ -473,7 +393,6 @@ def test_nested_list_extraction():
 
     # Should work with typing.List as well
     assert meta["response_type"] == list[UserMini]
-    assert "response_field_names" not in meta
 
 
 # ============================================================================

@@ -110,9 +110,9 @@ both directions: the request that reaches the handler, and the request that
 never should.
 
 ```python
-import msgspec
+from pydantic import BaseModel
 
-class UserCreate(msgspec.Struct):
+class UserCreate(BaseModel):
     name: str
     email: str
 

@@ -699,6 +699,7 @@ class TestErrorHandlers:
             assert "type" in errors[0]
 
 
+# Plain msgspec decode types: these tests read the errors of msgspec itself.
 class _Inner(msgspec.Struct):
     age: int
 
@@ -736,7 +737,7 @@ class TestMsgspecValidationErrorToDict:
     def test_wrong_type_has_the_path_of_the_value(self):
         error = _validation_error(b'{"name": "a", "inner": {"age": "x"}}')
         assert msgspec_validation_error_to_dict(error) == [
-            {"loc": ["body", "inner", "age"], "msg": "Expected `int`, got `str`", "type": "validation_error"}
+            {"loc": ["body", "inner", "age"], "msg": "Expected `int`, got `str`", "type": "int_parsing"}
         ]
 
     def test_root_is_the_first_item_of_the_location(self):
@@ -747,35 +748,31 @@ class TestMsgspecValidationErrorToDict:
     def test_missing_field_names_the_field(self):
         error = _validation_error(b"{}", _Inner)
         assert msgspec_validation_error_to_dict(error) == [
-            {"loc": ["body", "age"], "msg": "Object missing required field `age`", "type": "missing_field"}
+            {"loc": ["body", "age"], "msg": "Object missing required field `age`", "type": "missing"}
         ]
 
     def test_missing_field_of_a_nested_struct_has_the_path_and_the_field_name(self):
         error = _validation_error(b'{"name": "a", "inner": {}}')
         assert msgspec_validation_error_to_dict(error) == [
-            {"loc": ["body", "inner", "age"], "msg": "Object missing required field `age`", "type": "missing_field"}
+            {"loc": ["body", "inner", "age"], "msg": "Object missing required field `age`", "type": "missing"}
         ]
 
     def test_missing_field_in_a_list_item_has_the_index_in_its_loc(self):
         error = _validation_error(b'{"items": [{"age": 1}, {}]}', _Holder)
         assert msgspec_validation_error_to_dict(error) == [
-            {
-                "loc": ["body", "items", "1", "age"],
-                "msg": "Object missing required field `age`",
-                "type": "missing_field",
-            }
+            {"loc": ["body", "items", "1", "age"], "msg": "Object missing required field `age`", "type": "missing"}
         ]
 
     def test_missing_field_in_a_dict_value_has_the_path_of_the_dict(self):
         error = _validation_error(b'{"by_key": {"k": {}}}', _Holder)
         assert msgspec_validation_error_to_dict(error) == [
-            {"loc": ["body", "by_key", "age"], "msg": "Object missing required field `age`", "type": "missing_field"}
+            {"loc": ["body", "by_key", "age"], "msg": "Object missing required field `age`", "type": "missing"}
         ]
 
     def test_missing_field_of_a_nested_struct_uses_the_given_root(self):
         error = _validation_error(b'{"name": "a", "inner": {}}')
         [entry] = msgspec_validation_error_to_dict(error, "response")
-        assert (entry["loc"], entry["type"]) == (["response", "inner", "age"], "missing_field")
+        assert (entry["loc"], entry["type"]) == (["response", "inner", "age"], "missing")
 
     def test_missing_field_with_a_renamed_name_keeps_the_encoded_name(self):
         error = _validation_error(b'{"inner": {"first-name": "a"}}', _RenamedOuter)
@@ -783,14 +780,14 @@ class TestMsgspecValidationErrorToDict:
             {
                 "loc": ["body", "inner", "last-name"],
                 "msg": "Object missing required field `last-name`",
-                "type": "missing_field",
+                "type": "missing",
             }
         ]
 
     def test_missing_field_with_no_name_in_the_message(self):
         error = msgspec.ValidationError("Object missing required field")
         assert msgspec_validation_error_to_dict(error) == [
-            {"loc": ["body", "unknown"], "msg": "Object missing required field", "type": "missing_field"}
+            {"loc": ["body"], "msg": "Object missing required field", "type": "missing"}
         ]
 
     def test_error_with_no_path_and_no_missing_field(self):

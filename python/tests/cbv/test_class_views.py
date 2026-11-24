@@ -10,8 +10,8 @@ Tests cover:
 
 from typing import Any
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.auth.backends import JWTAuthentication
@@ -172,9 +172,9 @@ async def test_bolt_api_view_dependency_injection(api):
 
 @pytest.mark.asyncio
 async def test_bolt_api_view_request_body(api):
-    """Test request body parsing with msgspec.Struct."""
+    """Test request body parsing with a Pydantic model."""
 
-    class CreateUserRequest(msgspec.Struct):
+    class CreateUserRequest(BaseModel):
         username: str
         email: str
 
@@ -196,7 +196,7 @@ async def test_bolt_api_view_request_body(api):
 async def test_bolt_api_view_return_annotation(api):
     """Test that return annotations are preserved."""
 
-    class ResponseSchema(msgspec.Struct):
+    class ResponseSchema(BaseModel):
         message: str
         count: int
 

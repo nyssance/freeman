@@ -112,15 +112,7 @@ from .openapi import (
 )
 
 # Pagination module
-from .pagination import (
-    CursorPagination,
-    LimitOffsetPagination,
-    Page,
-    PageNumberPagination,
-    PaginatedResponse,
-    PaginationBase,
-    paginate,
-)
+from .pagination import CursorPagination, LimitOffsetPagination, Page, PageNumberPagination, PaginationBase, paginate
 from .params import Depends
 
 # Type-safe Request object
@@ -173,7 +165,6 @@ __all__ = [
     "PageNumberPagination",
     "LimitOffsetPagination",
     "CursorPagination",
-    "PaginatedResponse",
     "Page",
     "paginate",
     # Decorators

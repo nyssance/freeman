@@ -6,12 +6,12 @@ import os
 import time
 from collections.abc import AsyncIterable
 from contextlib import asynccontextmanager, suppress
-from typing import Annotated, Protocol
+from typing import Annotated, Literal, Protocol
 
-import msgspec
 import test_data
 from django.conf import settings
 from django.contrib.auth import aauthenticate, get_user_model
+from pydantic import BaseModel, Field
 
 from freeman import BoltAPI, WebSocket
 from freeman.auth import IsAuthenticated, JWTAuthentication, create_jwt_for_user, get_current_user
@@ -95,13 +95,14 @@ async def read_root():
 # Using default compression configuration
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     name: str
     price: float
     is_offer: bool | None = None
 
 
-class PostActivity(msgspec.Struct, tag="post"):
+class PostActivity(BaseModel):
+    type: Literal["post"] = "post"
     id: int
     actor: str
     title: str
@@ -109,7 +110,8 @@ class PostActivity(msgspec.Struct, tag="post"):
     created_at: str
 
 
-class CommentActivity(msgspec.Struct, tag="comment"):
+class CommentActivity(BaseModel):
+    type: Literal["comment"] = "comment"
     id: int
     actor: str
     post_id: int
@@ -117,7 +119,8 @@ class CommentActivity(msgspec.Struct, tag="comment"):
     created_at: str
 
 
-class LikeActivity(msgspec.Struct, tag="like"):
+class LikeActivity(BaseModel):
+    type: Literal["like"] = "like"
     id: int
     actor: str
     target_id: int
@@ -125,7 +128,7 @@ class LikeActivity(msgspec.Struct, tag="like"):
     created_at: str
 
 
-FeedItem = PostActivity | CommentActivity | LikeActivity
+FeedItem = Annotated[PostActivity | CommentActivity | LikeActivity, Field(discriminator="type")]
 
 
 @api.get("/feed/{item_id}", response_model=FeedItem)
@@ -361,7 +364,7 @@ async def get_auth_context(request: Request):
     }
 
 
-class TokenRequest(msgspec.Struct):
+class TokenRequest(BaseModel):
     """Request body for token generation."""
 
     username: str
@@ -448,7 +451,7 @@ async def read_10k():
     return test_data.JSON_10K
 
 
-class ItemSchema(msgspec.Struct):
+class ItemSchema(BaseModel):
     id: int
     name: str
     description: str
@@ -487,7 +490,7 @@ async def update_item(item_id: int, item: Item) -> dict:
 
 
 # ==== Benchmarks: JSON parsing/validation & slow async op ====
-class BenchPayload(msgspec.Struct):
+class BenchPayload(BaseModel):
     title: str
     count: int
     items: list[Item]
@@ -576,7 +579,7 @@ async def handle_upload(files: Annotated[list[dict], File(alias="file")]):
     return {"uploaded": len(files), "files": [{"name": f.get("filename"), "size": f.get("size")} for f in files]}
 
 
-class FormRepeatedKeys(msgspec.Struct):
+class FormRepeatedKeys(BaseModel):
     name: str
     tags: list[str] = []
     counts: list[int] = []
@@ -635,7 +638,7 @@ async def sse():
 # ==== EventSourceResponse (new SSE syntax) ====
 
 
-class TimestampEvent(msgspec.Struct):
+class TimestampEvent(BaseModel):
     timestamp: float
     count: int
 
@@ -662,7 +665,7 @@ async def error_not_found(resource_id: int):
     return {"resource_id": resource_id, "status": "found"}
 
 
-class UserCreate(msgspec.Struct):
+class UserCreate(BaseModel):
     username: str
     email: str
     age: int
@@ -739,7 +742,7 @@ add_health_check(check_external_api)
 # ============================================================================
 
 
-class ItemOut(msgspec.Struct):
+class ItemOut(BaseModel):
     """A catalog item."""
 
     id: int
@@ -747,14 +750,14 @@ class ItemOut(msgspec.Struct):
     price: float
 
 
-class ItemIn(msgspec.Struct):
+class ItemIn(BaseModel):
     """Payload for creating an item."""
 
     name: str
     price: float
 
 
-class ValidationError(msgspec.Struct):
+class ValidationError(BaseModel):
     """Validation failure details."""
 
     detail: str

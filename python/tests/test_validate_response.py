@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import msgspec
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.responses import JSON, Response
@@ -8,9 +8,14 @@ from freeman.testing import TestClient
 from freeman.views import APIView
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     name: str
     price: float
+
+
+# A Pydantic model always checks the fields that go out. The validate_response
+# option is about the other types, such as this one.
+Row = dict[str, float]
 
 
 def _get_meta(api: BoltAPI, path: str, method: str = "GET"):
@@ -24,18 +29,18 @@ def test_validate_response_route_and_api_defaults():
     api = BoltAPI(validate_response=False)
 
     @api.get("/default-off")
-    async def default_off() -> list[Item]:
+    async def default_off() -> list[Row]:
         return [{"name": "missing-price"}]
 
     @api.get("/override-on", validate_response=True)
-    async def override_on() -> list[Item]:
+    async def override_on() -> list[Row]:
         return [{"name": "missing-price"}]
 
-    @api.get("/model-default-off", response_model=list[Item])
+    @api.get("/model-default-off", response_model=list[Row])
     async def model_default_off():
         return [{"name": "missing-price"}]
 
-    @api.get("/model-override-on", response_model=list[Item], validate_response=True)
+    @api.get("/model-override-on", response_model=list[Row], validate_response=True)
     async def model_override_on():
         return [{"name": "missing-price"}]
 
@@ -61,7 +66,7 @@ def test_response_model_none_skips_return_annotation_validation():
     api = BoltAPI()
 
     @api.get("/explicit-none", response_model=None)
-    async def explicit_none() -> list[Item]:
+    async def explicit_none() -> list[Row]:
         return [{"name": "missing-price"}]
 
     meta = _get_meta(api, "/explicit-none")
@@ -81,14 +86,14 @@ def test_validate_response_view_inheritance():
     class LooseView(APIView):
         validate_response = False
 
-        async def get(self, request) -> list[Item]:
+        async def get(self, request) -> list[Row]:
             return [{"name": "missing-price"}]
 
     @api.view("/strict", validate_response=True)
     class StrictView(APIView):
         validate_response = False
 
-        async def get(self, request) -> list[Item]:
+        async def get(self, request) -> list[Row]:
             return [{"name": "missing-price"}]
 
     assert _get_meta(api, "/loose")["_has_response_validation"] is False

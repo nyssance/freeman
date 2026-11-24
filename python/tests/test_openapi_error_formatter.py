@@ -9,10 +9,10 @@ from __future__ import annotations
 import http.client
 from typing import Annotated
 
-import msgspec
 import pytest
 from jsonschema import Draft202012Validator
 from openapi_spec_validator import validate
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.error_handlers import BoltError, ProblemDetails, error_schema, problem_details
@@ -24,24 +24,24 @@ from freeman.responses import PlainText, Response
 from freeman.testing import TestClient
 
 
-class ItemIn(msgspec.Struct):
+class ItemIn(BaseModel):
     name: str
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     id: int
     name: str
 
 
-class Conflict(msgspec.Struct):
+class Conflict(BaseModel):
     reason: str
 
 
-class Rejected(msgspec.Struct):
+class Rejected(BaseModel):
     reason: str
 
 
-class ErrorBody(msgspec.Struct):
+class ErrorBody(BaseModel):
     """The body of a vendor error."""
 
     code: str
@@ -329,7 +329,7 @@ def test_declared_422_and_validation_422_reach_the_client():
 
     assert spam.status_code == 422
     assert spam.headers["content-type"] == "application/json"
-    msgspec.convert(spam.json(), Rejected)
+    Rejected.model_validate(spam.json())
     assert invalid.status_code == 422
     assert invalid.headers["content-type"] == "application/problem+json"
     ProblemDetails.model_validate(invalid.json())
@@ -405,7 +405,7 @@ def test_declared_error_schema_documents_the_422():
         invalid = client.post("/items", json={})
 
     assert invalid.headers["content-type"] == "application/vnd.error+json"
-    msgspec.convert(invalid.json(), ErrorBody)
+    ErrorBody.model_validate(invalid.json())
 
 
 def test_error_schema_media_type_is_json_by_default():

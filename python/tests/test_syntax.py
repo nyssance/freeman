@@ -4,10 +4,10 @@ import os
 from collections.abc import AsyncIterable
 from typing import Annotated
 
-import msgspec
 import pytest
 from django.test import override_settings
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic.alias_generators import to_camel
 
 from freeman import JSON, BoltAPI, Response, StreamingResponse
 from freeman.exceptions import HTTPException
@@ -32,7 +32,7 @@ def api():
     """
     api = BoltAPI()
 
-    class Item(msgspec.Struct):
+    class Item(BaseModel):
         name: str
         price: float
         is_offer: bool | None = None
@@ -90,8 +90,8 @@ def api():
     async def head_item(item_id: int, q: str | None = None):
         return {"item_id": item_id, "q": q}
 
-    # Response coercion from objects to msgspec.Struct
-    class Mini(msgspec.Struct):
+    # Response coercion from objects to a Pydantic model
+    class Mini(BaseModel):
         id: int
         username: str
 
@@ -263,7 +263,7 @@ def api():
         return {"a": a, "b": b}
 
     # Form data with Struct
-    class FormDataStruct(msgspec.Struct):
+    class FormDataStruct(BaseModel):
         username: str
         age: int
         active: bool = True
@@ -283,7 +283,7 @@ def api():
 
     # Form data with repeated keys (list[T]) — multipart/urlencoded send the
     # same name multiple times; framework must preserve all values as a list.
-    class FormDataWithList(msgspec.Struct):
+    class FormDataWithList(BaseModel):
         name: str
         tags: list[str] = []
         counts: list[int] = []
@@ -321,7 +321,7 @@ def api():
         return {"username": data.username, "email": data.email}
 
     # Query parameters with Struct
-    class QueryParams(msgspec.Struct):
+    class QueryParams(BaseModel):
         limit: int = 10
         offset: int = 0
         search: str | None = None
@@ -331,9 +331,9 @@ def api():
         return {"limit": params.limit, "offset": params.offset, "search": params.search}
 
     # Query parameters with Struct + explicit field names (aliases)
-    class ReportFilters(msgspec.Struct):
-        category_id: int | None = msgspec.field(default=None, name="categoryID")
-        min_price: float | None = msgspec.field(default=None, name="minPrice")
+    class ReportFilters(BaseModel):
+        category_id: int | None = Field(default=None, alias="categoryID")
+        min_price: float | None = Field(default=None, alias="minPrice")
         query: str | None = None
 
     @api.get("/query-struct-rename")
@@ -341,7 +341,8 @@ def api():
         return {"category_id": filters.category_id, "min_price": filters.min_price, "query": filters.query}
 
     # Query parameters with Struct + class-level rename
-    class CamelExample(msgspec.Struct, rename="camel"):
+    class CamelExample(BaseModel):
+        model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True, serialize_by_alias=True)
         field_one: int
         field_two: str
 
@@ -350,7 +351,7 @@ def api():
         return {"field_one": example.field_one, "field_two": example.field_two}
 
     # Header parameters with Struct
-    class HeaderParams(msgspec.Struct):
+    class HeaderParams(BaseModel):
         x_api_key: str
         x_request_id: str | None = None
 
@@ -359,7 +360,7 @@ def api():
         return {"api_key": headers.x_api_key, "request_id": headers.x_request_id}
 
     # Cookie parameters with Struct
-    class CookieParams(msgspec.Struct):
+    class CookieParams(BaseModel):
         session_id: str
         theme: str = "light"
 
@@ -1036,7 +1037,7 @@ def test_method_validation():
     """Test that HEAD and OPTIONS don't accept body parameters"""
     api = BoltAPI()
 
-    class Body(msgspec.Struct):
+    class Body(BaseModel):
         value: str
 
     # HEAD should not accept body

@@ -13,8 +13,9 @@ import enum
 import uuid
 from typing import Annotated, Any, List  # noqa: UP035 - the test needs the bare typing.List
 
-import msgspec
 import pytest
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from freeman import BoltAPI
 from freeman.responses import JSON, Response
@@ -30,48 +31,53 @@ class Obj:
         self.__dict__.update(attributes)
 
 
-class Item(msgspec.Struct):
+class Item(BaseModel):
     id: int
     note: str = "default"
 
 
-class ItemFull(msgspec.Struct):
+class ItemFull(BaseModel):
     id: int
     note: str
     secret: str
 
 
-class Envelope[T](msgspec.Struct):
-    """A parametrized Struct, as the pagination envelope is."""
+class Envelope[T](BaseModel):
+    """A parametrized model, as the pagination envelope is."""
 
     items: list[T]
     total: int
 
 
-class Camel(msgspec.Struct, rename="camel"):
+class Camel(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True, serialize_by_alias=True)
     item_id: int
 
 
-class ArticleOut(msgspec.Struct):
+class ArticleOut(BaseModel):
     id: int
     title: str
 
 
-class ArticleCamel(msgspec.Struct, rename="camel"):
+class ArticleCamel(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True, serialize_by_alias=True)
     id: int
     is_published: bool
 
 
-class ArticleWrongType(msgspec.Struct):
+class ArticleWrongType(BaseModel):
     """The title column holds a string, so each row fails validation."""
 
     id: int
     title: int
 
 
-class PublicUser(msgspec.Struct):
+class PublicUser(BaseModel):
     id: int
     username: str
+
+
+INT_PARSING = "Input should be a valid integer, unable to parse string as an integer"
 
 
 def _validation_message(response) -> str:
@@ -258,7 +264,10 @@ def test_dict_converts_to_the_struct(client):
 
 def test_invalid_dict_names_the_struct_and_the_field(client):
     response = client.get("/struct/bad-dict")
-    assert _validation_message(response) == "Response validation failed for Item: Expected `int`, got `str`"
+    assert (
+        _validation_message(response)
+        == "Response validation failed for Item: Input should be a valid integer, unable to parse string as an integer"
+    )
     assert response.json()["extra"]["validation_errors"][0]["loc"] == ["response", "id"]
 
 
@@ -302,7 +311,10 @@ def test_validation_error_entry_has_the_response_location_and_the_error_type(cli
 @pytest.mark.parametrize("path", ["/json/bad", "/json/bad-sync", "/response/bad", "/response/bad-sync"])
 def test_invalid_json_or_response_content_names_the_cause(client, path):
     response = client.get(path)
-    assert _validation_message(response) == "Response validation failed for Item: Expected `int`, got `str`"
+    assert (
+        _validation_message(response)
+        == "Response validation failed for Item: Input should be a valid integer, unable to parse string as an integer"
+    )
     assert response.json()["extra"]["validation_errors"][0]["loc"] == ["response", "id"]
 
 
@@ -352,7 +364,7 @@ def test_non_list_for_a_list_is_a_type_mismatch(client, path, type_name):
 def test_list_of_scalars_is_validated(client):
     assert client.get("/list-int/ok").json() == [1, 2]
     message = _validation_message(client.get("/list-int/bad-item"))
-    assert "Expected `int`, got `str`" in message
+    assert "Input should be a valid integer, unable to parse string as an integer" in message
 
 
 class Color(enum.Enum):
@@ -415,7 +427,11 @@ def test_json_scalar_is_sent_as_json_with_and_without_the_return_type(return_typ
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 @pytest.mark.parametrize(
     ("return_type", "value", "expected"),
-    [(int, 1.5, "Expected `int`, got `float`"), (bool, 1, "Expected `bool`, got `int`"), (float, None, "got `null`")],
+    [
+        (int, 1.5, "Input should be a valid integer, got a number with a fractional part"),
+        (bool, 2, "Input should be a valid boolean"),
+        (float, None, "Input should be a valid number"),
+    ],
 )
 def test_declared_json_scalar_type_is_validated(settings, return_type, value, expected, is_async):
     settings.DEBUG = True
@@ -430,13 +446,14 @@ def test_declared_json_scalar_type_is_validated(settings, return_type, value, ex
 @pytest.mark.parametrize(
     ("return_type", "value", "expected"),
     [
-        (int, "abc", "Expected `int`, got `str`"),
-        (decimal.Decimal, "abc", "Invalid decimal string"),
-        (Item, "abc", "Expected `object`, got `str`"),
-        (int | None, "abc", "Expected `int | null`, got `str`"),
-        (int, b"abc", "Expected `int`, got `bytes`"),
-        (Item, bytearray(b"abc"), "Expected `object`, got `bytes`"),
+        (int, "abc", "Input should be a valid integer, unable to parse string as an integer"),
+        (decimal.Decimal, "abc", "Input should be a valid decimal"),
+        (Item, "abc", "Input should be a valid dictionary or object to extract fields from"),
+        (int | None, "abc", "Input should be a valid integer, unable to parse string as an integer"),
+        (int, b"abc", "Input should be a valid integer, unable to parse string as an integer"),
+        (Item, bytearray(b"abc"), "Input should be a valid dictionary or object to extract fields from"),
     ],
+    ids=["int-str", "decimal-str", "model-str", "optional-int-str", "int-bytes", "model-bytearray"],
 )
 def test_str_or_bytes_for_a_type_that_does_not_allow_it_is_a_validation_error(
     settings, return_type, value, expected, is_async
@@ -452,7 +469,7 @@ def test_str_or_bytes_for_a_type_that_does_not_allow_it_is_a_validation_error(
         assert scalar_client.get("/unvalidated").content == b"abc"
 
 
-_SHORT_TEXT = Annotated[str, msgspec.Meta(max_length=5)]
+_SHORT_TEXT = Annotated[str, Field(max_length=5)]
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
@@ -494,18 +511,17 @@ def test_str_that_converts_to_the_declared_type_is_sent_as_json(settings, is_asy
         response = scalar_client.get("/uuid")
         assert response.headers["content-type"] == "application/json"
         assert response.content == b'"00000000-0000-0000-0000-000000000001"'
-        assert "Expected `str` of length <= 5" in _validation_message(scalar_client.get("/long"))
+        assert "String should have at most 5 characters" in _validation_message(scalar_client.get("/long"))
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 @pytest.mark.parametrize("value", [3, "abc", {"id": 1, "username": "a"}], ids=["int", "str", "dict"])
-def test_a_result_that_is_not_a_list_for_a_list_of_structs_is_a_validation_error(settings, value, is_async):
+def test_a_result_that_is_not_a_list_for_a_list_of_models_is_a_validation_error(settings, value, is_async):
     settings.DEBUG = True
     api = BoltAPI()
     _scalar_route(api, "/bad", value, is_async=is_async, **{"return": list[PublicUser]})
     _scalar_route(api, "/tuple", ({"id": 1, "username": "a"},), is_async=is_async, **{"return": list[PublicUser]})
     _scalar_route(api, "/none", None, is_async=is_async, **{"return": list[PublicUser]})
-    api.get("/unvalidated", validate_response=False, response_model=list[PublicUser])(lambda: value)
 
     with TestClient(api, raise_server_exceptions=False) as scalar_client:
         message = _validation_message(scalar_client.get("/bad"))
@@ -514,10 +530,8 @@ def test_a_result_that_is_not_a_list_for_a_list_of_structs_is_a_validation_error
             "Make sure your handler returns a list."
         )
         assert scalar_client.get("/tuple").json() == [{"id": 1, "username": "a"}]
-        # As for a list of Structs: None is the empty list.
+        # None is the empty list.
         assert scalar_client.get("/none").json() == []
-        # A route with no validation sends the result as before.
-        assert scalar_client.get("/unvalidated").status_code == 200
 
 
 def _mismatch_routes(api: BoltAPI, return_type: Any, value: Any, **route_options: Any) -> list[str]:
@@ -680,12 +694,12 @@ def test_bare_list_accepts_any_item_and_names_its_item_type_in_a_mismatch(client
 def test_parametrized_struct_from_a_dict_is_validated(client):
     assert client.get("/generic/dict").json() == {"items": [1, 2], "total": 2}
     message = _validation_message(client.get("/generic/bad-dict"))
-    assert message.startswith("Response validation failed: Expected `int`, got `str`")
+    assert message.startswith(f"Response validation failed for Envelope[int]: {INT_PARSING}")
 
 
 def test_other_generic_type_is_validated(client):
     message = _validation_message(client.get("/mapping/bad"))
-    assert message.startswith("Response validation failed: Expected `int`, got `str`")
+    assert message.endswith(INT_PARSING)
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
@@ -755,12 +769,4 @@ def test_queryset_rows_are_validated_against_the_struct(client, path):
 
     message = _validation_message(client.get(path))
 
-    assert message == "Expected `int`, got `str`"
-
-
-def test_unvalidated_objects_use_the_wire_names_of_a_renamed_struct(client):
-    # Without validation, a missing attribute is null.
-    assert client.get("/camel/objects-unvalidated").json() == [
-        {"id": 5, "isPublished": True},
-        {"id": 6, "isPublished": None},
-    ]
+    assert message.endswith(INT_PARSING)

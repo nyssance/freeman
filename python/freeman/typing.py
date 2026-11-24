@@ -99,13 +99,6 @@ class HandlerMetadata(TypedDict, total=False):
     mode: str
     """Handler mode: 'request_only' or 'mixed'"""
 
-    # Body parameter metadata (for fast path optimization)
-    body_struct_param: str
-    """Name of the single body struct parameter (if present)"""
-
-    body_struct_type: Any
-    """Type of the body struct parameter"""
-
     # Response metadata
     response_type: Any
     """Return type annotation from function signature"""
@@ -116,17 +109,10 @@ class HandlerMetadata(TypedDict, total=False):
     validate_response: bool
     """Whether schema-driven response validation/coercion runs at runtime"""
 
-    # QuerySet serialization optimization (pre-computed at registration)
-    response_field_names: list[str]
-    """Pre-computed field names for QuerySet.values() call"""
-
     # Multi-response (per-status-code) metadata
     response_map: dict[int | type, Any]
     """Status code → response type mapping (when response_model is a dict).
     Keys are int status codes or ``...`` (Ellipsis) for catch-all."""
-
-    response_field_names_map: dict[int | types.EllipsisType, list[str]]
-    """Per-status-code QuerySet field names. The ``...`` key holds the fields of the catch-all type."""
 
     is_multi_response: bool
     """Whether this handler uses per-status-code response schemas"""
@@ -376,7 +362,6 @@ def split_param_annotation(annotation: Any, default: Any = None) -> tuple[Any, A
     inner = unwrap_optional(base)
     if (
         not constraints
-        or is_msgspec_struct(inner)
         or is_pydantic_model(inner)
         or is_dataclass_type(inner)
         or is_upload_file_type(inner)
@@ -494,7 +479,7 @@ def infer_param_source(name: str, annotation: Any, path_params: set[str], http_m
     1. If name matches path parameter -> "path"
     2. If special name (request, req) -> "request"
     3. If simple type (str, int, float, bool) -> "query"
-    4. If msgspec.Struct or dataclass, or a sequence of them -> "body"
+    4. If a model or a dataclass, or a sequence of them -> "body"
        (method validation happens later)
     5. Default -> "query"
 
@@ -541,7 +526,8 @@ def infer_param_source(name: str, annotation: Any, path_params: set[str], http_m
         if args and is_simple_type(args[0]):
             return "query"
 
-    # 5. Complex types (msgspec.Struct, dataclass) -> body
+    # 5. Complex types (a model, a dataclass) -> body. A msgspec.Struct is a
+    # body too, so the registration refuses it as a body model.
     # Method-appropriateness (rejecting bodies on GET/DELETE/HEAD) is enforced
     # later in the validation path, not here.
     # A sequence of them is a JSON array. A query string cannot hold it.
@@ -602,7 +588,6 @@ class FieldDefinition:
     # Cached type properties for performance
     _is_optional: bool | None = None
     _is_simple: bool | None = None
-    _is_struct: bool | None = None
     _unwrapped: Any | None = None
     _origin: Any | None = None
 
@@ -627,14 +612,6 @@ class FieldDefinition:
             unwrapped = self.unwrapped_annotation
             object.__setattr__(self, "_is_simple", is_simple_type(unwrapped))
         return self._is_simple  # type: ignore
-
-    @property
-    def is_msgspec_struct(self) -> bool:
-        """Check if parameter type is a msgspec.Struct."""
-        if self._is_struct is None:
-            unwrapped = self.unwrapped_annotation
-            object.__setattr__(self, "_is_struct", is_msgspec_struct(unwrapped))
-        return self._is_struct  # type: ignore
 
     @property
     def unwrapped_annotation(self) -> Any:

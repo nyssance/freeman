@@ -60,9 +60,9 @@ Use `create_jwt_for_user` to generate tokens for Django users:
 from django.contrib.auth import aauthenticate
 from freeman.auth import create_jwt_for_user
 from freeman.exceptions import Unauthorized
-import msgspec
+from pydantic import BaseModel
 
-class LoginRequest(msgspec.Struct):
+class LoginRequest(BaseModel):
     username: str
     password: str
 

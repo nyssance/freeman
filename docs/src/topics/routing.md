@@ -96,12 +96,12 @@ async def options_items():
 A `QUERY` handler takes a body the same way a `POST` handler does:
 
 ```python
-import msgspec
+from pydantic import BaseModel
 from freeman import BoltAPI
 
 api = BoltAPI()
 
-class Search(msgspec.Struct):
+class Search(BaseModel):
     term: str
     limit: int = 20
 

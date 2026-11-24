@@ -20,6 +20,7 @@ from urllib.parse import parse_qsl
 
 import msgspec
 import pytest
+from pydantic import BaseModel, Field
 
 from freeman import BoltAPI, WebSocket
 from freeman.middleware import DjangoMiddlewareStack
@@ -136,8 +137,8 @@ def test_the_request_query_holds_each_value_of_a_sequence_key():
     assert response.json() == {"query": ["1", "2"]}
 
 
-class _RenamedTags(msgspec.Struct):
-    tags: list[str] = msgspec.field(name="tag", default_factory=list)
+class _RenamedTags(BaseModel):
+    tags: list[str] = Field(alias="tag", default_factory=list)
 
 
 def test_a_renamed_sequence_struct_field_leaves_its_python_name_as_one_value():
@@ -219,7 +220,7 @@ def test_a_sequence_header_or_cookie_gives_one_item(form_client):
     assert form_client.get("/cookie", headers={"Cookie": "tags=a"}).json() == {"value": ["a"], "type": "set"}
 
 
-class _TagHeaders(msgspec.Struct):
+class _TagHeaders(BaseModel):
     x_name: str = "none"
     x_tags: list[str] = []
     x_ids: set[int] | None = None
@@ -241,13 +242,13 @@ def test_a_sequence_field_of_a_header_model_gives_one_item():
 
         bad = client.get("/model", headers={"X-Ids": "x"})
         assert bad.status_code == 422
-        assert bad.json()["detail"][0]["loc"] == ["header", "x-ids"]
-        assert bad.json()["detail"][0]["input"] == ["x"]
+        assert bad.json()["detail"][0]["loc"] == ["header", "x-ids", 0]
+        assert bad.json()["detail"][0]["type"] == "int_parsing"
 
 
-class _LimitedTags(msgspec.Struct):
-    tags: Annotated[list[str], msgspec.Meta(max_length=1)] = []
-    ids: Annotated[set[int], msgspec.Meta(max_length=1)] | None = None
+class _LimitedTags(BaseModel):
+    tags: Annotated[list[str], Field(max_length=1)] = []
+    ids: Annotated[set[int], Field(max_length=1)] | None = None
 
 
 @pytest.mark.parametrize(
@@ -305,7 +306,7 @@ def test_a_bare_collection_parameter_takes_each_value_of_its_key():
     async def bare_form(tag: Annotated[frozenset, Form()]):
         return _show(tag)
 
-    class Prefs(msgspec.Struct):
+    class Prefs(BaseModel):
         themes: list = []
 
     @api.get("/bare-cookie-struct")
@@ -440,15 +441,15 @@ def test_a_bytes_parameter_checks_its_constraints_on_the_bytes(bytes_client):
     assert bytes_client.get("/query").status_code == 422
 
 
-class BytesModel(msgspec.Struct):
+class BytesModel(BaseModel):
     b: bytes
     items: list[bytes] = []
-    short: Annotated[bytes, msgspec.Meta(max_length=3)] = b""
+    short: Annotated[bytes, Field(max_length=3)] = b""
     maybe: bytes | None = None
     n: int = 0
 
 
-class BytesHeaders(msgspec.Struct):
+class BytesHeaders(BaseModel):
     x_b: bytes
     x_n: int = 0
 
@@ -531,12 +532,7 @@ def test_a_bytes_field_of_a_parameter_model_checks_its_constraints_on_the_bytes(
 
     assert response.status_code == 422
     assert response.json()["detail"] == [
-        {
-            "type": "validation_error",
-            "loc": ["query", "short"],
-            "msg": "Expected `bytes` of length <= 3",
-            "input": "YWJj",
-        }
+        {"loc": ["query", "short"], "msg": "Data should have at most 3 bytes", "type": "bytes_too_long"}
     ]
 
 
@@ -544,11 +540,11 @@ def test_a_bytes_item_of_a_tuple_parameter_gets_the_utf8_bytes_of_the_text(bytes
     assert bytes_model_client.get("/tuple?pair=YWJj&pair=3").json() == _utf8("YWJj") | {"n": 3}
 
 
-def test_a_bytes_field_of_a_json_body_is_base64(bytes_model_client):
-    """JSON has no bytes type. msgspec reads and writes ``bytes`` in JSON as base64 text."""
+def test_a_bytes_field_of_a_json_body_is_utf8_text(bytes_model_client):
+    """JSON has no bytes type. Pydantic reads the text of a ``bytes`` field as UTF-8."""
     response = bytes_model_client.post("/json", json={"b": "YWJj"})
 
-    assert response.json()["b"] == _utf8("abc")
+    assert response.json()["b"] == _utf8("YWJj")
 
 
 # --- NewType and type aliases ----------------------------------------------------------

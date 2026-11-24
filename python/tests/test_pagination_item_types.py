@@ -7,11 +7,10 @@ or of the return type annotation.
 
 from __future__ import annotations
 
-import msgspec
 import pytest
 from pydantic import BaseModel
 
-from freeman import BoltAPI, CursorPagination, LimitOffsetPagination, PageNumberPagination, PaginatedResponse, paginate
+from freeman import BoltAPI, CursorPagination, LimitOffsetPagination, Page, PageNumberPagination, paginate
 from freeman.testing import TestClient
 
 from .test_models import Article
@@ -39,8 +38,8 @@ class ArticleDetailModel(BaseModel):
     is_published: bool
 
 
-class ArticleMsgspecSchema(msgspec.Struct):
-    """Plain msgspec.Struct for testing Struct items."""
+class ArticleBriefSchema(BaseModel):
+    """A second Pydantic item type."""
 
     id: int
     title: str
@@ -205,19 +204,19 @@ def test_paginate_with_return_type_annotation(sample_articles):
 
 
 # ============================================================================
-# Tests: msgspec.Struct Integration
+# Tests: a second Pydantic item type
 # ============================================================================
 
 
 @pytest.mark.django_db(transaction=True)
-def test_paginate_with_msgspec_struct(sample_articles):
-    """Test that @paginate works with plain msgspec.Struct."""
+def test_paginate_with_another_model(sample_articles):
+    """Test that @paginate works with another Pydantic item type."""
     api = BoltAPI()
 
     class SmallPagePagination(PageNumberPagination):
         page_size = 10
 
-    @api.get("/articles", response_model=list[ArticleMsgspecSchema])
+    @api.get("/articles", response_model=list[ArticleBriefSchema])
     @paginate(SmallPagePagination)
     async def list_articles(request):
         return Article.objects.all()
@@ -234,7 +233,7 @@ def test_paginate_with_msgspec_struct(sample_articles):
         assert "id" in first_item
         assert "title" in first_item
         assert "author" in first_item
-        # These fields should NOT be present (not declared in ArticleMsgspecSchema)
+        # These fields should NOT be present (not declared in ArticleBriefSchema)
         assert "content" not in first_item
         assert "is_published" not in first_item
 
@@ -428,7 +427,7 @@ def test_paginate_with_empty_queryset_and_item_type(db):
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("response_model", [list[ArticleListModel], PaginatedResponse[ArticleListModel]])
+@pytest.mark.parametrize("response_model", [list[ArticleListModel], Page[ArticleListModel]])
 def test_paginate_with_filtered_queryset_and_item_type(sample_articles, response_model):
     """Test pagination with filtered queryset and item type.
 

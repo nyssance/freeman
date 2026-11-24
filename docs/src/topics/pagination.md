@@ -117,8 +117,6 @@ async def list_articles(request):
 
 Both approaches work identically. The item type filters the fields: only its declared fields are in the response. A Pydantic item type reads a dict by key and each other object by attribute. An item that does not fit gives a response validation error (status 500). See [Models](models.md).
 
-The item type can also be a plain `msgspec.Struct`. Freeman converts each page as it converts a `list[Struct]` response type with no `@paginate`. An item that does not fit the Struct gives a response validation error (status 500). `build_response()` then gets instances of the Struct as `items`.
-
 ## Class-based view with Pagination
 
 ```python
@@ -133,21 +131,17 @@ class ArticleList(APIView):
 
 ## Custom response envelope
 
-The default envelope is `PaginatedResponse[T]`. It has `items`, `total`,
+The default envelope is `Page[T]`. It has `items`, `total`,
 `has_next`, `has_previous` and the fields of the pagination scheme. You can use
 a different shape, for example the DRF shape `count/next/previous/results`. Set
-`response_class` to a generic `msgspec.Struct`. Then override
+`response_class` to a generic Pydantic model. Then override
 `build_response()`. The response body and the OpenAPI schema
 (`DRFPage_ArticleOut_`) use the new shape:
 
 ```python
-from typing import Generic, TypeVar
+from pydantic import BaseModel
 
-import msgspec
-
-T = TypeVar("T")
-
-class DRFPage(msgspec.Struct, Generic[T]):
+class DRFPage[T](BaseModel):
     count: int
     next: str | None
     previous: str | None

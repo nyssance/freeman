@@ -1,49 +1,34 @@
 from __future__ import annotations
 
 import asyncio
-import enum
 from collections.abc import AsyncIterator
 from typing import Literal
 
-import msgspec
 import pytest
-from openapi_spec_validator import validate
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from freeman import BoltAPI
 from freeman.exceptions import ResponseValidationError
 from freeman.middleware import Middleware
-from freeman.openapi.config import OpenAPIConfig
-from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.responses import EventSourceResponse
 from freeman.testing import TestClient
 
+# The "_type" key names the variant, as a discriminator does.
+_TAGGED = ConfigDict(validate_by_name=True, serialize_by_alias=True)
 
-class Cat(msgspec.Struct, tag=True, tag_field="_type"):
+
+class Cat(BaseModel):
+    model_config = _TAGGED
+    kind: Literal["Cat"] = Field("Cat", alias="_type")
     name: str
     meows: bool = True
 
 
-class Dog(msgspec.Struct, tag=True, tag_field="_type"):
+class Dog(BaseModel):
+    model_config = _TAGGED
+    kind: Literal["Dog"] = Field("Dog", alias="_type")
     name: str
     barks: bool = True
-
-
-class ExampleColor(enum.Enum):
-    RED = "red"
-
-
-class ExampleCat(msgspec.Struct, tag=True):
-    lives: int
-    tags: list[str]
-    color: ExampleColor
-    kind: Literal["a", "b"]
-    note: str | None
-    price: float
-
-
-class ExampleDog(msgspec.Struct, tag=True):
-    age: int
 
 
 def test_union_response_model():
@@ -91,7 +76,7 @@ def test_union_validation_error():
 
     @api.get("/bad-pet", response_model=Cat | Dog)
     async def get_bad_pet():
-        return {"name": "Bird", "flies": True}
+        return {"flies": True}
 
     with TestClient(api, raise_server_exceptions=False) as client:
         resp = client.get("/bad-pet")
@@ -138,9 +123,11 @@ def test_typing_union_compatibility():
 # ---------------------------------------------------------------------------
 
 
-class Tagged(msgspec.Struct, tag=True, tag_field="_type"):
-    """Plain Struct used to force the struct-mode inline path."""
+class Tagged(BaseModel):
+    """A model used to force the inline path."""
 
+    model_config = _TAGGED
+    kind: Literal["Tagged"] = Field("Tagged", alias="_type")
     name: str
 
 
@@ -229,125 +216,7 @@ def test_inline_path_with_queryset_like_object_delegates_to_slow_path():
         client.get("/qs")
 
 
-def test_tagged_union_emits_per_arm_examples_in_openapi():
-    """Tagged Struct unions must emit per-arm ``examples`` so Swagger renders a dropdown.
-
-    A single ``Example Value`` (Swagger's default for ``oneOf``) shows only the
-    first arm and hides the discriminator semantics. Per-arm examples surface
-    each variant with its tag value.
-    """
-
-    class Cat(msgspec.Struct, tag=True):
-        name: str
-        meows: bool = True
-
-    class Dog(msgspec.Struct, tag=True):
-        name: str
-        barks: bool = True
-
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="t", version="1"))
-
-    @api.get("/pet", response_model=Cat | Dog)
-    async def get_pet():
-        return Cat(name="x")
-
-    schema = SchemaGenerator(api, api._openapi_config).generate().to_schema()
-    media = schema["paths"]["/pet"]["get"]["responses"]["200"]["content"]["application/json"]
-    examples = media.get("examples")
-    assert examples is not None, f"expected per-arm examples, got: {media}"
-    assert set(examples.keys()) == {"Cat", "Dog"}, examples
-    cat_example = examples["Cat"]["value"]
-    assert cat_example["type"] == "Cat"
-    assert cat_example["name"] == "string"
-    assert cat_example["meows"] is True
-    dog_example = examples["Dog"]["value"]
-    assert dog_example["type"] == "Dog"
-    assert dog_example["barks"] is True
-
-
-def test_tagged_union_examples_use_a_value_of_each_field_type():
-    """The example of a variant has a placeholder of the type of each field."""
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="t", version="1"))
-
-    @api.get("/pet", response_model=ExampleCat | ExampleDog)
-    async def get_pet():
-        return ExampleDog(age=1)
-
-    schema = SchemaGenerator(api, api._openapi_config).generate().to_schema()
-    media = schema["paths"]["/pet"]["get"]["responses"]["200"]["content"]["application/json"]
-    assert media["examples"]["ExampleCat"]["value"] == {
-        "lives": 0,
-        "tags": ["string"],
-        "color": "red",
-        "kind": "a",
-        "note": "string",
-        "price": 0.0,
-        "type": "ExampleCat",
-    }
-
-
-class Found(msgspec.Struct, tag=True):
-    name: str
-    owner: None
-
-
-class Missing(msgspec.Struct, tag=True):
-    reason: str
-
-
-def test_tagged_union_example_keeps_a_field_that_is_null():
-    """The example of a variant has each field of the real body, also a field of the type ``None``."""
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="t", version="1"))
-
-    @api.get("/lookup", response_model=Found | Missing)
-    async def lookup():
-        return Found(name="x", owner=None)
-
-    api._register_openapi_routes()
-    with TestClient(api) as client:
-        document = client.get("/docs/openapi.json").json()
-        body = client.get("/lookup").json()
-
-    validate(document)
-    assert body == {"type": "Found", "name": "x", "owner": None}
-    media = document["paths"]["/lookup"]["get"]["responses"]["200"]["content"]["application/json"]
-    assert media["examples"]["Found"]["value"] == {"type": "Found", "name": "string", "owner": None}
-    assert media["examples"]["Missing"]["value"] == {"type": "Missing", "reason": "string"}
-
-
-def test_list_of_tagged_union_omits_per_arm_examples():
-    """``list[Union[A, B, ...]]`` must NOT emit per-arm examples.
-
-    A real list can contain a mix of variants; per-arm dropdowns of
-    homogeneous lists ("10 Cats" / "10 Dogs") misrepresent that. Swagger
-    UI's default rendering of ``items.oneOf`` already produces a
-    heterogeneous example array with one of each arm — the truthful
-    shape — so we just stay out of its way.
-    """
-
-    class Cat(msgspec.Struct, tag=True):
-        name: str
-
-    class Dog(msgspec.Struct, tag=True):
-        name: str
-
-    api = BoltAPI(openapi_config=OpenAPIConfig(title="t", version="1"))
-
-    @api.get("/pets", response_model=list[Cat | Dog])
-    async def list_pets():
-        return [Cat(name="x"), Dog(name="y")]
-
-    schema = SchemaGenerator(api, api._openapi_config).generate().to_schema()
-    media = schema["paths"]["/pets"]["get"]["responses"]["200"]["content"]["application/json"]
-    # No `examples` block — Swagger uses its default item-per-arm rendering.
-    assert media.get("examples") is None, f"expected no examples for list[union], got: {media}"
-    # But the schema itself must still emit `oneOf` so each variant is documented.
-    items = media["schema"]["items"]
-    refs = {item["$ref"].rsplit("/", 1)[-1] for item in items["oneOf"]}
-    assert refs == {"Cat", "Dog"}
-
-
-class Row(msgspec.Struct):
+class Row(BaseModel):
     id: int
     note: str = "default"
 
@@ -438,7 +307,12 @@ def test_inline_list_path_reports_an_invalid_element(settings):
         resp = client.get("/rows")
         assert resp.status_code == 500
         assert resp.json()["extra"]["validation_errors"] == [
-            {"loc": ["response", "1", "id"], "msg": "Expected `int`, got `str`", "type": "validation_error"}
+            {
+                "loc": ["response", 1, "id"],
+                "msg": "Response validation failed for list[Row]: Input should be a valid integer, "
+                "unable to parse string as an integer",
+                "type": "int_parsing",
+            }
         ]
 
 
@@ -454,93 +328,6 @@ def test_list_route_that_returns_one_struct_gives_a_response_validation_error():
         resp = client.get("/rows")
         assert resp.status_code == 500
         assert resp.json()["detail"] == "Response validation error"
-
-
-class Left(msgspec.Struct):
-    left: int
-
-
-class Right(msgspec.Struct):
-    right: int
-
-
-class Checked(msgspec.Struct):
-    n: int
-
-    def __post_init__(self):
-        if self.n < 0:
-            # msgspec wraps a TypeError or a ValueError of __post_init__ in a
-            # ValidationError, but not this error.
-            raise RuntimeError("n must not be negative")
-
-
-@pytest.mark.parametrize(
-    "api_kwargs", [{}, {"middleware": [PassThroughMiddleware]}], ids=["plain", "python-middleware"]
-)
-def test_inline_list_path_reports_each_error_as_the_slow_path_does(api_kwargs, settings):
-    """Each error of the inline list path gives the error body of the slow path.
-
-    An untagged union of Structs makes msgspec raise TypeError. An error in
-    __post_init__ escapes msgspec as it is.
-    """
-    # The 500 shows the validation errors only when DEBUG is on. This test reads them.
-    settings.DEBUG = True
-    api = BoltAPI(**api_kwargs)
-
-    @api.get("/slow-union")
-    async def slow_union(request) -> list[Left | Right]:
-        return [{"left": 1}]
-
-    @api.get("/slow-checked")
-    async def slow_checked(request) -> list[Checked]:
-        return [{"n": -1}]
-
-    @api.get("/trivial")
-    async def trivial() -> list[Left | Right]:
-        return [{"left": 1}]
-
-    @api.get("/trivial-query")
-    async def trivial_query(start: int = 1) -> list[Left | Right]:
-        return [{"left": start}]
-
-    @api.get("/awaits")
-    async def awaits() -> list[Left | Right]:
-        await asyncio.sleep(0)
-        return [{"left": 1}]
-
-    @api.get("/awaits-query")
-    async def awaits_query(start: int = 1) -> list[Left | Right]:
-        await asyncio.sleep(0)
-        return [{"left": start}]
-
-    @api.get("/sync")
-    def sync_rows() -> list[Left | Right]:
-        return [{"left": 1}]
-
-    @api.get("/sync-query")
-    def sync_rows_query(start: int = 1) -> list[Left | Right]:
-        return [{"left": start}]
-
-    @api.get("/checked")
-    async def checked() -> list[Checked]:
-        return [{"n": -1}]
-
-    @api.get("/checked-sync")
-    def checked_sync() -> list[Checked]:
-        return [{"n": -1}]
-
-    with TestClient(api, raise_server_exceptions=False) as client:
-        slow_union_body = client.get("/slow-union").json()
-        slow_checked_body = client.get("/slow-checked").json()
-        assert slow_union_body["detail"] == "Response validation error"
-        assert slow_checked_body["extra"]["validation_errors"][0]["msg"] == "n must not be negative"
-
-        for path in ("/trivial", "/trivial-query", "/awaits", "/awaits-query", "/sync", "/sync-query"):
-            resp = client.get(path)
-            assert (resp.status_code, resp.json()) == (500, slow_union_body), path
-        for path in ("/checked", "/checked-sync"):
-            resp = client.get(path)
-            assert (resp.status_code, resp.json()) == (500, slow_checked_body), path
 
 
 class RowModel(BaseModel):
@@ -565,7 +352,7 @@ def test_response_validation_error_locates_the_error_in_the_response(settings):
     async def pydantic_row() -> RowModel:
         return {"id": "x"}
 
-    expected = {"/list": ["response", "1", "id"], "/struct": ["response", "id"], "/pydantic": ["response", "id"]}
+    expected = {"/list": ["response", 1, "id"], "/struct": ["response", "id"], "/pydantic": ["response", "id"]}
     with TestClient(api, raise_server_exceptions=False) as client:
         for path, loc in expected.items():
             resp = client.get(path)

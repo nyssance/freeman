@@ -10,20 +10,20 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI
 from freeman.params import Cookie, Header
 from freeman.testing import TestClient
 
 
-class TypedHeaders(msgspec.Struct):
+class TypedHeaders(BaseModel):
     x_count: int
     x_ratio: float = 1.0
 
 
-class TypedCookies(msgspec.Struct):
+class TypedCookies(BaseModel):
     count: int
     flag: bool = False
 

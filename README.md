@@ -116,7 +116,7 @@ QuerySet. The value goes through the model first, so only the fields of the
 model reach the client. In the OpenAPI document, a request body has the
 validation schema of the model, and a response has its serialization schema.
 
-msgspec structs still work.
+A `msgspec.Struct` is not a model type: Pydantic validates every model.
 
 ## Errors
 

@@ -13,6 +13,7 @@ import threading
 
 import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Depends
 from freeman.openapi.config import OpenAPIConfig
@@ -27,20 +28,20 @@ from tests.test_models import Article
 # ============================================================================
 
 
-class OkSchema(msgspec.Struct):
+class OkSchema(BaseModel):
     """OK response schema for testing."""
 
     id: int
     name: str
 
 
-class ErrorSchema(msgspec.Struct):
+class ErrorSchema(BaseModel):
     """Error response schema for testing."""
 
     detail: str
 
 
-class CreatedSchema(msgspec.Struct):
+class CreatedSchema(BaseModel):
     """Created response schema for testing."""
 
     id: int
@@ -567,10 +568,10 @@ def test_bare_list_multi_response_sync():
 
 
 def test_mismatched_body_is_not_validated():
-    """Data that doesn't match the declared schema is still sent as-is."""
+    """Data that doesn't match a declared type that is not a model is still sent as-is."""
     api = BoltAPI()
 
-    @api.get("/items/{item_id}", response_model={200: OkSchema, 400: ErrorSchema})
+    @api.get("/items/{item_id}", response_model={200: dict[str, int], 400: ErrorSchema})
     async def get_item(item_id: int):
         return 200, {"wrong_field": "no id or name"}
 
@@ -578,6 +579,18 @@ def test_mismatched_body_is_not_validated():
         r = client.get("/items/1")
         assert r.status_code == 200
         assert r.json() == {"wrong_field": "no id or name"}
+
+
+def test_a_model_of_a_status_checks_the_fields_that_go_out():
+    """A Pydantic model of a status decides which fields go out, so a body that does not fit is a 500."""
+    api = BoltAPI()
+
+    @api.get("/items/{item_id}", response_model={200: OkSchema, 400: ErrorSchema})
+    async def get_item(item_id: int):
+        return 200, {"wrong_field": "no id or name"}
+
+    with TestClient(api, raise_server_exceptions=False) as client:
+        assert client.get("/items/1").status_code == 500
 
 
 # ============================================================================
@@ -728,13 +741,13 @@ def test_a_bare_return_has_an_explicit_status_code_that_the_dict_does_not_list(i
 
     if is_async:
 
-        @api.post("/items", response_model={200: OkSchema, ...: ErrorSchema}, status_code=201)
+        @api.post("/items", response_model={200: ErrorSchema, ...: OkSchema}, status_code=201)
         async def create_item():
             return {"id": 1, "name": "New"}
 
     else:
 
-        @api.post("/items", response_model={200: OkSchema, ...: ErrorSchema}, status_code=201)
+        @api.post("/items", response_model={200: ErrorSchema, ...: OkSchema}, status_code=201)
         def create_item():
             return {"id": 1, "name": "New"}
 
@@ -767,7 +780,7 @@ def test_a_bare_return_uses_the_implicit_catch_all_with_an_explicit_status_code(
     assert (response.status_code, response.json()) == (201, {"id": 1, "name": "New"})
 
 
-class TitleRow(msgspec.Struct):
+class TitleRow(BaseModel):
     title: str
 
 

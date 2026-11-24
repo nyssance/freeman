@@ -276,7 +276,7 @@ def test_invalid_sequence_item_error_points_at_the_item(client):
     assert response.status_code == 422
     assert response.json()["detail"] == [
         {
-            "type": "validation_error",
+            "type": "int_parsing",
             "loc": ["query", "ids"],
             "msg": "Expected `int`, got `str` - at `$[1]`",
             "input": ["1", "x"],
@@ -289,7 +289,7 @@ def test_constrained_scalar_error_has_no_holder_path(client):
 
     assert response.status_code == 422
     assert response.json()["detail"] == [
-        {"type": "validation_error", "loc": ["query", "n"], "msg": "Expected `int` >= 1", "input": 0}
+        {"type": "greater_than_equal", "loc": ["query", "n"], "msg": "Expected `int` >= 1", "input": 0}
     ]
 
 

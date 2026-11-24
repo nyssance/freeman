@@ -16,8 +16,8 @@ Tests cover:
 import time
 
 import jwt
-import msgspec
 import pytest
+from pydantic import BaseModel
 
 from freeman import BoltAPI, Request
 from freeman.auth.backends import JWTAuthentication
@@ -121,10 +121,10 @@ def test_bolt_api_view_query_params():
 
 
 def test_bolt_api_view_request_body():
-    """Test request body parsing with msgspec.Struct."""
+    """Test request body parsing with a Pydantic model."""
     api = BoltAPI()
 
-    class CreateUserRequest(msgspec.Struct):
+    class CreateUserRequest(BaseModel):
         username: str
         email: str
 
@@ -145,7 +145,7 @@ def test_bolt_api_view_return_annotation():
     """Test that return annotations are preserved and used."""
     api = BoltAPI()
 
-    class ResponseSchema(msgspec.Struct):
+    class ResponseSchema(BaseModel):
         message: str
         count: int
 
@@ -382,12 +382,12 @@ def test_complete_crud_operations():
     items_db = {1: {"id": 1, "name": "Item 1", "price": 10.0}, 2: {"id": 2, "name": "Item 2", "price": 20.0}}
     next_id = [3]  # Use list for mutable counter
 
-    class ItemSchema(msgspec.Struct):
+    class ItemSchema(BaseModel):
         id: int
         name: str
         price: float
 
-    class ItemCreateSchema(msgspec.Struct):
+    class ItemCreateSchema(BaseModel):
         name: str
         price: float
 

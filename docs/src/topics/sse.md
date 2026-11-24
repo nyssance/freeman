@@ -39,7 +39,7 @@ async def stock_prices() -> AsyncIterable[StockPrice]:
         await asyncio.sleep(1)
 ```
 
-Works with any serializable type: dicts, msgspec Structs, lists.
+Works with any serializable type: dicts, Pydantic models, lists.
 
 ### Explicit
 

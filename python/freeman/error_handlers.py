@@ -17,7 +17,7 @@ import msgspec
 from pydantic import BaseModel
 
 from . import _json
-from ._pydantic import NO_FIELD_TITLES
+from ._pydantic import NO_FIELD_TITLES, refuse_msgspec_model
 from .exceptions import (
     HTTPException,
     RequestValidationError,
@@ -25,6 +25,7 @@ from .exceptions import (
     ResponseFileNotFound,
     ResponseValidationError,
     ValidationException,
+    msgspec_error_type,
 )
 from .responses import HTML, JSON, PlainText, Response
 from .serialization import _render_response_body
@@ -110,6 +111,9 @@ def _loc_segments(path: str) -> list[str]:
 def msgspec_validation_error_to_dict(error: msgspec.ValidationError, root: str = "body") -> list[dict[str, Any]]:
     """Convert msgspec ValidationError to structured error list.
 
+    msgspec converts the scalar parameters, so only their errors come here.
+    Each ``type`` is the Pydantic type of the message (``msgspec_error_type``).
+
     Args:
         error: msgspec.ValidationError instance
         root: The first item of each 'loc'. A request error has "body", and a
@@ -132,15 +136,9 @@ def msgspec_validation_error_to_dict(error: msgspec.ValidationError, root: str =
 
     missing_match = _RE_MISSING_FIELD.search(msg_part)
     if missing_match:
-        return [{"loc": [*loc_parts, missing_match.group(1)], "msg": msg_part, "type": "missing_field"}]
+        return [{"loc": [*loc_parts, missing_match.group(1)], "msg": msg_part, "type": "missing"}]
 
-    if loc_match:
-        return [{"loc": loc_parts, "msg": msg_part, "type": "validation_error"}]
-
-    if "missing required field" in error_msg.lower():
-        return [{"loc": [root, "unknown"], "msg": error_msg, "type": "missing_field"}]
-
-    return [{"loc": [root], "msg": error_msg, "type": "validation_error"}]
+    return [{"loc": loc_parts, "msg": msg_part, "type": msgspec_error_type(msg_part)}]
 
 
 def _format_validation_errors(errors: Any, loc: str) -> list[dict[str, Any]]:
@@ -438,6 +436,7 @@ def error_schema[F: Callable[..., Any]](schema: Any, *, media_type: str = "appli
     """
 
     def decorate(formatter: F) -> F:
+        refuse_msgspec_model(schema, "error_schema", getattr(formatter, "__qualname__", repr(formatter)))
         formatter.__bolt_error_schema__ = _ErrorSchema(schema, media_type)
         return formatter
 

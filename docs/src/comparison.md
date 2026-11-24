@@ -17,7 +17,7 @@ description: Freeman vs Django Ninja vs Django REST Framework vs FastAPI vs Lite
 | Django ORM, Admin, middleware, signals | ✅ all | ✅ all | ✅ all | ❌ bring your own | ❌ bring your own |
 | HTTP server | **Built-in Rust (Actix Web)** — no gunicorn/uvicorn | ASGI/WSGI → uvicorn/gunicorn | WSGI/ASGI → gunicorn/uvicorn | ASGI → uvicorn | ASGI → uvicorn/granian |
 | Handler style | Typed functions (`async def` / `def`) + `APIView` | Typed functions | `@api_view` functions or class-based views; untyped | Typed functions | Typed functions + controllers |
-| Validation | Pydantic models, msgspec `Struct` | Pydantic | DRF serializers | Pydantic | msgspec / Pydantic / attrs |
+| Validation | Pydantic models | Pydantic | DRF serializers | Pydantic | msgspec / Pydantic / attrs |
 | Where auth & permissions run | **Rust, before the GIL** (JWT, API key, guards) | Python | Python | Python | Python |
 | CORS / rate limiting / compression | **Rust middleware** | Django middleware / third-party | Django middleware / third-party | Starlette middleware / third-party | Built-in Python middleware |
 | OpenAPI docs | Swagger, ReDoc, Scalar, RapiDoc, Stoplight | Swagger, ReDoc | Via drf-spectacular | Swagger, ReDoc | Swagger, ReDoc, Scalar, RapiDoc, Stoplight |
@@ -42,7 +42,7 @@ description: Freeman vs Django Ninja vs Django REST Framework vs FastAPI vs Lite
 Both live inside Django and use type-hinted handlers with automatic OpenAPI.
 
 - **Server.** Ninja is a view layer behind uvicorn/gunicorn. Freeman *is* the server, with multi-process, worker recycling, and static serving built in.
-- **Validation.** Ninja uses Pydantic. Freeman takes Pydantic models and msgspec structs.
+- **Validation.** Ninja and Freeman both use Pydantic. Freeman encodes JSON with msgspec.
 - **Auth.** Ninja checks auth in Python. Freeman validates JWT/API keys and guards in Rust before Python runs.
 - **Extras.** `APIView`, WebSockets, SSE, MCP servers, Rust CORS/rate-limit/compression.
 - **Migration.** Change the decorator. Pydantic models can stay. Ninja routes keep serving through the [ASGI mount](topics/asgi-mounts.md) while you move.
