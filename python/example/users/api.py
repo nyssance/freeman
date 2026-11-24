@@ -3,12 +3,15 @@ from __future__ import annotations
 from typing import Annotated
 
 import msgspec
+from django.db import IntegrityError
+from pydantic import BaseModel
 
 from freeman import BoltAPI
+from freeman.exceptions import HTTPException
 from freeman.pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, paginate
 from freeman.params import Depends
 from freeman.serializers import Serializer
-from freeman.views import ModelViewSet, ViewSet
+from freeman.views import APIView
 
 from .models import User
 
@@ -50,31 +53,6 @@ class UserListSerializer(msgspec.Struct):
     id: int
     username: str
     email: str
-
-
-class UserDetailSerializer(Serializer):
-    """Serializer for user detail view - includes all fields."""
-
-    id: int
-    username: str
-    email: str
-    first_name: str
-    last_name: str
-    is_active: bool
-
-
-class UserCreate(Serializer):
-    username: str
-    email: str
-    first_name: str = ""
-    last_name: str = ""
-
-
-class UserUpdate(Serializer, omit_defaults=True):
-    email: str | None = None
-    first_name: str | None = None
-    last_name: str | None = None
-    is_active: bool | None = None
 
 
 # ============================================================================
@@ -309,71 +287,118 @@ async def list_users_legacy(request):
 
 
 # ----------------------------------------------------------------------------
-# 7. Class-Based View (ViewSet) with Pagination
+# 7. Class-Based View (APIView) with Pagination
 # ----------------------------------------------------------------------------
 
 
-@api.viewset("/api-paginated")
-class UserPaginatedViewSet(ViewSet):
-    """
-    ViewSet with pagination using @paginate decorator on list method.
+class UserListOut(BaseModel):
+    id: int
+    username: str
+    email: str
 
-    Routes:
-        - GET /users/api-paginated -> list (paginated)
-        - GET /users/api-paginated/{id} -> retrieve (not paginated)
-    """
 
-    queryset = User.objects.all()
+class UserDetailOut(BaseModel):
+    id: int
+    username: str
+    email: str
+    first_name: str
+    last_name: str
+    is_active: bool
+
+
+class UserMiniOut(BaseModel):
+    id: int
+    username: str
+
+
+class UserCreateIn(BaseModel):
+    username: str
+    email: str
+    first_name: str = ""
+    last_name: str = ""
+
+
+class UserUpdateIn(BaseModel):
+    email: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    is_active: bool | None = None
+
+
+async def _get_user(pk: int) -> User:
+    try:
+        return await User.objects.aget(pk=pk)
+    except User.DoesNotExist as e:
+        raise HTTPException(status_code=404, detail="Not found") from e
+
+
+@api.view("/api-paginated")
+class UserPaginatedList(APIView):
+    """GET /users/api-paginated lists the users, one page at a time."""
 
     @paginate(SmallPagePagination)
-    async def list(self, request) -> list[UserListSerializer]:
-        """
-        List all users with pagination.
+    async def get(self) -> list[UserListOut]:
+        return User.objects.all()
 
-        Using @paginate decorator with return type annotation
-        automatically handles serialization.
-        """
-        return await self.get_queryset()
 
-    async def retrieve(self, request) -> UserDetailSerializer:
-        """Retrieve a single user by ID (not paginated)."""
-        user = await self.get_object()
-        return await UserDetailSerializer.afrom_model(user)
+@api.view("/api-paginated/{pk}")
+class UserPaginatedDetail(APIView):
+    """GET /users/api-paginated/{pk} returns one user."""
+
+    async def get(self, pk: int) -> UserDetailOut:
+        return await _get_user(pk)
 
 
 # ----------------------------------------------------------------------------
-# 8. ModelViewSet with Pagination
+# 8. CRUD Function Routes with Pagination
 # ----------------------------------------------------------------------------
+#
+# GET /users/model-paginated lists one page of users (page, page_size).
+# POST creates a user. GET, PUT, PATCH and DELETE /users/model-paginated/{pk}
+# read, change and delete one user.
 
 
-@api.viewset("/model-paginated")
-class UserModelPaginatedViewSet(ModelViewSet):
-    """
-    Full CRUD ModelViewSet with pagination on list action.
+@api.get("/model-paginated")
+@paginate(SmallPagePagination)
+async def list_model_paginated() -> list[UserMiniOut]:
+    return User.objects.all()
 
-    Routes:
-        - GET /users/model-paginated -> list (paginated)
-        - POST /users/model-paginated -> create
-        - GET /users/model-paginated/{id} -> retrieve
-        - PUT /users/model-paginated/{id} -> update
-        - PATCH /users/model-paginated/{id} -> partial_update
-        - DELETE /users/model-paginated/{id} -> destroy
 
-    Query params for list:
-        - page: Page number (default: 1)
-        - page_size: Items per page (default: 10)
-    """
+@api.post("/model-paginated", status_code=201)
+async def create_model_paginated(data: UserCreateIn) -> UserDetailOut:
+    try:
+        return await User.objects.acreate(**data.model_dump())
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="The object conflicts with an existing object") from e
 
-    queryset = User.objects.all()
-    serializer_class = UserFull  # For detail/retrieve views
-    create_serializer_class = UserCreate
-    update_serializer_class = UserUpdate
-    list_serializer_class = UserMini  # For list view
-    pagination_class = SmallPagePagination
 
-    # list(), retrieve(), create(), update(), partial_update(), destroy()
-    # are all automatically implemented by ModelViewSet
-    # Pagination is automatically applied to list() action
+@api.get("/model-paginated/{pk}")
+async def retrieve_model_paginated(pk: int) -> UserDetailOut:
+    return await _get_user(pk)
+
+
+async def _update_user(pk: int, data: UserUpdateIn) -> User:
+    user = await _get_user(pk)
+    for name, value in data.model_dump(exclude_unset=True).items():
+        setattr(user, name, value)
+    await user.asave()
+    return user
+
+
+@api.put("/model-paginated/{pk}")
+async def update_model_paginated(pk: int, data: UserUpdateIn) -> UserDetailOut:
+    return await _update_user(pk, data)
+
+
+@api.patch("/model-paginated/{pk}")
+async def partial_update_model_paginated(pk: int, data: UserUpdateIn) -> UserDetailOut:
+    return await _update_user(pk, data)
+
+
+@api.delete("/model-paginated/{pk}", status_code=204)
+async def destroy_model_paginated(pk: int) -> None:
+    user = await _get_user(pk)
+    await user.adelete()
 
 
 # ============================================================================

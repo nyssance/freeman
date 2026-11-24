@@ -1,17 +1,9 @@
 """
 Django ORM Integration Tests for Class-Based Views.
 
-This test suite verifies that ViewSets and Mixins work correctly with
-real Django ORM operations (like Django REST Framework).
-
-Tests cover:
-- Real database queries with Django async ORM
-- PartialUpdateMixin with partial updates + asave()
-- DestroyMixin with obj.adelete()
-- End-to-end CRUD workflows
+An APIView method reads real rows with the Django async ORM.
 """
 
-import msgspec
 import pytest
 
 from freeman import BoltAPI
@@ -43,47 +35,6 @@ def sample_articles(db):
 # --- Schemas ---
 
 
-class ArticleSchema(msgspec.Struct):
-    """Full article schema (without datetime fields for simplicity)."""
-
-    id: int
-    title: str
-    content: str
-    author: str
-    is_published: bool
-
-    @classmethod
-    def from_model(cls, obj):
-        """Convert Django model instance to schema."""
-        return cls(id=obj.id, title=obj.title, content=obj.content, author=obj.author, is_published=obj.is_published)
-
-
-class ArticleCreateSchema(msgspec.Struct):
-    """Schema for creating articles."""
-
-    title: str
-    content: str
-    author: str
-
-
-class ArticleUpdateSchema(msgspec.Struct):
-    """Schema for updating articles (full update)."""
-
-    title: str
-    content: str
-    author: str
-    is_published: bool
-
-
-class ArticlePartialUpdateSchema(msgspec.Struct):
-    """Schema for partial updates (all fields optional)."""
-
-    title: str | None = None
-    content: str | None = None
-    author: str | None = None
-    is_published: bool | None = None
-
-
 # --- Edge Cases ---
 
 
@@ -95,7 +46,7 @@ def test_async_queryset_iteration(api, sample_articles):
     class ArticleListView(APIView):
         async def get(self, request) -> list:
             articles = []
-            # Test async iteration like ListMixin does
+            # Test async iteration of a queryset
             async for article in Article.objects.all():
                 articles.append({"id": article.id, "title": article.title})
             return articles

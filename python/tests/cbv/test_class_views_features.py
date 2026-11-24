@@ -2,7 +2,7 @@
 Comprehensive feature tests for class-based views.
 
 This test suite verifies that ALL Freeman features work correctly with
-class-based views (APIView, ViewSet, ModelViewSet):
+class-based views (APIView):
 
 - Request validation (Body, Query, Path, Header, Cookie, Form, File)
 - Response validation and serialization
@@ -22,7 +22,7 @@ import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
 
-from freeman import BoltAPI, action
+from freeman import BoltAPI
 from freeman.auth import APIKeyAuthentication, IsAuthenticated, JWTAuthentication
 from freeman.auth.guards import Requires
 from freeman.auth.jwt_utils import create_jwt_for_user, get_current_user
@@ -31,7 +31,7 @@ from freeman.middleware import cors, rate_limit, skip_middleware
 from freeman.params import Body, Cookie, Depends, Header, Path, Query
 from freeman.responses import StreamingResponse
 from freeman.testing import TestClient
-from freeman.views import APIView, ViewSet
+from freeman.views import APIView
 
 # --- Fixtures ---
 
@@ -336,8 +336,7 @@ def test_api_key_authentication_with_class_view(api):
         assert response.status_code == 401
 
 
-@pytest.mark.parametrize("kind", ["view", "viewset"])
-def test_arguments_of_view_and_viewset_apply_to_the_routes(api, kind):
+def test_arguments_of_view_apply_to_the_routes(api):
     """``auth``, ``guards``, ``status_code`` and ``validate_response`` of the decorator reach each route."""
     arguments = {
         "auth": [APIKeyAuthentication(api_keys={"secret-key-123"})],
@@ -346,19 +345,10 @@ def test_arguments_of_view_and_viewset_apply_to_the_routes(api, kind):
         "validate_response": False,
     }
 
-    if kind == "view":
-
-        @api.view("/items", **arguments)
-        class ItemView(APIView):
-            async def get(self, request) -> UserSchema:
-                return {"not": "a user"}
-
-    else:
-
-        @api.viewset("/items", **arguments)
-        class ItemViewSet(ViewSet):
-            async def list(self, request) -> UserSchema:
-                return {"not": "a user"}
+    @api.view("/items", **arguments)
+    class ItemView(APIView):
+        async def get(self, request) -> UserSchema:
+            return {"not": "a user"}
 
     with TestClient(api) as client:
         assert client.get("/items").status_code == 401
@@ -698,293 +688,3 @@ def test_multiple_middleware_decorators_with_class_view(api):
 # ============================================================================
 # Custom Action Method Tests
 # ============================================================================
-
-
-def test_custom_action_decorator_in_viewset(api):
-    """Test @action decorator custom actions INSIDE a ViewSet class."""
-
-    @api.viewset("/articles")
-    class ArticleViewSet(ViewSet):
-        queryset = []
-        lookup_field = "article_id"  # Set lookup field to match parameter names
-
-        async def list(self, request) -> dict:
-            """Standard list action."""
-            return {"articles": []}
-
-        async def create(self, request) -> dict:
-            """Standard create action."""
-            return {"id": 1, "created": True}
-
-        # Custom actions defined INSIDE the ViewSet using @action decorator
-        @action(methods=["POST"], detail=True, path="publish")
-        async def publish(self, request, article_id: int):
-            """Custom action: publish article. POST /articles/{article_id}/publish"""
-            return {"article_id": article_id, "published": True}
-
-        @action(methods=["POST"], detail=True, path="archive")
-        async def archive(self, request, article_id: int):
-            """Custom action: archive article. POST /articles/{article_id}/archive"""
-            return {"article_id": article_id, "archived": True}
-
-        @action(methods=["GET"], detail=False, path="search")
-        async def search(self, request, query: str):
-            """Custom action: search articles. GET /articles/search"""
-            return {"query": query, "results": ["article1", "article2"]}
-
-    with TestClient(api) as client:
-        # Standard CRUD endpoints
-        response = client.get("/articles")
-        assert response.status_code == 200
-        assert "articles" in response.json()
-
-        response = client.post("/articles", json={"title": "Test"})
-        assert response.status_code == 201  # HTTP 201 Created for viewset create action
-        assert response.json()["created"] is True
-
-        # Custom actions (registered automatically from decorators)
-        response = client.post("/articles/123/publish")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["article_id"] == 123
-        assert data["published"] is True
-
-        response = client.post("/articles/456/archive")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["article_id"] == 456
-        assert data["archived"] is True
-
-        response = client.get("/articles/search?query=django")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["query"] == "django"
-        assert "results" in data
-
-
-def test_viewset_with_multiple_custom_actions(api):
-    """Test ViewSet with many custom action methods defined INSIDE the class."""
-
-    @api.viewset("/users")
-    class UserViewSet(ViewSet):
-        lookup_field = "user_id"  # Set lookup field to match parameter names
-
-        async def retrieve(self, request, user_id: int) -> dict:
-            """Standard retrieve action."""
-            return {"id": user_id, "username": "testuser"}
-
-        # Custom actions defined INSIDE the ViewSet (real-world use cases) using @action
-        @action(methods=["POST"], detail=True, path="activate")
-        async def activate(self, request, user_id: int):
-            """Custom action: activate user account. POST /users/{user_id}/activate"""
-            return {"id": user_id, "activated": True, "status": "active"}
-
-        @action(methods=["POST"], detail=True, path="deactivate")
-        async def deactivate(self, request, user_id: int):
-            """Custom action: deactivate user account. POST /users/{user_id}/deactivate"""
-            return {"id": user_id, "deactivated": True, "status": "inactive"}
-
-        @action(methods=["POST"], detail=True, path="reset-password")
-        async def reset_password(self, request, user_id: int):
-            """Custom action: send password reset email. POST /users/{user_id}/reset-password"""
-            return {"id": user_id, "password_reset": True, "email_sent": True}
-
-        @action(methods=["GET"], detail=True, path="permissions")
-        async def get_permissions(self, request, user_id: int):
-            """Custom action: get user permissions. GET /users/{user_id}/permissions"""
-            return {"id": user_id, "permissions": ["read", "write"]}
-
-        @action(methods=["PUT"], detail=True, path="permissions")
-        async def update_permissions(self, request, user_id: int):
-            """Custom action: update user permissions. PUT /users/{user_id}/permissions"""
-            # In real app, would extract permissions from request body
-            return {"id": user_id, "permissions": ["admin"], "updated": True}
-
-    with TestClient(api) as client:
-        # Standard retrieve
-        response = client.get("/users/1")
-        assert response.status_code == 200
-        assert response.json()["id"] == 1
-
-        # Custom action: activate
-        response = client.post("/users/1/activate")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["activated"] is True
-        assert data["status"] == "active"
-
-        # Custom action: deactivate
-        response = client.post("/users/1/deactivate")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["deactivated"] is True
-        assert data["status"] == "inactive"
-
-        # Custom action: reset password
-        response = client.post("/users/1/reset-password")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["password_reset"] is True
-        assert data["email_sent"] is True
-
-        # Custom action: get permissions
-        response = client.get("/users/1/permissions")
-        assert response.status_code == 200
-        assert "permissions" in response.json()
-
-        # Custom action: update permissions
-        response = client.put("/users/1/permissions", json={"permissions": ["admin"]})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["permissions"] == ["admin"]
-        assert data["updated"] is True
-
-
-def test_custom_action_with_auth_and_guards(api):
-    """Test custom action methods INSIDE ViewSet with authentication and guards."""
-    from freeman.auth import APIKeyAuthentication, IsAuthenticated  # noqa: PLC0415
-
-    @api.viewset("/documents")
-    class DocumentViewSet(ViewSet):
-        # Class-level auth applies to all methods
-        auth = [APIKeyAuthentication(api_keys={"admin-key": "admin1", "user-key": "user1"})]
-        guards = [IsAuthenticated()]
-        lookup_field = "doc_id"  # Set lookup field to match parameter names
-
-        async def retrieve(self, request, doc_id: int) -> dict:
-            """Standard retrieve - requires auth."""
-            auth_context = request.get("auth", {})
-            return {"doc_id": doc_id, "title": "Secure Document", "accessed_by": auth_context.get("user_id", "unknown")}
-
-        # Custom actions INSIDE ViewSet - inherit class-level auth/guards using @action
-        @action(methods=["POST"], detail=True, path="approve")
-        async def approve(self, request, doc_id: int):
-            """Custom action: approve document (requires auth). POST /documents/{doc_id}/approve"""
-            auth_context = request.get("auth", {})
-            return {"doc_id": doc_id, "approved": True, "approved_by": auth_context.get("user_id", "unknown")}
-
-        @action(methods=["POST"], detail=True, path="reject")
-        async def reject(self, request, doc_id: int):
-            """Custom action: reject document (requires auth). POST /documents/{doc_id}/reject"""
-            auth_context = request.get("auth", {})
-            return {"doc_id": doc_id, "rejected": True, "rejected_by": auth_context.get("user_id", "unknown")}
-
-        @action(methods=["POST"], detail=True, path="lock")
-        async def lock(self, request, doc_id: int):
-            """Custom action: lock document for editing (requires auth). POST /documents/{doc_id}/lock"""
-            auth_context = request.get("auth", {})
-            return {"doc_id": doc_id, "locked": True, "locked_by": auth_context.get("user_id", "unknown")}
-
-    with TestClient(api) as client:
-        # Standard retrieve without auth - should fail
-        response = client.get("/documents/123")
-        assert response.status_code == 401
-
-        # Standard retrieve with auth - should work
-        response = client.get("/documents/123", headers={"X-API-Key": "admin-key"})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["doc_id"] == 123
-        assert "admin-key" in data["accessed_by"]
-
-        # Custom action: approve without auth - should fail
-        response = client.post("/documents/123/approve")
-        assert response.status_code == 401
-
-        # Custom action: approve with auth - should work
-        response = client.post("/documents/123/approve", headers={"X-API-Key": "admin-key"})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["doc_id"] == 123
-        assert data["approved"] is True
-        assert "admin-key" in data["approved_by"]
-
-        # Custom action: reject with auth - should work
-        response = client.post("/documents/456/reject", headers={"X-API-Key": "user-key"})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["doc_id"] == 456
-        assert data["rejected"] is True
-        assert "user-key" in data["rejected_by"]
-
-        # Custom action: lock with auth - should work
-        response = client.post("/documents/789/lock", headers={"X-API-Key": "admin-key"})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["doc_id"] == 789
-        assert data["locked"] is True
-        assert "admin-key" in data["locked_by"]
-
-
-def test_nested_resource_actions_with_class_views(api):
-    """Test nested resource ViewSet (e.g., comment moderation)."""
-
-    class CommentViewSet(ViewSet):
-        async def retrieve(self, request, post_id: int, comment_id: int) -> dict:
-            """Standard retrieve nested resource."""
-            return {"post_id": post_id, "comment_id": comment_id, "text": "Sample comment", "status": "pending"}
-
-        # Custom actions for nested resources using @action decorator
-        @action(methods=["POST"], detail=True, path="approve")
-        async def approve(self, request, comment_id: int, post_id: int):
-            """Custom action: approve comment. POST /posts/{post_id}/comments/{comment_id}/approve"""
-            return {"post_id": post_id, "comment_id": comment_id, "approved": True, "status": "approved"}
-
-        @action(methods=["POST"], detail=True, path="reject")
-        async def reject(self, request, comment_id: int, post_id: int, reason: str = "spam"):
-            """Custom action: reject comment. POST /posts/{post_id}/comments/{comment_id}/reject"""
-            return {
-                "post_id": post_id,
-                "comment_id": comment_id,
-                "rejected": True,
-                "reason": reason,
-                "status": "rejected",
-            }
-
-        @action(methods=["POST"], detail=True, path="flag")
-        async def flag(self, request, comment_id: int, post_id: int):
-            """Custom action: flag comment. POST /posts/{post_id}/comments/{comment_id}/flag"""
-            return {"post_id": post_id, "comment_id": comment_id, "flagged": True, "status": "flagged_for_review"}
-
-    # Register ViewSet with nested path pattern
-    # Note: ViewSet lookup_field will be 'comment_id', and post_id is an additional path param
-    @api.viewset("/posts/{post_id}/comments", lookup_field="comment_id")
-    class CommentViewSetRegistered(CommentViewSet):
-        pass
-
-    with TestClient(api) as client:
-        # Standard nested resource retrieve
-        response = client.get("/posts/10/comments/25")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["post_id"] == 10
-        assert data["comment_id"] == 25
-        assert data["status"] == "pending"
-
-        # Custom nested action: approve comment
-        response = client.post("/posts/10/comments/25/approve")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["post_id"] == 10
-        assert data["comment_id"] == 25
-        assert data["approved"] is True
-        assert data["status"] == "approved"
-
-        # Custom nested action: reject comment with reason
-        response = client.post("/posts/10/comments/25/reject?reason=inappropriate")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["post_id"] == 10
-        assert data["comment_id"] == 25
-        assert data["rejected"] is True
-        assert data["reason"] == "inappropriate"
-        assert data["status"] == "rejected"
-
-        # Custom nested action: flag comment
-        response = client.post("/posts/15/comments/42/flag")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["post_id"] == 15
-        assert data["comment_id"] == 42
-        assert data["flagged"] is True
-        assert data["status"] == "flagged_for_review"

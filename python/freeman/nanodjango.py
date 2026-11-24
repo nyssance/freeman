@@ -46,7 +46,6 @@ _BOLT_DECORATOR_NAMES: tuple[str, ...] = (
     "query",
     "websocket",
     "view",
-    "viewset",
 )
 # Calls on the API object that add routes: ``bolt.mount(...)`` and the others.
 _BOLT_MOUNT_NAMES: tuple[str, ...] = (
@@ -251,7 +250,7 @@ def convert_build_app_api(converter: Converter, resolver: Resolver, extra_src: l
     - ``bolt = freeman.nanodjango.BoltAPI(...)``
     - ``router = Router(...)``
     - ``@bolt.get(...)``, ``@bolt.post(...)``, etc. on async/sync functions
-    - ``@bolt.view(...)`` and ``@bolt.viewset(...)`` on classes
+    - ``@bolt.view(...)`` on classes
     - ``bolt.mount_django(...)``, ``bolt.mount(...)``, ``bolt.mount_asgi(...)``,
       ``bolt.mount_mcp(...)``, ``bolt.include_router(...)`` and
       ``bolt.native_route(...)`` calls

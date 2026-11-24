@@ -3,10 +3,9 @@ from __future__ import annotations
 import msgspec
 
 from freeman import BoltAPI
-from freeman.decorators import action
 from freeman.responses import JSON, Response
 from freeman.testing import TestClient
-from freeman.views import APIView, ViewSet
+from freeman.views import APIView
 
 
 class Item(msgspec.Struct):
@@ -75,7 +74,7 @@ def test_response_model_none_skips_return_annotation_validation():
         assert response.json() == [{"name": "missing-price"}]
 
 
-def test_validate_response_view_and_viewset_inheritance():
+def test_validate_response_view_inheritance():
     api = BoltAPI()
 
     @api.view("/loose")
@@ -92,21 +91,8 @@ def test_validate_response_view_and_viewset_inheritance():
         async def get(self, request) -> list[Item]:
             return [{"name": "missing-price"}]
 
-    @api.viewset("/widgets")
-    class WidgetViewSet(ViewSet):
-        validate_response = False
-
-        async def list(self, request) -> list[Item]:
-            return [{"name": "missing-price"}]
-
-        @action(methods=["GET"], detail=False, path="strict", validate_response=True)
-        async def strict_action(self, request) -> list[Item]:
-            return [{"name": "missing-price"}]
-
     assert _get_meta(api, "/loose")["_has_response_validation"] is False
     assert _get_meta(api, "/strict")["_has_response_validation"] is True
-    assert _get_meta(api, "/widgets")["_has_response_validation"] is False
-    assert _get_meta(api, "/widgets/strict")["_has_response_validation"] is True
 
     with TestClient(api, raise_server_exceptions=False) as client:
         assert client.get("/loose").status_code == 200
@@ -115,13 +101,6 @@ def test_validate_response_view_and_viewset_inheritance():
         strict_view = client.get("/strict")
         assert strict_view.status_code == 500
         assert b"Response validation error" in strict_view.content
-
-        assert client.get("/widgets").status_code == 200
-        assert client.get("/widgets").json() == [{"name": "missing-price"}]
-
-        strict_action = client.get("/widgets/strict")
-        assert strict_action.status_code == 500
-        assert b"Response validation error" in strict_action.content
 
 
 def test_return_annotation_validates_only_the_default_status():

@@ -17,7 +17,7 @@ from typing import Annotated, Any
 
 import pytest
 
-from freeman import BoltAPI, Request, ViewSet, action
+from freeman import APIView, BoltAPI, Request
 from freeman.analysis import analyze_handler
 from freeman.params import Depends, Form
 from freeman.testing import TestClient
@@ -284,14 +284,13 @@ def test_a_class_dependency_whose_init_has_no_source_gets_every_part():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_a_sync_viewset_action_that_uses_the_orm_runs_in_the_thread_pool():
-    """The analysis must read the action method, not the generic wrapper."""
+def test_a_sync_view_method_that_uses_the_orm_runs_in_the_thread_pool():
+    """The analysis must read the view method, not the generic wrapper."""
     api = BoltAPI()
 
-    @api.viewset("/articles")
-    class ArticleViewSet(ViewSet):
-        @action(methods=["GET"], detail=False)
-        def count(self, request, limit: int = 5):
+    @api.view("/articles/count")
+    class ArticleCountView(APIView):
+        def get(self, request, limit: int = 5):
             return {"count": Article.objects.count(), "thread": threading.current_thread().name}
 
     with TestClient(api) as client:

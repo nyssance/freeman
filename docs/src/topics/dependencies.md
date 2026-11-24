@@ -319,21 +319,18 @@ async def delete_user(user_id: int, admin=Depends(require_admin)):
     return {"deleted": True}
 ```
 
-## Dependencies with ViewSets
+## Dependencies with class-based views
 
 Dependencies work with class-based views:
 
 ```python
-from freeman import ViewSet
+from freeman.views import APIView
 
-@api.viewset("/items")
-class ItemViewSet(ViewSet):
-    queryset = Item.objects.all()
-
-    async def list(self, request, pagination=Depends(get_pagination)) -> list[dict]:
+@api.view("/items")
+class ItemList(APIView):
+    async def get(self, pagination=Depends(get_pagination)) -> list[dict]:
         items = []
-        queryset = await self.get_queryset()
-        async for item in queryset[pagination.offset:pagination.offset + pagination.page_size]:
+        async for item in Item.objects.all()[pagination.offset:pagination.offset + pagination.page_size]:
             items.append({"id": item.id, "name": item.name})
         return items
 ```

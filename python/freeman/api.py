@@ -39,7 +39,6 @@ from ._kwargs import (
     extract_response_metadata,
     field_has_upload_file,
 )
-from ._view_context import _current_action, _current_request
 from .admin.routes import AdminRouteRegistrar
 from .analysis import analyze_dependency_tree, analyze_handler, annotation_globals
 from .auth import register_auth_backend
@@ -56,7 +55,6 @@ from .concurrency import (
     run_on_request_lane,
     sync_to_thread,
 )
-from .decorators import _RESPONSE_MODEL_UNSET, ActionHandler
 from .dependencies import dependency_fields
 from .error_handlers import (
     ErrorFormatter,
@@ -94,7 +92,7 @@ from .openapi import (
     SwaggerRenderPlugin,
 )
 from .openapi.routes import OpenAPIRouteRegistrar
-from .pagination import envelope_type, extract_pagination_item_type, paginate
+from .pagination import envelope_type, extract_pagination_item_type
 from .responses import JSON as _JSONResponse
 from .router import Router, _leading_slash
 from .serialization import (
@@ -114,12 +112,14 @@ from .serialization import (
     serialize_response,
     serialize_response_sync,
 )
-from .status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 from .typing import HandlerMetadata, HandlerPattern
-from .views import APIView, ViewSet, _copy_route_middleware, _layer, _plan_request_argument
+from .views import APIView, _layer
 from .websocket import mark_websocket_handler
 
 logger = logging.getLogger(__name__)
+
+# The route takes its response type from the return annotation.
+_RESPONSE_MODEL_UNSET = object()
 
 
 def _middleware_names(middleware: Any) -> frozenset[str]:
@@ -355,16 +355,6 @@ def _normalize_path(path: str, trailing_slash: str = "strip") -> str:
         return path if path.endswith("/") else path + "/"
     else:  # "keep"
         return path
-
-
-def _join_viewset_path(base: str, *segments: str) -> str:
-    """Add segments to the path of a viewset, with one slash between the parts.
-
-    The result ends with a slash if the viewset path does. The `trailing_slash`
-    mode of the API then normalizes it, and "keep" keeps it.
-    """
-    joined = "/".join((base.rstrip("/"), *segments))
-    return joined + "/" if base.endswith("/") and base != "/" else joined
 
 
 def _normalize_mount_prefix(path: str) -> str:
@@ -722,7 +712,7 @@ class BoltAPI:
             openapi_config: OpenAPI documentation configuration
             validate_response: Default response validation policy for registered routes
             include_in_schema: Default OpenAPI visibility for the routes of this API.
-                A route, view, or viewset that sets its own value wins. ``None``
+                A route or view that sets its own value wins. ``None``
                 inherits from the API this one is mounted into. The root defaults to True.
             lifespan: Async context manager factory for startup/shutdown lifecycle.
                 Receives the BoltAPI instance as argument.
@@ -1491,441 +1481,9 @@ class BoltAPI:
                 # Apply decorator to register the handler
                 route_decorator(handler)
 
-            # Scan for custom action methods (methods decorated with @action)
-            # Note: api.view() doesn't have base path context for @action decorator
-            # Custom actions with @action should use api.viewset() instead
-            self._register_custom_actions(
-                view_cls, base_path=None, lookup_field=None, base_name=None, include_in_schema=merged_include_in_schema
-            )
-
             return view_cls
 
         return decorator
-
-    def viewset(
-        self,
-        path: str,
-        *,
-        name: str | None = None,
-        guards: list[Any] | None = None,
-        auth: list[Any] | None = None,
-        status_code: int | None = None,
-        validate_response: bool | None = None,
-        lookup_field: str = "pk",
-        tags: list[str] | None = None,
-        include_in_schema: bool | None = None,
-        deprecated: bool = False,
-    ):
-        """
-        Register a ViewSet with automatic CRUD route generation as a decorator.
-
-        Usage:
-            @api.viewset("/users")
-            class UserViewSet(ViewSet):
-                async def list(self, request) -> list[User]:
-                    return User.objects.all()[:100]
-
-                async def retrieve(self, request, id: int) -> User:
-                    return await User.objects.aget(id=id)
-
-                @action(methods=["POST"], detail=True)
-                async def activate(self, request, id: int):
-                    user = await User.objects.aget(id=id)
-                    user.is_active = True
-                    await user.asave()
-                    return user
-
-        This method auto-generates routes for standard DRF-style actions:
-        - list: GET /path (200 OK)
-        - create: POST /path (201 Created)
-        - retrieve: GET /path/{pk} (200 OK)
-        - update: PUT /path/{pk} (200 OK)
-        - partial_update: PATCH /path/{pk} (200 OK)
-        - destroy: DELETE /path/{pk} (204 No Content)
-
-        Args:
-            path: Base URL path (e.g., "/users")
-            name: Optional base URL-reverse name. Standard actions are named
-                ``{name}-{action}`` (e.g. "user-list", "user-retrieve"); custom
-                @action routes are named ``{name}-{action_name}``. When omitted,
-                the base is the ViewSet class name as written, so
-                ``UserViewSet`` yields "UserViewSet-list", "UserViewSet-retrieve",
-                etc. -- reverse() works without an explicit name (a derived base is
-                non-explicit, so it loses collisions to explicitly named routes).
-            guards: Optional guards to apply to all routes. An @action that sets
-                ``guards`` keeps its value.
-            auth: Optional auth backends to apply to all routes. An @action that
-                sets ``auth`` keeps its value.
-            status_code: Optional default status code (overrides action-specific
-                defaults). An @action that sets ``status_code`` keeps its value.
-            validate_response: Optional response validation switch for all routes.
-                An @action that sets ``validate_response`` keeps its value.
-            lookup_field: Field name for object lookup (default: "pk"). It names
-                the path parameter, and ``get_object()`` reads it. A value other
-                than "pk" has priority over the ``lookup_field`` class attribute.
-                It applies to the routes of this registration only.
-            tags: Optional tags to apply to all routes. An @action that sets
-                ``tags`` keeps its value.
-            deprecated: True marks each operation of the viewset as deprecated in the
-                OpenAPI schema. This includes its @action routes.
-
-        Returns:
-            Decorator function that registers the viewset
-        """
-
-        def decorator(viewset_cls: type[ViewSet]) -> type[ViewSet]:
-            # Validate that viewset_cls is a ViewSet subclass
-            if not issubclass(viewset_cls, ViewSet):
-                raise TypeError(f"ViewSet class {viewset_cls.__name__} must inherit from ViewSet")
-
-            # Use lookup_field from ViewSet class if not provided
-            actual_lookup_field = lookup_field
-            if actual_lookup_field == "pk" and hasattr(viewset_cls, "lookup_field"):
-                actual_lookup_field = viewset_cls.lookup_field
-
-            # The view instances of this registration get the decorator value.
-            # The class attribute stays, so a second registration is independent.
-            view_kwargs = (
-                {} if actual_lookup_field == viewset_cls.lookup_field else {"lookup_field": actual_lookup_field}
-            )
-
-            # Reverse-name base for all generated routes. Both an explicit name and
-            # the class-name fallback are used verbatim.
-            vs_base = name if name is not None else viewset_cls.__name__
-
-            # Class attribute is the middle layer: decorator kwarg > class > API.
-            merged_include_in_schema = _layer(include_in_schema, viewset_cls.include_in_schema)
-
-            # Define standard action mappings with HTTP-compliant status codes
-            # Format: action_name: (method, path, default_status_code)
-            action_routes = {
-                # Collection routes (no pk)
-                "list": ("GET", path, None),
-                "create": ("POST", path, HTTP_201_CREATED),
-                # Detail routes (with pk)
-                "retrieve": ("GET", _join_viewset_path(path, f"{{{actual_lookup_field}}}"), None),
-                "update": ("PUT", _join_viewset_path(path, f"{{{actual_lookup_field}}}"), None),
-                "partial_update": ("PATCH", _join_viewset_path(path, f"{{{actual_lookup_field}}}"), None),
-                "destroy": ("DELETE", _join_viewset_path(path, f"{{{actual_lookup_field}}}"), HTTP_204_NO_CONTENT),
-            }
-
-            # Register routes for each implemented action
-            for action_name, (http_method, route_path, action_status_code) in action_routes.items():
-                # Check if the viewset implements this action
-                if not hasattr(viewset_cls, action_name):
-                    continue
-
-                # A sync action is a route too, as a sync APIView method is. An
-                # attribute that is not a function, such as ``destroy = None``, is not.
-                action_method = getattr(viewset_cls, action_name)
-                if not inspect.isfunction(action_method):
-                    continue
-
-                # Use action name (e.g., "list") not HTTP method name (e.g., "get")
-                handler = viewset_cls.as_view(http_method.lower(), action=action_name, **view_kwargs)
-
-                # Merge guards and auth
-                merged_guards = guards
-                if merged_guards is None and hasattr(handler, "__bolt_guards__"):
-                    merged_guards = handler.__bolt_guards__
-
-                merged_auth = auth
-                if merged_auth is None and hasattr(handler, "__bolt_auth__"):
-                    merged_auth = handler.__bolt_auth__
-
-                # Status code priority: explicit status_code param > handler attribute > action default
-                merged_status_code = status_code
-                if merged_status_code is None and hasattr(handler, "__bolt_status_code__"):
-                    merged_status_code = handler.__bolt_status_code__
-                if merged_status_code is None:
-                    merged_status_code = action_status_code
-
-                # Check for response_model on the method or original handler
-                method_response_model = getattr(action_method, "response_model", _RESPONSE_MODEL_UNSET)
-                if method_response_model is _RESPONSE_MODEL_UNSET:
-                    original = getattr(handler, "__original_handler__", None)
-                    if original is not None:
-                        method_response_model = getattr(original, "response_model", _RESPONSE_MODEL_UNSET)
-
-                # Extract response model from type hints if not already determined
-                if method_response_model is _RESPONSE_MODEL_UNSET:
-                    globalns = annotation_globals(handler)
-                    type_hints = get_type_hints(handler, globalns=globalns, include_extras=True)
-                    method_response_model = type_hints.get("return", _RESPONSE_MODEL_UNSET)
-
-                # Fallback to the viewset's serializer class when possible, but
-                # don't let dynamic runtime selection crash registration.
-                if method_response_model is _RESPONSE_MODEL_UNSET:
-                    inferred_serializer = self._infer_viewset_serializer_class(
-                        viewset_cls, action_name if action_name == "list" else "retrieve"
-                    )
-                    if inferred_serializer is not _RESPONSE_MODEL_UNSET:
-                        if action_name == "list":
-                            method_response_model = list[inferred_serializer]
-                        elif action_name != "destroy":
-                            method_response_model = inferred_serializer
-
-                merged_validate_response = validate_response
-                if merged_validate_response is None:
-                    merged_validate_response = getattr(action_method, "validate_response", None)
-                if merged_validate_response is None:
-                    original = getattr(handler, "__original_handler__", None)
-                    if original is not None:
-                        merged_validate_response = getattr(original, "validate_response", None)
-                if merged_validate_response is None and hasattr(handler, "__bolt_validate_response__"):
-                    merged_validate_response = handler.__bolt_validate_response__
-
-                # Apply pagination decorator for list actions when  handler is not paginated and pagination class is configured
-                if (
-                    action_name == "list"
-                    and not getattr(handler, "__paginated__", False)
-                    and viewset_cls.pagination_class
-                ):
-                    handler = paginate(viewset_cls.pagination_class)(handler)
-
-                # Derive route name from the viewset base + verbatim action suffix
-                # (e.g. "user-list", "user-retrieve", "user-partial_update").
-                route_name = f"{vs_base}-{action_name}"
-
-                # Generated names are non-explicit so they don't shadow or
-                # collide-error with explicitly named routes.
-                route_decorator = self._route_decorator(
-                    http_method,
-                    route_path,
-                    name=route_name,
-                    _name_explicit=name is not None,
-                    response_model=method_response_model,
-                    status_code=merged_status_code,
-                    validate_response=merged_validate_response,
-                    guards=merged_guards,
-                    auth=merged_auth,
-                    tags=tags,
-                    include_in_schema=merged_include_in_schema,
-                    deprecated=deprecated,
-                )
-                route_decorator(handler)
-
-            # Scan for custom actions (@action decorator)
-            self._register_custom_actions(
-                viewset_cls,
-                base_path=path,
-                lookup_field=actual_lookup_field,
-                include_in_schema=merged_include_in_schema,
-                deprecated=deprecated,
-                base_name=vs_base,
-                base_name_explicit=name is not None,
-                view_kwargs=view_kwargs,
-                guards=guards,
-                auth=auth,
-                status_code=status_code,
-                validate_response=validate_response,
-                tags=tags,
-            )
-
-            return viewset_cls
-
-        return decorator
-
-    def _infer_viewset_serializer_class(self, viewset_cls: type[ViewSet], action_name: str):
-        """
-        Best-effort serializer inference for unannotated viewset actions.
-
-        Called at registration time (no request context). We pass *action_name*
-        explicitly, and ``self.action`` has the same value during the call, so
-        an override can read either of them. ``self.request`` is not available.
-        """
-        token = _current_action.set(action_name)
-        try:
-            view_instance = viewset_cls()
-            return view_instance.get_serializer_class(action_name)
-        except AttributeError, TypeError, ValueError:
-            return _RESPONSE_MODEL_UNSET
-        finally:
-            _current_action.reset(token)
-
-    def _register_custom_actions(
-        self,
-        view_cls: type,
-        base_path: str | None,
-        lookup_field: str | None,
-        base_name: str | None = None,
-        base_name_explicit: bool = False,
-        include_in_schema: bool | None = None,
-        deprecated: bool = False,
-        view_kwargs: dict[str, Any] | None = None,
-        guards: list[Any] | None = None,
-        auth: list[Any] | None = None,
-        status_code: int | None = None,
-        validate_response: bool | None = None,
-        tags: list[str] | None = None,
-    ):
-        """
-        Scan a ViewSet class for custom action methods and register them.
-
-        Custom actions are methods decorated with @action decorator. For each
-        option, the @action value comes first, then the registration value, then
-        the class attribute.
-
-        Args:
-            view_cls: The ViewSet class to scan
-            base_path: Base path for the ViewSet (e.g., "/users")
-            lookup_field: Lookup field name for detail actions (e.g., "id", "pk")
-            base_name: Base URL-reverse name for the viewset.
-            base_name_explicit: True when the user named the viewset directly
-            view_kwargs: Attributes of each view instance of this registration
-            guards: Guards from the registration call
-            auth: Auth backends from the registration call
-            status_code: Default status code from the registration call
-            validate_response: Response validation switch from the registration call
-            tags: Tags from the registration call
-        """
-        view_kwargs = view_kwargs or {}
-
-        # Registration value first, then the class-level value (if any)
-        class_auth = auth if auth is not None else getattr(view_cls, "auth", None)
-        class_guards = guards if guards is not None else getattr(view_cls, "guards", None)
-        class_validate_response = (
-            validate_response if validate_response is not None else getattr(view_cls, "validate_response", None)
-        )
-        class_status_code = status_code if status_code is not None else getattr(view_cls, "status_code", None)
-
-        # Scan all attributes in the class
-        for name in dir(view_cls):
-            # Skip private attributes. A method with the name of an HTTP method
-            # or of a standard action is a custom action when it has @action.
-            if name.startswith("_"):
-                continue
-
-            attr = getattr(view_cls, name)
-
-            # Check if it's an ActionHandler instance (decorated with @action)
-            if isinstance(attr, ActionHandler):
-                # Validate that we have base_path for auto-generation
-                if base_path is None:
-                    raise ValueError(
-                        f"Custom action {view_cls.__name__}.{name} uses @action decorator, "
-                        f"but ViewSet was registered with api.view() instead of api.viewset(). "
-                        f"Use api.viewset() for automatic action path generation."
-                    )
-
-                # Extract the unbound function from the ActionHandler
-                unbound_fn = attr.fn
-
-                # Auto-generate route path based on detail flag
-                if attr.detail:
-                    # Instance-level action: /base_path/{lookup_field}/action_name
-                    # Example: /users/{id}/activate
-                    action_path = _join_viewset_path(base_path, f"{{{lookup_field}}}", attr.path)
-                else:
-                    # Collection-level action: /base_path/action_name
-                    # Example: /users/active
-                    action_path = _join_viewset_path(base_path, attr.path)
-
-                # Decide one time where the request is. A method with no request
-                # parameter gets one in the handler signature, for `self.request`.
-                sig = inspect.signature(unbound_fn)
-                params, request_index, request_name, skip = _plan_request_argument(
-                    list(sig.parameters.values())[1:]  # Skip 'self'
-                )
-
-                # Register route for each HTTP method
-                for http_method in attr.methods:
-                    # Create a wrapper that instantiates the view per request,
-                    # sets the ContextVar-based request/action, and forwards.
-                    is_async_method = inspect.iscoroutinefunction(unbound_fn)
-                    if is_async_method:
-
-                        async def custom_action_handler(
-                            *args,
-                            __unbound_fn=unbound_fn,
-                            __view_cls=view_cls,
-                            __view_kwargs=view_kwargs,
-                            _action=name,
-                            _request_index=request_index,
-                            _request_name=request_name,
-                            _skip=skip,
-                            **kwargs,
-                        ):
-                            """Wrapper for custom action method."""
-                            _current_action.set(_action)
-                            _current_request.set(
-                                args[_request_index] if _request_name is None else kwargs[_request_name]
-                            )
-                            view_instance = __view_cls(**__view_kwargs)
-                            return await __unbound_fn(view_instance, *args[_skip:], **kwargs)
-
-                    else:
-
-                        def custom_action_handler(
-                            *args,
-                            __unbound_fn=unbound_fn,
-                            __view_cls=view_cls,
-                            __view_kwargs=view_kwargs,
-                            _action=name,
-                            _request_index=request_index,
-                            _request_name=request_name,
-                            _skip=skip,
-                            **kwargs,
-                        ):
-                            """Wrapper for custom action method."""
-                            _current_action.set(_action)
-                            _current_request.set(
-                                args[_request_index] if _request_name is None else kwargs[_request_name]
-                            )
-                            view_instance = __view_cls(**__view_kwargs)
-                            return __unbound_fn(view_instance, *args[_skip:], **kwargs)
-
-                    # Preserve signature and annotations from original method
-                    custom_action_handler.__signature__ = sig.replace(parameters=params)
-                    custom_action_handler.__annotations__ = {
-                        k: v for k, v in inspect.get_annotations(unbound_fn).items() if k != "self"
-                    }
-                    custom_action_handler.__name__ = f"{view_cls.__name__}.{name}"
-                    custom_action_handler.__doc__ = unbound_fn.__doc__
-                    custom_action_handler.__module__ = unbound_fn.__module__
-                    # The analysis reads the action method, not this wrapper.
-                    custom_action_handler.__wrapped__ = unbound_fn
-                    _copy_route_middleware(unbound_fn, custom_action_handler)
-                    # A @paginate action returns the pagination envelope. The route
-                    # reads these attributes to make the envelope its response type.
-                    if getattr(unbound_fn, "__paginated__", False):
-                        custom_action_handler.__paginated__ = True
-                        custom_action_handler.__pagination_class__ = unbound_fn.__pagination_class__
-                        custom_action_handler.__original_handler__ = unbound_fn
-
-                    # Merge class-level auth/guards with action-specific auth/guards
-                    # Action-specific takes precedence if explicitly set
-                    final_auth = attr.auth if attr.auth is not None else class_auth
-                    final_guards = attr.guards if attr.guards is not None else class_guards
-                    final_validate_response = (
-                        attr.validate_response if attr.validate_response is not None else class_validate_response
-                    )
-
-                    # Derive the action's reverse name: base + suffix. Both an explicit
-                    # @action(name=...) suffix and the function-name fallback are used
-                    # verbatim. attr.path is the URL segment, not a name source.
-                    action_suffix = attr.name if attr.name is not None else unbound_fn.__name__
-                    action_route_name = f"{base_name}-{action_suffix}" if base_name else action_suffix
-
-                    # An explicit @action(name=...) is user-intended, so the route
-                    # is explicit even when the viewset base name was derived.
-                    decorator = self._route_decorator(
-                        http_method,
-                        action_path,
-                        name=action_route_name,
-                        _name_explicit=base_name_explicit or attr.name is not None,
-                        response_model=attr.response_model,
-                        status_code=attr.status_code if attr.status_code is not None else class_status_code,
-                        validate_response=final_validate_response,
-                        guards=final_guards,
-                        auth=final_auth,
-                        tags=attr.tags if attr.tags is not None else tags,
-                        summary=attr.summary,
-                        description=attr.description,
-                        include_in_schema=include_in_schema,
-                        deprecated=attr.deprecated or deprecated,
-                    )
-                    decorator(custom_action_handler)
 
     def _route_decorator(
         self,
@@ -2177,7 +1735,7 @@ class BoltAPI:
                 item_type = extract_pagination_item_type(final_response_type)
                 if item_type is not None:
                     fn.__serializer_class__ = item_type
-                    # For ViewSet methods wrapped by as_view(), also set on the original handler
+                    # For APIView methods wrapped by as_view(), also set on the original handler
                     original = getattr(fn, "__original_handler__", None)
                     if original is not None:
                         original.__serializer_class__ = item_type
@@ -2250,17 +1808,6 @@ class BoltAPI:
             meta["injector_is_async"] = inspect.iscoroutinefunction(injector)
             meta["_original_fn"] = fn
             meta["_handler_executor"] = self._compile_handler_executor(meta)
-
-            # ViewSet write actions resolve their body type from the configured
-            # serializer class. Inject it as a first-class body_struct_type so
-            # the OpenAPI generator and existing JSON-body machinery treat it
-            # identically to a handler that declared `body: Serializer` in its
-            # signature. Runtime body deserialization is unaffected because
-            # there is no matching field in field_definitions.
-            body_struct_type = getattr(fn, "__bolt_body_struct_type__", None)
-            if body_struct_type is not None and "body_struct_type" not in meta:
-                meta["body_struct_param"] = "body"
-                meta["body_struct_type"] = body_struct_type
 
             # Preserve normalized middleware layers in handler metadata for runtime execution.
             meta["_router_middleware"] = router_middleware

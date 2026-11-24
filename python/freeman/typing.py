@@ -169,7 +169,7 @@ class HandlerMetadata(TypedDict, total=False):
     """Route name for URL reversing (freeman.urls.reverse); see name_explicit"""
 
     name_explicit: bool
-    """True if the user set the name directly; False if derived (fn name / viewset action)"""
+    """True if the user set the name directly; False if derived (fn name / view class name)"""
 
     namespace: str
     """Opt-in reverse namespace from BoltAPI(namespace=...); "" when unset"""

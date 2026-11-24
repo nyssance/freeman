@@ -227,21 +227,18 @@ reverse("missions:detail", kwargs={"mission_id": 42})  # "/missions/42"
 
 A namespaced route reverses **only** under its namespace; the bare name won't resolve.
 
-### Class-based views and viewsets
+### Class-based views
 
-`view()`, `viewset()`, and `@action` all accept `name=`. A viewset names each route `{base}-{action}`:
+`view()` accepts `name=`. Each method of the view gets that name, because they share one path:
 
 ```python
-@api.viewset("/users", name="user")
-class UserViewSet(ViewSet):
-    async def list(self, request): ...           # name == "user-list"
-    async def partial_update(self, request): ...  # name == "user-partial_update"
-
-    @action(["GET"], detail=False)
-    async def recent(self, request): ...          # name == "user-recent"
+@api.view("/users", name="user-list")
+class UserList(APIView):
+    async def get(self, request): ...   # name == "user-list"
+    async def post(self, request): ...  # name == "user-list"
 ```
 
-Without `name=`, the base falls back to the verbatim class name (`UserViewSet-list`), so set `name=` on viewsets you intend to reverse.
+Without `name=`, the name falls back to the verbatim class name (`UserList`), so set `name=` on views you intend to reverse.
 
 ### Collisions
 
@@ -506,4 +503,4 @@ async def list_users():
 
 This is useful for versioning your API or grouping routes under a common path.
 
-Freeman gives each path and each prefix a leading slash. Thus `BoltAPI(prefix="api/v1")` with `@api.get("users")` serves `/api/v1/users`. The rule is the same for `Router(prefix=...)`, `include_router(prefix=...)`, `mount()`, views, viewsets and WebSocket routes.
+Freeman gives each path and each prefix a leading slash. Thus `BoltAPI(prefix="api/v1")` with `@api.get("users")` serves `/api/v1/users`. The rule is the same for `Router(prefix=...)`, `include_router(prefix=...)`, `mount()`, views and WebSocket routes.

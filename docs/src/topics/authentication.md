@@ -1183,7 +1183,7 @@ async def profile(request):
     return {"user_id": request.context["user_id"]}
 ```
 
-The rule is the same for the guards of a router, a class-based view, a `@action`, `BOLT_DEFAULT_PERMISSION_CLASSES`, a WebSocket route and an MCP mount. Freeman applies it when it registers the route.
+The rule is the same for the guards of a router, a class-based view, `BOLT_DEFAULT_PERMISSION_CLASSES`, a WebSocket route and an MCP mount. Freeman applies it when it registers the route.
 
 - A route with no guard, or with `AllowAny()` as its first guard, gets no backend. It does no token work.
 - `auth=[]` on the route and `BOLT_AUTHENTICATION_CLASSES = []` in the settings mean no backend. A guard that needs a user then rejects each request with 401.

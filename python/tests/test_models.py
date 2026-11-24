@@ -1,14 +1,14 @@
 """
 Test models for Django ORM integration tests.
 
-These models are used to verify that ViewSets work with real Django ORM operations.
+These models back the Django ORM integration tests.
 """
 
 from django.db import models
 
 
 class Article(models.Model):
-    """Test model for ViewSet/Mixin Django ORM integration tests."""
+    """Test model for Django ORM integration tests."""
 
     statuses = (("draft", "draft"), ("published", "published"))
 
@@ -141,16 +141,6 @@ class Document(models.Model):
 
     def __str__(self):
         return self.title
-
-
-class Country(models.Model):
-    """Model with a primary key that the client supplies, for ViewSet create tests."""
-
-    code = models.CharField(max_length=2, primary_key=True)
-    name = models.CharField(max_length=100)
-
-    class Meta:
-        app_label = "freeman"
 
 
 class Release(models.Model):

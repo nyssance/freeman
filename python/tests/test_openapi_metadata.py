@@ -7,13 +7,12 @@ from openapi_spec_validator import validate
 
 from freeman import BoltAPI, Router
 from freeman.auth import IsAuthenticated, JWTAuthentication
-from freeman.decorators import ActionHandler, action
 from freeman.openapi import OpenAPIConfig
 from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.openapi.spec import Tag
 from freeman.responses import Redirect
 from freeman.testing import TestClient
-from freeman.views import APIView, ViewSet
+from freeman.views import APIView
 from freeman.websocket import WebSocket
 
 
@@ -215,60 +214,6 @@ def test_tag_collection_with_config_tags():
     assert items_tag.description == "Inventory items"
 
 
-def test_action_decorator_with_metadata():
-    """Test that @action decorator accepts and stores metadata."""
-
-    @action(
-        methods=["POST"],
-        detail=True,
-        tags=["Actions"],
-        summary="Activate user",
-        description="Activates the specified user account.",
-    )
-    async def activate(self, id: int):
-        return {"activated": True}
-
-    assert isinstance(activate, ActionHandler)
-    assert activate.tags == ["Actions"]
-    assert activate.summary == "Activate user"
-    assert activate.description == "Activates the specified user account."
-
-
-def test_action_metadata_passed_to_route():
-    """Test that action metadata is passed through to the route."""
-    api = BoltAPI()
-
-    @api.viewset("/users")
-    class UserViewSet(ViewSet):
-        @action(
-            methods=["POST"],
-            detail=True,
-            tags=["UserActions"],
-            summary="Deactivate user",
-            description="Deactivates a user account.",
-        )
-        async def deactivate(self, id: int):
-            return {"deactivated": True}
-
-    # Find the registered handler
-    deactivate_route = None
-    for _method, path, _handler_id, handler in api._routes:
-        if path == "/users/{pk}/deactivate":
-            deactivate_route = handler
-            break
-
-    assert deactivate_route is not None
-    # Find the handler_id from routes
-    for _method, path, handler_id, _handler in api._routes:
-        if path == "/users/{pk}/deactivate":
-            meta = api._handler_meta.get(handler_id, {})
-            assert meta != {}
-            assert meta.get("openapi_tags") == ["UserActions"]
-            assert meta.get("openapi_summary") == "Deactivate user"
-            assert meta.get("openapi_description") == "Deactivates a user account."
-            break
-
-
 def test_multiple_http_methods_with_metadata():
     """Test that metadata works with all HTTP methods."""
     api = BoltAPI()
@@ -400,7 +345,7 @@ def test_deprecated_route_is_deprecated_in_the_document(method):
     assert "deprecated" not in paths["/current"][method]
 
 
-def test_deprecated_reaches_router_view_viewset_and_action_routes():
+def test_deprecated_reaches_router_and_view_routes():
     api = BoltAPI(openapi_config=OpenAPIConfig(title="Test API", version="1.0.0"))
     router = Router(prefix="/router")
 
@@ -422,31 +367,6 @@ def test_deprecated_reaches_router_view_viewset_and_action_routes():
         async def post(self, request) -> dict:
             return {}
 
-    @api.viewset("/old-things", deprecated=True)
-    class OldViewSet(ViewSet):
-        async def list(self, request):
-            return []
-
-        async def retrieve(self, request, pk: int) -> dict:
-            return {}
-
-        @action(methods=["GET"], detail=False)
-        async def recent(self, request) -> dict:
-            return {}
-
-    @api.viewset("/things")
-    class ThingViewSet(ViewSet):
-        async def list(self, request):
-            return []
-
-        @action(methods=["GET", "POST"], detail=False, deprecated=True)
-        async def legacy(self, request) -> dict:
-            return {}
-
-        @action(methods=["GET"], detail=False)
-        async def recent(self, request) -> dict:
-            return {}
-
     paths = _document(api)["paths"]
     deprecated = {
         f"{method} {path}"
@@ -454,18 +374,8 @@ def test_deprecated_reaches_router_view_viewset_and_action_routes():
         for method, operation in item.items()
         if operation.get("deprecated")
     }
-    assert deprecated == {
-        "get /router/old",
-        "get /old-view",
-        "post /old-view",
-        "get /old-things",
-        "get /old-things/{pk}",
-        "get /old-things/recent",
-        "get /things/legacy",
-        "post /things/legacy",
-    }
-    for path in ("/router/current", "/things", "/things/recent"):
-        assert "deprecated" not in paths[path]["get"]
+    assert deprecated == {"get /router/old", "get /old-view", "post /old-view"}
+    assert "deprecated" not in paths["/router/current"]["get"]
 
 
 def test_websocket_operation_has_no_deprecated_key():

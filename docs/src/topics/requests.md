@@ -100,8 +100,8 @@ async def get_user(request: Request):
     return {"user_id": request.params["user_id"]}
 ```
 
-This is especially handy inside `ViewSet` helpers such as `get_object()`, which
-use `request.params` by default.
+This is especially handy in a helper of a class-based view, which can read
+`self.request.params`.
 
 ## Query parameters
 

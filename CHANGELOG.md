@@ -37,6 +37,10 @@ The changes of Freeman since the fork, up to 0.1.1 and after it.
 - **`runbolt` finds an instance of a `BoltAPI` subclass** - When the source of an api module names no `BoltAPI`, `runbolt` imports the module. Each top-level name that the module assigns from a call counts when it holds a `BoltAPI` instance. A name that the module only imports does not count.
 - **`scripts/gate.py`** - A throughput gate and a memory gate, with `just` recipes and a Gates workflow.
 
+### Removed
+
+- **`ViewSet`, `ModelViewSet`, `ReadOnlyModelViewSet`, the CRUD mixins, `@api.viewset()` and `@action`** - The engine keeps `APIView` and `@api.view()`. Use one `APIView` per path, or function routes, with Pydantic models for the body and the result. `freeman.decorators` is gone with `@action`.
+
 ### Fixed
 
 - **A rejected request with a body keeps its connection** - Rust answers a 401, a 403 or a 429 before it reads the body. Actix then closed the connection, so the client opened a new one for each request. Now Bolt reads and drops a body of at most 64 KiB, for at most one second, before it sends the response, as nginx does. A larger body, or one that does not arrive in time, still closes the connection. This also covers a route that takes no body but gets one. A chunked body was already kept: Actix drops it itself.

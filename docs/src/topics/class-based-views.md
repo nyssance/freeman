@@ -4,7 +4,7 @@ icon: lucide/boxes
 
 # Class-Based Views
 
-Freeman supports class-based views for organizing related endpoints. This guide covers `APIView`, `ViewSet`, and `ModelViewSet`.
+Freeman supports class-based views for organizing related endpoints. `APIView` groups the HTTP methods of one path. For a resource with list and detail paths, use one view per path, or function routes.
 
 ## APIView
 
@@ -101,421 +101,65 @@ class UserView(APIView):
         return {"user_id": user_id, "updated": True}
 ```
 
-## ViewSet
+## A resource with list and detail paths
 
-`ViewSet` provides a higher-level abstraction for CRUD operations:
-
-```python
-from freeman.views import ViewSet
-
-@api.viewset("/items")
-class ItemViewSet(ViewSet):
-    async def list(self, request) -> list[dict]:
-        """GET /items"""
-        return [{"id": 1}, {"id": 2}]
-
-    async def retrieve(self, request, pk: int) -> dict:
-        """GET /items/{pk}"""
-        return {"id": pk}
-
-    async def create(self, request, item: ItemCreate) -> dict:
-        """POST /items"""
-        return {"id": 1, "created": True}
-
-    async def update(self, request, pk: int, item: ItemUpdate) -> dict:
-        """PUT /items/{pk}"""
-        return {"id": pk, "updated": True}
-
-    async def partial_update(self, request, pk: int, item: ItemPatch) -> dict:
-        """PATCH /items/{pk}"""
-        return {"id": pk, "patched": True}
-
-    async def destroy(self, request, pk: int):
-        """DELETE /items/{pk}"""
-        return None
-```
-
-This creates:
-
-| Method | URL | Action |
-|--------|-----|--------|
-| GET | `/items` | `list` |
-| POST | `/items` | `create` |
-| GET | `/items/{pk}` | `retrieve` |
-| PUT | `/items/{pk}` | `update` |
-| PATCH | `/items/{pk}` | `partial_update` |
-| DELETE | `/items/{pk}` | `destroy` |
-
-An action can be `async def` or `def`. Freeman registers only the actions that the class defines.
-
-Set `pagination_class` on a `ViewSet`, `ReadOnlyModelViewSet`, or `ModelViewSet`
-to have the `list()` action paginated automatically. Use `@paginate(...)` when
-you want per-method control instead.
-
-## ModelViewSet
-
-`ModelViewSet` provides built-in Django ORM integration:
+An `APIView` has one path. A resource with a collection and an item uses two views. Pydantic models give the request body and the response:
 
 ```python
-from freeman import ModelViewSet, PageNumberPagination
-from freeman.serializers import Serializer
+from pydantic import BaseModel
+
+from freeman import BoltAPI
+from freeman.exceptions import HTTPException
+from freeman.pagination import PageNumberPagination, paginate
+from freeman.views import APIView
 from myapp.models import Article
 
-class ArticleSchema(Serializer):
+api = BoltAPI()
+
+
+class ArticleIn(BaseModel):
+    title: str
+    content: str
+
+
+class ArticleOut(BaseModel):
     id: int
     title: str
     content: str
 
-class ArticleCreateSchema(Serializer):
-    title: str
-    content: str
 
-@api.viewset("/articles")
-class ArticleViewSet(ModelViewSet):
-    queryset = Article.objects.all()
-    serializer_class = ArticleSchema
-    create_serializer_class = ArticleCreateSchema
-    pagination_class = PageNumberPagination
+async def get_article(pk: int) -> Article:
+    try:
+        return await Article.objects.aget(pk=pk)
+    except Article.DoesNotExist as e:
+        raise HTTPException(status_code=404, detail="Not found") from e
+
+
+@api.view("/articles")
+class ArticleList(APIView):
+    @paginate(PageNumberPagination)
+    async def get(self) -> list[ArticleOut]:
+        return Article.objects.all()
+
+    async def post(self, data: ArticleIn) -> ArticleOut:
+        return await Article.objects.acreate(**data.model_dump())
+
+
+@api.view("/articles/{pk}")
+class ArticleDetail(APIView):
+    async def get(self, pk: int) -> ArticleOut:
+        return await get_article(pk)
+
+    async def delete(self, pk: int) -> None:
+        article = await get_article(pk)
+        await article.adelete()
 ```
 
-The `create` action only inserts. A primary key or a unique value that a row already has answers 409 Conflict, and the row does not change. `perform_create()` saves with `force_insert=True`. If you override `perform_create()`, call `super().perform_create(obj)` or save with `force_insert=True` to keep this.
-
-### Serializer output
-
-When `serializer_class` is a `Serializer`, generated `list` and `retrieve`
-actions render models through `from_model()` + `dump()`. This preserves computed
-fields, inherited fields, `write_only` exclusions, aliases, `source` mapping,
-and nested serializers.
-
-Plain `msgspec.Struct` response models still use the faster `QuerySet.values()`
-projection path for raw column output.
-
-### Request body errors
-
-The generated `create`, `update` and `partial_update` actions validate the
-request body as a function route does for a body parameter of the same
-serializer. A bad body gives the same 422 response. The response reports the
-first error of the body:
-
-```json
-{
-    "detail": [
-        {
-            "loc": ["body", "title"],
-            "msg": "Object missing required field `title`",
-            "type": "missing_field"
-        }
-    ]
-}
-```
-
-### get_queryset
-
-Override to customize the queryset:
-
-```python
-@api.viewset("/my-articles")
-class MyArticleViewSet(ModelViewSet):
-    queryset = Article.objects.all()
-
-    async def get_queryset(self):
-        qs = await super().get_queryset()
-        return qs.filter(author_id=self.request.user.id)
-```
-
-### get_object
-
-Get a single object by primary key:
-
-```python
-async def retrieve(self, request):
-    article = await self.get_object()  # Raises 404 if not found
-    return ArticleSchema.from_model(article)
-```
-
-By default, `get_object()` reads the current lookup value from `self.request.params`.
-A value that the lookup field cannot hold, such as `abc` for an integer primary key, also raises 404.
-If you need to resolve an object manually, explicit lookups still work:
-
-```python
-article = await self.get_object(pk)
-article = await self.get_object(id=id)
-```
-
-### Custom lookup field
-
-Use a different field for lookups:
-
-```python
-@api.viewset("/articles")
-class ArticleViewSet(ModelViewSet):
-    queryset = Article.objects.all()
-    lookup_field = "slug"  # Use slug instead of pk
-
-    async def retrieve(self, request):
-        article = await self.get_object()
-        return {"slug": article.slug}
-```
-
-You can also give the lookup field at registration. This value has priority over the class attribute and applies to this registration only:
-
-```python
-@api.viewset("/articles-by-slug", lookup_field="slug")
-class ArticleBySlugViewSet(ModelViewSet):
-    queryset = Article.objects.all()
-    serializer_class = ArticleSerializer
-```
-
-### Serializer Priority
-
-| Action                      | Validation                                                                                | Response                                            |
-|-----------------------------|-------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| `list`                      |                                                                                           | `list_serializer_class` </br> or `serializer_class` |
-| `retrieve`                  |                                                                                           | `serializer_class`                                  |
-| `create`                    | `create_serializer_class` </br> or `serializer_class`                                     | `serializer_class`                                  |
-| `update` / `partial_update` | `update_serializer_class` </br> or `create_serializer_class`  </br> or `serializer_class` | `serializer_class`                                  |
-
-!!! warning
-
-    Automatic response-model inference needs either a return type annotation or
-    an available serializer class. Default CRUD helpers still require the
-    corresponding serializer class when they validate request data.
-
-## Custom actions
-
-Add custom actions using the `@action` decorator to create endpoints beyond standard CRUD operations.
-
-### Basic actions
-
-```python
-from freeman import action
-
-@api.viewset("/articles")
-class ArticleViewSet(ViewSet):
-    queryset = Article.objects.all()
-
-    @action(methods=["GET"], detail=False)
-    async def published(self, request):
-        """Collection action: GET /articles/published"""
-        articles = []
-        async for article in Article.objects.filter(is_published=True):
-            articles.append({"id": article.id, "title": article.title})
-        return articles
-
-    @action(methods=["POST"], detail=True)
-    async def publish(self, request, pk: int):
-        """Instance action: POST /articles/{pk}/publish"""
-        article = await self.get_object()
-        article.is_published = True
-        await article.asave()
-        return {"published": True, "article_id": article.id}
-```
-
-### Action parameters
-
-| Parameter        | Required | Description                                                                              |
-|------------------|----------|------------------------------------------------------------------------------------------|
-| `methods`        | yes      | List of HTTP methods: `["GET"]`, `["POST"]`, etc.                                        |
-| `detail`         | yes      | `True` for instance actions (`/{pk}/action`), `False` for collection actions (`/action`) |
-| `path`           | no       | Custom URL path (defaults to function name)                                              |
-| `name`           | no       | URL-reverse suffix; combined with the viewset base as `{base}-{name}` (see below)        |
-| `auth`           | no       | List of authentication backends (overrides class-level `auth`)                           |
-| `guards`         | no       | List of permission guards (overrides class-level `guards`)                               |
-| `response_model` | no       | Response model for serialization                                                         |
-| `status_code`    | no       | HTTP status code                                                                         |
-| `tags`           | no       | List of tags for OpenAPI documentation                                                   |
-| `summary`        | no       | Summary for OpenAPI documentation                                                        |
-| `description`    | no       | Detailed description for OpenAPI documentation                                           |
-
-An action with no `auth`, `guards`, `status_code`, `validate_response` or `tags` uses the value of `@api.viewset(...)`. For `auth`, `guards`, `status_code` and `validate_response`, the class attribute comes next.
-
-```python
-@api.viewset("/articles", auth=[JWTAuthentication()], guards=[IsAuthenticated()])
-class ArticleViewSet(ViewSet):
-    @action(methods=["POST"], detail=True)
-    async def publish(self, request, pk: int):  # Needs a valid token
-        ...
-
-    @action(methods=["GET"], detail=False, auth=[], guards=[AllowAny()])
-    async def featured(self, request):  # Public
-        ...
-```
-
-### Custom path
-
-Override the URL path:
-
-```python
-@action(methods=["POST"], detail=True, path="custom-action-name")
-async def some_method_name(self, request, pk: int):
-    """POST /articles/{pk}/custom-action-name"""
-    return {"action": "custom-action-name", "article_id": pk}
-```
-
-### URL reversing
-
-`view()`, `viewset()`, and `@action` all accept `name=` for URL reversing. A viewset names each route `{base}-{action}` (e.g. `user-list`, `user-recent`). See [URL names and reversing](routing.md#url-names-and-reversing) for the full reference.
-
-### Actions with query parameters
-
-```python
-@action(methods=["GET"], detail=False)
-async def search(self, request, query: str, limit: int = 10):
-    """GET /articles/search?query=xxx&limit=5"""
-    articles = []
-    async for article in Article.objects.filter(title__icontains=query)[:limit]:
-        articles.append({"id": article.id, "title": article.title})
-    return {"query": query, "limit": limit, "results": articles}
-```
-
-### Actions with request body
-
-```python
-import msgspec
-
-class StatusUpdate(msgspec.Struct):
-    is_published: bool
-
-@action(methods=["POST"], detail=True, path="status")
-async def update_status(self, request, pk: int, data: StatusUpdate):
-    """POST /articles/{pk}/status with JSON body"""
-    article = await self.get_object()
-    article.is_published = data.is_published
-    await article.asave()
-    return {"updated": True, "is_published": article.is_published}
-```
-
-### Multiple methods on same path
-
-Create separate actions for different HTTP methods on the same path:
-
-```python
-@action(methods=["GET"], detail=True, path="status")
-async def get_status(self, request, pk: int):
-    """GET /articles/{pk}/status"""
-    article = await self.get_object()
-    return {"is_published": article.is_published}
-
-@action(methods=["POST"], detail=True, path="status")
-async def update_status(self, request, pk: int, data: StatusUpdate):
-    """POST /articles/{pk}/status"""
-    article = await self.get_object()
-    article.is_published = data.is_published
-    await article.asave()
-    return {"updated": True}
-```
-
-### Custom lookup field with actions
-
-Actions respect the ViewSet's `lookup_field`:
-
-```python
-@api.viewset("/articles")
-class ArticleViewSet(ViewSet):
-    queryset = Article.objects.all()
-    lookup_field = 'id'  # Use 'id' instead of 'pk'
-
-    async def retrieve(self, request):
-        """GET /articles/{id}"""
-        article = await self.get_object()
-        return {"id": article.id, "title": article.title}
-
-    @action(methods=["POST"], detail=True)
-    async def feature(self, request, id: int):
-        """POST /articles/{id}/feature"""
-        return {"featured": True, "article_id": id}
-```
-
-### Important: Actions require api.viewset()
-
-The `@action` decorator only works with `api.viewset()`, not `api.view()`:
-
-```python
-# CORRECT: Use api.viewset()
-@api.viewset("/articles")
-class ArticleViewSet(ViewSet):
-    @action(methods=["POST"], detail=False)
-    async def custom_action(self, request):
-        return {"ok": True}
-
-# WRONG: Will raise ValueError
-@api.view("/articles", methods=["GET"])
-class ArticleView(ViewSet):
-    @action(methods=["POST"], detail=False)  # Error!
-    async def custom_action(self, request):
-        return {"ok": True}
-```
-
-## Mixins
-
-Use mixins to compose functionality:
-
-```python
-from freeman.views import (
-    ListMixin,
-    RetrieveMixin,
-    CreateMixin,
-    UpdateMixin,
-    PartialUpdateMixin,
-    DestroyMixin,
-    ViewSet,
-)
-
-# Read-only viewset
-@api.viewset("/readonly-items")
-class ReadOnlyItemViewSet(ListMixin, RetrieveMixin, ViewSet):
-    queryset = Item.objects.all()
-    serializer_class = ItemSerializer
-
-# Full CRUD viewset
-@api.viewset("/items")
-class ItemViewSet(
-    ListMixin,
-    RetrieveMixin,
-    CreateMixin,
-    UpdateMixin,
-    PartialUpdateMixin,
-    DestroyMixin,
-    ViewSet,
-):
-    queryset = Item.objects.all()
-    serializer_class = ItemSerializer
-```
-
-Available mixins:
-
-| Mixin | Action | URL | Method |
-|-------|--------|-----|--------|
-| `ListMixin` | `list` | `/items` | GET |
-| `RetrieveMixin` | `retrieve` | `/items/{pk}` | GET |
-| `CreateMixin` | `create` | `/items` | POST |
-| `UpdateMixin` | `update` | `/items/{pk}` | PUT |
-| `PartialUpdateMixin` | `partial_update` | `/items/{pk}` | PATCH |
-| `DestroyMixin` | `destroy` | `/items/{pk}` | DELETE |
-
-The write actions do not take each field from the request body:
-
-- `update` and `partial_update` write to the object that `get_object()` returns. They do not write the primary key, the lookup field or a `read_only` serializer field. Thus the body cannot move the write to a row outside `get_queryset()`.
-- `create` does not write a `read_only` serializer field. It does not write the primary key when the database gives the primary key (`AutoField`, `BigAutoField`).
-
-## ReadOnlyModelViewSet
-
-A convenient shortcut for read-only access:
-
-```python
-from freeman.views import ReadOnlyModelViewSet
-
-@api.viewset("/public-articles")
-class PublicArticleViewSet(ReadOnlyModelViewSet):
-    queryset = Article.objects.filter(published=True)
-    serializer_class = ItemSerializer
-```
-
-This provides only `list` and `retrieve` actions.
+The status code of a view applies to each method. For a different status code per method, such as 201 for a create, use the `status_code` class attribute on a separate view, or a function route (`@api.post("/articles", status_code=201)`).
 
 ## Sync handlers
 
-APIView support synchronous handlers:
+APIView supports synchronous handlers:
 
 ```python
 @api.view("/sync-resource")
@@ -524,18 +168,4 @@ class SyncResourceView(APIView):
         return {"sync": True}
 ```
 
-`@action` decorators on `ViewSet` and `ModelViewSet` also support synchronous handlers:
-
-```python
-@api.viewset("/sync-items")
-class SyncItemViewSet(ViewSet):
-    @action(methods=["GET"], detail=False)
-    def sync(self, request):
-        return {"sync": True}
-```
-
 Sync handlers are automatically wrapped to run in a thread pool.
-
-!!! warning
-
-    CRUD methods on ViewSets (`list`, `retrieve`, `create`, `update`, `partial_update`, `destroy`) currently do not support synchronous handlers.

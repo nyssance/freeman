@@ -47,7 +47,7 @@ Upstream django-bolt 0.10 measured these numbers on a 12-core desktop (Ryzen 5 5
 
 ## How does Freeman compare to Django Ninja and Django REST Framework?
 
-All three run inside a Django project. DRF and Django Ninja are Python view layers that still need gunicorn/uvicorn; Freeman replaces the server with Rust and moves auth, guards, and middleware out of Python. Freeman's syntax is closest to Django Ninja/FastAPI (type-hinted function handlers) and it also provides DRF-style `ViewSet`/`ModelViewSet` classes. Full grid: [Comparison](comparison.md).
+All three run inside a Django project. DRF and Django Ninja are Python view layers that still need gunicorn/uvicorn; Freeman replaces the server with Rust and moves auth, guards, and middleware out of Python. Freeman's syntax is closest to Django Ninja/FastAPI (type-hinted function handlers) and it also provides `APIView` class-based views. Full grid: [Comparison](comparison.md).
 
 ## How does Freeman compare to FastAPI and Litestar?
 
@@ -148,7 +148,7 @@ This setting turns off GSSAPI encryption only. If the connection must be encrypt
    "name": "How does Freeman compare to Django Ninja and Django REST Framework?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "All three run inside a Django project. DRF and Django Ninja are Python view layers that still need gunicorn/uvicorn; Freeman replaces the server with Rust and moves auth, guards, and middleware out of Python. Freeman's syntax is closest to Django Ninja/FastAPI (type-hinted function handlers) and it also provides DRF-style ViewSet/ModelViewSet classes. Full grid: Comparison."
+    "text": "All three run inside a Django project. DRF and Django Ninja are Python view layers that still need gunicorn/uvicorn; Freeman replaces the server with Rust and moves auth, guards, and middleware out of Python. Freeman's syntax is closest to Django Ninja/FastAPI (type-hinted function handlers) and it also provides APIView class-based views. Full grid: Comparison."
    }
   },
   {

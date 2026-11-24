@@ -17,8 +17,7 @@ from freeman import BoltAPI
 from freeman.auth.backends import JWTAuthentication
 from freeman.auth.guards import IsAuthenticated  # noqa: PLC0415
 from freeman.params import Depends
-from freeman.serializers import Serializer
-from freeman.views import APIView, ViewSet
+from freeman.views import APIView
 
 # --- Test Fixtures ---
 
@@ -395,31 +394,6 @@ def test_bolt_api_view_method_names_customization():
     # Only GET should be registered (POST not in http_method_names)
     assert len(api._routes) == 1
     assert api._routes[0][0] == "GET"
-
-
-def test_viewset_tags_registration(api):
-    """Test tags passed to api.viewset() are correctly registered."""
-
-    class EmptySerializer(Serializer):
-        pass
-
-    @api.viewset("/items", tags=["Items", "Public"])
-    class TaggedItemViewSet(ViewSet):
-        serializer_class = EmptySerializer
-
-        async def list(self, request):
-            return []
-
-        async def create(self, request, data: dict):
-            return {}
-
-    list_meta = get_route_meta(api, "GET", "/items")
-    assert list_meta is not None
-    assert list_meta.get("openapi_tags") == ["Items", "Public"]
-
-    create_meta = get_route_meta(api, "POST", "/items")
-    assert create_meta is not None
-    assert create_meta["openapi_tags"] == ["Items", "Public"]
 
 
 def test_view_tags_registration(api):

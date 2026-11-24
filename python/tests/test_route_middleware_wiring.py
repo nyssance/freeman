@@ -1,6 +1,6 @@
 """Route middleware reaches every route, also through class views and mounts.
 
-A class view method and a ViewSet action carry ``@rate_limit``,
+A class view method carries ``@rate_limit``,
 ``@middleware`` and ``@skip_middleware`` on the method. The handler that
 Bolt registers for them must carry the same marks. A mounted API keeps its
 own global middleware at each depth of mounting, and its route cache must not
@@ -13,10 +13,9 @@ import gc
 import weakref
 
 from freeman import BoltAPI
-from freeman.decorators import action
 from freeman.middleware import middleware, rate_limit, skip_middleware
 from freeman.testing import TestClient
-from freeman.views import APIView, ViewSet
+from freeman.views import APIView
 
 
 def _header_middleware(header: str) -> type:
@@ -93,30 +92,6 @@ def test_skip_middleware_on_a_class_view_method_skips_the_global_middleware():
     assert skipped.status_code == 200
     assert "X-Global" not in skipped.headers
     assert kept.headers.get("X-Global") == "1"
-
-
-def test_rate_limit_on_a_viewset_action_limits_the_route():
-    api = BoltAPI()
-
-    @api.viewset("/articles")
-    class Articles(ViewSet):
-        @rate_limit(rps=1, burst=1)
-        async def list(self, request):
-            return []
-
-        @action(methods=["GET"], detail=False, path="recent")
-        @rate_limit(rps=1, burst=1)
-        async def recent(self, request):
-            return []
-
-    with TestClient(api) as client:
-        listing = [client.get("/articles").status_code for _ in range(3)]
-        recent = [client.get("/articles/recent").status_code for _ in range(3)]
-
-    assert listing[0] == 200
-    assert 429 in listing[1:], listing
-    assert recent[0] == 200
-    assert 429 in recent[1:], recent
 
 
 def test_global_middleware_of_a_mounted_api_runs_through_two_mounts():

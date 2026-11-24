@@ -437,10 +437,6 @@ class Items(APIView):
     async def get(self, request):
         return {}
 
-@bolt.viewset("/users")
-class Users(ViewSet):
-    pass
-
 @router.get("/x")
 async def rx(request):
     return {}
@@ -456,7 +452,7 @@ bolt.native_route("GET", "/native", capsule)
         convert_build_app_api(converter, resolver, extra_src)
 
         assert extra_src == [ast.unparse(node) for node in converter.ast.body]
-        for name in ("bolt", "router", "Items", "Users", "rx"):
+        for name in ("bolt", "router", "Items", "rx"):
             resolver.add_object.assert_any_call(name)
 
     def test_multiple_api_instances(self):

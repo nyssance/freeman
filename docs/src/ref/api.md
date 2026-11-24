@@ -45,7 +45,7 @@ BoltAPI(
 | `logging_config` | `LoggingConfig` | `None` | Custom logging configuration |
 | `compression` | `CompressionConfig` | `None` | Response compression settings |
 | `openapi_config` | `OpenAPIConfig` | `None` | Configuration for OpenAPI documentation |
-| `include_in_schema` | `bool` or `None` | `None` | Default OpenAPI visibility for this API's routes. A route, view, or viewset value wins. `None` inherits from the API this one is mounted into |
+| `include_in_schema` | `bool` or `None` | `None` | Default OpenAPI visibility for this API's routes. A route or view value wins. `None` inherits from the API this one is mounted into |
 | `error_formatter` | callable or `None` | `None` | `(error: BoltError, request) -> Response`. It formats each error response that the framework makes. Use `problem_details` for RFC 9457. See [Error formatter](../topics/error-handling.md#error-formatter) |
 
 `middleware` fails fast for unsupported instances. Pass middleware classes (`pass class, not instance`) for global/router lists.
@@ -206,38 +206,6 @@ class ResourceView(APIView):
     async def get(self, request):
         return {}
 ```
-
-#### @api.viewset(path)
-
-Register a ViewSet with automatic CRUD routing (routes only; no built-in CRUD logic).
-
-```python
-@api.viewset("/items")
-class ItemViewSet(ViewSet):
-    serializer_class = ItemSerializer
-    pagination_class = PageNumberPagination
-
-    async def list(self, request):
-        return Item.objects.all()
-```
-
-Register a ModelViewSet with automatic CRUD routing (routes + default CRUD implementations).
-
-```python
-@api.viewset("/items")
-class ItemViewSet(ModelViewSet):
-    queryset = Item.objects.all()
-    serializer_class = ItemSerializer
-    create_serializer_class = ItemCreateSerializer
-    pagination_class = PageNumberPagination
-```
-
-Notes:
-
-- `pagination_class` automatically wraps the `list()` action for `ViewSet`,
-  `ReadOnlyModelViewSet`, and `ModelViewSet`.
-- `list_serializer_class`, `create_serializer_class`, and
-  `update_serializer_class` are used automatically by the built-in CRUD helpers.
 
 ### WebSocket decorator
 

@@ -121,35 +121,16 @@ The item type can also be a plain `msgspec.Struct`. Freeman converts each page a
 
 A page of a `Serializer` type sends each item as the same route with no `@paginate` sends it. Freeman validates a dict against the serializer, so a dict gets the defaults of the serializer. A serializer instance stays as it is. `from_model()` reads each other object. A page can mix these kinds. An item that does not fit the serializer gives a response validation error (status 500), not a `null`.
 
-## ViewSet with Pagination
+## Class-based view with Pagination
 
 ```python
-from freeman.views import ViewSet
+from freeman.views import APIView
 
-@api.viewset("/articles")
-class ArticleViewSet(ViewSet):
-    queryset = Article.objects.all()
-    pagination_class = ArticlePagination
-
-    async def list(self, request) -> list[ArticleSerializer]:
-        return await self.get_queryset()
-```
-
-`pagination_class` is applied automatically to `list()` on `ViewSet`,
-`ReadOnlyModelViewSet`, and `ModelViewSet`. Keep using `@paginate(...)` for
-function-based views or when you want a method-specific override.
-
-## ModelViewSet with Pagination
-
-```python
-from freeman.views import ModelViewSet
-
-@api.viewset("/articles")
-class ArticleViewSet(ModelViewSet):
-    queryset = Article.objects.all()
-    serializer_class = ArticleDetailSerializer  # For detail views
-    list_serializer_class = ArticleListSerializer  # For list view
-    pagination_class = ArticlePagination  # Automatically applied to list()
+@api.view("/articles")
+class ArticleList(APIView):
+    @paginate(ArticlePagination)
+    async def get(self) -> list[ArticleSerializer]:
+        return Article.objects.all()
 ```
 
 ## Custom response envelope

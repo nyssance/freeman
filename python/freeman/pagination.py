@@ -12,11 +12,11 @@ Example (Functional View):
         return User.objects.all()
 
 Example (Class-Based View):
-    @api.viewset("/articles")
-    class ArticleViewSet(ModelViewSet):
-        queryset = Article.objects.all()
-        serializer_class = ArticleSchema
-        pagination_class = PageNumberPagination
+    @api.view("/articles")
+    class ArticleView(APIView):
+        @paginate(PageNumberPagination)
+        async def get(self) -> list[ArticleSchema]:
+            return Article.objects.all()
 """
 
 from __future__ import annotations

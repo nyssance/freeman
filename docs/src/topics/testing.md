@@ -367,39 +367,37 @@ Reaching for the ORM is more direct when a test needs specific data in place;
 going through the API tests the full round trip. Use whichever reads better
 for the test at hand.
 
-### ViewSets
+### Class-based views
 
-Class-based views need nothing special — register the viewset and hit its
+Class-based views need nothing special — register the view and hit its
 routes:
 
 ```python
 import pytest
-from freeman import BoltAPI, ViewSet
+from freeman import BoltAPI
 from freeman.testing import TestClient
+from freeman.views import APIView
 from myapp.models import Article
 
 @pytest.fixture
 def api():
     api = BoltAPI()
 
-    @api.viewset("/articles")
-    class ArticleViewSet(ViewSet):
-        queryset = Article.objects.all()
+    @api.view("/articles")
+    class ArticleList(APIView):
+        async def get(self) -> list[dict]:
+            return [{"id": a.id, "title": a.title} async for a in Article.objects.all()]
 
-        async def list(self, request) -> list[dict]:
-            articles = []
-            async for article in await self.get_queryset():
-                articles.append({"id": article.id, "title": article.title})
-            return articles
-
-        async def retrieve(self, request) -> dict:
-            article = await self.get_object()
+    @api.view("/articles/{pk}")
+    class ArticleDetail(APIView):
+        async def get(self, pk: int) -> dict:
+            article = await Article.objects.aget(pk=pk)
             return {"id": article.id, "title": article.title}
 
     return api
 
 @pytest.mark.django_db
-def test_article_viewset(api):
+def test_article_views(api):
     Article.objects.create(title="Test Article", content="Content")
 
     with TestClient(api) as client:

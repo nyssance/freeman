@@ -6,11 +6,10 @@ The most specific layer wins. ``None`` means "inherit from the outer layer".
 from __future__ import annotations
 
 from freeman import BoltAPI
-from freeman.decorators import action
 from freeman.openapi import OpenAPIConfig
 from freeman.openapi.schema_generator import SchemaGenerator
 from freeman.testing import TestClient
-from freeman.views import APIView, ViewSet
+from freeman.views import APIView
 
 
 def _paths(api: BoltAPI) -> set[str]:
@@ -78,21 +77,5 @@ def test_view_class_attribute_and_decorator_kwarg():
 
         async def get(self, request):
             return {}
-
-    @api.viewset("/vs")
-    class HiddenViewSet(ViewSet):
-        include_in_schema = False
-
-        async def list(self, request):
-            return []
-
-        @action(detail=False, methods=["GET"])
-        async def custom(self, request):
-            return {}
-
-    @api.viewset("/vs2", include_in_schema=False)
-    class KwViewSet(ViewSet):
-        async def list(self, request):
-            return []
 
     assert _paths(api) == {"/kw"}

@@ -435,7 +435,7 @@ class AdminView(APIView):
         return {}
 
 
-class InternalViewSet(ViewSet):
+class InternalView(APIView):
     include_in_schema = False  # the class attribute is the middle layer
     ...
 
@@ -465,18 +465,10 @@ async def list_users_v1():
 class ProfileView(APIView):
     async def get(self, request):
         return {}
-
-
-@api.viewset("/items")
-class ItemViewSet(ViewSet):
-    @action(methods=["GET"], detail=False, deprecated=True)  # only this action
-    async def legacy(self, request):
-        return []
 ```
 
-The route decorators of `BoltAPI` and `Router`, `@api.view()`, `@api.viewset()`
-and `@action` take `deprecated`. On `@api.viewset()`, it applies to each route
-of the viewset, and also to its `@action` routes.
+The route decorators of `BoltAPI` and `Router` and `@api.view()` take
+`deprecated`.
 
 ## Non-JSON responses
 

@@ -1408,8 +1408,8 @@ class SchemaGenerator:
             parameters.append(parameter)
 
         # Every path parameter declared in the route URL must appear in the
-        # OpenAPI spec, even when the handler resolves it indirectly (e.g.
-        # ViewSet mixins read {pk} from self.request.params instead of binding
+        # OpenAPI spec, even when the handler resolves it indirectly (e.g. a
+        # view method reads {pk} from self.request.params instead of binding
         # it as a function argument). Handlers that declare the parameter
         # explicitly already produced a typed entry above; the URL-declared
         # ones fill in the rest with the OpenAPI-default string type.
@@ -1539,7 +1539,7 @@ class SchemaGenerator:
         finally:
             self._input_schema = False
         if body_field is None or body_field.name != body_param:
-            # The body comes from a dependency or from a ViewSet action.
+            # The body comes from a dependency.
             marker = None
 
         return RequestBody(

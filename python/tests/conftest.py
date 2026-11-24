@@ -209,20 +209,9 @@ def django_db_setup(django_db_blocker):
         # Create test model tables manually since they're not in migrations
         # migrate --run-syncdb can already create them; create only the missing ones.
         with connection.schema_editor() as schema_editor:
-            from .test_models import (  # noqa: PLC0415
-                Article,
-                Author,
-                BlogPost,
-                Comment,
-                Country,
-                Document,
-                Release,
-                Tag,
-                User,
-                UserProfile,
-            )
+            from .test_models import Article, Author, BlogPost, Comment, Document, Release, Tag, User, UserProfile  # noqa: PLC0415
 
-            models = [Article, Author, Tag, BlogPost, Comment, User, UserProfile, Document, Release, Country]
+            models = [Article, Author, Tag, BlogPost, Comment, User, UserProfile, Document, Release]
             for model in models:
                 # Check if table already exists
                 if model._meta.db_table not in connection.introspection.table_names():

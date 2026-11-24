@@ -1031,5 +1031,5 @@ You've built a complete Space Mission Tracker API. Here's where to go next:
 
 - **[Deployment](deployment.md)** — Deploy with multiple processes for production
 - **[Authentication](../topics/authentication.md)** — Add JWT or API key authentication
-- **[Class-Based Views](../topics/class-based-views.md)** — Organize routes with ViewSets
+- **[Class-Based Views](../topics/class-based-views.md)** — Organize routes with APIView
 - **[Middleware](../topics/middleware.md)** — Add CORS, rate limiting, and custom middleware

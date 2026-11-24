@@ -18,7 +18,7 @@ from django.contrib.auth import get_user_model
 from django.db import InterfaceError, OperationalError
 from django.test import override_settings
 
-from freeman import APIView, BoltAPI, Router, ViewSet, WebSocket, action
+from freeman import APIView, BoltAPI, Router, WebSocket
 from freeman.auth import (
     AllowAny,
     IsAuthenticated,
@@ -403,7 +403,7 @@ def test_a_guarded_route_with_no_auth_backend_uses_jwt():
 
 @pytest.mark.asyncio
 async def test_the_jwt_default_applies_for_each_source_of_the_guards():
-    """The guards of a router, a class, an action, the settings and a WebSocket route give the same default."""
+    """The guards of a router, a class, the settings and a WebSocket route give the same default."""
     api = BoltAPI()
     router = Router(prefix="/router", guards=[IsAuthenticated()])
 
@@ -420,21 +420,6 @@ async def test_the_jwt_default_applies_for_each_source_of_the_guards():
         async def get(self, request):
             return {"ok": True}
 
-    @api.viewset("/viewset")
-    class GuardedViewSet(ViewSet):
-        guards = [IsAuthenticated]
-
-        async def list(self, request):
-            return []
-
-        @action(methods=["GET"], detail=False)
-        async def extra(self, request):
-            return {"ok": True}
-
-        @action(methods=["GET"], detail=False, guards=[AllowAny()])
-        async def public(self, request):
-            return {"ok": True}
-
     with override_settings(BOLT_DEFAULT_PERMISSION_CLASSES=[IsAuthenticated()]):
 
         @api.get("/default-guards")
@@ -448,10 +433,9 @@ async def test_the_jwt_default_applies_for_each_source_of_the_guards():
 
     bearer = {"authorization": f"Bearer {create_jwt_for_user(_plain_user())}"}
     with TestClient(api) as client:
-        for path in ("/router/items", "/view", "/viewset", "/viewset/extra", "/default-guards"):
+        for path in ("/router/items", "/view", "/default-guards"):
             assert client.get(path).status_code == 401, path
             assert client.get(path, headers=bearer).status_code == 200, path
-        assert client.get("/viewset/public").status_code == 200
 
     async with WebSocketTestClient(api, "/ws", headers=bearer) as websocket:
         assert await websocket.receive_text() == "connected"

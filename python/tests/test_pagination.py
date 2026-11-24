@@ -14,18 +14,9 @@ from urllib.parse import quote
 
 import msgspec
 import pytest
+from pydantic import BaseModel
 
-from freeman import (
-    BoltAPI,
-    CursorPagination,
-    LimitOffsetPagination,
-    ListMixin,
-    ModelViewSet,
-    PageNumberPagination,
-    Request,
-    ViewSet,
-    paginate,
-)
+from freeman import APIView, BoltAPI, CursorPagination, LimitOffsetPagination, PageNumberPagination, Request, paginate
 from freeman.serializers import Serializer
 from freeman.testing import TestClient
 
@@ -1336,27 +1327,27 @@ def test_cursor_pagination_finds_the_primary_key_of_a_values_row_by_each_name(sa
 
 
 # ============================================================================
-# ViewSet Integration Tests
+# APIView Integration Tests
 # ============================================================================
 
 
 @pytest.mark.django_db(transaction=True)
-def test_viewset_with_pagination(sample_articles):
-    """Test ViewSet with @paginate decorator"""
+def test_api_view_with_pagination(sample_articles):
+    """A @paginate method of an APIView pages the queryset and dumps its item type."""
     api = BoltAPI()
 
     class SmallPagePagination(PageNumberPagination):
         page_size = 10
 
-    # Use @paginate decorator on ViewSet method
-    @api.viewset("/articles")
-    class ArticleViewSet(ViewSet):
-        queryset = Article.objects.all()
-        serializer_class = ArticleSchema
+    class ArticleItem(BaseModel):
+        id: int
+        title: str
 
+    @api.view("/articles")
+    class ArticleView(APIView):
         @paginate(SmallPagePagination)
-        async def list(self, request):
-            return await self.get_queryset()
+        async def get(self) -> list[ArticleItem]:
+            return Article.objects.all()
 
     with TestClient(api) as client:
         response = client.get("/articles?page=2")
@@ -1366,98 +1357,7 @@ def test_viewset_with_pagination(sample_articles):
         assert data["page"] == 2
         assert len(data["items"]) == 10
         assert data["total"] == 50
-
-
-@pytest.mark.django_db(transaction=True)
-def test_viewset_with_limit_offset_pagination(sample_articles):
-    """Test ViewSet with LimitOffsetPagination"""
-    api = BoltAPI()
-
-    @api.viewset("/articles")
-    class ArticleViewSet(ViewSet):
-        queryset = Article.objects.all()
-        serializer_class = ArticleSchema
-
-        @paginate(LimitOffsetPagination)
-        async def list(self, request):
-            return await self.get_queryset()
-
-    with TestClient(api) as client:
-        response = client.get("/articles?limit=15&offset=10")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["limit"] == 15
-        assert data["offset"] == 10
-        assert len(data["items"]) == 15
-
-
-@pytest.mark.django_db(transaction=True)
-def test_viewset_with_cursor_pagination(sample_articles):
-    """Test ViewSet with CursorPagination"""
-    api = BoltAPI()
-
-    class SmallCursorPagination(CursorPagination):
-        page_size = 10
-        ordering = "-id"
-
-    @api.viewset("/articles")
-    class ArticleViewSet(ViewSet):
-        queryset = Article.objects.all()
-        serializer_class = ArticleSchema
-
-        @paginate(SmallCursorPagination)
-        async def list(self, request):
-            return await self.get_queryset()
-
-    with TestClient(api) as client:
-        response = client.get("/articles")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert len(data["items"]) == 10
-        assert data["has_next"] is True
-        assert data["next_cursor"] is not None
-
-
-@pytest.mark.django_db(transaction=True)
-def test_viewset_without_pagination(sample_articles):
-    """Test ViewSet without pagination returns all results"""
-    api = BoltAPI()
-
-    @api.viewset("/articles")
-    class ArticleViewSet(ListMixin, ViewSet):
-        queryset = Article.objects.all()
-        serializer_class = ArticleSchema
-        pagination_class = None
-
-    with TestClient(api) as client:
-        response = client.get("/articles")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 50
-
-
-@pytest.mark.django_db(transaction=True)
-def test_modelviewset_basic_list(sample_articles):
-    """Test ModelViewSet basic list operation (pagination can be added manually)"""
-    api = BoltAPI()
-
-    @api.viewset("/articles")
-    class ArticleViewSet(ModelViewSet):
-        queryset = Article.objects.all()
-        serializer_class = ArticleSchema
-        list_serializer_class = ArticleListSchema
-
-    with TestClient(api) as client:
-        response = client.get("/articles")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 50  # All articles returned (no pagination)
+        assert set(data["items"][0]) == {"id", "title"}
 
 
 # ============================================================================

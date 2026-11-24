@@ -273,7 +273,7 @@ The plugin's `convert_build_app_api` hook moves each statement that adds a route
 
 - `BoltAPI()` and `Router()` assignments
 - Functions with a route decorator, for example `@bolt.get(...)` or `@router.post(...)`
-- Classes with `@bolt.view(...)` or `@bolt.viewset(...)`
+- Classes with `@bolt.view(...)`
 - Calls to `bolt.mount(...)`, `bolt.mount_django(...)`, `bolt.mount_asgi(...)`, `bolt.mount_mcp(...)`, `bolt.include_router(...)` and `bolt.native_route(...)`
 
 !!! note

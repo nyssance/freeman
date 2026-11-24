@@ -16,7 +16,7 @@ description: Freeman vs Django Ninja vs Django REST Framework vs FastAPI vs Lite
 | Runs inside a Django project | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Django ORM, Admin, middleware, signals | ✅ all | ✅ all | ✅ all | ❌ bring your own | ❌ bring your own |
 | HTTP server | **Built-in Rust (Actix Web)** — no gunicorn/uvicorn | ASGI/WSGI → uvicorn/gunicorn | WSGI/ASGI → gunicorn/uvicorn | ASGI → uvicorn | ASGI → uvicorn/granian |
-| Handler style | Typed functions (`async def` / `def`) + `ViewSet`/`ModelViewSet` | Typed functions | `@api_view` functions or class-based views; untyped | Typed functions | Typed functions + controllers |
+| Handler style | Typed functions (`async def` / `def`) + `APIView` | Typed functions | `@api_view` functions or class-based views; untyped | Typed functions | Typed functions + controllers |
 | Validation | Pydantic models, msgspec `Struct`, `Serializer` | Pydantic | DRF serializers | Pydantic | msgspec / Pydantic / attrs |
 | Where auth & permissions run | **Rust, before the GIL** (JWT, API key, guards) | Python | Python | Python | Python |
 | CORS / rate limiting / compression | **Rust middleware** | Django middleware / third-party | Django middleware / third-party | Starlette middleware / third-party | Built-in Python middleware |
@@ -24,7 +24,7 @@ description: Freeman vs Django Ninja vs Django REST Framework vs FastAPI vs Lite
 | WebSockets | ✅ built-in | ❌ (use Channels) | ❌ (use Channels) | ✅ | ✅ |
 | Server-Sent Events / streaming | ✅ built-in | Partial | Partial | ✅ | ✅ |
 | Dependency injection | `Depends(...)` | ❌ | ❌ | `Depends(...)` | `Provide(...)` |
-| Class-based CRUD (`ModelViewSet`) | ✅ | ❌ (community) | ✅ | ❌ | ❌ |
+| Class-based CRUD (`ModelViewSet`) | ❌ | ❌ (community) | ✅ | ❌ | ❌ |
 | Static & media serving | **Rust, built-in** | WhiteNoise / web server | WhiteNoise / web server | Starlette `StaticFiles` | Built-in |
 | MCP server support | ✅ [`bolt-mcp`](topics/mcp.md) | ❌ | ❌ | Third-party | ❌ |
 | Multi-process serving | Built-in (`--processes N`, `SO_REUSEPORT`, worker recycling) | Via gunicorn/uvicorn | Via gunicorn/uvicorn | Via uvicorn/gunicorn | Via uvicorn/granian |
@@ -44,13 +44,13 @@ Both live inside Django and use type-hinted handlers with automatic OpenAPI.
 - **Server.** Ninja is a view layer behind uvicorn/gunicorn. Freeman *is* the server, with multi-process, worker recycling, and static serving built in.
 - **Validation.** Ninja uses Pydantic. Freeman takes Pydantic models, msgspec structs, and a `Serializer` with field sets, computed fields, and model integration.
 - **Auth.** Ninja checks auth in Python. Freeman validates JWT/API keys and guards in Rust before Python runs.
-- **Extras.** `ViewSet`/`ModelViewSet`, WebSockets, SSE, MCP servers, Rust CORS/rate-limit/compression.
+- **Extras.** `APIView`, WebSockets, SSE, MCP servers, Rust CORS/rate-limit/compression.
 - **Migration.** Change the decorator. Pydantic models can stay. Ninja routes keep serving through the [ASGI mount](topics/asgi-mounts.md) while you move.
 - **Pick Ninja** if you want a pure-Python install, an older Python or Django, or a 1.x API.
 
 ## Freeman vs Django REST Framework
 
-- **Style.** DRF has `@api_view` functions and class views, but neither reads type hints; validation lives in serializers. Freeman validates from the handler signature and also offers `APIView`/`ViewSet`/`ModelViewSet` with `@action`.
+- **Style.** DRF has `@api_view` functions and class views, but neither reads type hints; validation lives in serializers. Freeman validates from the handler signature and also offers `APIView`.
 - **Serializers.** DRF serializers are flexible but slow. Freeman's `Serializer` is a `msgspec.Struct` with `field_sets`: one class, many projections.
 - **Performance.** DRF runs entirely in Python behind gunicorn. Freeman moves the server, auth, guards, and middleware to Rust.
 - **Ecosystem.** DRF has more than a decade of packages (django-filter, dj-rest-auth, drf-spectacular, simplejwt). Freeman has none yet; it reuses Django's ecosystem, not DRF's.

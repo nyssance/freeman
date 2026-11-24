@@ -15,7 +15,7 @@ from typing import Annotated
 import msgspec
 import pytest
 
-from freeman import BoltAPI, Depends, UploadFile, ViewSet
+from freeman import APIView, BoltAPI, Depends, UploadFile
 from freeman._kwargs.model import compile_binder
 from freeman.dependencies import compile_dependency
 from freeman.openapi import OpenAPIConfig
@@ -568,14 +568,14 @@ def _escape_api() -> BoltAPI:
         req = request
         return {"body": _read_body(req).decode(), "user": user_id}
 
-    class Base(ViewSet):
-        async def create(self, request):
+    class Base(APIView):
+        async def post(self, request):
             return {"body": request.body.decode()}
 
-    @api.viewset("/items")
+    @api.view("/items")
     class Items(Base):
-        async def create(self, request, user: Annotated[dict, Depends(_current_user)]):
-            return await super().create(request)
+        async def post(self, request, user: Annotated[dict, Depends(_current_user)]):
+            return await super().post(request)
 
     return api
 
@@ -591,10 +591,10 @@ def test_a_request_handed_on_keeps_its_body(path):
     assert response.json() == {"body": "payload", "user": 1}
 
 
-def test_a_viewset_method_that_delegates_to_super_keeps_the_body():
+def test_a_view_method_that_delegates_to_super_keeps_the_body():
     with TestClient(_escape_api()) as client:
         response = client.post("/items", content=b"payload")
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert response.json() == {"body": "payload"}
 
 

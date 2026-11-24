@@ -249,35 +249,35 @@ async def list_articles(page: int = 1, page_size: int = 20):
     }
 ```
 
-## ViewSet optimization
+## Class-based view optimization
 
-In ViewSets, optimize the queryset at the class level:
+In a class-based view, keep one optimized queryset for the methods:
 
 ```python
-from freeman.views import ViewSet
+from freeman.views import APIView
 
-@api.viewset("/articles")
-class ArticleViewSet(ViewSet):
-    # Optimize here - applies to all actions
-    queryset = Article.objects.select_related("author").prefetch_related("tags")
+ARTICLES = Article.objects.select_related("author").prefetch_related("tags")
 
-    async def list(self, request) -> list[dict]:
-        articles = []
-        async for article in await self.get_queryset():
-            articles.append(self.serialize(article))
-        return articles
 
-    async def retrieve(self, request) -> dict:
-        article = await self.get_object()
-        return self.serialize(article)
+def serialize(article):
+    return {
+        "id": article.id,
+        "title": article.title,
+        "author": article.author.username,
+        "tags": [t.name for t in article.tags.all()],
+    }
 
-    def serialize(self, article):
-        return {
-            "id": article.id,
-            "title": article.title,
-            "author": article.author.username,
-            "tags": [t.name for t in article.tags.all()]
-        }
+
+@api.view("/articles")
+class ArticleList(APIView):
+    async def get(self) -> list[dict]:
+        return [serialize(article) async for article in ARTICLES.all()]
+
+
+@api.view("/articles/{pk}")
+class ArticleDetail(APIView):
+    async def get(self, pk: int) -> dict:
+        return serialize(await ARTICLES.aget(pk=pk))
 ```
 
 ## Aggregations
@@ -416,5 +416,5 @@ Before deploying, verify:
 - [ ] ForeignKey access uses `select_related`
 - [ ] ManyToMany access uses `prefetch_related`
 - [ ] Nested serializers have corresponding prefetch
-- [ ] ViewSet querysets are optimized at class level
+- [ ] Querysets of class-based views are optimized in one place
 - [ ] Pagination includes query optimization

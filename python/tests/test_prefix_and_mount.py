@@ -17,7 +17,7 @@ from freeman.middleware import Middleware
 from freeman.openapi import OpenAPIConfig, SwaggerRenderPlugin
 from freeman.params import Query
 from freeman.testing import TestClient, WebSocketTestClient
-from freeman.views import APIView, ViewSet
+from freeman.views import APIView
 
 
 class TestMountPathNormalization:
@@ -1018,20 +1018,12 @@ def _api_with_nested_router_without_slash():
     return api
 
 
-def _api_with_view_and_viewset_without_slash():
+def _api_with_view_without_slash():
     api = BoltAPI(prefix="api")
 
     @api.view("view")
     class View(APIView):
         async def get(self, request):
-            return {"ok": True}
-
-    @api.viewset("items")
-    class Items(ViewSet):
-        async def list(self, request):
-            return {"ok": True}
-
-        async def retrieve(self, request, pk: int):
             return {"ok": True}
 
     return api
@@ -1043,7 +1035,7 @@ def _api_with_view_and_viewset_without_slash():
         (_api_with_route_and_prefix_without_slash, ["/api/x"]),
         (_api_with_router_without_slash, ["/v1/users/x", "/v1/users"]),
         (_api_with_nested_router_without_slash, ["/v1/admin/users/x"]),
-        (_api_with_view_and_viewset_without_slash, ["/api/view", "/api/items", "/api/items/1"]),
+        (_api_with_view_without_slash, ["/api/view"]),
     ],
 )
 def test_a_path_or_prefix_with_no_leading_slash_gets_one(make_api, urls):

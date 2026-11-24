@@ -10,8 +10,6 @@ Tests cover:
 - Dependency injection
 - Guards and authentication
 - Return type annotations
-- Mixins (ListMixin, RetrieveMixin, CreateMixin, etc.)
-- ViewSet
 - HTTP method handling
 """
 
@@ -21,13 +19,13 @@ import jwt
 import msgspec
 import pytest
 
-from freeman import BoltAPI, Request, action
+from freeman import BoltAPI, Request
 from freeman.auth.backends import JWTAuthentication
 from freeman.auth.guards import IsAuthenticated, Requires
 from freeman.exceptions import HTTPException
 from freeman.params import Depends
 from freeman.testing import TestClient
-from freeman.views import APIView, ViewSet
+from freeman.views import APIView
 
 # --- Test Fixtures ---
 
@@ -209,19 +207,6 @@ def test_view_method_gets_the_request_at_each_position():
         def put(self, user_id: int, *, req: Request):
             return {"user_id": user_id, "same": self.request is req}
 
-    @api.viewset("/items")
-    class ItemViewSet(ViewSet):
-        async def list(self):
-            return [self.request.path, self.action]
-
-        @action(methods=["GET"], detail=False)
-        async def count(self):
-            return {"path": self.request.path, "action": self.action}
-
-        @action(methods=["GET"], detail=True)
-        def owner(self, pk: int, request: Request):
-            return {"pk": pk, "same": self.request is request}
-
     with TestClient(api) as client:
         response = client.get("/no-request")
         assert response.status_code == 200
@@ -236,16 +221,6 @@ def test_view_method_gets_the_request_at_each_position():
         response = client.put("/users/7")
         assert response.status_code == 200
         assert response.json() == {"user_id": 7, "same": True}
-
-        response = client.get("/items")
-        assert response.status_code == 200
-        assert response.json() == ["/items", "list"]
-        response = client.get("/items/count")
-        assert response.status_code == 200
-        assert response.json() == {"path": "/items/count", "action": "count"}
-        response = client.get("/items/3/owner")
-        assert response.status_code == 200
-        assert response.json() == {"pk": 3, "same": True}
 
 
 def test_bolt_api_view_class_level_guards():

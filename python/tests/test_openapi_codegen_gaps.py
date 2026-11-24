@@ -23,7 +23,7 @@ import pytest
 from openapi_spec_validator import validate
 from pydantic import BaseModel, create_model
 
-from freeman import BoltAPI, ModelViewSet
+from freeman import APIView, BoltAPI
 from freeman.openapi import OpenAPIConfig
 from freeman.openapi.schema_generator import OpenAPIStrictError, SchemaGenerator
 from freeman.pagination import CursorPagination, LimitOffsetPagination, PageNumberPagination, paginate
@@ -318,15 +318,20 @@ def test_paginated_route_keeps_a_query_parameter_of_the_handler():
     assert [p["name"] for p in parameters] == ["page", "page_size"]
 
 
-def test_paginated_viewset_list_documents_its_query_parameters():
-    """The list action of a viewset with ``pagination_class`` lists the pagination parameters."""
+def test_paginated_view_method_documents_its_query_parameters():
+    """A ``@paginate`` method of a class-based view lists the pagination parameters."""
     api = BoltAPI(openapi_config=_config())
 
-    @api.viewset("/articles")
-    class ArticleViewSet(ModelViewSet):
-        queryset = Article.objects.all()
-        serializer_class = ArticleListModel
-        pagination_class = LimitOffsetPagination
+    @api.view("/articles")
+    class ArticleView(APIView):
+        @paginate(LimitOffsetPagination)
+        async def get(self) -> list[ArticleListModel]:
+            return Article.objects.all()
+
+    @api.view("/articles/{pk}")
+    class ArticleDetailView(APIView):
+        async def get(self, pk: int) -> ArticleListModel:
+            return await Article.objects.aget(pk=pk)
 
     schema = _get_schema(api)
     assert [p["name"] for p in schema["paths"]["/articles"]["get"]["parameters"]] == ["limit", "offset"]
