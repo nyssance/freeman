@@ -140,8 +140,9 @@ def test_a_large_unread_body_closes_the_connection(make_server_project):
             sock.sendall(head)
             started = time.monotonic()
             rejected, headers, _ = _read_response(sock, buffer)
-            closed = _closes(sock, buffer)
+            # Up to the response only: the wait for the close is not part of it.
             elapsed = time.monotonic() - started
+            closed = _closes(sock, buffer)
     assert rejected.split()[1] == b"401", rejected
     assert headers.get(b"connection") == b"close", headers
     assert closed
