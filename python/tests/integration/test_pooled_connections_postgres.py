@@ -433,3 +433,30 @@ def test_a_pooled_connection_that_stays_does_not_keep_the_one_of_another_pool(
     assert second[0] in {
         f"Could not give the pooled connection of the database {alias!r} back" for alias in lost_aliases
     }
+
+
+def test_a_handler_with_blocking_true_gives_its_pooled_connection_back_after_each_request(pooled):
+    """A sync handler with ``blocking=True`` runs on the shared executor and queries there.
+
+    The executor worker gives the connection back when it goes idle, so more
+    requests than the pool has connections all get one, and none stays checked out.
+    """
+
+    api = BoltAPI()
+
+    # The source shows no database call: the query is in a helper.
+    @api.get("/query", blocking=True)
+    def query() -> dict[str, Any]:
+        return {"result": select_one(), "thread": threading.current_thread().name}
+
+    assert api._handler_meta[api._routes[0][2]]["is_blocking"] is True
+
+    with TestClient(api) as client:
+        for _ in range(SIZE * 3):
+            response = client.get("/query")
+            assert response.json()["result"] == 1
+            assert response.json()["thread"].startswith("bolt_default")
+            deadline = time.monotonic() + 5
+            while pooled.checked_out():
+                assert time.monotonic() < deadline, "the executor worker kept its pooled connection"
+                time.sleep(0.01)

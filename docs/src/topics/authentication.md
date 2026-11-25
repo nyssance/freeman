@@ -564,6 +564,11 @@ async def logout_all(request):
 This is a single O(1) write; you do not need to find and revoke each
 outstanding token.
 
+A sync handler calls the sync forms: `store.bump_user_version_sync()`,
+`store.revoke_sync()` and the others, and `rotate_refresh_token_sync()`.
+The async methods call them. See [Store
+methods](../ref/auth.md#store-methods).
+
 !!! note "Access tokens run out their lifetime"
 
     Access tokens are deliberately not checked against the store on each

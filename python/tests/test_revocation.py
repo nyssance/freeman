@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.core.cache import caches
@@ -236,7 +238,6 @@ def _make_orm_revocation(model_path="myapp.RevokedToken"):
     store = DjangoORMRevocation(model=model_path)
 
     mock_model = MagicMock()
-    mock_model.objects.aupdate_or_create = AsyncMock()
     store._model = mock_model
     return store, mock_model
 
@@ -245,10 +246,10 @@ def test_orm_revocation_no_exp_uses_default():
     """revoke(jti) with no exp → expires_at ≈ now + 7 days."""
     store, mock_model = _make_orm_revocation()
     before = datetime.now(UTC)
-    asyncio.run(store.revoke("jti-orm-1"))
+    store.revoke_sync("jti-orm-1")
     after = datetime.now(UTC)
 
-    _, call_kwargs = mock_model.objects.aupdate_or_create.call_args
+    _, call_kwargs = mock_model.objects.update_or_create.call_args
     expires_at = call_kwargs["defaults"]["expires_at"]
 
     expected_min = before + timedelta(seconds=_DEFAULT_TTL_SECONDS)
@@ -260,9 +261,9 @@ def test_orm_revocation_exp_drives_expires_at():
     """revoke(jti, exp=future) → expires_at ≈ datetime(exp + leeway)."""
     store, mock_model = _make_orm_revocation()
     exp = int(time.time()) + 7200
-    asyncio.run(store.revoke("jti-orm-2", exp=exp))
+    store.revoke_sync("jti-orm-2", exp=exp)
 
-    _, call_kwargs = mock_model.objects.aupdate_or_create.call_args
+    _, call_kwargs = mock_model.objects.update_or_create.call_args
     expires_at = call_kwargs["defaults"]["expires_at"]
 
     expected = datetime.fromtimestamp(exp + 60, tz=UTC)
@@ -277,10 +278,10 @@ def test_orm_revocation_past_exp_clamps_to_now():
     runs)."""
     store, mock_model = _make_orm_revocation()
     before = datetime.now(UTC)
-    asyncio.run(store.revoke("jti-orm-3", exp=int(time.time()) - 3600))
+    store.revoke_sync("jti-orm-3", exp=int(time.time()) - 3600)
     after = datetime.now(UTC)
 
-    _, call_kwargs = mock_model.objects.aupdate_or_create.call_args
+    _, call_kwargs = mock_model.objects.update_or_create.call_args
     expires_at = call_kwargs["defaults"]["expires_at"]
 
     assert before <= expires_at <= after + timedelta(seconds=1)
@@ -291,14 +292,13 @@ def test_orm_revocation_per_instance_default_ttl():
     this store instance only."""
     store = DjangoORMRevocation(model="myapp.RevokedToken", default_ttl=900)
     mock_model = MagicMock()
-    mock_model.objects.aupdate_or_create = AsyncMock()
     store._model = mock_model
 
     before = datetime.now(UTC)
-    asyncio.run(store.revoke("jti-tt"))
+    store.revoke_sync("jti-tt")
     after = datetime.now(UTC)
 
-    _, call_kwargs = mock_model.objects.aupdate_or_create.call_args
+    _, call_kwargs = mock_model.objects.update_or_create.call_args
     expires_at = call_kwargs["defaults"]["expires_at"]
 
     expected_min = before + timedelta(seconds=900)
@@ -308,10 +308,19 @@ def test_orm_revocation_per_instance_default_ttl():
 
 def test_orm_consume_returns_false_on_duplicate():
     store, mock_model = _make_orm_revocation()
-    mock_model.objects.acreate = AsyncMock(side_effect=[None, IntegrityError])
+    mock_model.objects.create.side_effect = [None, IntegrityError]
+
+    assert store.consume_sync("single-use") is True
+    assert store.consume_sync("single-use") is False
+
+
+def test_the_async_methods_of_the_orm_store_run_its_sync_methods_on_the_orm_pool():
+    store, mock_model = _make_orm_revocation()
+    threads = []
+    mock_model.objects.create.side_effect = lambda **_: threads.append(threading.current_thread().name)
 
     assert asyncio.run(store.consume("single-use")) is True
-    assert asyncio.run(store.consume("single-use")) is False
+    assert threads[0].startswith("bolt_orm")
 
 
 # ---------------------------------------------------------------------------
@@ -358,11 +367,31 @@ def test_orm_revocation_invalid_model_path_raises_clear_error(bad_path):
 class MinimalStore(RevocationStore):
     """A store that implements only the two required methods."""
 
-    async def is_revoked(self, jti):
+    def is_revoked_sync(self, jti):
         return False
 
-    async def revoke(self, jti, *, exp=None):
+    def revoke_sync(self, jti, *, exp=None):
         pass
+
+
+def test_a_store_that_implements_only_the_old_async_methods_cannot_be_made():
+    """The sync methods are the abstract ones, so Python stops such a store when it is made."""
+
+    class AsyncStore(RevocationStore):
+        async def is_revoked(self, jti):
+            return False
+
+        async def revoke(self, jti, *, exp=None):
+            pass
+
+    assert AsyncStore.__abstractmethods__ == {"is_revoked_sync", "revoke_sync"}
+    # A project makes its store from a class that it gets at run time, such as a setting.
+    with pytest.raises(TypeError, match="Can't instantiate abstract class AsyncStore"):
+        call_with_no_arguments(AsyncStore)
+
+
+def call_with_no_arguments(factory: Callable[[], object]) -> object:
+    return factory()
 
 
 @pytest.mark.parametrize(

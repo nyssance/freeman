@@ -145,7 +145,7 @@ class TestRotation:
     @pytest.mark.asyncio
     async def test_full_rotation_requires_family_revocation_support(self):
         class NoFamilyStore(InMemoryRevocation):
-            async def is_family_revoked(self, fam):
+            def is_family_revoked_sync(self, fam):
                 raise NotImplementedError
 
         pair = create_token_pair("u", secret=SECRET)
@@ -158,7 +158,7 @@ class TestRotation:
         """A replayed token must burn its family. A store that cannot do this fails the rotation."""
 
         class NoFamilyRevokeStore(InMemoryRevocation):
-            async def revoke_family(self, fam, *, exp=None):
+            def revoke_family_sync(self, fam, *, exp=None):
                 raise NotImplementedError
 
         store = NoFamilyRevokeStore()
@@ -173,9 +173,9 @@ class TestRotation:
         recorded = {}
 
         class SpyStore(InMemoryRevocation):
-            async def consume(self, jti, *, exp=None):
+            def consume_sync(self, jti, *, exp=None):
                 recorded["exp"] = exp
-                return await super().consume(jti, exp=exp)
+                return super().consume_sync(jti, exp=exp)
 
         now = int(time.time())
         pair = create_token_pair("u", secret=SECRET)
@@ -240,9 +240,9 @@ class TestRotation:
         recorded = {}
 
         class SpyStore(InMemoryRevocation):
-            async def revoke_family(self, fam, *, exp=None):
+            def revoke_family_sync(self, fam, *, exp=None):
                 recorded["exp"] = exp
-                await super().revoke_family(fam, exp=exp)
+                super().revoke_family_sync(fam, exp=exp)
 
         store = SpyStore()
         pair = create_token_pair("u", secret=SECRET, refresh_ttl=1000)
@@ -551,9 +551,9 @@ class TestRotationDetails:
         recorded = {}
 
         class SpyStore(InMemoryRevocation):
-            async def consume(self, jti, *, exp=None):
+            def consume_sync(self, jti, *, exp=None):
                 recorded["exp"] = exp
-                return await super().consume(jti, exp=exp)
+                return super().consume_sync(jti, exp=exp)
 
         now = frozen_now
         pair = create_token_pair("u", secret=SECRET)
@@ -573,13 +573,13 @@ class TestRotationDetails:
         recorded = {}
 
         class ExactExpStore(InMemoryRevocation):
-            async def consume(self, jti, *, exp=None):
+            def consume_sync(self, jti, *, exp=None):
                 recorded["consume"] = exp
-                return await super().consume(jti, exp=exp)
+                return super().consume_sync(jti, exp=exp)
 
-            async def revoke_family(self, fam, *, exp=None):
+            def revoke_family_sync(self, fam, *, exp=None):
                 recorded["family"] = exp
-                await super().revoke_family(fam, exp=exp)
+                super().revoke_family_sync(fam, exp=exp)
 
         store = ExactExpStore()
         pair = create_token_pair("u", secret=SECRET, refresh_ttl=500)
@@ -662,7 +662,7 @@ class TestRotationDetails:
     @pytest.mark.asyncio
     async def test_store_without_versioning_counts_as_version_zero(self):
         class NoVersionStore(InMemoryRevocation):
-            async def get_user_version(self, user_id):
+            def get_user_version_sync(self, user_id):
                 raise NotImplementedError
 
         pair = create_token_pair("u", secret=SECRET)
@@ -676,9 +676,9 @@ class TestRotationDetails:
         recorded = {}
 
         class SpyStore(InMemoryRevocation):
-            async def revoke_family(self, fam, *, exp=None):
+            def revoke_family_sync(self, fam, *, exp=None):
                 recorded["exp"] = exp
-                await super().revoke_family(fam, exp=exp)
+                super().revoke_family_sync(fam, exp=exp)
 
         store = SpyStore()
         pair = create_token_pair("u", secret=SECRET, refresh_ttl=1000)
@@ -779,14 +779,14 @@ class TestRotationRejections:
         class NoConsumeStore:
             """A store that has no ``consume`` attribute at all."""
 
-            async def is_family_revoked(self, fam):
+            def is_family_revoked_sync(self, fam):
                 return False
 
-            async def get_user_version(self, user_id):
+            def get_user_version_sync(self, user_id):
                 return 0
 
         class UnsupportedConsumeStore(InMemoryRevocation):
-            async def consume(self, jti, *, exp=None):
+            def consume_sync(self, jti, *, exp=None):
                 raise NotImplementedError
 
         store = UnsupportedConsumeStore() if raises_error else NoConsumeStore()
@@ -799,14 +799,14 @@ class TestRotationRejections:
     @pytest.mark.asyncio
     async def test_store_without_family_check_is_rejected(self, raises_error):
         class NoFamilyMethodStore:
-            async def get_user_version(self, user_id):
+            def get_user_version_sync(self, user_id):
                 return 0
 
-            async def consume(self, jti, *, exp=None):
+            def consume_sync(self, jti, *, exp=None):
                 return True
 
         class UnsupportedFamilyStore(InMemoryRevocation):
-            async def is_family_revoked(self, fam):
+            def is_family_revoked_sync(self, fam):
                 raise NotImplementedError
 
         store = UnsupportedFamilyStore() if raises_error else NoFamilyMethodStore()

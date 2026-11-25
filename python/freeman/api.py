@@ -942,6 +942,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         return self._route_decorator(
             "GET",
@@ -958,6 +959,7 @@ class BoltAPI:
             response_class=response_class,
             include_in_schema=include_in_schema,
             deprecated=deprecated,
+            blocking=blocking,
         )
 
     def post(
@@ -976,6 +978,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         return self._route_decorator(
             "POST",
@@ -992,6 +995,7 @@ class BoltAPI:
             response_class=response_class,
             include_in_schema=include_in_schema,
             deprecated=deprecated,
+            blocking=blocking,
         )
 
     def put(
@@ -1010,6 +1014,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         return self._route_decorator(
             "PUT",
@@ -1026,6 +1031,7 @@ class BoltAPI:
             response_class=response_class,
             include_in_schema=include_in_schema,
             deprecated=deprecated,
+            blocking=blocking,
         )
 
     def patch(
@@ -1044,6 +1050,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         return self._route_decorator(
             "PATCH",
@@ -1060,6 +1067,7 @@ class BoltAPI:
             response_class=response_class,
             include_in_schema=include_in_schema,
             deprecated=deprecated,
+            blocking=blocking,
         )
 
     def delete(
@@ -1078,6 +1086,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         return self._route_decorator(
             "DELETE",
@@ -1094,6 +1103,7 @@ class BoltAPI:
             response_class=response_class,
             include_in_schema=include_in_schema,
             deprecated=deprecated,
+            blocking=blocking,
         )
 
     def head(
@@ -1112,6 +1122,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         return self._route_decorator(
             "HEAD",
@@ -1128,6 +1139,7 @@ class BoltAPI:
             response_class=response_class,
             include_in_schema=include_in_schema,
             deprecated=deprecated,
+            blocking=blocking,
         )
 
     def options(
@@ -1146,6 +1158,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         return self._route_decorator(
             "OPTIONS",
@@ -1162,6 +1175,7 @@ class BoltAPI:
             response_class=response_class,
             include_in_schema=include_in_schema,
             deprecated=deprecated,
+            blocking=blocking,
         )
 
     def query(
@@ -1180,6 +1194,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         return self._route_decorator(
             "QUERY",
@@ -1196,6 +1211,7 @@ class BoltAPI:
             response_class=response_class,
             include_in_schema=include_in_schema,
             deprecated=deprecated,
+            blocking=blocking,
         )
 
     def websocket(
@@ -1376,6 +1392,7 @@ class BoltAPI:
         tags: list[str] | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
     ):
         """
         Register a class-based view as a decorator.
@@ -1400,6 +1417,8 @@ class BoltAPI:
             status_code: Optional per-route status code override
             tags: Optional per-route tags override
             deprecated: True marks each operation of the view as deprecated in the OpenAPI schema
+            blocking: True runs each sync method on an executor thread, False runs it inline.
+                None (the default) lets Bolt read the source of the method.
 
         Returns:
             Decorator function that registers the view class
@@ -1481,6 +1500,7 @@ class BoltAPI:
                     tags=tags,
                     include_in_schema=merged_include_in_schema,
                     deprecated=deprecated,
+                    blocking=blocking,
                 )
 
                 # Apply decorator to register the handler
@@ -1507,6 +1527,7 @@ class BoltAPI:
         response_class: type | None = None,
         include_in_schema: bool | None = None,
         deprecated: bool = False,
+        blocking: bool | None = None,
         _name_explicit: bool = True,
         _skip_prefix: bool = False,
         _router_middleware: list[Any] | None = None,
@@ -1524,6 +1545,12 @@ class BoltAPI:
 
             # Detect if handler is async or sync
             is_async = inspect.iscoroutinefunction(fn)
+            if blocking and is_async:
+                raise TypeError(
+                    f"{method} {path}: blocking=True is for a sync handler, and "
+                    f"{getattr(fn, '__qualname__', fn)!r} is async. An async handler must not block. "
+                    "Make it a `def`."
+                )
 
             handler_id = self._next_handler_id
             self._next_handler_id += 1
@@ -1641,7 +1668,10 @@ class BoltAPI:
                 isinstance(spec, (DjangoMiddleware, DjangoMiddlewareStack))
                 for spec in (*router_middleware, *route_middleware)
             )
-            meta["is_blocking"] = handler_analysis.is_blocking or (not meta["is_async"] and has_django_middleware)
+            # An explicit blocking= wins over the source analysis. The analysis
+            # only guesses from the source of the handler.
+            blocks = handler_analysis.is_blocking if blocking is None else blocking
+            meta["is_blocking"] = blocks or (not meta["is_async"] and has_django_middleware)
 
             # Determine final response type with proper priority:
             # 1. response_model parameter (explicit, takes precedence)

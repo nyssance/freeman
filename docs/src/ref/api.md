@@ -193,12 +193,13 @@ All route decorators accept these options:
 | `guards` | `list` | Permission guards |
 | `include_in_schema` | `bool` or `None` | Include in OpenAPI docs. `None` inherits from the view class, then from the `BoltAPI` |
 | `deprecated` | `bool` | Mark the operation as deprecated in OpenAPI docs. The default is `False` |
+| `blocking` | `bool` or `None` | For a sync handler: `True` runs it on an executor thread, `False` runs it inline on the event loop. `None` (the default) reads the source of the handler. `True` on an `async def` handler raises `TypeError`. See [Sync handlers and threads](../topics/async-orm.md#sync-handlers-and-threads) |
 
 ### Class-based view decorators
 
 #### @api.view(path)
 
-Register a class-based view (APIView).
+Register a class-based view (APIView). It takes `name`, `methods`, `guards`, `auth`, `status_code`, `validate_response`, `tags`, `include_in_schema`, `deprecated` and `blocking`, as the route decorators do.
 
 ```python
 @api.view("/resource")

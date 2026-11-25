@@ -35,10 +35,13 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 import jwt
 from django.conf import settings
+
+from freeman.concurrency import run_in_orm_executor
 
 DEFAULT_ACCESS_TTL = 900  # 15 minutes
 DEFAULT_REFRESH_TTL = 86400 * 7  # 7 days
@@ -146,7 +149,7 @@ def create_token_pair(
     )
 
 
-async def rotate_refresh_token(
+def rotate_refresh_token_sync(
     refresh_claims: dict[str, Any],
     *,
     store: Any,
@@ -217,7 +220,7 @@ async def rotate_refresh_token(
         raise TokenRotationError("Rotating refresh token missing family id")
     # A revoked family blocks both modes: family revocation is the "kill this
     # session" switch, and a reusable (Mode B) token must not outlive it.
-    if isinstance(fam, str) and fam and await _is_family_revoked(store, fam):
+    if isinstance(fam, str) and fam and _is_family_revoked(store, fam):
         raise TokenRotationError("Refresh token family revoked")
 
     now = int(time.time())
@@ -228,7 +231,7 @@ async def rotate_refresh_token(
     # revocation state (jti here, family above). Mode A consumes atomically
     # below, immediately before minting, after all other validation has
     # succeeded.
-    if not rotate and await store.is_revoked(jti):
+    if not rotate and store.is_revoked_sync(jti):
         raise TokenRotationError("Refresh token revoked")
 
     user_id = refresh_claims.get("sub")
@@ -261,7 +264,7 @@ async def rotate_refresh_token(
         # so clamp the new one to the session's remaining lifetime.
         effective_access_ttl = min(access_ttl, remaining_session)
 
-    version = await _user_version(store, user_id)
+    version = _user_version(store, user_id)
     try:
         token_version = int(refresh_claims.get("ver", 0))
     except (TypeError, ValueError) as exc:
@@ -284,7 +287,7 @@ async def rotate_refresh_token(
     # `exp + leeway`, or a used token could be replayed after its marker
     # disappeared but while signature validation still accepts it.
     consume_exp = None if token_exp is None else max(token_exp, now) + leeway
-    if rotate and not await _consume(store, jti, exp=consume_exp):
+    if rotate and not _consume(store, jti, exp=consume_exp):
         # A revoked-but-presented token under rotation is a replay: burn the
         # family so the legitimate holder's chain dies too (reuse detection).
         if fam is not None:
@@ -293,7 +296,7 @@ async def rotate_refresh_token(
             # refresh_ttl from now, and the validator accepts it for `leeway`
             # seconds more, so retain the marker at least that long.
             family_exp = max(now + refresh_ttl + leeway, consume_exp or 0)
-            await _revoke_family(store, fam, exp=family_exp)
+            _revoke_family(store, fam, exp=family_exp)
         raise TokenRotationError("Refresh token revoked or already used")
 
     # Preserve immutable origin claims across the rotation. Custom claims
@@ -347,6 +350,15 @@ async def rotate_refresh_token(
     return pair
 
 
+async def rotate_refresh_token(refresh_claims: dict[str, Any], *, store: Any, **options: Any) -> TokenPair:
+    """Async form of :func:`rotate_refresh_token_sync`, with the same parameters.
+
+    A store that sets ``blocking``, such as ``DjangoORMRevocation``, rotates on the ORM pool.
+    """
+    rotate = partial(rotate_refresh_token_sync, refresh_claims, store=store, **options)
+    return await run_in_orm_executor(rotate) if getattr(store, "blocking", False) else rotate()
+
+
 def set_token_cookies(
     response: Any,
     pair: TokenPair,
@@ -398,34 +410,34 @@ def set_token_cookies(
     return response
 
 
-async def _user_version(store: Any, user_id: str | None) -> int:
+def _user_version(store: Any, user_id: str | None) -> int:
     if user_id is None:
         return 0
     try:
-        return await store.get_user_version(user_id)
+        return store.get_user_version_sync(user_id)
     except NotImplementedError:
         return 0
 
 
-async def _is_family_revoked(store: Any, fam: str) -> bool:
+def _is_family_revoked(store: Any, fam: str) -> bool:
     try:
-        return await store.is_family_revoked(fam)
+        return store.is_family_revoked_sync(fam)
     except (AttributeError, NotImplementedError) as exc:
         raise TokenRotationError("Revocation store does not support refresh-token families") from exc
 
 
-async def _consume(store: Any, jti: str, *, exp: int | None) -> bool:
-    consume = getattr(store, "consume", None)
+def _consume(store: Any, jti: str, *, exp: int | None) -> bool:
+    consume = getattr(store, "consume_sync", None)
     if consume is None:
         raise TokenRotationError("Revocation store does not support atomic refresh rotation")
     try:
-        return bool(await consume(jti, exp=exp))
+        return bool(consume(jti, exp=exp))
     except NotImplementedError as exc:
         raise TokenRotationError("Revocation store does not support atomic refresh rotation") from exc
 
 
-async def _revoke_family(store: Any, fam: str, *, exp: int | None) -> None:
+def _revoke_family(store: Any, fam: str, *, exp: int | None) -> None:
     try:
-        await store.revoke_family(fam, exp=exp)
+        store.revoke_family_sync(fam, exp=exp)
     except (AttributeError, NotImplementedError) as exc:
         raise TokenRotationError("Revocation store does not support refresh-token families") from exc

@@ -7,7 +7,9 @@ Revocation is OPTIONAL - only checked if user provides a handler.
 
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from functools import partial
 
 from django.apps import apps
 from django.core.cache import caches
@@ -15,6 +17,8 @@ from django.core.cache.backends.base import BaseCache
 from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError
 from django.db.models import F
+
+from freeman.concurrency import run_in_orm_executor
 
 _DEFAULT_TTL_SECONDS = 86400 * 7  # 7 days — fallback when caller doesn't pass `exp`
 # A user version row must stay, so the cleanup task of expired rows must not find it.
@@ -48,10 +52,17 @@ class RevocationStore(ABC):
     Base class for token revocation storage.
 
     Implementations can use in-memory, Django cache, database, Redis, etc.
+
+    A store implements the sync methods (``*_sync``). The async methods of
+    this class call them: on the calling thread, or on the ORM pool when the
+    store sets ``blocking``.
     """
 
+    # True when the sync methods block on I/O, such as a database query.
+    blocking = False
+
     @abstractmethod
-    async def is_revoked(self, jti: str) -> bool:
+    def is_revoked_sync(self, jti: str) -> bool:
         """
         Check if a token (by JTI) is revoked.
 
@@ -64,7 +75,7 @@ class RevocationStore(ABC):
         pass
 
     @abstractmethod
-    async def revoke(self, jti: str, *, exp: int | None = None) -> None:
+    def revoke_sync(self, jti: str, *, exp: int | None = None) -> None:
         """
         Revoke a token.
 
@@ -85,7 +96,7 @@ class RevocationStore(ABC):
         """
         pass
 
-    async def revoke_all(self, user_id: str) -> None:
+    def revoke_all_sync(self, user_id: str) -> None:
         """
         Revoke all tokens for a user (optional, not all stores support this).
 
@@ -94,7 +105,7 @@ class RevocationStore(ABC):
         """
         raise NotImplementedError("This revocation store does not support revoke_all")
 
-    async def consume(self, jti: str, *, exp: int | None = None) -> bool:
+    def consume_sync(self, jti: str, *, exp: int | None = None) -> bool:
         """Atomically mark a refresh token as used.
 
         Returns ``True`` only for the first caller. Implementations used for
@@ -112,7 +123,7 @@ class RevocationStore(ABC):
     # expressed with a per-user token *version* and a per-family revoke,
     # both O(1) and TTL-cleaned — no key scanning required.
 
-    async def get_user_version(self, user_id: str) -> int:
+    def get_user_version_sync(self, user_id: str) -> int:
         """Current token version for a user (0 if never bumped).
 
         A token carrying a different ``ver`` is invalid and must be rejected.
@@ -120,7 +131,7 @@ class RevocationStore(ABC):
         """
         raise NotImplementedError("This revocation store does not support token versioning")
 
-    async def bump_user_version(self, user_id: str) -> int:
+    def bump_user_version_sync(self, user_id: str) -> int:
         """Invalidate every outstanding token for a user (global logout).
 
         Increments and returns the user's token version. Tokens minted
@@ -128,7 +139,7 @@ class RevocationStore(ABC):
         """
         raise NotImplementedError("This revocation store does not support token versioning")
 
-    async def revoke_family(self, fam: str, *, exp: int | None = None) -> None:
+    def revoke_family_sync(self, fam: str, *, exp: int | None = None) -> None:
         """Revoke an entire refresh-token rotation family (reuse detection).
 
         When a rotated-out refresh token is replayed, revoking its ``fam``
@@ -137,9 +148,39 @@ class RevocationStore(ABC):
         """
         raise NotImplementedError("This revocation store does not support family revocation")
 
-    async def is_family_revoked(self, fam: str) -> bool:
+    def is_family_revoked_sync(self, fam: str) -> bool:
         """Whether a refresh-token family has been revoked."""
         raise NotImplementedError("This revocation store does not support family revocation")
+
+    # The async forms of the sync methods.
+
+    async def _call[T](self, fn: Callable[..., T], /, *args: object, **kwargs: object) -> T:
+        """Call the sync method ``fn``: here, or on the ORM pool for a blocking store."""
+        return await run_in_orm_executor(partial(fn, *args, **kwargs)) if self.blocking else fn(*args, **kwargs)
+
+    async def is_revoked(self, jti: str) -> bool:
+        return await self._call(self.is_revoked_sync, jti)
+
+    async def revoke(self, jti: str, *, exp: int | None = None) -> None:
+        return await self._call(self.revoke_sync, jti, exp=exp)
+
+    async def revoke_all(self, user_id: str) -> None:
+        return await self._call(self.revoke_all_sync, user_id)
+
+    async def consume(self, jti: str, *, exp: int | None = None) -> bool:
+        return await self._call(self.consume_sync, jti, exp=exp)
+
+    async def get_user_version(self, user_id: str) -> int:
+        return await self._call(self.get_user_version_sync, user_id)
+
+    async def bump_user_version(self, user_id: str) -> int:
+        return await self._call(self.bump_user_version_sync, user_id)
+
+    async def revoke_family(self, fam: str, *, exp: int | None = None) -> None:
+        return await self._call(self.revoke_family_sync, fam, exp=exp)
+
+    async def is_family_revoked(self, fam: str) -> bool:
+        return await self._call(self.is_family_revoked_sync, fam)
 
 
 class InMemoryRevocation(RevocationStore):
@@ -180,33 +221,32 @@ class InMemoryRevocation(RevocationStore):
         self._revoked_families: set[str] = set()
         self._user_versions: dict[str, int] = {}
 
-    async def is_revoked(self, jti: str) -> bool:
+    def is_revoked_sync(self, jti: str) -> bool:
         return jti in self._revoked
 
-    async def revoke(self, jti: str, *, exp: int | None = None) -> None:
+    def revoke_sync(self, jti: str, *, exp: int | None = None) -> None:
         self._revoked.add(jti)
 
-    async def consume(self, jti: str, *, exp: int | None = None) -> bool:
-        # There is no await between membership testing and insertion, so this
-        # is atomic with respect to tasks on the single event loop supported
-        # by this development-only store.
+    def consume_sync(self, jti: str, *, exp: int | None = None) -> bool:
+        # This development-only store is not atomic across threads: two sync
+        # handlers on executor threads can both consume one jti.
         if jti in self._revoked:
             return False
         self._revoked.add(jti)
         return True
 
-    async def get_user_version(self, user_id: str) -> int:
+    def get_user_version_sync(self, user_id: str) -> int:
         return self._user_versions.get(str(user_id), 0)
 
-    async def bump_user_version(self, user_id: str) -> int:
+    def bump_user_version_sync(self, user_id: str) -> int:
         new_version = self._user_versions.get(str(user_id), 0) + 1
         self._user_versions[str(user_id)] = new_version
         return new_version
 
-    async def revoke_family(self, fam: str, *, exp: int | None = None) -> None:
+    def revoke_family_sync(self, fam: str, *, exp: int | None = None) -> None:
         self._revoked_families.add(fam)
 
-    async def is_family_revoked(self, fam: str) -> bool:
+    def is_family_revoked_sync(self, fam: str) -> bool:
         return fam in self._revoked_families
 
     def clear(self) -> None:
@@ -302,12 +342,12 @@ class DjangoCacheRevocation(RevocationStore):
             self._cache = caches[self.cache_alias]
         return self._cache
 
-    async def is_revoked(self, jti: str) -> bool:
+    def is_revoked_sync(self, jti: str) -> bool:
         key = f"{self.key_prefix}{jti}"
         # Django cache get is sync, but fast
         return self.cache.get(key) is not None
 
-    async def revoke(self, jti: str, *, exp: int | None = None) -> None:
+    def revoke_sync(self, jti: str, *, exp: int | None = None) -> None:
         """
         Revoke a token by storing its JTI in the cache.
 
@@ -335,15 +375,15 @@ class DjangoCacheRevocation(RevocationStore):
                 "database, dummy, and other non-atomic caches are not supported"
             )
 
-    async def consume(self, jti: str, *, exp: int | None = None) -> bool:
+    def consume_sync(self, jti: str, *, exp: int | None = None) -> bool:
         self._require_atomic_cache()
         key = f"{self.key_prefix}{jti}"
         return bool(self.cache.add(key, "1", timeout=_ttl_for(exp, self.default_ttl, leeway=self.leeway)))
 
-    async def get_user_version(self, user_id: str) -> int:
+    def get_user_version_sync(self, user_id: str) -> int:
         return int(self.cache.get(f"{self.key_prefix}ver:{user_id}") or 0)
 
-    async def bump_user_version(self, user_id: str) -> int:
+    def bump_user_version_sync(self, user_id: str) -> int:
         # User-version keys never expire — they are the source of truth for
         # "log out everywhere" and must outlive any token they invalidate.
         self._require_atomic_cache()
@@ -357,11 +397,11 @@ class DjangoCacheRevocation(RevocationStore):
                 return 1
             return self.cache.incr(key)
 
-    async def revoke_family(self, fam: str, *, exp: int | None = None) -> None:
+    def revoke_family_sync(self, fam: str, *, exp: int | None = None) -> None:
         key = f"{self.key_prefix}fam:{fam}"
         self.cache.set(key, "1", timeout=_ttl_for(exp, self.default_ttl, leeway=self.leeway))
 
-    async def is_family_revoked(self, fam: str) -> bool:
+    def is_family_revoked_sync(self, fam: str) -> bool:
         return self.cache.get(f"{self.key_prefix}fam:{fam}") is not None
 
 
@@ -420,6 +460,8 @@ class DjangoORMRevocation(RevocationStore):
     ```
     """
 
+    blocking = True
+
     def __init__(
         self, model: str = "bolt_revocation.RevokedToken", *, default_ttl: int = _DEFAULT_TTL_SECONDS, leeway: int = 60
     ):
@@ -452,10 +494,10 @@ class DjangoORMRevocation(RevocationStore):
             self._model = apps.get_model(app_label, model_name)
         return self._model
 
-    async def is_revoked(self, jti: str) -> bool:
-        return await self.model.objects.filter(jti=jti).aexists()
+    def is_revoked_sync(self, jti: str) -> bool:
+        return self.model.objects.filter(jti=jti).exists()
 
-    async def revoke(self, jti: str, *, exp: int | None = None) -> None:
+    def revoke_sync(self, jti: str, *, exp: int | None = None) -> None:
         """
         Revoke a token by upserting a row keyed on its JTI.
 
@@ -469,35 +511,35 @@ class DjangoORMRevocation(RevocationStore):
         self.default_ttl`` (set on the constructor).
         """
         expires_at = datetime.now(UTC) + timedelta(seconds=_ttl_for(exp, self.default_ttl, leeway=self.leeway))
-        await self.model.objects.aupdate_or_create(jti=jti, defaults={"expires_at": expires_at})
+        self.model.objects.update_or_create(jti=jti, defaults={"expires_at": expires_at})
 
-    async def consume(self, jti: str, *, exp: int | None = None) -> bool:
+    def consume_sync(self, jti: str, *, exp: int | None = None) -> bool:
         expires_at = datetime.now(UTC) + timedelta(seconds=_ttl_for(exp, self.default_ttl, leeway=self.leeway))
         try:
-            await self.model.objects.acreate(jti=jti, expires_at=expires_at)
+            self.model.objects.create(jti=jti, expires_at=expires_at)
         except IntegrityError:
             return False
         return True
 
-    async def revoke_family(self, fam: str, *, exp: int | None = None) -> None:
-        await self.revoke(f"family:{fam}", exp=exp)
+    def revoke_family_sync(self, fam: str, *, exp: int | None = None) -> None:
+        self.revoke_sync(f"family:{fam}", exp=exp)
 
-    async def is_family_revoked(self, fam: str) -> bool:
-        return await self.is_revoked(f"family:{fam}")
+    def is_family_revoked_sync(self, fam: str) -> bool:
+        return self.is_revoked_sync(f"family:{fam}")
 
-    async def get_user_version(self, user_id: str) -> int:
+    def get_user_version_sync(self, user_id: str) -> int:
         rows = self.model.objects.filter(jti=f"version:{user_id}")
-        return await rows.values_list("version", flat=True).afirst() or 0
+        return rows.values_list("version", flat=True).first() or 0
 
-    async def bump_user_version(self, user_id: str) -> int:
+    def bump_user_version_sync(self, user_id: str) -> int:
         """Add 1 to the user version in one ``UPDATE``, so concurrent bumps do not lose a count.
 
         A concurrent bump can make the returned version larger than this bump alone.
         """
         key = f"version:{user_id}"
-        await self.model.objects.aget_or_create(jti=key, defaults={"expires_at": _NEVER_EXPIRES})
-        await self.model.objects.filter(jti=key).aupdate(version=F("version") + 1)
-        return await self.get_user_version(user_id)
+        self.model.objects.get_or_create(jti=key, defaults={"expires_at": _NEVER_EXPIRES})
+        self.model.objects.filter(jti=key).update(version=F("version") + 1)
+        return self.get_user_version_sync(user_id)
 
 
 def create_revocation_handler(store: RevocationStore):
@@ -527,7 +569,12 @@ def create_revocation_handler(store: RevocationStore):
         ```
     """
 
+    if store.blocking:
+        return store.is_revoked
+    # A store that does not block is checked on the event loop, with one coroutine on each request.
+    is_revoked = store.is_revoked_sync
+
     async def handler(jti: str) -> bool:
-        return await store.is_revoked(jti)
+        return is_revoked(jti)
 
     return handler

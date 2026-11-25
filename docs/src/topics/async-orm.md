@@ -340,6 +340,39 @@ async def transfer_funds(from_id: int, to_id: int, amount: float):
     return await do_transfer()
 ```
 
+## Sync handlers and threads
+
+A `def` handler can use the sync ORM. Freeman decides at registration where it runs:
+
+- `blocking=True` runs it on a thread of the shared executor (`bolt_default_*`). The event loop serves other requests while it waits on the database.
+- `blocking=False` runs it inline on the thread of the event loop. Use it only for a handler that does no I/O. A sync ORM call there raises `SynchronousOnlyOperation`.
+- With no `blocking` (the default), Freeman reads the source of the handler. A call such as `.objects`, `.save()` or `connection.cursor()` makes it blocking. This is a convenience: it cannot see a call in a helper, or in a handler that a factory builds. `blocking=True` is the explicit form.
+
+```python
+from freeman import BoltAPI
+
+api = BoltAPI()
+
+
+def count_articles() -> int:
+    return Article.objects.count()
+
+
+@api.get("/articles/count", blocking=True)
+def article_count() -> dict:
+    return {"count": count_articles()}
+```
+
+`blocking` is an option of each route decorator (`api.get`, `api.post` and the others), of `Router` routes and of `api.view`. `blocking=True` on an `async def` handler raises `TypeError` at registration: an async handler must not block.
+
+A route with Django middleware runs a sync handler on the thread of its request in any case, because the middleware can keep state in `threading.local`.
+
+The handler, its sync dependencies and the serialization of its result run in one thread hop. The executor has `DJANGO_BOLT_EXECUTOR_THREADS` threads (default: CPU count + 4, at most 32). `DJANGO_BOLT_ORM_THREADS` sizes a different pool: the one that loads a QuerySet that an async handler returns.
+
+Each executor thread has its own Django connection, as Django gives each thread one. `transaction.atomic()` in the handler uses that connection and ends in the handler. With `OPTIONS["pool"]`, a thread gives its connection back to the pool when it has no more work, so an idle thread holds no pool slot. A connection inside an open `atomic` block stays until the block ends.
+
+The test client runs the handler on the same executor.
+
 ## Common mistakes
 
 ### 1. Forgetting async methods

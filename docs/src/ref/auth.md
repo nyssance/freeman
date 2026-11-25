@@ -317,6 +317,18 @@ revoked or reused, belongs to a revoked family, carries a stale `ver`,
 or exceeds `max_session_lifetime`. Return a generic `401` to the client
 in that case.
 
+### rotate_refresh_token_sync
+
+The same, for a sync handler. It takes the same parameters and calls the
+`_sync` methods of the store. `rotate_refresh_token` calls it: on the
+event loop, or on the ORM pool for a store with `blocking = True`.
+
+```python
+from freeman.auth import rotate_refresh_token_sync
+
+pair = rotate_refresh_token_sync(claims, store=store)
+```
+
 ### set_token_cookies
 
 Attach a token pair to a response as `HttpOnly`, `Secure`,
@@ -362,9 +374,21 @@ than its own.
 
 ### Store methods
 
-All methods are coroutines.
+Each method has a sync form with the suffix `_sync`, for a sync handler:
+`revoke_sync`, `is_revoked_sync`, `consume_sync`, `get_user_version_sync`,
+`bump_user_version_sync`, `revoke_family_sync` and
+`is_family_revoked_sync`. The sync form does the work. The method without
+the suffix is a coroutine that `RevocationStore` defines once: it calls
+the sync form on the calling thread, or on the ORM pool when the store
+sets `blocking = True`, as `DjangoORMRevocation` does.
 
-| Method                          | Description                                                    |
+A store of your own implements the sync forms: `is_revoked_sync` and
+`revoke_sync` are abstract, the others are optional. Set `blocking = True`
+when they wait on I/O, such as a database query. A store that implements
+only the coroutines cannot be made: Python raises `TypeError` ("Can't
+instantiate abstract class").
+
+| Method (each also as `*_sync`)  | Description                                                    |
 | ------------------------------- | -------------------------------------------------------------- |
 | `revoke(jti, *, exp=None)`      | Revoke a single token by its `jti` claim                       |
 | `is_revoked(jti)`               | Whether a token has been revoked                               |
@@ -391,6 +415,7 @@ from freeman.auth import InMemoryRevocation
 store = InMemoryRevocation()
 await store.revoke("token-jti", exp=1234567890)
 await store.is_revoked("token-jti")  # True
+store.is_revoked_sync("token-jti")  # True, in a sync handler
 ```
 
 ### DjangoCacheRevocation

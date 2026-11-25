@@ -44,7 +44,14 @@ from .revocation import (
 from .token import Token
 
 # Access + refresh token lifecycle
-from .tokens import TokenPair, TokenRotationError, create_token_pair, rotate_refresh_token, set_token_cookies
+from .tokens import (
+    TokenPair,
+    TokenRotationError,
+    create_token_pair,
+    rotate_refresh_token,
+    rotate_refresh_token_sync,
+    set_token_cookies,
+)
 
 # User loading for request.user
 from .user_loader import get_registered_backend, load_user, register_auth_backend
@@ -79,6 +86,7 @@ __all__ = [
     "TokenRotationError",
     "create_token_pair",
     "rotate_refresh_token",
+    "rotate_refresh_token_sync",
     "set_token_cookies",
     # Revocation (optional)
     "RevocationStore",
