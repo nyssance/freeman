@@ -182,13 +182,13 @@ def _never_suspends(fn: Callable) -> bool:
 def _sync_finisher(meta: HandlerMetadata, defer: Callable) -> Callable[[Any], SyncResponseWire]:
     """Serialize the result of a sync executor, or defer a QuerySet.
 
-    A QuerySet must load on the ORM pool, and a sync executor cannot await.
-    Thus the finisher returns ``defer`` with the result bound, and Rust runs
-    that call on the worker loop.
+    A QuerySet, bare or in a ``JSON``, must load on the ORM pool, and a sync
+    executor cannot await. Thus the finisher returns ``defer`` with the result
+    bound, and Rust runs that call on the worker loop.
     """
 
     def finish(result: Any) -> ResponseWireV1 | Callable:
-        if isinstance(result, QuerySet):
+        if isinstance(result, QuerySet) or (isinstance(result, _JSONResponse) and isinstance(result.data, QuerySet)):
             return functools.partial(defer, result, meta)
         return serialize_response_sync(result, meta)
 
@@ -1417,8 +1417,8 @@ class BoltAPI:
             status_code: Optional per-route status code override
             tags: Optional per-route tags override
             deprecated: True marks each operation of the view as deprecated in the OpenAPI schema
-            blocking: True runs each sync method on an executor thread, False runs it inline.
-                None (the default) lets Bolt read the source of the method.
+            blocking: False runs each sync method inline on the event loop. By default a
+                sync method runs on an executor thread.
 
         Returns:
             Decorator function that registers the view class
@@ -1603,7 +1603,7 @@ class BoltAPI:
                 field.name for field in meta.get("fields", []) if getattr(field, "source", None) == "request"
             }
 
-            # Static ORM + request-component analysis at registration time.
+            # Request-component analysis at registration time.
             # A handler with only a request parameter has no fields, but the
             # analysis still needs the name to find reads of request.user.
             analyzed_request_names = request_param_names
@@ -1660,18 +1660,15 @@ class BoltAPI:
                     *router_middleware,
                 ]
 
-            # Django middleware can keep request state in threading.local. A sync
-            # handler must then run on the thread of its request, not inline on
-            # the event loop, so treat it as blocking work. The middleware can be
-            # on the API, on a router, or on the route.
+            # A sync handler runs on an executor thread, unless blocking=False.
+            # Django middleware can keep request state in threading.local, so
+            # behind it a sync handler always runs on the thread of its request.
+            # The middleware can be on the API, on a router, or on the route.
             has_django_middleware = self._has_django_wrapper_middleware or any(
                 isinstance(spec, (DjangoMiddleware, DjangoMiddlewareStack))
                 for spec in (*router_middleware, *route_middleware)
             )
-            # An explicit blocking= wins over the source analysis. The analysis
-            # only guesses from the source of the handler.
-            blocks = handler_analysis.is_blocking if blocking is None else blocking
-            meta["is_blocking"] = blocks or (not meta["is_async"] and has_django_middleware)
+            meta["is_blocking"] = not is_async and (blocking is not False or has_django_middleware)
 
             # Determine final response type with proper priority:
             # 1. response_model parameter (explicit, takes precedence)
@@ -2091,7 +2088,7 @@ class BoltAPI:
                     args, kwargs = prebound_args, request_state.pop("_bolt_prebound_kwargs")
                 elif injector_is_async:
                     args, kwargs = await injector(request)
-                elif is_blocking and not is_async:
+                elif is_blocking:
                     # The sync injector runs in the thread hop of the handler, so its
                     # sync dependencies run on that thread (the lane behind Django middleware).
                     def _run_blocking_multi_injected() -> ResponseWireV1:
@@ -2133,7 +2130,7 @@ class BoltAPI:
 
         # Fast path: async handler (most common pattern). Rust-prebound args are
         # consumed via _get_args; routes without bindings skip the state checks.
-        if not is_request_only and is_async and not is_blocking and not injector_is_async:
+        if not is_request_only and is_async and not injector_is_async:
             default_status = meta["default_status_code"]
             has_response_validation = meta["_has_response_validation"]
 
@@ -2479,7 +2476,7 @@ class BoltAPI:
                     args, kwargs = prebound_args, request_state.pop("_bolt_prebound_kwargs")
                 elif injector_is_async:
                     args, kwargs = await injector(request)
-                elif is_blocking and not is_async:
+                elif is_blocking:
                     # The sync injector runs in the thread hop of the handler, so its
                     # sync dependencies run on that thread (the lane behind Django middleware).
                     def _run_blocking_injected() -> ResponseWireV1:
@@ -3038,7 +3035,7 @@ class BoltAPI:
         exception logging remains here (BlackSheep pattern — rare path only).
 
         Prerequisites (checked at registration time, stored in can_sync_dispatch flag):
-        - Handler has a _sync_executor (sync, non-blocking, simple params)
+        - Handler has a _sync_executor (sync with blocking=False, or async with no await)
         - No Python middleware (global or route-level)
         - No Django middleware
         - No signals

@@ -1010,7 +1010,7 @@ def test_a_blocking_multi_response_handler_runs_with_its_dependencies_on_one_poo
 def test_a_multi_response_handler_that_does_not_block_runs_off_the_pool():
     api = BoltAPI()
 
-    @api.get("/thread", response_model={200: dict})
+    @api.get("/thread", response_model={200: dict}, blocking=False)
     def thread():
         return 200, {"handler": threading.current_thread().name}
 

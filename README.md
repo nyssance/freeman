@@ -169,30 +169,6 @@ For comparison, an access log through a Python logger at `INFO` gave 35,000
 requests per second. See [Metrics and Tracing](docs/src/topics/observability.md)
 for the method and the details.
 
-## Native PostgreSQL connections
-
-The async API of the Django ORM runs each query on a thread. For a route that
-only reads and that many clients call at once, `freeman.postgres` gives psycopg
-async connections from a pool. It reads `DATABASES`, so it uses the database of
-the models. Install it with `pip install "freeman[pool]"`.
-
-```python
-from freeman import BoltAPI
-from freeman.postgres import connection
-
-api = BoltAPI()
-
-
-@api.get("/feed")
-async def feed(limit: int = 20) -> list:
-    async with connection() as conn:
-        cursor = await conn.execute("SELECT id, title FROM post ORDER BY id DESC LIMIT %s", [limit])
-        return await cursor.fetchall()
-```
-
-Measured on one process with a trivial query: 13,200 requests per second
-through `freeman.postgres`, and 6,500 through the async ORM.
-
 ## MCP
 
 The MCP server support (`python/bolt-mcp`) is behind the `mcp` Cargo feature,

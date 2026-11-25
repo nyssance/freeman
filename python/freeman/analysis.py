@@ -1,12 +1,8 @@
 """
-Static analysis module for handler functions.
+Static analysis of handler functions.
 
-Performs AST-based analysis of handler source code to detect:
-- Django ORM usage patterns
-- Blocking I/O operations
-
-This enables compile-time optimization decisions (e.g., running sync handlers
-with ORM usage in a thread pool).
+Reads the source of a handler to find the request parts that it reads, so
+Rust parses only those parts.
 """
 
 from __future__ import annotations
@@ -16,7 +12,7 @@ import inspect
 import sys
 import textwrap
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from .typing import REQUEST_PARAM_NAMES, HandlerMetadata
@@ -90,140 +86,10 @@ class DependencyNeeds:
         self.needs_cookies = True
 
 
-# Django ORM manager attributes
-ORM_MANAGER_ATTRS = frozenset({"objects", "_default_manager", "_base_manager"})
-
-# Sync ORM methods on QuerySet/Manager (blocking)
-SYNC_ORM_METHODS = frozenset({
-    # QuerySet evaluation (blocking)
-    "all",
-    "filter",
-    "exclude",
-    "get",
-    "first",
-    "last",
-    "earliest",
-    "latest",
-    "create",
-    "get_or_create",
-    "update_or_create",
-    "bulk_create",
-    "bulk_update",
-    "update",
-    "delete",
-    "count",
-    "exists",
-    "aggregate",
-    "annotate",
-    "values",
-    "values_list",
-    "distinct",
-    "order_by",
-    "select_related",
-    "prefetch_related",
-    "only",
-    "defer",
-    "using",
-    "raw",
-    "extra",
-})
-
-# Model instance methods that hit the database (blocking)
-# These are detected separately since they're called on model instances, not managers
-MODEL_INSTANCE_METHODS = frozenset({"save", "delete", "refresh_from_db", "full_clean", "clean", "validate_unique"})
-
-# Async model instance methods (Django 4.1+)
-ASYNC_MODEL_INSTANCE_METHODS = frozenset({"asave", "adelete", "arefresh_from_db"})
-
-# Async ORM methods on QuerySet/Manager (Django 4.1+)
-ASYNC_ORM_METHODS = frozenset({
-    "aget",
-    "afirst",
-    "alast",
-    "aearliest",
-    "alatest",
-    "acreate",
-    "aget_or_create",
-    "aupdate_or_create",
-    "abulk_create",
-    "abulk_update",
-    "aupdate",
-    "adelete",
-    "acount",
-    "aexists",
-    "aaggregate",
-    "ain_bulk",
-    "aiterator",
-    "acontains",
-    "aexplain",
-})
-
-# QuerySet iteration patterns (blocking when used synchronously)
-QUERYSET_ITERATION_PATTERNS = frozenset({"__iter__", "__len__", "__bool__", "__getitem__"})
-
-# Blocking I/O operations
-BLOCKING_IO_FUNCTIONS = frozenset({
-    # File operations
-    "open",
-    "read",
-    "write",
-    "close",
-    # Network
-    "urlopen",
-    "request",
-    "get",
-    "post",
-    "put",
-    "patch",
-    "delete",
-    # Time
-    "sleep",
-    # Subprocess
-    "run",
-    "call",
-    "check_output",
-    "check_call",
-    "Popen",
-})
-
-# Blocking I/O modules
-BLOCKING_IO_MODULES = frozenset({
-    "requests",
-    "urllib.request",
-    "urllib3",
-    "httpx",  # sync client
-    "socket",
-    "subprocess",
-    "os",
-    "io",
-    "time",
-})
-
-
 @dataclass
 class HandlerAnalysis:
-    """
-    Result of static analysis on a handler function.
+    """The request parts that a handler reads."""
 
-    Contains information about ORM usage and blocking operations
-    to determine if sync handlers should run in a thread pool.
-    """
-
-    # ORM detection
-    uses_orm: bool = False
-    """Whether handler accesses Django ORM"""
-
-    orm_operations: set[str] = field(default_factory=set)
-    """Set of ORM operations detected (e.g., {'filter', 'get', 'all'})"""
-
-    # Blocking I/O detection
-    has_blocking_io: bool = False
-    """Whether handler has potential blocking I/O calls"""
-
-    blocking_operations: set[str] = field(default_factory=set)
-    """Set of blocking operations detected"""
-
-    # Request component access detection
     request_needs_body: bool = False
     """Whether the handler reads request.body"""
 
@@ -243,41 +109,9 @@ class HandlerAnalysis:
     failure_reason: str | None = None
     """Reason for analysis failure if any"""
 
-    @property
-    def is_blocking(self) -> bool:
-        """Whether handler is likely to block (any ORM usage or blocking I/O)."""
-        return self.uses_orm or self.has_blocking_io
 
-
-# Names that django.db exports for database connections.
-DB_CONNECTION_NAMES = frozenset(("connection", "connections"))
-
-
-def _dotted_name(node: ast.AST) -> str | None:
-    """Return ``a.b.c`` for a chain of attributes on a name, or None for other nodes."""
-    parts = []
-    while isinstance(node, ast.Attribute):
-        parts.append(node.attr)
-        node = node.value
-    if not isinstance(node, ast.Name):
-        return None
-    parts.append(node.id)
-    return ".".join(reversed(parts))
-
-
-class OrmVisitor(ast.NodeVisitor):
-    """
-    AST visitor that detects Django ORM usage, blocking I/O and the request
-    parts that a function reads.
-
-    ORM usage:
-    - a manager attribute (``.objects``) or a raw cursor of ``connection``
-    - a QuerySet method (``filter``, ``aget``) on a chain through a manager,
-      such as ``User.objects.filter(...).first()``. A chain that does not go
-      through a manager (``dict.get()``) is not ORM work.
-    - a model instance method (``save``, ``adelete``)
-    - a loop or a comprehension over a QuerySet method (``qs.filter()``)
-    """
+class RequestVisitor(ast.NodeVisitor):
+    """AST visitor that finds the request parts that a function reads."""
 
     def __init__(self, request_param_names: set[str] | None = None) -> None:
         self.analysis = HandlerAnalysis()
@@ -318,61 +152,11 @@ class OrmVisitor(ast.NodeVisitor):
         if key in ("body", "query", "headers", "cookies"):
             self._mark_request_component_attr(key)
 
-    def _check_for_objects_chain(self, node: ast.AST) -> bool:
-        """Return whether ``node`` reaches a manager through attributes and calls.
-
-        For example ``User.objects.filter`` and ``User.objects.filter(...).first``.
-        """
-        current = node
-        while True:
-            if isinstance(current, ast.Attribute):
-                if current.attr in ORM_MANAGER_ATTRS:
-                    return True
-                current = current.value
-            elif isinstance(current, ast.Call):
-                current = current.func
-            else:
-                return False
-
-    def _check_queryset_iteration(self, iterable: ast.AST, kind: str) -> None:
-        """Mark a loop or a comprehension over a QuerySet method, such as ``qs.filter()``."""
-        if isinstance(iterable, ast.Call) and isinstance(iterable.func, ast.Attribute):
-            method_name = iterable.func.attr
-            if method_name in SYNC_ORM_METHODS or method_name in ASYNC_ORM_METHODS:
-                self.analysis.uses_orm = True
-                self.analysis.orm_operations.add(f"{kind}_{method_name}")
-
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        """Detect attribute access patterns like Model.objects.filter()."""
-        attr_name = node.attr
-
+        """Mark the request part that ``request.<attr>`` reads."""
         reads_request = self._is_request_name(node.value)
         if reads_request:
-            self._mark_request_component_attr(attr_name)
-
-        # Check for .objects manager access
-        if attr_name in ORM_MANAGER_ATTRS:
-            self.analysis.uses_orm = True
-
-        # A raw cursor is blocking database work too: connection.cursor() and
-        # connections["alias"].cursor().
-        if attr_name == "cursor":
-            owner = node.value.value if isinstance(node.value, ast.Subscript) else node.value
-            if isinstance(owner, ast.Name) and owner.id in DB_CONNECTION_NAMES:
-                self.analysis.uses_orm = True
-                self.analysis.orm_operations.add("cursor")
-
-        # A QuerySet method counts only on a chain through a manager. This
-        # reduces false positives like dict.get(). The manager attribute of
-        # the chain sets uses_orm when the visitor gets to it.
-        if (attr_name in SYNC_ORM_METHODS or attr_name in ASYNC_ORM_METHODS) and self._check_for_objects_chain(node):
-            self.analysis.orm_operations.add(attr_name)
-
-        # Check for model instance methods (save, delete, etc.)
-        # These are called on model instances, not managers
-        if attr_name in MODEL_INSTANCE_METHODS or attr_name in ASYNC_MODEL_INSTANCE_METHODS:
-            self.analysis.uses_orm = True
-            self.analysis.orm_operations.add(attr_name)
+            self._mark_request_component_attr(node.attr)
 
         # Continue visiting children. A request receiver is a read, not a hand-on.
         if not reads_request:
@@ -388,7 +172,7 @@ class OrmVisitor(ast.NodeVisitor):
             self._mark_all_request_components()
 
     def visit_Call(self, node: ast.Call) -> None:
-        """Detect function calls that might be blocking."""
+        """Mark the part that ``request.get(key)`` reads."""
         if isinstance(node.func, ast.Attribute) and self._is_request_name(node.func.value) and node.func.attr == "get":
             if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
                 self._mark_request_component_key(node.args[0].value)
@@ -397,23 +181,6 @@ class OrmVisitor(ast.NodeVisitor):
             for argument in (*node.args, *node.keywords):
                 self.visit(argument)
             return
-        # Check for direct blocking function calls
-        if isinstance(node.func, ast.Name):
-            func_name = node.func.id
-            if func_name in BLOCKING_IO_FUNCTIONS:
-                self.analysis.has_blocking_io = True
-                self.analysis.blocking_operations.add(func_name)
-
-        # Check for method calls on blocking modules
-        elif isinstance(node.func, ast.Attribute):
-            # visit_Attribute marks a request method, such as get_full_path().
-
-            # e.g., requests.get(), time.sleep(), urllib.request.urlopen()
-            module_name = _dotted_name(node.func.value)
-            if module_name in BLOCKING_IO_MODULES:
-                self.analysis.has_blocking_io = True
-                self.analysis.blocking_operations.add(f"{module_name}.{node.func.attr}")
-
         self.generic_visit(node)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
@@ -430,25 +197,10 @@ class OrmVisitor(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_For(self, node: ast.For | ast.AsyncFor) -> None:
-        """Detect iteration over QuerySets (blocking): for user in qs.filter(...)."""
-        self._check_queryset_iteration(node.iter, "iterate")
-        self.generic_visit(node)
-
-    visit_AsyncFor = visit_For
-
-    def visit_comprehension(self, node: ast.comprehension) -> None:
-        """Detect a list, set, dict or generator comprehension over a QuerySet."""
-        self._check_queryset_iteration(node.iter, "comprehension")
-        self.generic_visit(node)
-
 
 def analyze_handler(fn: Callable[..., Any], request_param_names: set[str] | None = None) -> HandlerAnalysis:
     """
-    Analyze a handler function for ORM usage and blocking operations.
-
-    Uses AST parsing to statically analyze the handler source code
-    and detect patterns that would block the event loop.
+    Find the request parts that a handler reads, from its source.
 
     Args:
         fn: The handler function to analyze
@@ -459,7 +211,7 @@ def analyze_handler(fn: Callable[..., Any], request_param_names: set[str] | None
     """
     analysis = HandlerAnalysis()
 
-    visitor = OrmVisitor(request_param_names=request_param_names)
+    visitor = RequestVisitor(request_param_names=request_param_names)
     target = _unwrap(resolve_introspection_target(_unwrap(fn, visitor)), visitor)
     # A call of a class runs its __init__, which can come from a base class.
     if inspect.isclass(target):
@@ -498,8 +250,7 @@ def analyze_handler(fn: Callable[..., Any], request_param_names: set[str] | None
         analysis.failure_reason = f"Could not find one definition of {name} in its source"
         return analysis
 
-    # Analyze only the body, not the decorators. A decorator name such as
-    # @api.delete("/m") is not an ORM call.
+    # Analyze only the body, not the decorators.
     if isinstance(definition, ast.Lambda):
         visitor.visit(definition.body)
     else:
@@ -509,7 +260,7 @@ def analyze_handler(fn: Callable[..., Any], request_param_names: set[str] | None
     return visitor.analysis
 
 
-def _unwrap(fn: Any, visitor: OrmVisitor) -> Any:
+def _unwrap(fn: Any, visitor: RequestVisitor) -> Any:
     """Return the function under the wrappers of ``fn``.
 
     A wrapper (a function with ``__wrapped__``) gets the request before the

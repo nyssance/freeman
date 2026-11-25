@@ -1,10 +1,9 @@
-"""A QuerySet that a handler gets from a helper loads on the ORM pool.
+"""A QuerySet that an inline handler returns loads on the ORM pool.
 
-The analysis of a handler finds the ORM calls in the handler itself. It cannot
-see the ORM calls of a helper, so such a handler takes a fast path that does
-not expect a QuerySet. Each fast path must still load the rows on the ORM
-pool: not on the server worker thread, and not on the event loop, where Django
-raises ``SynchronousOnlyOperation``.
+An async handler and a sync handler with ``blocking=False`` take a fast path
+that does not expect a QuerySet. Each fast path must still load the rows on
+the ORM pool: not on the server worker thread, and not on the event loop,
+where Django raises ``SynchronousOnlyOperation``.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ async def passthrough(request, call_next):
 
 
 def sync_typed(api: BoltAPI) -> None:
-    @api.get("/articles")
+    @api.get("/articles", blocking=False)
     def listing(n: int = 0):
         return articles()
 
@@ -43,7 +42,7 @@ def async_typed(api: BoltAPI) -> None:
 
 
 def sync_no_params(api: BoltAPI) -> None:
-    @api.get("/articles")
+    @api.get("/articles", blocking=False)
     def listing():
         return articles()
 
@@ -55,7 +54,7 @@ def async_no_params(api: BoltAPI) -> None:
 
 
 def sync_typed_validated(api: BoltAPI) -> None:
-    @api.get("/articles")
+    @api.get("/articles", blocking=False)
     def listing(n: int = 0) -> list[Row]:
         return articles()
 
@@ -67,7 +66,7 @@ def async_typed_validated(api: BoltAPI) -> None:
 
 
 def sync_typed_with_middleware(api: BoltAPI) -> None:
-    @api.get("/articles")
+    @api.get("/articles", blocking=False)
     @middleware(passthrough)
     def listing(n: int = 0):
         return articles()
@@ -78,13 +77,13 @@ def sync_typed_with_middleware(api: BoltAPI) -> None:
 
 
 def sync_typed_unvalidated(api: BoltAPI) -> None:
-    @api.get("/articles", validate_response=False)
+    @api.get("/articles", validate_response=False, blocking=False)
     def listing(n: int = 0) -> list[Row]:
         return articles()
 
 
 def sync_no_params_unvalidated(api: BoltAPI) -> None:
-    @api.get("/articles", validate_response=False)
+    @api.get("/articles", validate_response=False, blocking=False)
     def listing() -> list[Row]:
         return articles()
 
@@ -116,14 +115,14 @@ def async_awaits_no_params_unvalidated(api: BoltAPI) -> None:
 
 
 def sync_typed_unvalidated_with_middleware(api: BoltAPI) -> None:
-    @api.get("/articles", validate_response=False)
+    @api.get("/articles", validate_response=False, blocking=False)
     @middleware(passthrough)
     def listing(n: int = 0) -> list[Row]:
         return articles()
 
 
 def sync_no_params_unvalidated_with_middleware(api: BoltAPI) -> None:
-    @api.get("/articles", validate_response=False)
+    @api.get("/articles", validate_response=False, blocking=False)
     @middleware(passthrough)
     def listing() -> list[Row]:
         return articles()
@@ -140,19 +139,19 @@ PER_STATUS = {200: list[Row], 404: Missing}
 
 
 def sync_per_status(api: BoltAPI) -> None:
-    @api.get("/articles", response_model=PER_STATUS)
+    @api.get("/articles", response_model=PER_STATUS, blocking=False)
     def listing(n: int = 0):
         return articles()
 
 
 def sync_per_status_tuple(api: BoltAPI) -> None:
-    @api.get("/articles", response_model=PER_STATUS)
+    @api.get("/articles", response_model=PER_STATUS, blocking=False)
     def listing(n: int = 0):
         return 200, articles()
 
 
 def sync_per_status_unvalidated_tuple(api: BoltAPI) -> None:
-    @api.get("/articles", response_model=PER_STATUS, validate_response=False)
+    @api.get("/articles", response_model=PER_STATUS, validate_response=False, blocking=False)
     def listing(n: int = 0):
         return 200, articles()
 

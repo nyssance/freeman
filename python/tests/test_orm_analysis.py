@@ -1,27 +1,13 @@
-"""
-Tests for static analysis module.
-
-Tests the AST-based analysis of handler functions for:
-- Django ORM usage detection
-- Blocking I/O detection
-"""
+"""Tests for the static analysis of the request parts that a handler reads."""
 
 from __future__ import annotations
 
 import functools
 import inspect
 import json
-import os
-import threading
-import time
-import urllib.parse
-from time import sleep
 
 import pytest
-from django.contrib.auth.models import User
-from django.db import connection, connections
 
-from freeman import BoltAPI
 from freeman.analysis import (
     DependencyNeeds,
     HandlerAnalysis,
@@ -29,81 +15,6 @@ from freeman.analysis import (
     analyze_handler,
     resolve_introspection_target,
 )
-from freeman.testing import TestClient
-
-
-# Test handler functions for analysis
-def sync_handler_with_orm():
-    """Sync handler that uses Django ORM."""
-    users = User.objects.filter(is_active=True)
-    return list(users)
-
-
-def sync_handler_with_multiple_orm_calls():
-    """Sync handler with multiple ORM operations."""
-    User.objects.create(username="test")
-    users = User.objects.all()
-    count = User.objects.count()
-    first = User.objects.first()
-    return {"users": list(users), "count": count, "first": first}
-
-
-async def async_handler_with_sync_orm():
-    """Async handler that incorrectly uses sync ORM methods."""
-    users = User.objects.filter(is_active=True)
-    return list(users)
-
-
-async def async_handler_with_async_orm():
-    """Async handler using proper async ORM methods."""
-    user = await User.objects.aget(id=1)
-    users = [u async for u in User.objects.aiterator()]
-    return {"user": user, "users": users}
-
-
-def sync_handler_no_orm():
-    """Sync handler without any ORM calls."""
-    data = {"message": "Hello, World!"}
-    return data
-
-
-async def async_handler_no_orm():
-    """Async handler without any ORM calls."""
-    return {"status": "ok"}
-
-
-def sync_handler_with_iteration():
-    """Sync handler that iterates over QuerySet."""
-    result = []
-    for user in User.objects.all():
-        result.append(user.username)
-    return result
-
-
-def sync_handler_with_list_comprehension():
-    """Sync handler with list comprehension over QuerySet."""
-    return [user.username for user in User.objects.filter(is_active=True)]
-
-
-def sync_handler_with_save():
-    """Sync handler that saves a model instance."""
-    user = User(username="test")
-    user.save()
-    return {"id": user.id}
-
-
-def sync_handler_with_blocking_io():
-    """Sync handler with blocking I/O operations."""
-    time.sleep(1)
-    return {"waited": True}
-
-
-def sync_handler_with_requests():
-    """Sync handler using requests library."""
-    import requests
-
-    response = requests.get("http://example.com")
-    return {"status": response.status_code}
 
 
 def handler_reads_request_headers(request):
@@ -193,97 +104,6 @@ def handler_passes_request_to_external_helper(request):
 # inspect.getsource gives only the second line, which does not parse alone.
 lambda_on_a_line_that_does_not_parse = functools.partial(
     print, lambda request: request.query)  # fmt: skip
-
-
-class TestHandlerAnalysis:
-    """Tests for analyze_handler function."""
-
-    def test_sync_handler_with_orm_detection(self):
-        """Test that ORM usage is correctly detected."""
-        analysis = analyze_handler(sync_handler_with_orm)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"filter"}
-        # list() is not blocking I/O.
-        assert analysis.has_blocking_io is False
-        assert analysis.blocking_operations == set()
-        assert analysis.is_blocking is True
-        assert analysis.analysis_failed is False
-
-    def test_sync_handler_with_multiple_orm_calls(self):
-        """Test detection of multiple ORM operations."""
-        analysis = analyze_handler(sync_handler_with_multiple_orm_calls)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"create", "all", "count", "first"}
-
-    def test_async_handler_with_sync_orm(self):
-        """Test that ORM in async handler is detected."""
-        analysis = analyze_handler(async_handler_with_sync_orm)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"filter"}
-
-    def test_async_handler_with_async_orm(self):
-        """Test that async ORM methods are correctly identified."""
-        analysis = analyze_handler(async_handler_with_async_orm)
-
-        assert analysis.uses_orm is True
-        # The async comprehension iterates a QuerySet method too.
-        assert analysis.orm_operations == {"aget", "aiterator", "comprehension_aiterator"}
-
-    def test_sync_handler_no_orm(self):
-        """Test that handlers without ORM are correctly identified."""
-        analysis = analyze_handler(sync_handler_no_orm)
-
-        assert analysis.uses_orm is False
-        assert analysis.is_blocking is False
-        assert len(analysis.orm_operations) == 0
-
-    def test_async_handler_no_orm(self):
-        """Test async handler without ORM."""
-        analysis = analyze_handler(async_handler_no_orm)
-
-        assert analysis.uses_orm is False
-        assert analysis.is_blocking is False
-
-    def test_iteration_over_queryset(self):
-        """Test detection of for-loop iteration over QuerySet."""
-        analysis = analyze_handler(sync_handler_with_iteration)
-
-        assert analysis.uses_orm is True
-        # result.append() is not ORM work.
-        assert analysis.orm_operations == {"all", "iterate_all"}
-
-    def test_list_comprehension_over_queryset(self):
-        """Test detection of list comprehension over QuerySet."""
-        analysis = analyze_handler(sync_handler_with_list_comprehension)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"filter", "comprehension_filter"}
-
-    def test_model_save_detection(self):
-        """Test detection of model.save() calls."""
-        analysis = analyze_handler(sync_handler_with_save)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"save"}
-
-    def test_blocking_io_detection(self):
-        """Test detection of blocking I/O operations."""
-        analysis = analyze_handler(sync_handler_with_blocking_io)
-
-        assert analysis.has_blocking_io is True
-        assert analysis.blocking_operations == {"time.sleep"}
-        assert analysis.uses_orm is False
-        assert analysis.is_blocking is True
-
-    def test_requests_library_detection(self):
-        """Test detection of requests library usage."""
-        analysis = analyze_handler(sync_handler_with_requests)
-
-        assert analysis.has_blocking_io is True
-        assert analysis.blocking_operations == {"requests.get"}
 
 
 class TestRequestComponentAnalysis:
@@ -387,25 +207,6 @@ class TestAnalysisFailure:
         assert analysis.analysis_failed is True
         assert analysis.failure_reason is not None
         assert "Could not get source" in analysis.failure_reason
-
-
-class TestHandlerAnalysisProperties:
-    """Tests for HandlerAnalysis computed properties."""
-
-    def test_is_blocking_with_orm(self):
-        """Test is_blocking returns True for any ORM usage."""
-        analysis = HandlerAnalysis(uses_orm=True)
-        assert analysis.is_blocking is True
-
-    def test_is_blocking_with_blocking_io(self):
-        """Test is_blocking returns True for blocking I/O."""
-        analysis = HandlerAnalysis(has_blocking_io=True)
-        assert analysis.is_blocking is True
-
-    def test_is_blocking_with_neither(self):
-        """Test is_blocking returns False when neither present."""
-        analysis = HandlerAnalysis()
-        assert analysis.is_blocking is False
 
 
 # --- Support fixtures for dependency-tree analysis tests ---
@@ -571,236 +372,12 @@ class TestAnalyzeDependencyTree:
         assert needs.needs_query is True
 
 
-@pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("use_handler", ["connection", "connections"])
-def test_sync_handler_with_a_raw_cursor_runs_in_the_thread_pool(use_handler):
-    """A raw cursor is blocking database work, as a manager call is."""
-    api = BoltAPI()
-
-    if use_handler == "connection":
-
-        @api.get("/one")
-        def one():
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-                return {"value": cursor.fetchone()[0], "thread": threading.current_thread().name}
-
-    else:
-
-        @api.get("/one")
-        def one():
-            with connections["default"].cursor() as cursor:
-                cursor.execute("SELECT 1")
-                return {"value": cursor.fetchone()[0], "thread": threading.current_thread().name}
-
-    with TestClient(api) as client:
-        response = client.get("/one")
-
-    assert response.status_code == 200
-    assert response.json()["value"] == 1
-    # A sync handler that is not blocking work runs on the server thread, and
-    # the cursor works there too. Only the thread tells the two apart.
-    assert response.json()["thread"].startswith("bolt_default")
-
-
-# A QuerySet that the handler does not get through ``.objects``.
-active_users = User.objects.filter(is_active=True)
-
-
-@pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("kind", ["generator", "set", "dict"])
-def test_a_sync_handler_that_iterates_a_queryset_in_a_comprehension_runs_in_the_thread_pool(kind):
-    """A list comprehension and a for loop over a QuerySet method count. Every comprehension must count."""
-    api = BoltAPI()
-
-    @api.get("/generator")
-    def generator():
-        return {"users": sum(1 for _user in active_users.all()), "thread": threading.current_thread().name}
-
-    @api.get("/set")
-    def set_comprehension():
-        return {"users": len({user.pk for user in active_users.all()}), "thread": threading.current_thread().name}
-
-    @api.get("/dict")
-    def dict_comprehension():
-        return {"users": len({user.pk: user for user in active_users.all()}), "thread": threading.current_thread().name}
-
-    with TestClient(api) as client:
-        response = client.get(f"/{kind}")
-
-    assert response.json()["users"] == 0
-    assert response.json()["thread"].startswith("bolt_default")
-
-
-@pytest.mark.django_db(transaction=True)
-def test_a_sync_handler_that_iterates_queryset_values_runs_in_the_thread_pool():
-    """values() with no arguments runs a query. The handler must not block the server worker thread."""
-    api = BoltAPI()
-
-    @api.get("/values")
-    def rows():
-        return {"rows": [row["id"] for row in active_users.values()], "thread": threading.current_thread().name}
-
-    with TestClient(api) as client:
-        response = client.get("/values")
-
-    assert response.json()["rows"] == []
-    assert response.json()["thread"].startswith("bolt_default")
-
-
 EVERY_PART = ("body", "query", "headers", "cookies")
 
 
 def flags(analysis):
     """The request parts that an analysis found, in a fixed order."""
     return tuple(part for part in EVERY_PART if getattr(analysis, f"request_needs_{part}"))
-
-
-class TestOrmDetectionLimits:
-    """A QuerySet method name counts only where it can be a database query."""
-
-    def test_dict_methods_are_not_orm_work(self):
-        def handler(data):
-            total = len(data.get("items", []))
-            first = data.copy().get("first")
-            keys = [key.upper() for key, _value in data.items()]
-            for _key, _value in data.items():
-                total += 1
-            return total, first, keys
-
-        analysis = analyze_handler(handler)
-
-        assert analysis.uses_orm is False
-        assert analysis.orm_operations == set()
-        assert analysis.is_blocking is False
-
-    def test_a_chain_through_a_manager_counts_each_queryset_method(self):
-        """select_for_update is not in the list, but the chain still reaches the manager."""
-
-        def handler():
-            return User.objects.filter(is_active=True).select_for_update().first()
-
-        assert analyze_handler(handler).orm_operations == {"filter", "first"}
-
-    def test_the_default_manager_is_a_manager(self):
-        def handler():
-            return User._default_manager.get(pk=1)
-
-        analysis = analyze_handler(handler)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"get"}
-
-    def test_async_model_instance_methods_are_orm_work(self):
-        async def handler(user):
-            await user.asave()
-
-        analysis = analyze_handler(handler)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"asave"}
-
-    def test_only_iteration_over_a_queryset_method_is_orm_work(self):
-        def handler(users, items):
-            for _item in items:
-                pass
-            return [item.pk for item in items], [user.pk for user in users.filter(is_active=True)]
-
-        assert analyze_handler(handler).orm_operations == {"comprehension_filter"}
-
-    def test_iteration_over_values_with_no_arguments_is_orm_work(self):
-        """A related manager calls values() with no arguments too. The analysis cannot tell it from dict.values()."""
-
-        def handler(user):
-            return [row["name"] for row in user.groups.values()]
-
-        analysis = analyze_handler(handler)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"comprehension_values"}
-
-    @pytest.mark.parametrize("kind", ["for", "async for", "set", "dict", "generator"])
-    def test_every_kind_of_iteration_over_a_queryset_is_orm_work(self, kind):
-        async def for_loop(users):
-            for user in users.filter(is_active=True):
-                return user
-
-        async def async_for_loop(users):
-            async for user in users.filter(is_active=True):
-                return user
-
-        def set_comprehension(users):
-            return {user.pk for user in users.filter(is_active=True)}
-
-        def dict_comprehension(users):
-            return {user.pk: user for user in users.filter(is_active=True)}
-
-        def generator(users):
-            return sum(user.pk for user in users.filter(is_active=True))
-
-        handler, operation = {
-            "for": (for_loop, "iterate_filter"),
-            "async for": (async_for_loop, "iterate_filter"),
-            "set": (set_comprehension, "comprehension_filter"),
-            "dict": (dict_comprehension, "comprehension_filter"),
-            "generator": (generator, "comprehension_filter"),
-        }[kind]
-
-        analysis = analyze_handler(handler)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {operation}
-
-    @pytest.mark.parametrize("use_handler", ["connection", "connections"])
-    def test_a_raw_cursor_is_orm_work(self, use_handler):
-        def one():
-            with connection.cursor() as cursor:
-                return cursor.fetchone()
-
-        def other():
-            with connections["default"].cursor() as cursor:
-                return cursor.fetchone()
-
-        analysis = analyze_handler(one if use_handler == "connection" else other)
-
-        assert analysis.uses_orm is True
-        assert analysis.orm_operations == {"cursor"}
-
-    def test_the_cursor_of_another_object_is_not_the_database(self):
-        def handler(page, pages):
-            return page.cursor, pages["next"].cursor
-
-        assert analyze_handler(handler).uses_orm is False
-
-
-class TestBlockingIoDetection:
-    def test_builtin_blocking_calls_by_name(self):
-        def handler(path):
-            with open(path) as file:
-                sleep(1)
-                return file.read()
-
-        analysis = analyze_handler(handler)
-
-        assert analysis.has_blocking_io is True
-        assert analysis.blocking_operations == {"open", "sleep"}
-
-    def test_calls_that_do_no_io_are_not_blocking(self):
-        """os.path and urllib.parse only compute. Neither is a blocking module."""
-
-        def handler(self, make_client, name):
-            return (
-                os.path.join("a", name),
-                urllib.parse.quote(name),
-                self.client.get(name),
-                make_client().get(name),
-                len(name),
-            )
-
-        analysis = analyze_handler(handler)
-
-        assert analysis.has_blocking_io is False
-        assert analysis.blocking_operations == set()
 
 
 class TestRequestPartReads:
@@ -874,7 +451,7 @@ class TestResolveIntrospectionTarget:
     def test_functions_methods_classes_and_modules_are_their_own_target(self):
         bound = _Callable().__call__
 
-        assert resolve_introspection_target(sync_handler_no_orm) is sync_handler_no_orm
+        assert resolve_introspection_target(handler_reads_request_body) is handler_reads_request_body
         assert resolve_introspection_target(bound) is bound
         assert resolve_introspection_target(_Callable) is _Callable
         assert resolve_introspection_target(json) is json
@@ -883,7 +460,7 @@ class TestResolveIntrospectionTarget:
         assert resolve_introspection_target(_Callable()) is _Callable.__call__
 
     def test_a_callable_in_c_resolves_to_the_slot_of_its_type(self):
-        partial = functools.partial(sync_handler_no_orm)
+        partial = functools.partial(handler_reads_request_body)
 
         assert resolve_introspection_target(partial) is inspect.getattr_static(functools.partial, "__call__")
 

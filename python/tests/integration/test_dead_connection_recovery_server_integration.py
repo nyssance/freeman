@@ -494,7 +494,7 @@ def test_a_user_load_on_the_event_loop_gives_its_pooled_connection_back(make_ser
 
 
 def test_a_sync_handler_on_the_worker_thread_gives_its_pooled_connection_back(make_server_project, postgres_database):
-    """A sync handler with no query in its own source runs on the worker thread that accepted the request.
+    """A sync handler with ``blocking=False`` runs on the worker thread that accepted the request.
 
     A helper of the handler can still query. The worker thread must give the
     connection back when the request ends, also when the handler raises. The
@@ -524,7 +524,7 @@ def test_a_sync_handler_on_the_worker_thread_gives_its_pooled_connection_back(ma
 def test_a_sync_handler_on_the_worker_thread_reconnects_before_its_request(
     make_server_project, postgres_database, database_options
 ):
-    """A sync handler with no query in its own source runs on the worker thread, and its helper queries there.
+    """A sync handler with ``blocking=False`` runs on the worker thread, and its helper queries there.
 
     The worker thread keeps that connection between requests. With the default
     settings, the ORM thread meets the first dead connection, and each thread

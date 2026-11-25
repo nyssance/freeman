@@ -434,7 +434,7 @@ async def generate_token(token_req: TokenRequest):
     }
 
 
-@api.get("/sync", tags=["root"], summary="summary", description="description")
+@api.get("/sync", tags=["root"], summary="summary", description="description", blocking=False)
 def read_root_sync():
     """
     Endpoint that returns a simple "Hello World" dictionary.
@@ -470,7 +470,7 @@ async def read_1k() -> list[ItemSchema]:
     return test_data.JSON_1K
 
 
-@api.get("/sync-10k-json")
+@api.get("/sync-10k-json", blocking=False)
 def read_10k_sync():
     """
     Sync version: Endpoint that returns 10k JSON objects.

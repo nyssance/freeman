@@ -139,9 +139,7 @@ class APIView:
         if method_handler is None:
             raise ValueError(f"View class {cls.__name__} does not implement method '{method_lower}'")
 
-        # Handlers can be sync or async
-        # Sync handlers will be executed via spawn_blocking or inline mode
-        # This is determined at registration time based on the 'inline' parameter
+        # A sync method runs on an executor thread, or inline with blocking=False.
 
         # Create wrapper that preserves signature for parameter extraction
         # The wrapper's signature matches the method handler (excluding 'self')

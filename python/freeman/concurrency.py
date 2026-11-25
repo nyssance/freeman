@@ -389,9 +389,8 @@ def _call_guarded_pooled[T](
 def check_connections_before_sync_dispatch() -> None:
     """Run the checks before a call on a worker thread that runs a sync request.
 
-    A sync handler with no blocking call in its own source runs on the worker
-    thread that accepted the request, and a helper of the handler can query
-    there. The worker thread keeps that connection between requests. Without
+    A sync handler with ``blocking=False`` runs on the worker thread that
+    accepted the request, and a helper of the handler can query there. The worker thread keeps that connection between requests. Without
     these checks, it does not reconnect after another thread met a dead
     connection, and ``CONN_MAX_AGE`` and ``CONN_HEALTH_CHECKS`` do not apply to it.
 
@@ -410,8 +409,8 @@ def check_connections_before_sync_dispatch() -> None:
 def release_pooled_connections_after_sync_dispatch() -> None:
     """Give the pooled connections of a worker thread back after a sync request that ran on it.
 
-    A sync handler with no blocking call in its own source runs on the worker
-    thread that accepted the request. A helper of the handler can still query.
+    A sync handler with ``blocking=False`` runs on the worker thread that
+    accepted the request. A helper of the handler can still query.
     The worker thread would then keep the pooled connection while it is idle.
 
     A raise here would replace the response of the request, so Bolt logs the error.

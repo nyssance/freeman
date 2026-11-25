@@ -204,7 +204,7 @@ class ThreadRecordingQuerySet(QuerySet):
 
 
 def articles():
-    """Return a QuerySet from a helper, where the analysis of the handler cannot see the ORM."""
+    """Return a QuerySet from a helper."""
     return ThreadRecordingQuerySet(model=Article).values("title")
 
 
@@ -221,7 +221,7 @@ def test_a_queryset_from_a_request_handler_loads_on_the_orm_pool(is_async):
 
     else:
 
-        @api.get("/articles")
+        @api.get("/articles", blocking=False)
         def listing(request: Request):
             return articles()
 

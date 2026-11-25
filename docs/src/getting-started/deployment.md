@@ -327,7 +327,7 @@ The startup banner shows the mode, for example `Workers: 1 process · 8 threads 
 
 What runs in parallel:
 
-- Sync handlers, and async handlers that never await, run on the worker thread that accepted the request. A sync handler that Freeman detects as blocking (ORM access, `time.sleep`, `requests`) runs on the shared executor pool instead, so it does not stall the worker thread.
+- Sync handlers run on the shared executor pool, so they do not stall the worker thread. A sync handler with `blocking=False`, and an async handler that never awaits, run on the worker thread that accepted the request.
 - Each worker thread owns its own asyncio loop. An async handler runs on the worker thread that accepted the request, and it resumes on that same thread after each await. Handlers on different worker threads run in parallel.
 - Auth, guards, CORS, rate limiting, and compression run in Rust, as on every build.
 
@@ -365,7 +365,7 @@ One free-threaded process with 8 ORM threads equals 8 processes with the GIL. Do
 
 Start with one ORM thread for every one or two worker threads, then measure. Each ORM thread holds one database connection. Size your database connection limit for `processes * (workers + ORM threads)`.
 
-A blocking sync handler does not use the ORM pool. It runs on the shared executor pool, which has `CPU count + 4` threads (maximum 32). Set `DJANGO_BOLT_EXECUTOR_THREADS` to change it.
+A sync handler does not use the ORM pool. It runs on the shared executor pool, which has `CPU count + 4` threads (maximum 32). Set `DJANGO_BOLT_EXECUTOR_THREADS` to change it.
 
 In an async handler, `await request.auser()` loads the user on the ORM pool. The worker then serves other requests while the user loads. A sync read of `request.user`, in the handler, a helper, or a template, blocks the worker thread until the user loads. The query runs on that worker thread, or on the lane of the request. In dev mode, Freeman logs such a read when it blocks for more than 50 ms.
 

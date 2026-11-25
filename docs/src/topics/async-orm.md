@@ -342,11 +342,9 @@ async def transfer_funds(from_id: int, to_id: int, amount: float):
 
 ## Sync handlers and threads
 
-A `def` handler can use the sync ORM. Freeman decides at registration where it runs:
+A `def` handler runs on a thread of the shared executor (`bolt_default_*`), as in Starlette and FastAPI. It can use the sync ORM, and the event loop serves other requests while it waits.
 
-- `blocking=True` runs it on a thread of the shared executor (`bolt_default_*`). The event loop serves other requests while it waits on the database.
-- `blocking=False` runs it inline on the thread of the event loop. Use it only for a handler that does no I/O. A sync ORM call there raises `SynchronousOnlyOperation`.
-- With no `blocking` (the default), Freeman reads the source of the handler. A call such as `.objects`, `.save()` or `connection.cursor()` makes it blocking. This is a convenience: it cannot see a call in a helper, or in a handler that a factory builds. `blocking=True` is the explicit form.
+`blocking=False` runs a `def` handler inline on the thread of the event loop. It saves the thread hop. Use it only for a handler that does no I/O: a sync ORM call there raises `SynchronousOnlyOperation`, and any other wait stalls every request of the loop.
 
 ```python
 from freeman import BoltAPI
@@ -354,16 +352,17 @@ from freeman import BoltAPI
 api = BoltAPI()
 
 
-def count_articles() -> int:
-    return Article.objects.count()
-
-
-@api.get("/articles/count", blocking=True)
+@api.get("/articles/count")
 def article_count() -> dict:
-    return {"count": count_articles()}
+    return {"count": Article.objects.count()}
+
+
+@api.get("/version", blocking=False)
+def version() -> dict:
+    return {"version": "1.0"}
 ```
 
-`blocking` is an option of each route decorator (`api.get`, `api.post` and the others), of `Router` routes and of `api.view`. `blocking=True` on an `async def` handler raises `TypeError` at registration: an async handler must not block.
+`blocking` is an option of each route decorator (`api.get`, `api.post` and the others), of `Router` routes and of `api.view`. `blocking=True` is the default for a `def` handler. On an `async def` handler it raises `TypeError` at registration: an async handler must not block.
 
 A route with Django middleware runs a sync handler on the thread of its request in any case, because the middleware can keep state in `threading.local`.
 

@@ -39,7 +39,7 @@ When a handler parameter is annotated with `Depends()`, Freeman:
 2. Passes the result to the handler
 3. Caches the result for subsequent uses in the same request
 
-When every dependency of a handler is a sync function, Freeman resolves them with no event loop. A sync handler then keeps its sync dispatch, and behind Django middleware its complete request runs on one lane. When a sync handler runs in a worker thread, its sync dependencies run in that thread too. They can use the ORM, and they see the thread-local state of the Django middleware.
+When every dependency of a handler is a sync function, Freeman resolves them with no event loop. A sync handler then keeps its sync dispatch, and behind Django middleware its complete request runs on one lane. A sync handler runs on an executor thread, and its sync dependencies run in that thread too. They can use the ORM, and they see the thread-local state of the Django middleware.
 
 ## Dependency patterns
 

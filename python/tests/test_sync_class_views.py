@@ -323,8 +323,8 @@ def test_sync_handler_is_sync_metadata(api):
 
     meta = {method: api._handler_meta[handler_id] for method, _path, handler_id, _handler in api._routes}
     assert meta["GET"]["is_async"] is False  # Should be sync
-    # Bolt reads the method under the view wrapper. An ORM read is blocking work, so it runs on a thread.
-    assert (meta["GET"]["is_blocking"], meta["POST"]["is_blocking"]) == (False, True)
+    # A sync method runs on an executor thread.
+    assert (meta["GET"]["is_blocking"], meta["POST"]["is_blocking"]) == (True, True)
 
 
 def test_async_handler_is_async_metadata(api):

@@ -222,9 +222,8 @@ class HandlerMetadata(TypedDict, total=False):
     is_static_route: bool
     """Whether route has no path parameters (can use O(1) lookup)"""
 
-    # ORM analysis (static analysis for blocking detection)
     is_blocking: bool
-    """Whether handler is likely to block (ORM usage or blocking I/O) - runs in thread pool"""
+    """Whether a sync handler runs on an executor thread (every one but blocking=False)"""
 
     # Handler pattern classification (for specialized fast paths)
     handler_pattern: HandlerPattern

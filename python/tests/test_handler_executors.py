@@ -125,48 +125,48 @@ def register_routes(api: BoltAPI) -> None:
         await asyncio.sleep(0)
         return [item_id, len(q)]
 
-    @api.get("/sync/untyped/{item_id}")
+    @api.get("/sync/untyped/{item_id}", blocking=False)
     def sync_untyped(item_id: int, *, q: str):
         return item_dict(item_id, q)
 
-    @api.get("/sync/dict/{item_id}")
+    @api.get("/sync/dict/{item_id}", blocking=False)
     def sync_dict(item_id: int, *, q: str) -> dict:
         return item_dict(item_id, q)
 
-    @api.get("/sync/struct/{item_id}")
+    @api.get("/sync/struct/{item_id}", blocking=False)
     def sync_struct(item_id: int, *, q: str) -> Item:
         return Item(id=item_id, q=q, in_task=in_task())
 
-    @api.get("/sync/struct-list/{item_id}")
+    @api.get("/sync/struct-list/{item_id}", blocking=False)
     def sync_struct_list(item_id: int, *, q: str) -> list[Item]:
         return [Item(id=item_id, q=q, in_task=in_task())]
 
-    @api.get("/sync/untyped-list/{item_id}")
+    @api.get("/sync/untyped-list/{item_id}", blocking=False)
     def sync_untyped_list(item_id: int, *, q: str):
         return [item_dict(item_id, q)]
 
-    @api.get("/sync/untyped-struct/{item_id}")
+    @api.get("/sync/untyped-struct/{item_id}", blocking=False)
     def sync_untyped_struct(item_id: int, *, q: str):
         # Not a dict or a list, so the general serializer encodes it.
         return Item(id=item_id, q=q, in_task=in_task())
 
-    @api.get("/sync/untyped-struct-list/{item_id}")
+    @api.get("/sync/untyped-struct-list/{item_id}", blocking=False)
     def sync_untyped_struct_list(item_id: int, *, q: str):
         return [Item(id=item_id, q=q, in_task=in_task())]
 
-    @api.get("/sync/untyped-struct-in-dict/{item_id}")
+    @api.get("/sync/untyped-struct-in-dict/{item_id}", blocking=False)
     def sync_untyped_struct_in_dict(item_id: int, *, q: str):
         return {"item": Item(id=item_id, q=q, in_task=in_task())}
 
-    @api.get("/sync/object-list/{item_id}")
+    @api.get("/sync/object-list/{item_id}", blocking=False)
     def sync_object_list(item_id: int, *, q: str) -> list[Item]:
         return [SimpleNamespace(id=item_id, q=q, in_task=in_task())]
 
-    @api.get("/sync/struct-from-dict/{item_id}")
+    @api.get("/sync/struct-from-dict/{item_id}", blocking=False)
     def sync_struct_from_dict(item_id: int, *, q: str) -> Item:
         return item_dict(item_id, q)
 
-    @api.get("/sync/struct-list-from-tuple/{item_id}")
+    @api.get("/sync/struct-list-from-tuple/{item_id}", blocking=False)
     def sync_struct_list_from_tuple(item_id: int, *, q: str) -> list[Item]:
         # A tuple is not a list, so the slow path validates it.
         return (item_dict(item_id, q),)
@@ -254,35 +254,35 @@ def register_no_param_routes(api: BoltAPI) -> None:
         await asyncio.sleep(0)
         return (item_dict(1, "none"),)
 
-    @api.get("/sync/untyped")
+    @api.get("/sync/untyped", blocking=False)
     def sync_untyped():
         return item_dict(1, "none")
 
-    @api.get("/sync/untyped-list")
+    @api.get("/sync/untyped-list", blocking=False)
     def sync_untyped_list():
         return [item_dict(1, "none")]
 
-    @api.get("/sync/dict")
+    @api.get("/sync/dict", blocking=False)
     def sync_dict() -> dict:
         return item_dict(1, "none")
 
-    @api.get("/sync/struct")
+    @api.get("/sync/struct", blocking=False)
     def sync_struct() -> Item:
         return Item(id=1, q="none", in_task=in_task())
 
-    @api.get("/sync/struct-list")
+    @api.get("/sync/struct-list", blocking=False)
     def sync_struct_list() -> list[Item]:
         return [Item(id=1, q="none", in_task=in_task())]
 
-    @api.get("/sync/object-list")
+    @api.get("/sync/object-list", blocking=False)
     def sync_object_list() -> list[Item]:
         return [SimpleNamespace(id=1, q="none", in_task=in_task())]
 
-    @api.get("/sync/struct-from-dict")
+    @api.get("/sync/struct-from-dict", blocking=False)
     def sync_struct_from_dict() -> Item:
         return item_dict(1, "none")
 
-    @api.get("/sync/struct-list-from-tuple")
+    @api.get("/sync/struct-list-from-tuple", blocking=False)
     def sync_struct_list_from_tuple() -> list[Item]:
         return (item_dict(1, "none"),)
 
@@ -380,7 +380,7 @@ def test_a_union_or_a_subclass_of_a_model_takes_the_inline_path(middleware):
     """A union of models encodes the instance of its arm. A subclass instance gives the fields of the declared model."""
     api = BoltAPI(middleware=middleware)
 
-    @api.get("/union")
+    @api.get("/union", blocking=False)
     def union() -> Item | Other:
         return Other(name="bo", in_task=in_task())
 
@@ -388,7 +388,7 @@ def test_a_union_or_a_subclass_of_a_model_takes_the_inline_path(middleware):
     async def subclass() -> Item:
         return SubItem(id=1, q="none", in_task=in_task())
 
-    @api.get("/subclass-list")
+    @api.get("/subclass-list", blocking=False)
     def subclass_list() -> list[Item]:
         return [SubItem(id=1, q="none", in_task=in_task())]
 
@@ -462,7 +462,7 @@ def test_a_route_with_a_json_type_can_return_a_response_object(middleware, decla
 
 
 def titles(prefix: str = ""):
-    """Return a QuerySet from a helper, where the analysis of the handler cannot see the ORM."""
+    """Return a QuerySet from a helper."""
     return Article.objects.filter(title__startswith=prefix).values("title")
 
 

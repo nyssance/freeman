@@ -193,7 +193,7 @@ All route decorators accept these options:
 | `guards` | `list` | Permission guards |
 | `include_in_schema` | `bool` or `None` | Include in OpenAPI docs. `None` inherits from the view class, then from the `BoltAPI` |
 | `deprecated` | `bool` | Mark the operation as deprecated in OpenAPI docs. The default is `False` |
-| `blocking` | `bool` or `None` | For a sync handler: `True` runs it on an executor thread, `False` runs it inline on the event loop. `None` (the default) reads the source of the handler. `True` on an `async def` handler raises `TypeError`. See [Sync handlers and threads](../topics/async-orm.md#sync-handlers-and-threads) |
+| `blocking` | `bool` or `None` | For a sync handler: `None` (the default) and `True` run it on an executor thread, `False` runs it inline on the event loop. `True` on an `async def` handler raises `TypeError`. See [Sync handlers and threads](../topics/async-orm.md#sync-handlers-and-threads) |
 
 ### Class-based view decorators
 

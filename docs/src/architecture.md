@@ -65,7 +65,7 @@ Your Django project is loaded once per process at startup (`django.setup()`), th
 
 1. **Rust owns the hot path.** HTTP, routing, auth, guards, CORS, rate limiting, and compression never take the GIL.
 2. **Registration-time precomputation.** Parameter extractors, dependency graphs, response metadata, and middleware are compiled once when routes register, not per request.
-3. **Sync dispatch bypass.** Handlers that don't actually suspend (detected at registration by bytecode analysis) skip the async machinery entirely — one GIL acquisition, response built in the same block.
+3. **Sync dispatch bypass.** Handlers that don't actually suspend (an async handler with no await, detected at registration by bytecode analysis, or a sync handler with `blocking=False`) skip the async machinery entirely — one GIL acquisition, response built in the same block.
 4. **Persistent worker loop.** Truly async handlers run on a process-lived loop owned by their Actix worker thread and serviced by Tokio on that thread; there is no per-request task/thread creation, and worker threads never share a loop.
 5. **Zero-copy responses.** Serialized bodies cross to Rust without a memcpy; common response shapes use static metadata with zero allocation.
 6. **msgspec and pydantic-core.** JSON encoding and validation run in compiled code.
